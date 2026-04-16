@@ -26,9 +26,6 @@ workflows:
           cd ios
           pod install
 
-      - name: Flutter build iOS (no codesign)
-        script: flutter build ios --release --no-codesign
-
       - name: Set up code signing
         script: |
           app-store-connect fetch-signing-files "vn.sana.sbox" \
@@ -41,12 +38,12 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
 
-      - name: Build IPA
+      - name: Flutter build IPA
         script: |
-          cd ios
-          xcode-project build-ipa \
-            --workspace Runner.xcworkspace \
-            --scheme Runner
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - flutter_client/build/ios/ipa/*.ipa
