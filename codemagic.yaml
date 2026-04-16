@@ -12,10 +12,11 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: vn.sana.sbox
 
     scripts:
       - name: Get Flutter packages
@@ -26,56 +27,14 @@ workflows:
           cd ios
           pod install
 
-      - name: Set up code signing
+      - name: Build IPA
         script: |
-          app-store-connect fetch-signing-files "vn.sana.sbox" \
-            --type IOS_APP_STORE \
-            --create
-          keychain initialize
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --save
-          keychain add-certificates
-          xcode-project use-profiles
-          
-          # Debug - show what use-profiles configured
-          echo "=== Checking signing config ==="
-          grep -A2 "PROVISIONING_PROFILE\|CODE_SIGN_STYLE\|CODE_SIGN_IDENTITY" ios/Runner.xcodeproj/project.pbxproj || true
-
-      - name: Build IPA with xcodebuild
-        script: |
-          cd ios
-          
-          # Get the provisioning profile UUID
-          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
-          if [ -z "$PROFILE_PATH" ]; then
-            echo "ERROR: No provisioning profile found!"
-            ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
-            exit 1
-          fi
-          PROFILE_UUID=$(grep -aA1 UUID "$PROFILE_PATH" | grep -o '[-a-zA-Z0-9]\{36\}')
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
-          echo "Using profile: $PROFILE_NAME ($PROFILE_UUID)"
-          
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath build/Runner.xcarchive \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=B99JF43G9V \
-            "CODE_SIGN_IDENTITY=Apple Distribution" \
-            "PROVISIONING_PROFILE=$PROFILE_UUID" \
-            "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME"
-          
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist /Users/builder/export_options.plist
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
-      - flutter_client/ios/build/ipa/*.ipa
       - flutter_client/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
@@ -91,26 +50,18 @@ workflows:
     instance_type: mac_mini_m2
     working_directory: flutter_client
 
+    integrations:
+      app_store_connect: codemagic
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: vn.sana.sbox
 
     scripts:
-      - name: Set up code signing
-        script: |
-          app-store-connect fetch-signing-files "vn.sana.sbox" \
-            --type IOS_APP_AD_HOC \
-            --create
-          keychain initialize
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --save
-          keychain add-certificates
-          xcode-project use-profiles
-
       - name: Get Flutter packages
         script: flutter pub get
 
@@ -119,7 +70,7 @@ workflows:
           cd ios
           pod install
 
-      - name: Flutter build iOS
+      - name: Build IPA
         script: |
           flutter build ipa --debug \
             --export-options-plist=/Users/builder/export_options.plist
