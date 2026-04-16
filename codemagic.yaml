@@ -14,11 +14,42 @@ workflows:
       cocoapods: default
       vars:
         APP_STORE_APP_ID: "6762365741"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: vn.sana.sbox
+        BUNDLE_ID: "vn.sana.sbox"
 
     scripts:
+      - name: Fetch signing files and set up code signing
+        script: |
+          set -e
+          echo "=== Step 1: Fetch signing files ==="
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --platform IOS \
+            --create
+          
+          echo "=== Step 2: Check downloaded profiles ==="
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles dir"
+          ls -la $HOME/Library/Developer/Xcode/UserData/Provisioning\ Profiles/ || echo "No Xcode profiles dir"
+          
+          echo "=== Step 3: Initialize keychain ==="
+          keychain initialize
+          
+          echo "=== Step 4: List and save certificates ==="
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --save || echo "Warning: certificates list failed, trying without --save"
+          
+          echo "=== Step 5: Add certificates to keychain ==="
+          keychain add-certificates
+          
+          echo "=== Step 6: Apply profiles to Xcode project ==="
+          xcode-project use-profiles
+          
+          echo "=== Step 7: Verify signing config ==="
+          echo "Profiles in MobileDevice:"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "Profiles in Xcode UserData:"
+          ls -la $HOME/Library/Developer/Xcode/UserData/Provisioning\ Profiles/ || true
+
       - name: Get Flutter packages
         script: flutter pub get
 
@@ -57,11 +88,23 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: vn.sana.sbox
+      vars:
+        BUNDLE_ID: "vn.sana.sbox"
 
     scripts:
+      - name: Fetch signing files and set up code signing
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_AD_HOC \
+            --platform IOS \
+            --create
+          keychain initialize
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --save
+          keychain add-certificates
+          xcode-project use-profiles
+
       - name: Get Flutter packages
         script: flutter pub get
 
