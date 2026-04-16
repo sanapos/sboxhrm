@@ -30,7 +30,7 @@ workflows:
             --type IOS_APP_STORE \
             --platform IOS \
             --create \
-            --certificate-key=/tmp/cert_key.pem
+            --certificate-key=@file:/tmp/cert_key.pem
           
           echo "=== Step 3: Check downloaded profiles ==="
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles dir"
@@ -41,7 +41,7 @@ workflows:
           echo "=== Step 5: List and save certificates ==="
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
-            --certificate-key=/tmp/cert_key.pem \
+            --certificate-key=@file:/tmp/cert_key.pem \
             --save
           
           echo "=== Step 6: Add certificates to keychain ==="
