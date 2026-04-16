@@ -19,6 +19,19 @@ workflows:
         bundle_identifier: vn.sana.sbox
 
     scripts:
+      - name: Set up code signing
+        script: |
+          app-store-connect fetch-signing-files "vn.sana.sbox" \
+            --type IOS_APP_STORE \
+            --create
+          keychain initialize
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --certificate-key=@env:CERTIFICATE_KEY \
+            --save
+          keychain add-certificates
+          xcode-project use-profiles
+
       - name: Get Flutter packages
         script: flutter packages pub get
 
