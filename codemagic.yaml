@@ -38,10 +38,7 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
 
-      - name: Build iOS (no codesign)
-        script: flutter build ios --release --no-codesign
-
-      - name: Create IPA
+      - name: Build and create IPA
         script: |
           cd ios
           xcode-project build-ipa \
