@@ -14,9 +14,8 @@ workflows:
       cocoapods: default
       groups:
         - app_store_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: vn.sana.sbox
+      vars:
+        APP_STORE_APP_ID: "6762365741"
 
     scripts:
       - name: Set up code signing
@@ -68,11 +67,20 @@ workflows:
       cocoapods: default
       groups:
         - app_store_credentials
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: vn.sana.sbox
 
     scripts:
+      - name: Set up code signing
+        script: |
+          app-store-connect fetch-signing-files "vn.sana.sbox" \
+            --type IOS_APP_AD_HOC \
+            --create
+          keychain initialize
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --save
+          keychain add-certificates
+          xcode-project use-profiles
+
       - name: Get Flutter packages
         script: flutter packages pub get
 
