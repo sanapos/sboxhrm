@@ -5,6 +5,9 @@ workflows:
     instance_type: mac_mini_m2
     working_directory: flutter_client
 
+    integrations:
+      app_store_connect: Default App Store Connect API Key
+
     environment:
       flutter: stable
       xcode: latest
