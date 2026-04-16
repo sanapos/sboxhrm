@@ -6,7 +6,7 @@ workflows:
     working_directory: flutter_client
 
     integrations:
-      app_store_connect: Default App Store Connect API Key
+      app_store_connect: codemagic
 
     environment:
       flutter: stable
