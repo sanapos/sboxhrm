@@ -37,15 +37,45 @@ workflows:
             --save
           keychain add-certificates
           xcode-project use-profiles
+          
+          # Debug - show what use-profiles configured
+          echo "=== Checking signing config ==="
+          grep -A2 "PROVISIONING_PROFILE\|CODE_SIGN_STYLE\|CODE_SIGN_IDENTITY" ios/Runner.xcodeproj/project.pbxproj || true
 
-      - name: Build and create IPA
+      - name: Build IPA with xcodebuild
         script: |
           cd ios
-          xcode-project build-ipa \
-            --workspace Runner.xcworkspace \
-            --scheme Runner
+          
+          # Get the provisioning profile UUID
+          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
+          if [ -z "$PROFILE_PATH" ]; then
+            echo "ERROR: No provisioning profile found!"
+            ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
+            exit 1
+          fi
+          PROFILE_UUID=$(grep -aA1 UUID "$PROFILE_PATH" | grep -o '[-a-zA-Z0-9]\{36\}')
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
+          echo "Using profile: $PROFILE_NAME ($PROFILE_UUID)"
+          
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/Runner.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=B99JF43G9V \
+            "CODE_SIGN_IDENTITY=Apple Distribution" \
+            "PROVISIONING_PROFILE=$PROFILE_UUID" \
+            "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME"
+          
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist /Users/builder/export_options.plist
 
     artifacts:
+      - flutter_client/ios/build/ipa/*.ipa
       - flutter_client/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
