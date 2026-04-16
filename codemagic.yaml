@@ -20,35 +20,38 @@ workflows:
       - name: Fetch signing files and set up code signing
         script: |
           set -e
-          echo "=== Step 1: Fetch signing files ==="
+          
+          echo "=== Step 1: Generate certificate private key ==="
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert_key.pem)
+          
+          echo "=== Step 2: Fetch signing files ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
-            --create
+            --create \
+            --certificate-key=/tmp/cert_key.pem
           
-          echo "=== Step 2: Check downloaded profiles ==="
+          echo "=== Step 3: Check downloaded profiles ==="
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles dir"
-          ls -la $HOME/Library/Developer/Xcode/UserData/Provisioning\ Profiles/ || echo "No Xcode profiles dir"
           
-          echo "=== Step 3: Initialize keychain ==="
+          echo "=== Step 4: Initialize keychain ==="
           keychain initialize
           
-          echo "=== Step 4: List and save certificates ==="
+          echo "=== Step 5: List and save certificates ==="
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
-            --save || echo "Warning: certificates list failed, trying without --save"
+            --certificate-key=/tmp/cert_key.pem \
+            --save
           
-          echo "=== Step 5: Add certificates to keychain ==="
+          echo "=== Step 6: Add certificates to keychain ==="
           keychain add-certificates
           
-          echo "=== Step 6: Apply profiles to Xcode project ==="
+          echo "=== Step 7: Apply profiles to Xcode project ==="
           xcode-project use-profiles
           
-          echo "=== Step 7: Verify signing config ==="
-          echo "Profiles in MobileDevice:"
+          echo "=== Done ==="
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-          echo "Profiles in Xcode UserData:"
-          ls -la $HOME/Library/Developer/Xcode/UserData/Provisioning\ Profiles/ || true
 
       - name: Get Flutter packages
         script: flutter pub get
