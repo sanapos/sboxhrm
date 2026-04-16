@@ -1,0 +1,6 @@
+[15:26:23] DeviceCmd SN=1313244700796 CommandId=555555555 Return=0 CMD=ENROLL_FP
+  CommandType=EnrollFingerprint ObjectRefId=00000000-0000-0000-0000-000000000000
+  UpdateCommandAfterExecuted: OK
+  Strategy=EnrollFingerprintStrategy
+  Strategy execution: SUCCESS
+

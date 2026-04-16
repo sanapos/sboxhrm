@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: zkteco_postgres
+    environment:
+      - POSTGRES_DB=ZKTecoIntegration
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Ti100600@
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # - ./init_data.sql:/docker-entrypoint-initdb.d/init_data.sql
+    networks:
+      - zkteconet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache + SignalR Backplane
+  redis:
+    image: redis:7-alpine
+    container_name: zkteco_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - zkteconet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  zktecoadms.api:
+    image: zktecoadms.api
+    container_name: zkteco_api
+    build:
+      context: .
+      dockerfile: ZKTecoADMS.Api/Dockerfile
+    ports:
+      - "7070:7070"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:7070
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=ZKTecoIntegration;Username=postgres;Password=Ti100600@;
+      - ConnectionStrings__Redis=redis:6379
+      - JwtSettings__AccessTokenSecret=0hN6BbNJ2dwfCPykLrdeOeYd53Arr5jzNcyv0HQBd3I=
+      - JwtSettings__RefreshTokenSecret=GtkWOJijzhUF+qsTT875Jz81rcHAZQl29HqJbtcWnGA=
+      - JwtSettings__Issuer=http://localhost:3000
+      - JwtSettings__Audience=http://localhost:3000
+      - JwtSettings__AccessTokenExpirationMinutes=3000
+      - JwtSettings__RefreshTokenExpirationMinutes=120
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - zkteconet
+    restart: unless-stopped
+
+
+  # pgAdmin (Optional - for database management)
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: zkteco_pgadmin
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@zkteco.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin
+  #     - PGADMIN_CONFIG_SERVER_MODE=False
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - zkteconet
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  zkteconet:
+    driver: bridge

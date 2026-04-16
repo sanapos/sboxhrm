@@ -1,0 +1,29 @@
+﻿Analyzing lib...
+
+  error - screens\advance_requests_screen.dart:897:9 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - screens\attendance\payroll_summary_tab.dart:1494:9 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - screens\attendance_screen.dart:3596:9 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - screens\hr_report_screen.dart:1791:5 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - screens\payroll_report_screen.dart:491:7 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - screens\production_output_screen.dart:1565:9 - The await expression can only be used in an async function. Try marking the function body with either 'async' or 'async*'. - await_in_wrong_context
+  error - utils\file_saver_stub.dart:13:9 - Undefined name 'SharePlus'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - utils\file_saver_stub.dart:13:34 - The function 'ShareParams' isn't defined. Try importing the library that defines 'ShareParams', correcting the name to the name of an existing function, or defining a function named 'ShareParams'. - undefined_function
+warning - screens\device_attendance_screen.dart:2:8 - Unused import: 'dart:convert'. Try removing the import directive. - unused_import
+warning - screens\device_users_screen.dart:1:8 - Unused import: 'dart:convert'. Try removing the import directive. - unused_import
+warning - screens\work_schedule_screen.dart:1:8 - Unused import: 'dart:convert'. Try removing the import directive. - unused_import
+   info - screens\allowance_settings_screen.dart:645:32 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - screens\allowance_settings_screen.dart:646:30 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - screens\attendance_report_screen.dart:125:30 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\communication_screen.dart:977:32 - The type of the right operand ('String') isn't a subtype or a supertype of the left operand ('CommunicationPriority'). Try changing one or both of the operands. - unrelated_type_equality_checks
+   info - screens\employees_screen.dart:2195:50 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\employees_screen.dart:2203:50 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\employees_screen.dart:3755:66 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\hr_documents_screen.dart:467:48 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - screens\hr_report_screen.dart:1792:26 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\mobile_attendance_settings_screen.dart:784:33 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - screens\mobile_attendance_settings_screen.dart:1788:33 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - screens\payroll_report_screen.dart:492:26 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - screens\production_output_screen.dart:2081:33 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - widgets\camera_face_capture_web.dart:2:1 - 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+25 issues found.

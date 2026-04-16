@@ -1,0 +1,116 @@
+name: zkteco_flutter_client
+description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # HTTP & API
+  http: ^1.1.0
+  dio: ^5.4.0
+  
+  # SignalR for real-time notifications
+  signalr_netcore: ^1.3.7
+  
+  # Date/Time formatting
+  intl: any
+  
+  # State Management (optional)
+  provider: ^6.1.1
+  
+  # UI Components
+  cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.9
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  
+  # Utils
+  url_launcher: ^6.2.2
+  
+  # Web interop (replacing deprecated dart:html/dart:js)
+  web: ^1.1.0
+
+  # File picker for Excel import
+  file_picker: ^8.0.0+1
+  
+  # Excel parsing
+  excel: ^4.0.3
+  
+  # Rich text editor
+  flutter_quill: any
+  vsc_quill_delta_to_html: ^1.0.5
+  
+  # Time formatting
+  timeago: ^3.6.1
+
+  # HTML rendering
+  flutter_html: ^3.0.0-beta.2
+
+  # PDF generation & printing
+  pdf: ^3.10.8
+  printing: ^5.12.0
+
+  # Charts
+  fl_chart: ^0.68.0
+
+  # Image picker & Camera
+  image_picker: ^1.0.7
+  crop_your_image: ^2.0.0
+  camera: ^0.11.0+2
+  permission_handler: ^11.3.1
+  google_mlkit_face_detection: ^0.12.0
+
+  # Image caching
+  cached_network_image: ^3.3.1
+
+  # Map
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Google Fonts
+  google_fonts: ^6.1.0
+
+  http_parser: any
+  mobile_scanner: ^7.2.0
+
+  # WiFi info (BSSID/SSID detection)
+  network_info_plus: ^6.0.1
+
+  # Mobile file save / share / open
+  path_provider: ^2.1.0
+  share_plus: ^10.0.0
+  open_filex: ^4.6.0
+  geolocator: ^13.0.2
+  device_info_plus: ^11.3.3
+  image: ^4.3.0
+  tflite_flutter: ^0.12.1
+  flutter_local_notifications: 18.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/logo.png
+    - assets/mobilefacenet.tflite
+  
+  # Fonts (nếu có)
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: fonts/Roboto-Regular.ttf
+  #       - asset: fonts/Roboto-Bold.ttf
+  #         weight: 700

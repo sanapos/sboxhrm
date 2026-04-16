@@ -1,0 +1,16 @@
+﻿dart : Directory or file doesn't exist: lib
+At line:1 char:1
++ dart analyze lib 2>&1 | Out-File -FilePath "analyze_output2.txt" -Enc ...
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Directory or file doesn't exist:  
+   lib:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Usage: dart analyze [arguments] [<directory>]
+-h, --help                   Print this usage information.
+    --fatal-infos            Treat info level issues as fatal.
+    --[no-]fatal-warnings    Treat warning level issues as fatal.
+                             (defaults to on)
+
+Run "dart help" to see global options.

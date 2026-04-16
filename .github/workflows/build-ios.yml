@@ -1,0 +1,99 @@
+name: Build iOS App
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'flutter_client/**'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'API Base URL'
+        required: false
+        default: 'https://sbox.sana.vn'
+
+env:
+  API_BASE_URL: ${{ github.event.inputs.api_base_url || 'https://sbox.sana.vn' }}
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version info
+        run: |
+          flutter --version
+          flutter doctor -v
+
+      - name: Get dependencies
+        working-directory: flutter_client
+        run: flutter pub get
+
+      - name: Setup CocoaPods
+        working-directory: flutter_client/ios
+        run: pod install --repo-update
+
+      - name: Build iOS Simulator (Debug)
+        working-directory: flutter_client
+        run: |
+          flutter build ios --debug --simulator \
+            --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
+
+      - name: Create Simulator zip for Appetize.io
+        working-directory: flutter_client
+        run: |
+          cd build/ios/iphonesimulator
+          zip -r ../../../ZKTecoADMS-simulator.zip Runner.app
+
+      - name: Upload Simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-build
+          path: flutter_client/ZKTecoADMS-simulator.zip
+          retention-days: 30
+
+      - name: Build iOS Device (No Code Signing)
+        working-directory: flutter_client
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
+
+      - name: Create unsigned IPA
+        working-directory: flutter_client
+        run: |
+          mkdir -p build/ios/ipa
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../ipa/ZKTecoADMS-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-unsigned
+          path: flutter_client/build/ios/ipa/ZKTecoADMS-unsigned.ipa
+          retention-days: 30
+
+      - name: Build summary
+        run: |
+          FLUTTER_VER=$(flutter --version | head -1)
+          echo "## iOS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Flutter:** $FLUTTER_VER" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL:** ${{ env.API_BASE_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Type:** Debug Simulator + Release Device (unsigned)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Simulator:** ZKTecoADMS-simulator.zip (upload to Appetize.io)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Device IPA:** ZKTecoADMS-unsigned.ipa" >> $GITHUB_STEP_SUMMARY

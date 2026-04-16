@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: zkteco_postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-ZKTecoADMS}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - zkteconet
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    command: >
+      postgres
+      -c max_connections=1500
+      -c shared_buffers=2GB
+      -c effective_cache_size=6GB
+      -c work_mem=16MB
+      -c maintenance_work_mem=512MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache + SignalR Backplane
+  redis:
+    image: redis:7-alpine
+    container_name: zkteco_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - zkteconet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  zktecoadms-api:
+    image: zktecoadms-api:latest
+    container_name: zkteco_api
+    ports:
+      - "${API_PORT:-7070}:7070"
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:7070
+      - DOTNET_ThreadPool_MinThreads=200
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-ZKTecoADMS};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD};Minimum Pool Size=50;Maximum Pool Size=1000;Connection Idle Lifetime=600;Pooling=true;Timeout=60;
+      - ConnectionStrings__Redis=zkteco_redis:6379,password=${REDIS_PASSWORD:-redis123}
+      - JwtSettings__AccessTokenSecret=${JWT_ACCESS_SECRET}
+      - JwtSettings__RefreshTokenSecret=${JWT_REFRESH_SECRET}
+      - JwtSettings__Issuer=${JWT_ISSUER:-http://${SERVER_HOST}:${API_PORT:-7070}}
+      - JwtSettings__Audience=${JWT_AUDIENCE:-http://${SERVER_HOST}:${API_PORT:-7070}}
+      - JwtSettings__AccessTokenExpirationMinutes=${JWT_ACCESS_EXPIRATION:-1500}
+      - JwtSettings__RefreshTokenExpirationMinutes=${JWT_REFRESH_EXPIRATION:-120}
+      - AllowedOrigins__0=http://${SERVER_HOST}:${FLUTTER_PORT:-3000}
+      - AllowedOrigins__1=https://${SERVER_HOST}
+      - AllowedOrigins__2=http://${SERVER_HOST}
+      - AllowedOrigins__3=http://localhost:${FLUTTER_PORT:-3000}
+      - AllowedOrigins__4=http://localhost:8080
+      - AllowedOrigins__5=https://${SERVER_HOST}:${FLUTTER_PORT:-3000}
+      - AllowedOrigins__6=https://sbox.sana.vn
+      - AllowedOrigins__7=http://sbox.sana.vn
+      - DefaultEmployeeAccountPassword=${DEFAULT_EMPLOYEE_PASSWORD:-Ti100600@}
+      - Email__SmtpHost=${SMTP_HOST:-smtp.gmail.com}
+      - Email__SmtpPort=${SMTP_PORT:-587}
+      - Email__SmtpUsername=${SMTP_USERNAME:-}
+      - Email__SmtpPassword=${SMTP_PASSWORD:-}
+      - Email__FromEmail=${SMTP_FROM_EMAIL:-}
+      - Email__FromName=${SMTP_FROM_NAME:-ZKTeco ADMS}
+      - Email__EnableSsl=${SMTP_ENABLE_SSL:-true}
+      - Email__ResetPasswordBaseUrl=http://${SERVER_HOST}:${FLUTTER_PORT:-3000}
+      - DatabaseTools__PgDumpPath=pg_dump
+      - DatabaseTools__PgRestorePath=pg_restore
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - zkteconet
+    restart: unless-stopped
+    volumes:
+      - api_uploads:/app/wwwroot
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7070/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Flutter Web Client
+  flutter-client:
+    image: ghcr.io/thuylienphat-coder/zktecoadms-flutter:latest
+    container_name: zkteco_flutter
+    ports:
+      - "${FLUTTER_PORT:-3000}:80"
+    environment:
+      - API_BASE_URL=${API_BASE_URL:-https://sbox.sana.vn}
+    depends_on:
+      - zktecoadms-api
+    networks:
+      - zkteconet
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  api_uploads:
+    driver: local
+
+networks:
+  zkteconet:
+    driver: bridge

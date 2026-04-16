@@ -1,0 +1,1 @@
+ALTER TABLE "Devices" ADD COLUMN IF NOT EXISTS "DeviceType" integer NOT NULL DEFAULT 0;

@@ -1,0 +1,1 @@
+﻿SELECT "SerialNumber", "DeviceName", "DeviceStatus", "LastOnline" FROM "Devices" WHERE "SerialNumber" NOT LIKE 'DEMO%' ORDER BY "LastOnline" DESC NULLS LAST;

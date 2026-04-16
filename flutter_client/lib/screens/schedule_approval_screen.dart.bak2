@@ -1,0 +1,1442 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../services/api_service.dart';
+import '../models/hrm.dart';
+import '../models/employee.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/loading_widget.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/notification_overlay.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+
+class ScheduleApprovalScreen extends StatefulWidget {
+  const ScheduleApprovalScreen({super.key});
+
+  @override
+  State<ScheduleApprovalScreen> createState() => _ScheduleApprovalScreenState();
+}
+
+class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
+    with SingleTickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+  late TabController _tabController;
+
+  List<WorkSchedule> _schedules = [];
+  List<ScheduleRegistration> _registrations = [];
+  List<Shift> _shifts = [];
+  List<Employee> _employees = [];
+  bool _isLoading = true;
+
+  DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
+  String? _selectedStatusFilter;
+
+  int _approvalPage = 1;
+  final int _approvalPageSize = 50;
+
+  String _effectiveUserId(Employee e) => e.id;
+
+  static DateTime _getWeekStart(DateTime date) {
+    final d = date.subtract(Duration(days: date.weekday - 1));
+    return DateTime(d.year, d.month, d.day);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() => _approvalPage = 1);
+      }
+    });
+    _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // ==================== DATA LOADING ====================
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    try {
+      await Future.wait([
+        _loadShifts(),
+        _loadEmployees(),
+        _loadSchedules(),
+        _loadRegistrations(),
+      ]);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadShifts() async {
+    final shifts = await _apiService.getShifts();
+    if (!mounted) return;
+    setState(() {
+      _shifts = shifts.map((s) => Shift.fromJson(s)).toList();
+      _shifts.sort((a, b) {
+        final aTime = a.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
+        final bTime = b.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
+        return aTime.compareTo(bTime);
+      });
+    });
+  }
+
+  Future<void> _loadEmployees() async {
+    final employees = await _apiService.getEmployees();
+    if (!mounted) return;
+    setState(() {
+      _employees = employees.map((e) => Employee.fromJson(e)).toList();
+    });
+  }
+
+  Future<void> _loadSchedules() async {
+    final fromDate = _selectedWeekStart;
+    final toDate = _selectedWeekStart.add(const Duration(days: 6));
+    final result = await _apiService.getWorkSchedules(fromDate: fromDate, toDate: toDate);
+    if (!mounted) return;
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final data = result['data'];
+      final items = data is List ? data : (data['items'] ?? []);
+      setState(() {
+        _schedules = (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
+      });
+    }
+  }
+
+  Future<void> _loadRegistrations() async {
+    int? statusInt;
+    if (_selectedStatusFilter != null) {
+      switch (_selectedStatusFilter) {
+        case 'Pending': statusInt = 0; break;
+        case 'Approved': statusInt = 1; break;
+        case 'Rejected': statusInt = 2; break;
+      }
+    }
+    final fromDate = _selectedWeekStart;
+    final toDate = _selectedWeekStart.add(const Duration(days: 6));
+    final result = await _apiService.getScheduleRegistrations(
+      status: statusInt, fromDate: fromDate, toDate: toDate,
+    );
+    if (!mounted) return;
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final data = result['data'];
+      final items = data is List ? data : (data['items'] ?? []);
+      setState(() {
+        _registrations = (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
+      });
+    }
+  }
+
+  // ==================== NAVIGATION ====================
+  void _previousWeek() {
+    setState(() { _selectedWeekStart = _selectedWeekStart.subtract(const Duration(days: 7)); _approvalPage = 1; });
+    _loadSchedules(); _loadRegistrations();
+  }
+
+  void _nextWeek() {
+    setState(() { _selectedWeekStart = _selectedWeekStart.add(const Duration(days: 7)); _approvalPage = 1; });
+    _loadSchedules(); _loadRegistrations();
+  }
+
+  void _goToThisWeek() {
+    setState(() { _selectedWeekStart = _getWeekStart(DateTime.now()); _approvalPage = 1; });
+    _loadSchedules(); _loadRegistrations();
+  }
+
+  int _getWeekNumber(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    return ((date.difference(firstDayOfYear).inDays + firstDayOfYear.weekday) / 7).ceil();
+  }
+
+  String _formatTime(String timeString) {
+    final parts = timeString.split(':');
+    return parts.length >= 2 ? '${parts[0]}:${parts[1]}' : timeString;
+  }
+
+  int _getPendingCount() => _registrations.where((r) => r.status == ScheduleRegistrationStatus.pending).length;
+
+  bool get _canApprove => Provider.of<PermissionProvider>(context, listen: false).canApprove('ScheduleApproval');
+  bool get _canDelete => Provider.of<PermissionProvider>(context, listen: false).canDelete('ScheduleApproval');
+
+  Shift? _findShift(String? shiftId) {
+    if (shiftId == null) return null;
+    try { return _shifts.firstWhere((s) => s.id == shiftId); } catch (_) { return null; }
+  }
+
+  Employee _findEmployee(String empId) {
+    try {
+      return _employees.firstWhere((e) => e.id == empId || _effectiveUserId(e) == empId);
+    } catch (_) { return Employee.empty(); }
+  }
+
+  // ==================== BUILD ====================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        toolbarHeight: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: const Color(0xFF1E3A5F),
+          labelColor: const Color(0xFF1E3A5F),
+          unselectedLabelColor: const Color(0xFF71717A),
+          tabs: [
+            const Tab(icon: Icon(Icons.list_alt, size: 20), text: 'Duyệt theo nhân viên'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.fact_check, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Duyệt theo ca'),
+                  if (_getPendingCount() > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(10)),
+                      child: Text('${_getPendingCount()}', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const LoadingWidget()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildApprovalByEmployeeTab(),
+                _buildApprovalByShiftTab(),
+              ],
+            ),
+    );
+  }
+
+  // ==================== SHARED: WEEK SELECTOR ====================
+  Widget _buildWeekSelector() {
+    final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
+    final weekNumber = _getWeekNumber(_selectedWeekStart);
+    final dateFormat = DateFormat('dd/MM');
+    final isMobile = Responsive.isMobile(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: isMobile ? _buildMobileWeekSelector(weekNumber, dateFormat, weekEnd)
+                       : _buildDesktopWeekSelector(weekNumber, dateFormat, weekEnd),
+    );
+  }
+
+  Widget _buildMobileWeekSelector(int weekNumber, DateFormat dateFormat, DateTime weekEnd) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _previousWeek,
+                icon: const Icon(Icons.chevron_left, size: 18),
+                label: const Text('Trước', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF71717A),
+                  side: const BorderSide(color: Color(0xFFE4E4E7)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _goToThisWeek,
+                icon: const Icon(Icons.today, size: 16),
+                label: const Text('Tuần này', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _nextWeek,
+                icon: const Text('Sau', style: TextStyle(fontSize: 12)),
+                label: const Icon(Icons.chevron_right, size: 18),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF71717A),
+                  side: const BorderSide(color: Color(0xFFE4E4E7)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+                  style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: _buildStatusFilterDropdown()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopWeekSelector(int weekNumber, DateFormat dateFormat, DateTime weekEnd) {
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: _previousWeek,
+          icon: const Icon(Icons.chevron_left, size: 18),
+          label: const Text('Tuần trước'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF71717A),
+            side: const BorderSide(color: Color(0xFFE4E4E7)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          onPressed: _goToThisWeek,
+          icon: const Icon(Icons.today, size: 18),
+          label: const Text('Tuần này'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1E3A5F),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: _nextWeek,
+          icon: const Text('Tuần sau'),
+          label: const Icon(Icons.chevron_right, size: 18),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF71717A),
+            side: const BorderSide(color: Color(0xFFE4E4E7)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+            style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ),
+        const Spacer(),
+        SizedBox(width: 180, child: _buildStatusFilterDropdown()),
+      ],
+    );
+  }
+
+  Widget _buildStatusFilterDropdown() {
+    return DropdownButtonFormField<String>(
+      key: ValueKey('status_filter_${_selectedStatusFilter ?? 'all'}'),
+      value: _selectedStatusFilter,
+      isExpanded: true,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        filled: true,
+        fillColor: const Color(0xFFFAFAFA),
+        prefixIcon: const Icon(Icons.filter_list, size: 18, color: Color(0xFFF59E0B)),
+        isDense: true,
+      ),
+      hint: const Text('Tất cả', style: TextStyle(fontSize: 13)),
+      style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+      items: const [
+        DropdownMenuItem<String>(value: null, child: Text('Tất cả')),
+        DropdownMenuItem<String>(value: 'Pending', child: Text('Chờ duyệt')),
+        DropdownMenuItem<String>(value: 'Approved', child: Text('Đã duyệt')),
+        DropdownMenuItem<String>(value: 'Rejected', child: Text('Từ chối')),
+      ],
+      onChanged: (value) {
+        setState(() { _selectedStatusFilter = value; _approvalPage = 1; });
+        _loadRegistrations();
+      },
+    );
+  }
+
+  // ==================== SHARED: BATCH ACTION BAR ====================
+  Widget _buildBatchActionBar(List<ScheduleRegistration> allRegs) {
+    final pending = allRegs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
+    final processed = allRegs.where((r) => r.status != ScheduleRegistrationStatus.pending).toList();
+    if (allRegs.isEmpty) return const SizedBox.shrink();
+    final isMobile = Responsive.isMobile(context);
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (pending.isNotEmpty) _buildCountBadge('${pending.length} chờ duyệt', const Color(0xFFF59E0B)),
+                    if (processed.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      _buildCountBadge('${processed.length} đã xử lý', const Color(0xFF1E3A5F)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      if (pending.isNotEmpty && _canApprove) ...[
+                        _batchBtn('Duyệt tất cả', Icons.check, const Color(0xFF1E3A5F), () => _approveAllForShift(pending), filled: true),
+                        const SizedBox(width: 6),
+                        _batchBtn('Từ chối tất cả', Icons.close, const Color(0xFFEF4444), () => _rejectAllForShift(pending)),
+                        const SizedBox(width: 6),
+                      ],
+                      if (processed.isNotEmpty && _canApprove) ...[
+                        _batchBtn('Hoàn duyệt', Icons.undo, const Color(0xFFF59E0B), () => _undoAllApprovals(processed)),
+                        const SizedBox(width: 6),
+                      ],
+                      if (_canDelete)
+                        _batchBtn('Xóa tất cả', Icons.delete_outline, const Color(0xFFEF4444), () => _deleteAllRegistrations(allRegs)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                if (pending.isNotEmpty) _buildCountBadge('${pending.length} chờ duyệt', const Color(0xFFF59E0B)),
+                if (processed.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  _buildCountBadge('${processed.length} đã xử lý', const Color(0xFF1E3A5F)),
+                ],
+                const Spacer(),
+                if (processed.isNotEmpty && _canApprove) ...[
+                  _batchBtn('Hoàn duyệt', Icons.undo, const Color(0xFFF59E0B), () => _undoAllApprovals(processed)),
+                  const SizedBox(width: 6),
+                ],
+                if (_canDelete) ...[
+                  _batchBtn('Xóa tất cả', Icons.delete_outline, const Color(0xFFEF4444), () => _deleteAllRegistrations(allRegs)),
+                  const SizedBox(width: 6),
+                ],
+                if (pending.isNotEmpty && _canApprove) ...[
+                  _batchBtn('Từ chối tất cả', Icons.close, const Color(0xFFEF4444), () => _rejectAllForShift(pending)),
+                  const SizedBox(width: 6),
+                  _batchBtn('Duyệt tất cả', Icons.check, const Color(0xFF1E3A5F), () => _approveAllForShift(pending), filled: true),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _batchBtn(String label, IconData icon, Color color, VoidCallback onTap, {bool filled = false}) {
+    if (filled) {
+      return ElevatedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 14),
+        label: Text(label, style: const TextStyle(fontSize: 11)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          minimumSize: Size.zero,
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 11)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        minimumSize: Size.zero,
+      ),
+    );
+  }
+
+  Widget _buildCountBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+    );
+  }
+
+  // ==================== TAB 1: DUYỆT THEO NHÂN VIÊN ====================
+  Widget _buildApprovalByEmployeeTab() {
+    return Column(
+      children: [
+        _buildWeekSelector(),
+        Expanded(
+          child: Responsive.isMobile(context)
+              ? _buildMobileEmployeeList()
+              : _buildDesktopEmployeeGrid(),
+        ),
+      ],
+    );
+  }
+
+  // --- MOBILE: Card list grouped by employee ---
+  Widget _buildMobileEmployeeList() {
+    final Map<String, List<ScheduleRegistration>> regsByEmployee = {};
+    for (var reg in _registrations) {
+      regsByEmployee.putIfAbsent(reg.employeeUserId, () => []).add(reg);
+    }
+
+    if (regsByEmployee.isEmpty) {
+      return const EmptyState(
+        icon: Icons.fact_check,
+        title: 'Chưa có đăng ký nào',
+        description: 'Chọn tuần để xem danh sách đăng ký cần duyệt',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      itemCount: regsByEmployee.length,
+      itemBuilder: (context, index) {
+        final empId = regsByEmployee.keys.elementAt(index);
+        final regs = regsByEmployee[empId]!;
+        final employee = _findEmployee(empId);
+        regs.sort((a, b) => a.date.compareTo(b.date));
+        return _buildMobileEmployeeCard(employee, regs);
+      },
+    );
+  }
+
+  Widget _buildMobileEmployeeCard(Employee employee, List<ScheduleRegistration> regs) {
+    final pending = regs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Employee header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  child: Text(
+                    employee.firstName.isNotEmpty ? employee.firstName[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(employee.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B))),
+                      Text(employee.employeeCode, style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                    ],
+                  ),
+                ),
+                if (pending.isNotEmpty)
+                  _buildCountBadge('${pending.length} chờ', const Color(0xFFF59E0B)),
+                if (pending.length > 1 && _canApprove) ...[
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => _approveAllForShift(pending),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(6)),
+                      child: const Text('Duyệt tất cả', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // Registration rows
+          ...regs.map((reg) => _buildMobileRegistrationRow(reg)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileRegistrationRow(ScheduleRegistration reg) {
+    final shift = _findShift(reg.shiftId);
+    final shiftLabel = reg.isDayOff ? 'Nghỉ phép' : (shift?.name ?? 'Ca không xác định');
+    final shiftTime = shift != null ? '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}' : '';
+    final dateStr = DateFormat('EEEE dd/MM', 'vi').format(reg.date);
+
+    Color statusBg, statusText;
+    IconData statusIcon;
+    String statusLabel;
+    switch (reg.status) {
+      case ScheduleRegistrationStatus.approved:
+        statusBg = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+        statusText = const Color(0xFF1E3A5F);
+        statusIcon = Icons.check_circle;
+        statusLabel = 'Đã duyệt';
+        break;
+      case ScheduleRegistrationStatus.rejected:
+        statusBg = const Color(0xFFEF4444).withValues(alpha: 0.08);
+        statusText = const Color(0xFFEF4444);
+        statusIcon = Icons.cancel;
+        statusLabel = 'Từ chối';
+        break;
+      default:
+        statusBg = const Color(0xFFF59E0B).withValues(alpha: 0.08);
+        statusText = const Color(0xFFF59E0B);
+        statusIcon = Icons.hourglass_empty;
+        statusLabel = 'Chờ duyệt';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
+      ),
+      child: Row(
+        children: [
+          // Left: date + shift info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(dateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(reg.isDayOff ? Icons.beach_access : Icons.schedule, size: 14, color: const Color(0xFF71717A)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        shiftTime.isNotEmpty ? '$shiftLabel ($shiftTime)' : shiftLabel,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (reg.note != null && reg.note!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(reg.note!, style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Right: status badge + actions
+          if (reg.status == ScheduleRegistrationStatus.pending)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_canApprove) ...[
+                  _actionIcon(Icons.check, const Color(0xFF1E3A5F), () => _approveRegistration(reg.id), 'Duyệt'),
+                  const SizedBox(width: 6),
+                  _actionIcon(Icons.close, const Color(0xFFEF4444), () => _rejectRegistration(reg.id), 'Từ chối'),
+                ],
+                if (_canDelete) ...[
+                  const SizedBox(width: 6),
+                  _actionIcon(Icons.delete_outline, const Color(0xFF71717A), () => _deleteRegistration(reg.id), 'Xóa'),
+                ],
+              ],
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 14, color: statusText),
+                      const SizedBox(width: 4),
+                      Text(statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusText)),
+                    ],
+                  ),
+                ),
+                if (_canApprove) ...[
+                  const SizedBox(width: 6),
+                  _actionIcon(Icons.undo, const Color(0xFFF59E0B), () => _undoRegistrationApproval(reg.id), 'Hoàn duyệt'),
+                ],
+                if (_canDelete) ...[
+                  const SizedBox(width: 6),
+                  _actionIcon(Icons.delete_outline, const Color(0xFFEF4444), () => _deleteRegistration(reg.id), 'Xóa'),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionIcon(IconData icon, Color color, VoidCallback onTap, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+          child: Icon(icon, color: Colors.white, size: 16),
+        ),
+      ),
+    );
+  }
+
+  // --- DESKTOP: DataTable grid ---
+  Widget _buildDesktopEmployeeGrid() {
+    final Map<String, List<ScheduleRegistration>> regsByEmployee = {};
+    for (var reg in _registrations) {
+      regsByEmployee.putIfAbsent(reg.employeeUserId, () => []).add(reg);
+    }
+
+    if (regsByEmployee.isEmpty) {
+      return const EmptyState(
+        icon: Icons.fact_check,
+        title: 'Chưa có đăng ký nào',
+        description: 'Chọn tuần để xem danh sách đăng ký cần duyệt',
+      );
+    }
+
+    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT'];
+    final dateFormat = DateFormat('d/M');
+    final today = DateTime.now();
+
+    final Map<String, List<ScheduleRegistration>> regLookup = {};
+    for (var reg in _registrations) {
+      final key = '${reg.employeeUserId}_${DateFormat('yyyy-MM-dd').format(reg.date)}';
+      regLookup.putIfAbsent(key, () => []).add(reg);
+    }
+
+    final employeeIds = regsByEmployee.keys.toList();
+    final employees = employeeIds.map((id) => _findEmployee(id)).toList();
+    final totalPages = (employees.length / _approvalPageSize).ceil();
+    final safePage = _approvalPage.clamp(1, totalPages == 0 ? 1 : totalPages);
+    final startIdx = (safePage - 1) * _approvalPageSize;
+    final endIdx = (startIdx + _approvalPageSize).clamp(0, employees.length);
+    final pageEmps = employees.sublist(startIdx, endIdx);
+
+    return SingleChildScrollView(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE4E4E7)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          children: [
+            _buildBatchActionBar(_registrations),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                dataRowColor: WidgetStateProperty.all(Colors.white),
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 80,
+                border: TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
+                columns: [
+                  const DataColumn(label: Expanded(child: Text('NHÂN VIÊN', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 12)))),
+                  ...List.generate(7, (i) {
+                    final day = days[i];
+                    final isToday = day.day == today.day && day.month == today.month && day.year == today.year;
+                    final isSunday = i == 6;
+                    return DataColumn(
+                      label: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(dayNames[i], style: TextStyle(
+                            color: isToday ? const Color(0xFF1E3A5F) : isSunday ? const Color(0xFFEF4444) : const Color(0xFF18181B),
+                            fontWeight: FontWeight.bold, fontSize: 11,
+                          )),
+                          Text(dateFormat.format(day), style: TextStyle(
+                            color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF71717A), fontSize: 10,
+                          )),
+                        ],
+                      ),
+                    );
+                  }),
+                  const DataColumn(label: Expanded(child: Text('TỔNG', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 12)))),
+                ],
+                rows: pageEmps.map((employee) {
+                  final employeeRegs = regsByEmployee[employee.id] ?? regsByEmployee[_effectiveUserId(employee)] ?? [];
+                  return DataRow(cells: [
+                    DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                      CircleAvatar(radius: 14, backgroundColor: const Color(0xFF1E3A5F),
+                        child: Text(employee.firstName.isNotEmpty ? employee.firstName[0].toUpperCase() : '?',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                      const SizedBox(width: 8),
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(employee.fullName.toUpperCase(), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 12)),
+                        Text(employee.employeeCode, style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10)),
+                      ]),
+                    ])),
+                    ...List.generate(7, (dayIdx) {
+                      final dateKey = DateFormat('yyyy-MM-dd').format(days[dayIdx]);
+                      final key = '${employee.id}_$dateKey';
+                      final keyAlt = '${_effectiveUserId(employee)}_$dateKey';
+                      final dayRegs = regLookup[key] ?? regLookup[keyAlt] ?? [];
+                      return DataCell(_buildDesktopApprovalCell(dayRegs));
+                    }),
+                    DataCell(Center(child: Text('${employeeRegs.length}',
+                      style: TextStyle(color: employeeRegs.isNotEmpty ? const Color(0xFF1E3A5F) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 14)))),
+                  ]);
+                }).toList(),
+              ),
+            ),
+            if (totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  IconButton(icon: const Icon(Icons.first_page), onPressed: safePage > 1 ? () => setState(() => _approvalPage = 1) : null),
+                  IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 1 ? () => setState(() => _approvalPage--) : null),
+                  Text('Trang $safePage / $totalPages (${employees.length} nhân viên)', style: const TextStyle(fontSize: 13)),
+                  IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _approvalPage++) : null),
+                  IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _approvalPage = totalPages) : null),
+                ]),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopApprovalCell(List<ScheduleRegistration> regs) {
+    if (regs.isEmpty) return const SizedBox(width: 110, height: 52);
+    return SizedBox(
+      width: 110,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: regs.map((reg) {
+          final shift = _findShift(reg.shiftId);
+          final label = reg.isDayOff ? 'Nghỉ' : (shift?.name ?? 'Ca');
+          Color bgColor, textColor;
+          switch (reg.status) {
+            case ScheduleRegistrationStatus.approved:
+              bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.1);
+              textColor = const Color(0xFF1E3A5F);
+              break;
+            case ScheduleRegistrationStatus.rejected:
+              bgColor = const Color(0xFFEF4444).withValues(alpha: 0.1);
+              textColor = const Color(0xFFEF4444);
+              break;
+            default:
+              bgColor = const Color(0xFFF59E0B).withValues(alpha: 0.1);
+              textColor = const Color(0xFFF59E0B);
+          }
+          return Container(
+            margin: const EdgeInsets.only(bottom: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6), border: Border.all(color: textColor.withValues(alpha: 0.3))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Expanded(child: Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 10), overflow: TextOverflow.ellipsis)),
+              if (reg.status == ScheduleRegistrationStatus.pending) ...[
+                if (_canApprove) ...[
+                  InkWell(onTap: () => _approveRegistration(reg.id), child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(3)), child: const Icon(Icons.check, color: Colors.white, size: 12))),
+                  const SizedBox(width: 2),
+                  InkWell(onTap: () => _rejectRegistration(reg.id), child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(3)), child: const Icon(Icons.close, color: Colors.white, size: 12))),
+                ],
+                if (_canDelete) ...[
+                  const SizedBox(width: 2),
+                  InkWell(onTap: () => _deleteRegistration(reg.id), child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFF71717A), borderRadius: BorderRadius.circular(3)), child: const Icon(Icons.delete_outline, color: Colors.white, size: 12))),
+                ],
+              ] else ...[
+                if (_canApprove)
+                  InkWell(onTap: () => _undoRegistrationApproval(reg.id), child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(3)), child: const Icon(Icons.undo, color: Colors.white, size: 12))),
+                if (_canDelete) ...[
+                  const SizedBox(width: 2),
+                  InkWell(onTap: () => _deleteRegistration(reg.id), child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(3)), child: const Icon(Icons.delete_outline, color: Colors.white, size: 12))),
+                ],
+              ],
+            ]),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ==================== TAB 2: DUYỆT THEO CA ====================
+  Widget _buildApprovalByShiftTab() {
+    final Map<String, List<ScheduleRegistration>> regsByShift = {};
+    for (var reg in _registrations) {
+      final shiftId = reg.shiftId ?? 'dayoff';
+      regsByShift.putIfAbsent(shiftId, () => []).add(reg);
+    }
+
+    return Column(
+      children: [
+        _buildWeekSelector(),
+        Expanded(
+          child: regsByShift.isEmpty
+              ? const EmptyState(icon: Icons.check_circle, title: 'Không có đăng ký nào', description: 'Chọn tuần để xem đăng ký theo ca')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  itemCount: regsByShift.length,
+                  itemBuilder: (context, index) {
+                    final shiftId = regsByShift.keys.elementAt(index);
+                    final regs = regsByShift[shiftId]!;
+                    return Responsive.isMobile(context)
+                        ? _buildMobileShiftSection(shiftId, regs)
+                        : _buildDesktopShiftGrid(shiftId, regs);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // --- MOBILE: Shift card list ---
+  Widget _buildMobileShiftSection(String shiftId, List<ScheduleRegistration> regs) {
+    final shift = shiftId != 'dayoff' ? _findShift(shiftId) : null;
+    final shiftName = shift?.name ?? 'Nghỉ phép';
+    final shiftTime = shift != null ? '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}' : '';
+    final pending = regs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
+    regs.sort((a, b) => a.date.compareTo(b.date));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Shift header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(8)),
+                  child: Icon(shift != null ? Icons.schedule : Icons.beach_access, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(shiftName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF18181B))),
+                      if (shiftTime.isNotEmpty)
+                        Text(shiftTime, style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                    ],
+                  ),
+                ),
+                if (pending.isNotEmpty) ...[
+                  _buildCountBadge('${pending.length} chờ', const Color(0xFFF59E0B)),
+                  if (pending.length > 1 && _canApprove) ...[
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => _approveAllForShift(pending),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(6)),
+                        child: const Text('Duyệt tất cả', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          // Registrations grouped by date
+          ...regs.map((reg) {
+            final employee = _findEmployee(reg.employeeUserId);
+            return _buildMobileShiftRegRow(reg, employee);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileShiftRegRow(ScheduleRegistration reg, Employee employee) {
+    final dateStr = DateFormat('EEE dd/MM', 'vi').format(reg.date);
+
+    Color statusBg, statusText;
+    IconData statusIcon;
+    String statusLabel;
+    switch (reg.status) {
+      case ScheduleRegistrationStatus.approved:
+        statusBg = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+        statusText = const Color(0xFF1E3A5F);
+        statusIcon = Icons.check_circle;
+        statusLabel = 'Đã duyệt';
+        break;
+      case ScheduleRegistrationStatus.rejected:
+        statusBg = const Color(0xFFEF4444).withValues(alpha: 0.08);
+        statusText = const Color(0xFFEF4444);
+        statusIcon = Icons.cancel;
+        statusLabel = 'Từ chối';
+        break;
+      default:
+        statusBg = const Color(0xFFF59E0B).withValues(alpha: 0.08);
+        statusText = const Color(0xFFF59E0B);
+        statusIcon = Icons.hourglass_empty;
+        statusLabel = 'Chờ duyệt';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF4F4F5)))),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: const Color(0xFF1E3A5F),
+            child: Text(
+              employee.firstName.isNotEmpty ? employee.firstName[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(employee.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+                Text(dateStr, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+              ],
+            ),
+          ),
+          if (reg.status == ScheduleRegistrationStatus.pending)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              if (_canApprove) ...[
+                _actionIcon(Icons.check, const Color(0xFF1E3A5F), () => _approveRegistration(reg.id), 'Duyệt'),
+                const SizedBox(width: 6),
+                _actionIcon(Icons.close, const Color(0xFFEF4444), () => _rejectRegistration(reg.id), 'Từ chối'),
+              ],
+              if (_canDelete) ...[const SizedBox(width: 6), _actionIcon(Icons.delete_outline, const Color(0xFF71717A), () => _deleteRegistration(reg.id), 'Xóa')],
+            ])
+          else
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(statusIcon, size: 12, color: statusText),
+                  const SizedBox(width: 3),
+                  Text(statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusText)),
+                ]),
+              ),
+              if (_canApprove) ...[const SizedBox(width: 6), _actionIcon(Icons.undo, const Color(0xFFF59E0B), () => _undoRegistrationApproval(reg.id), 'Hoàn duyệt')],
+              if (_canDelete) ...[const SizedBox(width: 6), _actionIcon(Icons.delete_outline, const Color(0xFFEF4444), () => _deleteRegistration(reg.id), 'Xóa')],
+            ]),
+        ],
+      ),
+    );
+  }
+
+  // --- DESKTOP: Shift table grid ---
+  Widget _buildDesktopShiftGrid(String shiftId, List<ScheduleRegistration> regs) {
+    final shift = shiftId != 'dayoff' ? _findShift(shiftId) : null;
+    final shiftName = shift?.name ?? 'Nghỉ phép';
+    final shiftTime = shift != null ? '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}' : '';
+    final pending = regs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
+
+    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CN'];
+    final dateFormat = DateFormat('d/M');
+    final today = DateTime.now();
+
+    final Set<String> employeeIds = {};
+    for (var reg in regs) { employeeIds.add(reg.employeeUserId); }
+    final employees = employeeIds.map((id) => _findEmployee(id)).toList();
+
+    final Map<String, ScheduleRegistration> regLookup = {};
+    for (var reg in regs) {
+      regLookup['${reg.employeeUserId}_${DateFormat('yyyy-MM-dd').format(reg.date)}'] = reg;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Shift header with batch actions
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            ),
+            child: Row(
+              children: [
+                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(8)),
+                  child: Icon(shift != null ? Icons.schedule : Icons.beach_access, color: Colors.white, size: 20)),
+                const SizedBox(width: 12),
+                Text(shiftName, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 16)),
+                if (shiftTime.isNotEmpty) ...[const SizedBox(width: 8), Text('($shiftTime)', style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))],
+                const Spacer(),
+                if (pending.isNotEmpty) ...[
+                  _buildCountBadge('${pending.length} chờ duyệt', const Color(0xFFF59E0B)),
+                  if (_canApprove) ...[
+                    const SizedBox(width: 6),
+                    _batchBtn('Từ chối tất cả', Icons.close, const Color(0xFFEF4444), () => _rejectAllForShift(pending)),
+                    const SizedBox(width: 6),
+                    _batchBtn('Duyệt tất cả', Icons.check, const Color(0xFF1E3A5F), () => _approveAllForShift(pending), filled: true),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Table(
+              border: TableBorder.all(color: const Color(0xFFE4E4E7), width: 1, borderRadius: BorderRadius.circular(8)),
+              columnWidths: {0: const FlexColumnWidth(2.2), for (int i = 1; i <= 7; i++) i: const FlexColumnWidth(1)},
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(color: Color(0xFFF1F5F9)),
+                  children: [
+                    _buildTableHeaderCell('NHÂN VIÊN'),
+                    ...List.generate(7, (i) {
+                      final isToday = days[i].year == today.year && days[i].month == today.month && days[i].day == today.day;
+                      final isSunday = i == 6;
+                      final dateKey = DateFormat('yyyy-MM-dd').format(days[i]);
+                      final dayPending = regs.where((r) => r.status == ScheduleRegistrationStatus.pending && DateFormat('yyyy-MM-dd').format(r.date) == dateKey).toList();
+                      return TableCell(child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                        decoration: isToday ? BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1)) : null,
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text('${dayNames[i]}\n${dateFormat.format(days[i])}', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                            color: isToday ? const Color(0xFF1E3A5F) : isSunday ? const Color(0xFFEF4444) : const Color(0xFF71717A))),
+                          if (dayPending.isNotEmpty && _canApprove) ...[
+                            const SizedBox(height: 4),
+                            InkWell(onTap: () => _approveAllForShift(dayPending), borderRadius: BorderRadius.circular(4),
+                              child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(4)),
+                                child: Text('Duyệt ${dayPending.length}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))),
+                          ],
+                        ]),
+                      ));
+                    }),
+                  ],
+                ),
+                ...employees.map((employee) => TableRow(children: [
+                  _buildEmployeeNameCell(employee),
+                  ...List.generate(7, (dayIdx) {
+                    final dateKey = DateFormat('yyyy-MM-dd').format(days[dayIdx]);
+                    final key = '${employee.id}_$dateKey';
+                    final keyAlt = '${_effectiveUserId(employee)}_$dateKey';
+                    final reg = regLookup[key] ?? regLookup[keyAlt];
+                    return _buildDesktopGridCell(reg);
+                  }),
+                ])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderCell(String text) {
+    return TableCell(child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      child: Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF71717A))),
+    ));
+  }
+
+  Widget _buildEmployeeNameCell(Employee employee) {
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(children: [
+          CircleAvatar(radius: 14, backgroundColor: const Color(0xFF1E3A5F),
+            child: Text(employee.firstName.isNotEmpty ? employee.firstName[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+          const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(employee.fullName, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 12), overflow: TextOverflow.ellipsis),
+            Text(employee.employeeCode, style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10)),
+          ])),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildDesktopGridCell(ScheduleRegistration? reg) {
+    if (reg == null) return const TableCell(verticalAlignment: TableCellVerticalAlignment.middle, child: SizedBox(height: 52));
+
+    Color bgColor, statusColor;
+    IconData statusIcon;
+    String tooltip;
+    switch (reg.status) {
+      case ScheduleRegistrationStatus.approved:
+        bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08); statusColor = const Color(0xFF1E3A5F); statusIcon = Icons.check_circle; tooltip = 'Đã duyệt'; break;
+      case ScheduleRegistrationStatus.rejected:
+        bgColor = const Color(0xFFEF4444).withValues(alpha: 0.08); statusColor = const Color(0xFFEF4444); statusIcon = Icons.cancel; tooltip = 'Từ chối'; break;
+      default:
+        bgColor = const Color(0xFFF59E0B).withValues(alpha: 0.08); statusColor = const Color(0xFFF59E0B); statusIcon = Icons.hourglass_empty; tooltip = 'Chờ duyệt';
+    }
+
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Container(
+        decoration: BoxDecoration(color: bgColor),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: reg.status == ScheduleRegistrationStatus.pending
+            ? Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                if (_canApprove) ...[
+                  Tooltip(message: 'Duyệt', child: InkWell(onTap: () => _approveRegistration(reg.id), borderRadius: BorderRadius.circular(4),
+                    child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.check, color: Colors.white, size: 14)))),
+                  const SizedBox(width: 4),
+                  Tooltip(message: 'Từ chối', child: InkWell(onTap: () => _rejectRegistration(reg.id), borderRadius: BorderRadius.circular(4),
+                    child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.close, color: Colors.white, size: 14)))),
+                ],
+                if (_canDelete) ...[
+                  const SizedBox(width: 4),
+                  Tooltip(message: 'Xóa', child: InkWell(onTap: () => _deleteRegistration(reg.id), borderRadius: BorderRadius.circular(4),
+                    child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF71717A), borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.delete_outline, color: Colors.white, size: 14)))),
+                ],
+              ])
+            : Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                Tooltip(message: tooltip, child: Icon(statusIcon, color: statusColor, size: 18)),
+                if (_canApprove) ...[
+                  const SizedBox(width: 4),
+                  Tooltip(message: 'Hoàn duyệt', child: InkWell(onTap: () => _undoRegistrationApproval(reg.id), borderRadius: BorderRadius.circular(4),
+                    child: Container(padding: const EdgeInsets.all(3), decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.undo, color: Colors.white, size: 12)))),
+                ],
+                if (_canDelete) ...[
+                  const SizedBox(width: 3),
+                  Tooltip(message: 'Xóa', child: InkWell(onTap: () => _deleteRegistration(reg.id), borderRadius: BorderRadius.circular(4),
+                    child: Container(padding: const EdgeInsets.all(3), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.delete_outline, color: Colors.white, size: 12)))),
+                ],
+              ]),
+      ),
+    );
+  }
+
+  // ==================== APPROVAL ACTIONS ====================
+  Future<void> _approveRegistration(String regId) async {
+    final confirmed = await _showConfirmDialog('Xác nhận duyệt', 'Bạn có chắc chắn muốn duyệt đăng ký này?', 'Duyệt', const Color(0xFF1E3A5F));
+    if (confirmed != true) return;
+    try {
+      await _apiService.approveScheduleRegistration(regId, {'isApproved': true});
+      if (mounted) appNotification.showSuccess(title: 'Duyệt đăng ký', message: 'Đã duyệt đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    }
+  }
+
+  Future<void> _rejectRegistration(String regId) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Từ chối đăng ký', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Bạn có chắc chắn muốn từ chối đăng ký này?'),
+          const SizedBox(height: 12),
+          TextField(controller: reasonController, decoration: InputDecoration(
+            labelText: 'Lý do từ chối', hintText: 'Nhập lý do...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ), maxLines: 2),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)), child: const Text('Từ chối')),
+        ],
+      ),
+    );
+    if (confirmed != true) { reasonController.dispose(); return; }
+    final reason = reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : 'Từ chối bởi quản lý';
+    reasonController.dispose();
+    try {
+      await _apiService.approveScheduleRegistration(regId, {'isApproved': false, 'rejectionReason': reason});
+      if (mounted) appNotification.showWarning(title: 'Từ chối đăng ký', message: 'Đã từ chối đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    }
+  }
+
+  Future<void> _undoRegistrationApproval(String regId) async {
+    try {
+      final result = await _apiService.undoScheduleRegistrationApproval(regId);
+      if (mounted) {
+        if (result['isSuccess'] == true) {
+          appNotification.showSuccess(title: 'Hoàn duyệt', message: 'Đã hoàn duyệt đăng ký');
+        } else {
+          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể hoàn duyệt');
+        }
+      }
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    }
+  }
+
+  Future<void> _deleteRegistration(String regId) async {
+    final confirmed = await _showConfirmDialog('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa đăng ký này?', 'Xóa', const Color(0xFFEF4444));
+    if (confirmed != true) return;
+    try {
+      final result = await _apiService.deleteScheduleRegistration(regId);
+      if (mounted) {
+        if (result['isSuccess'] == true) {
+          appNotification.showSuccess(title: 'Xóa đăng ký', message: 'Đã xóa đăng ký thành công');
+        } else {
+          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể xóa đăng ký');
+        }
+      }
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    }
+  }
+
+  // ==================== BATCH ACTIONS ====================
+  Future<void> _approveAllForShift(List<ScheduleRegistration> regs) async {
+    final confirmed = await _showConfirmDialog('Xác nhận duyệt hàng loạt', 'Bạn có chắc chắn muốn duyệt ${regs.length} đăng ký?', 'Duyệt tất cả', const Color(0xFF1E3A5F));
+    if (confirmed != true) return;
+    setState(() => _isLoading = true);
+    try {
+      for (var reg in regs) { await _apiService.approveScheduleRegistration(reg.id, {'isApproved': true}); }
+      if (mounted) appNotification.showSuccess(title: 'Duyệt hàng loạt', message: 'Đã duyệt ${regs.length} đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    } finally { setState(() => _isLoading = false); }
+  }
+
+  Future<void> _rejectAllForShift(List<ScheduleRegistration> regs) async {
+    final confirmed = await _showConfirmDialog('Xác nhận từ chối hàng loạt', 'Bạn có chắc chắn muốn từ chối ${regs.length} đăng ký?', 'Từ chối tất cả', const Color(0xFFEF4444));
+    if (confirmed != true) return;
+    setState(() => _isLoading = true);
+    try {
+      for (var reg in regs) { await _apiService.approveScheduleRegistration(reg.id, {'isApproved': false, 'rejectionReason': 'Từ chối hàng loạt'}); }
+      if (mounted) appNotification.showWarning(title: 'Từ chối hàng loạt', message: 'Đã từ chối ${regs.length} đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    } finally { setState(() => _isLoading = false); }
+  }
+
+  Future<void> _undoAllApprovals(List<ScheduleRegistration> regs) async {
+    final confirmed = await _showConfirmDialog('Xác nhận hoàn duyệt', 'Bạn có chắc chắn muốn hoàn duyệt ${regs.length} đăng ký?', 'Hoàn duyệt', const Color(0xFFF59E0B));
+    if (confirmed != true) return;
+    setState(() => _isLoading = true);
+    try {
+      for (var reg in regs) { await _apiService.undoScheduleRegistrationApproval(reg.id); }
+      if (mounted) appNotification.showSuccess(title: 'Hoàn duyệt hàng loạt', message: 'Đã hoàn duyệt ${regs.length} đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    } finally { setState(() => _isLoading = false); }
+  }
+
+  Future<void> _deleteAllRegistrations(List<ScheduleRegistration> regs) async {
+    final confirmed = await _showConfirmDialog('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa ${regs.length} đăng ký?', 'Xóa tất cả', const Color(0xFFEF4444));
+    if (confirmed != true) return;
+    setState(() => _isLoading = true);
+    try {
+      for (var reg in regs) { await _apiService.deleteScheduleRegistration(reg.id); }
+      if (mounted) appNotification.showSuccess(title: 'Xóa hàng loạt', message: 'Đã xóa ${regs.length} đăng ký');
+      await _loadSchedules(); await _loadRegistrations();
+    } catch (e) {
+      if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
+    } finally { setState(() => _isLoading = false); }
+  }
+
+  // ==================== DIALOGS ====================
+  Future<bool?> _showConfirmDialog(String title, String content, String confirmText, Color confirmColor) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+        content: Text(content),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: confirmColor), child: Text(confirmText)),
+        ],
+      ),
+    );
+  }
+}

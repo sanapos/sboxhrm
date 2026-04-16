@@ -1,0 +1,2459 @@
+﻿import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../services/api_service.dart';
+import '../models/asset.dart';
+import '../models/employee.dart';
+import '../widgets/loading_widget.dart';
+import '../widgets/empty_state.dart';
+
+class AssetManagementScreen extends StatefulWidget {
+  const AssetManagementScreen({super.key});
+
+  @override
+  State<AssetManagementScreen> createState() => _AssetManagementScreenState();
+}
+
+class _AssetManagementScreenState extends State<AssetManagementScreen>
+    with SingleTickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+  late TabController _tabController;
+  final _currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
+
+  // Data
+  List<Asset> _assets = [];
+  List<AssetCategory> _categories = [];
+  List<AssetTransfer> _transfers = [];
+  List<AssetInventory> _inventories = [];
+  List<Employee> _employees = [];
+  AssetStatistics? _statistics;
+
+  // Loading states
+  bool _isLoading = true;
+  int _totalAssets = 0;
+  int _currentPage = 1;
+  final int _pageSize = 20;
+
+  // Filters
+  String? _searchQuery;
+  AssetStatus? _statusFilter;
+  AssetType? _typeFilter;
+  String? _categoryFilter;
+  String? _assigneeFilter;
+  bool _unassignedOnly = false;
+
+  // Selected assets for batch operations
+  final Set<String> _selectedAssetIds = {};
+  bool _isSelectMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        _loadDataForTab(_tabController.index);
+      }
+    });
+    _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    try {
+      await Future.wait([
+        _loadEmployees(),
+        _loadAssets(),
+        _loadCategories(),
+        _loadStatistics(),
+      ]);
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadDataForTab(int index) async {
+    setState(() => _isLoading = true);
+    try {
+      switch (index) {
+        case 0:
+          await _loadAssets();
+          break;
+        case 1:
+          await _loadCategories();
+          break;
+        case 2:
+          await _loadTransfers();
+          break;
+        case 3:
+          await _loadInventories();
+          break;
+        case 4:
+          await _loadStatistics();
+          break;
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadEmployees() async {
+    final employees = await _apiService.getEmployees();
+    setState(() {
+      _employees = employees.map((e) => Employee.fromJson(e)).toList();
+    });
+  }
+
+  Future<void> _loadAssets() async {
+    final result = await _apiService.getAssets(
+      page: _currentPage,
+      pageSize: _pageSize,
+      search: _searchQuery,
+      status: _statusFilter?.index,
+      assetType: _typeFilter?.index,
+      categoryId: _categoryFilter,
+      assigneeId: _assigneeFilter,
+      unassignedOnly: _unassignedOnly,
+    );
+
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final data = result['data'];
+      setState(() {
+        _assets =
+            (data['items'] as List?)?.map((e) => Asset.fromJson(e)).toList() ??
+                [];
+        _totalAssets = data['totalCount'] ?? 0;
+      });
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    final result = await _apiService.getAssetCategories(hierarchical: true);
+    if (result['isSuccess'] == true && result['data'] != null) {
+      setState(() {
+        _categories = (result['data'] as List?)
+                ?.map((e) => AssetCategory.fromJson(e))
+                .toList() ??
+            [];
+      });
+    }
+  }
+
+  Future<void> _loadTransfers() async {
+    final result = await _apiService.getAssetTransfers(
+      page: _currentPage,
+      pageSize: _pageSize,
+    );
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final data = result['data'];
+      setState(() {
+        _transfers = (data['items'] as List?)
+                ?.map((e) => AssetTransfer.fromJson(e))
+                .toList() ??
+            [];
+      });
+    }
+  }
+
+  Future<void> _loadInventories() async {
+    final result = await _apiService.getAssetInventories(
+      page: _currentPage,
+      pageSize: _pageSize,
+    );
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final data = result['data'];
+      setState(() {
+        _inventories = (data['items'] as List?)
+                ?.map((e) => AssetInventory.fromJson(e))
+                .toList() ??
+            [];
+      });
+    }
+  }
+
+  Future<void> _loadStatistics() async {
+    final result = await _apiService.getAssetStatistics();
+    if (result['isSuccess'] == true && result['data'] != null) {
+      setState(() {
+        _statistics = AssetStatistics.fromJson(result['data']);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quản lý tài sản'),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(icon: Icon(Icons.inventory_2), text: 'Tài sản'),
+            Tab(icon: Icon(Icons.category), text: 'Danh mục'),
+            Tab(icon: Icon(Icons.swap_horiz), text: 'Chuyển giao'),
+            Tab(icon: Icon(Icons.checklist), text: 'Kiểm kê'),
+            Tab(icon: Icon(Icons.analytics), text: 'Thống kê'),
+          ],
+        ),
+        actions: [
+          if (_tabController.index == 0) ...[
+            IconButton(
+              icon: Icon(_isSelectMode ? Icons.close : Icons.checklist_rtl),
+              onPressed: () => setState(() {
+                _isSelectMode = !_isSelectMode;
+                _selectedAssetIds.clear();
+              }),
+              tooltip: _isSelectMode ? 'Hủy chọn' : 'Chọn nhiều',
+            ),
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: _showFilterDialog,
+              tooltip: 'Lọc',
+            ),
+          ],
+        ],
+      ),
+      body: _isLoading
+          ? const LoadingWidget()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildAssetsList(),
+                _buildCategoriesList(),
+                _buildTransfersList(),
+                _buildInventoriesList(),
+                _buildStatisticsView(),
+              ],
+            ),
+      floatingActionButton: _buildFab(),
+    );
+  }
+
+  Widget? _buildFab() {
+    switch (_tabController.index) {
+      case 0:
+        if (_isSelectMode && _selectedAssetIds.isNotEmpty) {
+          return FloatingActionButton.extended(
+            onPressed: _showBatchActionDialog,
+            icon: const Icon(Icons.more_horiz),
+            label: Text('${_selectedAssetIds.length} đã chọn'),
+          );
+        }
+        return FloatingActionButton(
+          onPressed: () => _showAssetDialog(),
+          child: const Icon(Icons.add),
+        );
+      case 1:
+        return FloatingActionButton(
+          onPressed: () => _showCategoryDialog(),
+          child: const Icon(Icons.add),
+        );
+      case 3:
+        return FloatingActionButton(
+          onPressed: () => _showInventoryDialog(),
+          child: const Icon(Icons.add),
+        );
+      default:
+        return null;
+    }
+  }
+
+  // ==================== ASSET LIST ====================
+  Widget _buildAssetsList() {
+    if (_assets.isEmpty) {
+      return const EmptyState(
+        icon: Icons.inventory_2_outlined,
+        title: 'Chưa có tài sản',
+        description: 'Nhấn + để thêm tài sản mới',
+      );
+    }
+
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm tài sản...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            onSubmitted: (value) {
+              setState(() => _searchQuery = value);
+              _loadAssets();
+            },
+          ),
+        ),
+        // Asset list
+        Expanded(
+          child: ListView.builder(
+            itemCount: _assets.length,
+            itemBuilder: (context, index) => _buildAssetCard(_assets[index]),
+          ),
+        ),
+        // Pagination
+        if (_totalAssets > _pageSize)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _currentPage > 1
+                      ? () {
+                          setState(() => _currentPage--);
+                          _loadAssets();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text(
+                    'Trang $_currentPage / ${(_totalAssets / _pageSize).ceil()}'),
+                IconButton(
+                  onPressed: _currentPage < (_totalAssets / _pageSize).ceil()
+                      ? () {
+                          setState(() => _currentPage++);
+                          _loadAssets();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAssetCard(Asset asset) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: InkWell(
+        onTap: () => _showAssetDetail(asset),
+        onLongPress: () {
+          setState(() {
+            _isSelectMode = true;
+            _selectedAssetIds.add(asset.id);
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              if (_isSelectMode)
+                Checkbox(
+                  value: _selectedAssetIds.contains(asset.id),
+                  onChanged: (value) {
+                    setState(() {
+                      if (value == true) {
+                        _selectedAssetIds.add(asset.id);
+                      } else {
+                        _selectedAssetIds.remove(asset.id);
+                      }
+                    });
+                  },
+                ),
+              // Asset image
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: asset.primaryImageUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          asset.primaryImageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.inventory_2),
+                        ),
+                      )
+                    : const Icon(Icons.inventory_2,
+                        size: 30, color: Colors.grey),
+              ),
+              const SizedBox(width: 12),
+              // Asset info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          asset.assetCode,
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(asset.status)
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            getAssetStatusLabel(asset.status),
+                            style: TextStyle(
+                              color: _getStatusColor(asset.status),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      asset.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    if (asset.serialNumber != null)
+                      Text(
+                        'S/N: ${asset.serialNumber}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    if (asset.currentAssigneeName != null)
+                      Row(
+                        children: [
+                          const Icon(Icons.person,
+                              size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              asset.currentAssigneeName!,
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              // Price and quantity
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _currencyFormat.format(asset.purchasePrice),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'SL: ${asset.quantity} ${asset.unit}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  ),
+                  if (asset.warrantyExpiringSoon)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Sắp hết BH',
+                        style: TextStyle(fontSize: 10, color: Colors.orange),
+                      ),
+                    ),
+                ],
+              ),
+              // Actions
+              PopupMenuButton<String>(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                      value: 'view',
+                      child: ListTile(
+                          leading: Icon(Icons.visibility),
+                          title: Text('Xem chi tiết'))),
+                  const PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                          leading: Icon(Icons.edit), title: Text('Sửa'))),
+                  if (asset.currentAssigneeId == null)
+                    const PopupMenuItem(
+                        value: 'assign',
+                        child: ListTile(
+                            leading: Icon(Icons.person_add),
+                            title: Text('Cấp phát'))),
+                  if (asset.currentAssigneeId != null)
+                    const PopupMenuItem(
+                        value: 'transfer',
+                        child: ListTile(
+                            leading: Icon(Icons.swap_horiz),
+                            title: Text('Chuyển giao'))),
+                  if (asset.currentAssigneeId != null)
+                    const PopupMenuItem(
+                        value: 'return',
+                        child: ListTile(
+                            leading: Icon(Icons.keyboard_return),
+                            title: Text('Thu hồi'))),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                          leading: Icon(Icons.delete, color: Colors.red),
+                          title: Text('Xóa',
+                              style: TextStyle(color: Colors.red)))),
+                ],
+                onSelected: (value) => _handleAssetAction(asset, value),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(AssetStatus status) {
+    switch (status) {
+      case AssetStatus.active:
+        return Colors.green;
+      case AssetStatus.inMaintenance:
+        return Colors.orange;
+      case AssetStatus.broken:
+        return Colors.red;
+      case AssetStatus.disposed:
+        return Colors.grey;
+      case AssetStatus.lost:
+        return Colors.purple;
+      case AssetStatus.inStock:
+        return Colors.blue;
+    }
+  }
+
+  // ==================== CATEGORIES LIST ====================
+  Widget _buildCategoriesList() {
+    if (_categories.isEmpty) {
+      return const EmptyState(
+        icon: Icons.category_outlined,
+        title: 'Chưa có danh mục',
+        description: 'Nhấn + để thêm danh mục mới',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _categories.length,
+      itemBuilder: (context, index) => _buildCategoryTile(_categories[index]),
+    );
+  }
+
+  Widget _buildCategoryTile(AssetCategory category, {int level = 0}) {
+    return Column(
+      children: [
+        Card(
+          margin: EdgeInsets.only(left: level * 20.0, bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor:
+                  Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              child: Icon(Icons.folder, color: Theme.of(context).primaryColor),
+            ),
+            title: Text(category.name),
+            subtitle: Text(
+                'Mã: ${category.categoryCode} • ${category.assetCount} tài sản'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!category.isActive)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Ẩn', style: TextStyle(fontSize: 11)),
+                  ),
+                PopupMenuButton<String>(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                    const PopupMenuItem(
+                        value: 'add_sub', child: Text('Thêm danh mục con')),
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child:
+                            Text('Xóa', style: TextStyle(color: Colors.red))),
+                  ],
+                  onSelected: (value) => _handleCategoryAction(category, value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (category.subCategories != null)
+          ...category.subCategories!
+              .map((sub) => _buildCategoryTile(sub, level: level + 1)),
+      ],
+    );
+  }
+
+  // ==================== TRANSFERS LIST ====================
+  Widget _buildTransfersList() {
+    if (_transfers.isEmpty) {
+      return const EmptyState(
+        icon: Icons.swap_horiz_outlined,
+        title: 'Chưa có lịch sử chuyển giao',
+        description: 'Các thao tác cấp phát, chuyển giao sẽ xuất hiện ở đây',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _transfers.length,
+      itemBuilder: (context, index) => _buildTransferCard(_transfers[index]),
+    );
+  }
+
+  Widget _buildTransferCard(AssetTransfer transfer) {
+    final color = _getTransferTypeColor(transfer.transferType);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.2),
+          child:
+              Icon(_getTransferTypeIcon(transfer.transferType), color: color),
+        ),
+        title: Text(transfer.assetName ?? 'Tài sản'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(getTransferTypeLabel(transfer.transferType)),
+            Row(
+              children: [
+                if (transfer.fromUserName != null) ...[
+                  Text(transfer.fromUserName!,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  const Icon(Icons.arrow_forward, size: 14),
+                ],
+                if (transfer.toUserName != null)
+                  Text(transfer.toUserName!,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
+            ),
+            Text(
+              DateFormat('dd/MM/yyyy HH:mm').format(transfer.transferDate),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
+            ),
+          ],
+        ),
+        trailing: transfer.isConfirmed
+            ? const Icon(Icons.check_circle, color: Colors.green)
+            : TextButton(
+                onPressed: () => _confirmTransfer(transfer),
+                child: const Text('Xác nhận'),
+              ),
+        isThreeLine: true,
+      ),
+    );
+  }
+
+  Color _getTransferTypeColor(AssetTransferType type) {
+    switch (type) {
+      case AssetTransferType.assignment:
+        return Colors.blue;
+      case AssetTransferType.transfer:
+        return Colors.orange;
+      case AssetTransferType.returnAsset:
+        return Colors.green;
+      case AssetTransferType.maintenance:
+        return Colors.purple;
+      case AssetTransferType.disposal:
+        return Colors.red;
+    }
+  }
+
+  IconData _getTransferTypeIcon(AssetTransferType type) {
+    switch (type) {
+      case AssetTransferType.assignment:
+        return Icons.person_add;
+      case AssetTransferType.transfer:
+        return Icons.swap_horiz;
+      case AssetTransferType.returnAsset:
+        return Icons.keyboard_return;
+      case AssetTransferType.maintenance:
+        return Icons.build;
+      case AssetTransferType.disposal:
+        return Icons.delete_forever;
+    }
+  }
+
+  // ==================== INVENTORIES LIST ====================
+  Widget _buildInventoriesList() {
+    if (_inventories.isEmpty) {
+      return const EmptyState(
+        icon: Icons.checklist_outlined,
+        title: 'Chưa có đợt kiểm kê',
+        description: 'Nhấn + để tạo đợt kiểm kê mới',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _inventories.length,
+      itemBuilder: (context, index) => _buildInventoryCard(_inventories[index]),
+    );
+  }
+
+  Widget _buildInventoryCard(AssetInventory inventory) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => _showInventoryDetail(inventory),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          inventory.inventoryCode,
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          inventory.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: inventory.isInProgress
+                          ? Colors.blue.withValues(alpha: 0.2)
+                          : inventory.isCompleted
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : Colors.grey.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      inventory.statusName.isNotEmpty
+                          ? inventory.statusName
+                          : inventory.isInProgress
+                              ? 'Đang thực hiện'
+                              : inventory.isCompleted
+                                  ? 'Hoàn thành'
+                                  : 'Đã hủy',
+                      style: TextStyle(
+                        color: inventory.isInProgress
+                            ? Colors.blue
+                            : inventory.isCompleted
+                                ? Colors.green
+                                : Colors.grey,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: inventory.progressPercent / 100,
+                  backgroundColor: Colors.grey[200],
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    '${inventory.checkedCount}/${inventory.totalAssets} tài sản',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${inventory.progressPercent.toStringAsFixed(0)}%',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              if (inventory.issueCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700], size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${inventory.issueCount} vấn đề phát hiện',
+                        style:
+                            TextStyle(color: Colors.orange[700], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today,
+                      size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(inventory.startDate),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                  if (inventory.endDate != null) ...[
+                    const Text(' - '),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(inventory.endDate!),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== STATISTICS VIEW ====================
+  Widget _buildStatisticsView() {
+    if (_statistics == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Overview cards
+          Row(
+            children: [
+              Expanded(
+                  child: _buildStatCard(
+                      'Tổng tài sản',
+                      _statistics!.totalAssets.toString(),
+                      Icons.inventory_2,
+                      Colors.blue)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatCard(
+                      'Đang sử dụng',
+                      _statistics!.activeAssets.toString(),
+                      Icons.check_circle,
+                      Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildStatCard(
+                      'Trong kho',
+                      _statistics!.inStockAssets.toString(),
+                      Icons.warehouse,
+                      Colors.indigo)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatCard(
+                      'Đã cấp phát',
+                      _statistics!.assignedAssets.toString(),
+                      Icons.person,
+                      Colors.orange)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildStatCard(
+                      'Bảo trì',
+                      _statistics!.maintenanceAssets.toString(),
+                      Icons.build,
+                      Colors.purple)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatCard(
+                      'Hỏng',
+                      _statistics!.brokenAssets.toString(),
+                      Icons.error,
+                      Colors.red)),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Value cards
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Giá trị tài sản',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Giá trị mua',
+                                style: TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Text(
+                              _currencyFormat
+                                  .format(_statistics!.totalPurchaseValue),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 18),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Giá trị hiện tại',
+                                style: TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Text(
+                              _currencyFormat
+                                  .format(_statistics!.totalCurrentValue),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.green[700]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (_statistics!.warrantyExpiringSoon > 0) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.orange[50],
+              child: ListTile(
+                leading: Icon(Icons.warning, color: Colors.orange[700]),
+                title: Text(
+                    '${_statistics!.warrantyExpiringSoon} tài sản sắp hết bảo hành'),
+                subtitle: const Text('Trong vòng 30 ngày tới'),
+                trailing: TextButton(
+                  onPressed: () {
+                    _tabController.animateTo(0);
+                    // TODO: filter warranty expiring
+                  },
+                  child: const Text('Xem'),
+                ),
+              ),
+            ),
+          ],
+
+          // By Type
+          if (_statistics!.byType != null &&
+              _statistics!.byType!.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text('Theo loại tài sản',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 12),
+            ..._statistics!.byType!.map((item) => ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    child: Icon(Icons.devices,
+                        color: Theme.of(context).primaryColor, size: 20),
+                  ),
+                  title: Text(item.assetTypeName.isNotEmpty
+                      ? item.assetTypeName
+                      : getAssetTypeLabel(item.assetType)),
+                  subtitle: Text(_currencyFormat.format(item.totalValue)),
+                  trailing: Text('${item.count} tài sản',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                )),
+          ],
+
+          // By Assignee
+          if (_statistics!.byAssignee != null &&
+              _statistics!.byAssignee!.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text('Theo người sử dụng',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 12),
+            ..._statistics!.byAssignee!.take(10).map((item) => ListTile(
+                  leading: CircleAvatar(
+                    child: Text(item.assigneeName.isNotEmpty
+                        ? item.assigneeName[0].toUpperCase()
+                        : '?'),
+                  ),
+                  title: Text(item.assigneeName.isNotEmpty
+                      ? item.assigneeName
+                      : 'Chưa cấp'),
+                  subtitle: Text(_currencyFormat.format(item.totalValue)),
+                  trailing: Text('${item.count} tài sản',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 24),
+                const Spacer(),
+                Text(
+                  value,
+                  style: TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.bold, color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(title,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== DIALOGS ====================
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('Bộ lọc',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      setModalState(() {
+                        _statusFilter = null;
+                        _typeFilter = null;
+                        _categoryFilter = null;
+                        _assigneeFilter = null;
+                        _unassignedOnly = false;
+                      });
+                    },
+                    child: const Text('Xóa lọc'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Status filter
+              const Text('Trạng thái'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: AssetStatus.values
+                    .map((status) => FilterChip(
+                          label: Text(getAssetStatusLabel(status)),
+                          selected: _statusFilter == status,
+                          onSelected: (selected) {
+                            setModalState(
+                                () => _statusFilter = selected ? status : null);
+                          },
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              // Type filter
+              const Text('Loại tài sản'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: AssetType.values
+                    .map((type) => FilterChip(
+                          label: Text(getAssetTypeLabel(type)),
+                          selected: _typeFilter == type,
+                          onSelected: (selected) {
+                            setModalState(
+                                () => _typeFilter = selected ? type : null);
+                          },
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              // Category filter
+              const Text('Danh mục'),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _categoryFilter,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                hint: const Text('Chọn danh mục'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Tất cả')),
+                  ..._categories.map((c) =>
+                      DropdownMenuItem(value: c.id, child: Text(c.name))),
+                ],
+                onChanged: (value) =>
+                    setModalState(() => _categoryFilter = value),
+              ),
+              const SizedBox(height: 16),
+              // Unassigned only
+              CheckboxListTile(
+                title: const Text('Chỉ tài sản chưa cấp phát'),
+                value: _unassignedOnly,
+                onChanged: (value) =>
+                    setModalState(() => _unassignedOnly = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {});
+                    _loadAssets();
+                  },
+                  child: const Text('Áp dụng'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAssetDialog({Asset? asset}) {
+    final isEdit = asset != null;
+    final codeController = TextEditingController(text: asset?.assetCode ?? '');
+    final nameController = TextEditingController(text: asset?.name ?? '');
+    final descController =
+        TextEditingController(text: asset?.description ?? '');
+    final serialController =
+        TextEditingController(text: asset?.serialNumber ?? '');
+    final modelController = TextEditingController(text: asset?.model ?? '');
+    final brandController = TextEditingController(text: asset?.brand ?? '');
+    final priceController =
+        TextEditingController(text: asset?.purchasePrice.toString() ?? '0');
+    final quantityController =
+        TextEditingController(text: asset?.quantity.toString() ?? '1');
+    final unitController = TextEditingController(text: asset?.unit ?? 'Cái');
+    final locationController =
+        TextEditingController(text: asset?.location ?? '');
+    final notesController = TextEditingController(text: asset?.notes ?? '');
+    final supplierController =
+        TextEditingController(text: asset?.supplier ?? '');
+    final invoiceController =
+        TextEditingController(text: asset?.invoiceNumber ?? '');
+    final warrantyController =
+        TextEditingController(text: asset?.warrantyMonths?.toString() ?? '');
+
+    AssetType selectedType = asset?.assetType ?? AssetType.electronics;
+    AssetStatus selectedStatus = asset?.status ?? AssetStatus.inStock;
+    String? selectedCategory = asset?.categoryId;
+    DateTime? purchaseDate = asset?.purchaseDate;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isEdit ? 'Sửa tài sản' : 'Thêm tài sản mới'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.8,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: codeController,
+                          decoration: const InputDecoration(
+                              labelText: 'Mã tài sản *',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: serialController,
+                          decoration: const InputDecoration(
+                              labelText: 'Số Serial',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                        labelText: 'Tên tài sản *',
+                        border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                        labelText: 'Mô tả', border: OutlineInputBorder()),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: modelController,
+                          decoration: const InputDecoration(
+                              labelText: 'Model', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: brandController,
+                          decoration: const InputDecoration(
+                              labelText: 'Thương hiệu',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<AssetType>(
+                          initialValue: selectedType,
+                          decoration: const InputDecoration(
+                              labelText: 'Loại tài sản',
+                              border: OutlineInputBorder()),
+                          items: AssetType.values
+                              .map((t) => DropdownMenuItem(
+                                  value: t, child: Text(getAssetTypeLabel(t))))
+                              .toList(),
+                          onChanged: (v) =>
+                              setDialogState(() => selectedType = v!),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: selectedCategory,
+                          decoration: const InputDecoration(
+                              labelText: 'Danh mục',
+                              border: OutlineInputBorder()),
+                          items: [
+                            const DropdownMenuItem(
+                                value: null, child: Text('Không')),
+                            ..._categories.map((c) => DropdownMenuItem(
+                                value: c.id, child: Text(c.name))),
+                          ],
+                          onChanged: (v) =>
+                              setDialogState(() => selectedCategory = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isEdit) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<AssetStatus>(
+                      initialValue: selectedStatus,
+                      decoration: const InputDecoration(
+                          labelText: 'Trạng thái',
+                          border: OutlineInputBorder()),
+                      items: AssetStatus.values
+                          .map((s) => DropdownMenuItem(
+                              value: s, child: Text(getAssetStatusLabel(s))))
+                          .toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => selectedStatus = v!),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: priceController,
+                          decoration: const InputDecoration(
+                              labelText: 'Giá mua *',
+                              border: OutlineInputBorder(),
+                              suffixText: 'VND'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: quantityController,
+                          decoration: const InputDecoration(
+                              labelText: 'Số lượng',
+                              border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: unitController,
+                          decoration: const InputDecoration(
+                              labelText: 'Đơn vị',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: supplierController,
+                          decoration: const InputDecoration(
+                              labelText: 'Nhà cung cấp',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: invoiceController,
+                          decoration: const InputDecoration(
+                              labelText: 'Số hóa đơn',
+                              border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: purchaseDate ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
+                            if (date != null) {
+                              setDialogState(() => purchaseDate = date);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                                labelText: 'Ngày mua',
+                                border: OutlineInputBorder()),
+                            child: Text(purchaseDate != null
+                                ? DateFormat('dd/MM/yyyy').format(purchaseDate!)
+                                : 'Chọn ngày'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: warrantyController,
+                          decoration: const InputDecoration(
+                              labelText: 'Bảo hành (tháng)',
+                              border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: locationController,
+                    decoration: const InputDecoration(
+                        labelText: 'Vị trí', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                        labelText: 'Ghi chú', border: OutlineInputBorder()),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (codeController.text.isEmpty ||
+                    nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Vui lòng nhập mã và tên tài sản')),
+                  );
+                  return;
+                }
+
+                Map<String, dynamic> result;
+                if (isEdit) {
+                  result = await _apiService.updateAsset(
+                    asset.id,
+                    assetCode: codeController.text,
+                    name: nameController.text,
+                    description: descController.text.isNotEmpty
+                        ? descController.text
+                        : null,
+                    serialNumber: serialController.text.isNotEmpty
+                        ? serialController.text
+                        : null,
+                    model: modelController.text.isNotEmpty
+                        ? modelController.text
+                        : null,
+                    brand: brandController.text.isNotEmpty
+                        ? brandController.text
+                        : null,
+                    assetType: selectedType.index,
+                    categoryId: selectedCategory,
+                    status: selectedStatus.index,
+                    quantity: int.tryParse(quantityController.text) ?? 1,
+                    unit: unitController.text,
+                    purchasePrice: double.tryParse(priceController.text) ?? 0,
+                    purchaseDate: purchaseDate,
+                    supplier: supplierController.text.isNotEmpty
+                        ? supplierController.text
+                        : null,
+                    invoiceNumber: invoiceController.text.isNotEmpty
+                        ? invoiceController.text
+                        : null,
+                    warrantyMonths: int.tryParse(warrantyController.text),
+                    location: locationController.text.isNotEmpty
+                        ? locationController.text
+                        : null,
+                    notes: notesController.text.isNotEmpty
+                        ? notesController.text
+                        : null,
+                  );
+                } else {
+                  result = await _apiService.createAsset(
+                    assetCode: codeController.text,
+                    name: nameController.text,
+                    description: descController.text.isNotEmpty
+                        ? descController.text
+                        : null,
+                    serialNumber: serialController.text.isNotEmpty
+                        ? serialController.text
+                        : null,
+                    model: modelController.text.isNotEmpty
+                        ? modelController.text
+                        : null,
+                    brand: brandController.text.isNotEmpty
+                        ? brandController.text
+                        : null,
+                    assetType: selectedType.index,
+                    categoryId: selectedCategory,
+                    quantity: int.tryParse(quantityController.text) ?? 1,
+                    unit: unitController.text,
+                    purchasePrice: double.tryParse(priceController.text) ?? 0,
+                    purchaseDate: purchaseDate,
+                    supplier: supplierController.text.isNotEmpty
+                        ? supplierController.text
+                        : null,
+                    invoiceNumber: invoiceController.text.isNotEmpty
+                        ? invoiceController.text
+                        : null,
+                    warrantyMonths: int.tryParse(warrantyController.text),
+                    location: locationController.text.isNotEmpty
+                        ? locationController.text
+                        : null,
+                    notes: notesController.text.isNotEmpty
+                        ? notesController.text
+                        : null,
+                  );
+                }
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (result['isSuccess'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(isEdit
+                            ? 'Đã cập nhật tài sản'
+                            : 'Đã thêm tài sản mới')),
+                  );
+                  _loadAssets();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(result['message'] ?? 'Có lỗi xảy ra')),
+                  );
+                }
+              },
+              child: Text(isEdit ? 'Cập nhật' : 'Thêm'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCategoryDialog({AssetCategory? category, String? parentId}) {
+    final isEdit = category != null;
+    final codeController =
+        TextEditingController(text: category?.categoryCode ?? '');
+    final nameController = TextEditingController(text: category?.name ?? '');
+    final descController =
+        TextEditingController(text: category?.description ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isEdit ? 'Sửa danh mục' : 'Thêm danh mục mới'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeController,
+              decoration: const InputDecoration(
+                  labelText: 'Mã danh mục *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                  labelText: 'Tên danh mục *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                  labelText: 'Mô tả', border: OutlineInputBorder()),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (codeController.text.isEmpty || nameController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Vui lòng nhập mã và tên danh mục')),
+                );
+                return;
+              }
+
+              Map<String, dynamic> result;
+              if (isEdit) {
+                result = await _apiService.updateAssetCategory(
+                  category.id,
+                  categoryCode: codeController.text,
+                  name: nameController.text,
+                  description: descController.text.isNotEmpty
+                      ? descController.text
+                      : null,
+                  parentCategoryId: category.parentCategoryId,
+                );
+              } else {
+                result = await _apiService.createAssetCategory(
+                  categoryCode: codeController.text,
+                  name: nameController.text,
+                  description: descController.text.isNotEmpty
+                      ? descController.text
+                      : null,
+                  parentCategoryId: parentId,
+                );
+              }
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              if (result['isSuccess'] == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(isEdit
+                          ? 'Đã cập nhật danh mục'
+                          : 'Đã thêm danh mục mới')),
+                );
+                _loadCategories();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'] ?? 'Có lỗi xảy ra')),
+                );
+              }
+            },
+            child: Text(isEdit ? 'Cập nhật' : 'Thêm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInventoryDialog() {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+    final notesController = TextEditingController();
+    DateTime startDate = DateTime.now();
+    DateTime? endDate;
+    String? responsibleUserId;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Tạo đợt kiểm kê mới'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.6,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                        labelText: 'Tên đợt kiểm kê *',
+                        border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                        labelText: 'Mô tả', border: OutlineInputBorder()),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: startDate,
+                              firstDate: DateTime.now(),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (date != null) {
+                              setDialogState(() => startDate = date);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                                labelText: 'Ngày bắt đầu *',
+                                border: OutlineInputBorder()),
+                            child: Text(
+                                DateFormat('dd/MM/yyyy').format(startDate)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: endDate ??
+                                  startDate.add(const Duration(days: 7)),
+                              firstDate: startDate,
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (date != null) {
+                              setDialogState(() => endDate = date);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                                labelText: 'Ngày kết thúc',
+                                border: OutlineInputBorder()),
+                            child: Text(endDate != null
+                                ? DateFormat('dd/MM/yyyy').format(endDate!)
+                                : 'Chọn ngày'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: responsibleUserId,
+                    decoration: const InputDecoration(
+                        labelText: 'Người phụ trách',
+                        border: OutlineInputBorder()),
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('Chọn người phụ trách')),
+                      ..._employees.map((e) => DropdownMenuItem(
+                          value: e.id, child: Text(e.fullName))),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => responsibleUserId = v),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                        labelText: 'Ghi chú', border: OutlineInputBorder()),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Vui lòng nhập tên đợt kiểm kê')),
+                  );
+                  return;
+                }
+
+                final result = await _apiService.createAssetInventory(
+                  name: nameController.text,
+                  description: descController.text.isNotEmpty
+                      ? descController.text
+                      : null,
+                  startDate: startDate,
+                  endDate: endDate,
+                  responsibleUserId: responsibleUserId,
+                  notes: notesController.text.isNotEmpty
+                      ? notesController.text
+                      : null,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (result['isSuccess'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã tạo đợt kiểm kê mới')),
+                  );
+                  _loadInventories();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(result['message'] ?? 'Có lỗi xảy ra')),
+                  );
+                }
+              },
+              child: const Text('Tạo'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAssetDetail(Asset asset) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: asset.primaryImageUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(asset.primaryImageUrl!,
+                                fit: BoxFit.cover),
+                          )
+                        : const Icon(Icons.inventory_2,
+                            size: 40, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(asset.assetCode,
+                                style: TextStyle(
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(asset.status)
+                                    .withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                getAssetStatusLabel(asset.status),
+                                style: TextStyle(
+                                    color: _getStatusColor(asset.status),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(asset.name,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Info rows
+              _buildDetailRow('Loại', getAssetTypeLabel(asset.assetType)),
+              if (asset.categoryName != null)
+                _buildDetailRow('Danh mục', asset.categoryName!),
+              if (asset.serialNumber != null)
+                _buildDetailRow('Số Serial', asset.serialNumber!),
+              if (asset.model != null) _buildDetailRow('Model', asset.model!),
+              if (asset.brand != null)
+                _buildDetailRow('Thương hiệu', asset.brand!),
+              _buildDetailRow('Số lượng', '${asset.quantity} ${asset.unit}'),
+              _buildDetailRow(
+                  'Giá mua', _currencyFormat.format(asset.purchasePrice)),
+              if (asset.currentValue != null)
+                _buildDetailRow('Giá trị hiện tại',
+                    _currencyFormat.format(asset.currentValue)),
+              if (asset.purchaseDate != null)
+                _buildDetailRow('Ngày mua',
+                    DateFormat('dd/MM/yyyy').format(asset.purchaseDate!)),
+              if (asset.supplier != null)
+                _buildDetailRow('Nhà cung cấp', asset.supplier!),
+              if (asset.warrantyMonths != null)
+                _buildDetailRow('Bảo hành', '${asset.warrantyMonths} tháng'),
+              if (asset.warrantyExpiry != null)
+                _buildDetailRow(
+                  'Hết bảo hành',
+                  DateFormat('dd/MM/yyyy').format(asset.warrantyExpiry!),
+                  valueColor: asset.isWarrantyExpired
+                      ? Colors.red
+                      : asset.warrantyExpiringSoon
+                          ? Colors.orange
+                          : null,
+                ),
+              if (asset.location != null)
+                _buildDetailRow('Vị trí', asset.location!),
+
+              if (asset.currentAssigneeName != null) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text('Người sử dụng hiện tại',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                      child: Text(asset.currentAssigneeName![0].toUpperCase())),
+                  title: Text(asset.currentAssigneeName!),
+                  subtitle: asset.assignedDate != null
+                      ? Text(
+                          'Từ ${DateFormat('dd/MM/yyyy').format(asset.assignedDate!)}')
+                      : null,
+                ),
+              ],
+
+              if (asset.notes != null && asset.notes!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text('Ghi chú',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(asset.notes!),
+              ],
+
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  if (asset.currentAssigneeId == null)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showAssignDialog(asset);
+                        },
+                        icon: const Icon(Icons.person_add),
+                        label: const Text('Cấp phát'),
+                      ),
+                    ),
+                  if (asset.currentAssigneeId != null) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showTransferDialog(asset);
+                        },
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Chuyển giao'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showReturnDialog(asset);
+                        },
+                        icon: const Icon(Icons.keyboard_return),
+                        label: const Text('Thu hồi'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(label, style: TextStyle(color: Colors.grey[600])),
+          ),
+          Expanded(
+            child: Text(value,
+                style:
+                    TextStyle(fontWeight: FontWeight.w500, color: valueColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInventoryDetail(AssetInventory inventory) {
+    // TODO: Implement inventory detail screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Chi tiết kiểm kê: ${inventory.name}')),
+    );
+  }
+
+  void _showAssignDialog(Asset asset) {
+    String? selectedUserId;
+    final reasonController = TextEditingController();
+    final notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Cấp phát tài sản'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tài sản: ${asset.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: selectedUserId,
+                decoration: const InputDecoration(
+                    labelText: 'Cấp cho *', border: OutlineInputBorder()),
+                items: _employees
+                    .map((e) =>
+                        DropdownMenuItem(value: e.id, child: Text(e.fullName)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => selectedUserId = v),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                    labelText: 'Lý do', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder()),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () async {
+                if (selectedUserId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng chọn người nhận')),
+                  );
+                  return;
+                }
+
+                final result = await _apiService.assignAsset(
+                  assetId: asset.id,
+                  toUserId: selectedUserId!,
+                  reason: reasonController.text.isNotEmpty
+                      ? reasonController.text
+                      : null,
+                  notes: notesController.text.isNotEmpty
+                      ? notesController.text
+                      : null,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (result['isSuccess'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã cấp phát tài sản')));
+                  _loadAssets();
+                  _loadTransfers();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+                }
+              },
+              child: const Text('Cấp phát'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTransferDialog(Asset asset) {
+    String? selectedUserId;
+    final reasonController = TextEditingController();
+    final notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Chuyển giao tài sản'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tài sản: ${asset.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Đang sử dụng: ${asset.currentAssigneeName}',
+                  style: TextStyle(color: Colors.grey[600])),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: selectedUserId,
+                decoration: const InputDecoration(
+                    labelText: 'Chuyển cho *', border: OutlineInputBorder()),
+                items: _employees
+                    .where((e) => e.id != asset.currentAssigneeId)
+                    .map((e) =>
+                        DropdownMenuItem(value: e.id, child: Text(e.fullName)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => selectedUserId = v),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                    labelText: 'Lý do', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder()),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () async {
+                if (selectedUserId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng chọn người nhận')),
+                  );
+                  return;
+                }
+
+                final result = await _apiService.transferAsset(
+                  assetId: asset.id,
+                  fromUserId: asset.currentAssigneeId!,
+                  toUserId: selectedUserId!,
+                  reason: reasonController.text.isNotEmpty
+                      ? reasonController.text
+                      : null,
+                  notes: notesController.text.isNotEmpty
+                      ? notesController.text
+                      : null,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (result['isSuccess'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã chuyển giao tài sản')));
+                  _loadAssets();
+                  _loadTransfers();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+                }
+              },
+              child: const Text('Chuyển giao'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReturnDialog(Asset asset) {
+    final reasonController = TextEditingController();
+    final notesController = TextEditingController();
+    InventoryCondition condition = InventoryCondition.good;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Thu hồi tài sản'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tài sản: ${asset.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Thu hồi từ: ${asset.currentAssigneeName}',
+                  style: TextStyle(color: Colors.grey[600])),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<InventoryCondition>(
+                initialValue: condition,
+                decoration: const InputDecoration(
+                    labelText: 'Tình trạng khi thu hồi',
+                    border: OutlineInputBorder()),
+                items: InventoryCondition.values
+                    .map((c) => DropdownMenuItem(
+                        value: c, child: Text(getConditionLabel(c))))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => condition = v!),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                    labelText: 'Lý do thu hồi', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder()),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () async {
+                final result = await _apiService.returnAsset(
+                  assetId: asset.id,
+                  reason: reasonController.text.isNotEmpty
+                      ? reasonController.text
+                      : null,
+                  notes: notesController.text.isNotEmpty
+                      ? notesController.text
+                      : null,
+                  returnCondition: condition.index,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (result['isSuccess'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã thu hồi tài sản')));
+                  _loadAssets();
+                  _loadTransfers();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Thu hồi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== ACTIONS ====================
+  void _handleAssetAction(Asset asset, String action) {
+    switch (action) {
+      case 'view':
+        _showAssetDetail(asset);
+        break;
+      case 'edit':
+        _showAssetDialog(asset: asset);
+        break;
+      case 'assign':
+        _showAssignDialog(asset);
+        break;
+      case 'transfer':
+        _showTransferDialog(asset);
+        break;
+      case 'return':
+        _showReturnDialog(asset);
+        break;
+      case 'delete':
+        _confirmDeleteAsset(asset);
+        break;
+    }
+  }
+
+  void _handleCategoryAction(AssetCategory category, String action) {
+    switch (action) {
+      case 'edit':
+        _showCategoryDialog(category: category);
+        break;
+      case 'add_sub':
+        _showCategoryDialog(parentId: category.id);
+        break;
+      case 'delete':
+        _confirmDeleteCategory(category);
+        break;
+    }
+  }
+
+  Future<void> _confirmDeleteAsset(Asset asset) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc muốn xóa tài sản "${asset.name}"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final result = await _apiService.deleteAsset(asset.id);
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Đã xóa tài sản')));
+        _loadAssets();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteCategory(AssetCategory category) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc muốn xóa danh mục "${category.name}"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final result = await _apiService.deleteAssetCategory(category.id);
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Đã xóa danh mục')));
+        _loadCategories();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+      }
+    }
+  }
+
+  Future<void> _confirmTransfer(AssetTransfer transfer) async {
+    final result = await _apiService.confirmAssetTransfer(transfer.id);
+    if (!mounted) return;
+    if (result['isSuccess'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xác nhận chuyển giao')));
+      _loadTransfers();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Có lỗi xảy ra')));
+    }
+  }
+
+  void _showBatchActionDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${_selectedAssetIds.length} tài sản đã chọn',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.person_add),
+              title: const Text('Cấp phát hàng loạt'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Batch assign
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chức năng đang phát triển')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Xóa hàng loạt',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Batch delete
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chức năng đang phát triển')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,2969 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/api_service.dart';
+
+class SystemAdminScreen extends StatefulWidget {
+  const SystemAdminScreen({super.key});
+
+  @override
+  State<SystemAdminScreen> createState() => _SystemAdminScreenState();
+}
+
+class _SystemAdminScreenState extends State<SystemAdminScreen>
+    with SingleTickerProviderStateMixin {
+  final ApiService _apiService = ApiService();
+  late TabController _tabController;
+  bool _isLoading = false;
+
+  // Dashboard
+  Map<String, dynamic>? _dashboard;
+  Map<String, dynamic>? _health;
+
+  // Stores
+  List<Map<String, dynamic>> _stores = [];
+
+  // Users
+  List<Map<String, dynamic>> _users = [];
+
+  // Devices
+  List<Map<String, dynamic>> _devices = [];
+  String? _deviceStoreFilter;
+  bool? _deviceOnlineFilter;
+
+  // Agents
+  List<Map<String, dynamic>> _agents = [];
+
+  // Licenses
+  List<Map<String, dynamic>> _licenses = [];
+
+  // Settings
+  List<Map<String, dynamic>> _settings = [];
+
+  // Database
+  Map<String, dynamic>? _dbInfo;
+  List<Map<String, dynamic>> _backupFiles = [];
+  bool _isBackingUp = false;
+
+  // Audit
+  List<Map<String, dynamic>> _auditLogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 9, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) _loadTabData(_tabController.index);
+    });
+    _loadTabData(0);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _showApiError(Map<String, dynamic> res) {
+    if (!mounted) return;
+    final msg = res['message']?.toString() ?? 'Lỗi không xác định';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text('Lỗi API: $msg'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4)),
+    );
+  }
+
+  Future<void> _loadTabData(int index) async {
+    setState(() => _isLoading = true);
+    try {
+      switch (index) {
+        case 0:
+          final results = await Future.wait([
+            _apiService.getSystemAdminDashboard(),
+            _apiService.getSystemHealth(),
+            _apiService.getSystemStores(pageSize: 5),
+          ]);
+          if (results[0]['isSuccess'] == true) {
+            final data = results[0]['data'] as Map<String, dynamic>? ?? {};
+            // Inject recent stores into dashboard data
+            if (results[2]['isSuccess'] == true) {
+              final rawData = results[2]['data'];
+              final storeItems = List<Map<String, dynamic>>.from(
+                  rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : []));
+              data['recentStores'] = storeItems;
+            }
+            setState(() => _dashboard = data);
+          } else {
+            _showApiError(results[0]);
+          }
+          if (results[1]['isSuccess'] == true) {
+            setState(() => _health = results[1]['data']);
+          }
+          break;
+        case 1:
+          final res = await _apiService.getSystemStores();
+          if (res['isSuccess'] == true) {
+            final rawData = res['data'];
+            setState(() => _stores = List<Map<String, dynamic>>.from(
+                rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : [])));
+          } else {
+            _showApiError(res);
+          }
+          break;
+        case 2:
+          final res = await _apiService.getSystemUsers();
+          if (res['isSuccess'] == true) {
+            final rawData = res['data'];
+            setState(() => _users = List<Map<String, dynamic>>.from(
+                rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : [])));
+          } else {
+            _showApiError(res);
+          }
+          break;
+        case 3:
+          await _loadDevices();
+          break;
+        case 4:
+          final res = await _apiService.getSystemAgents();
+          if (res['isSuccess'] == true) {
+            final rawData = res['data'];
+            setState(() => _agents = List<Map<String, dynamic>>.from(
+                rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : [])));
+          } else {
+            _showApiError(res);
+          }
+          break;
+        case 5:
+          final res = await _apiService.getLicenseKeys();
+          if (res['isSuccess'] == true) {
+            final rawData = res['data'];
+            setState(() => _licenses = List<Map<String, dynamic>>.from(
+                rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : [])));
+          } else {
+            _showApiError(res);
+          }
+          break;
+        case 6:
+          final res = await _apiService.getAllAppSettings();
+          if (res['isSuccess'] == true) {
+            setState(() =>
+                _settings = List<Map<String, dynamic>>.from(res['data'] ?? []));
+          } else {
+            _showApiError(res);
+          }
+          break;
+        case 7:
+          await _loadDatabaseInfo();
+          break;
+        case 8:
+          final res = await _apiService.getAuditLogs();
+          if (res['isSuccess'] == true) {
+            final rawData = res['data'];
+            setState(() => _auditLogs = List<Map<String, dynamic>>.from(
+                rawData is List ? rawData : (rawData is Map ? (rawData['items'] ?? []) : [])));
+          } else {
+            _showApiError(res);
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('Error loading tab $index: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Lỗi: $e'), backgroundColor: Colors.red.shade700),
+        );
+      }
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadDevices() async {
+    final res = await _apiService.getSystemDevices(
+      storeId: _deviceStoreFilter,
+      isOnline: _deviceOnlineFilter,
+    );
+    if (res['isSuccess'] == true) {
+      setState(
+          () => _devices = List<Map<String, dynamic>>.from(res['data'] ?? []));
+    }
+  }
+
+  Future<void> _loadDatabaseInfo() async {
+    final results = await Future.wait([
+      _apiService.getDatabaseInfo(),
+      _apiService.getBackupFiles(),
+    ]);
+    setState(() {
+      if (results[0]['isSuccess'] == true) _dbInfo = results[0]['data'];
+      if (results[1]['isSuccess'] == true) {
+        _backupFiles =
+            List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
+      body: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(controller: _tabController, children: [
+                    _buildDashboardTab(),
+                    _buildStoresTab(),
+                    _buildUsersTab(),
+                    _buildDevicesTab(),
+                    _buildAgentsTab(),
+                    _buildLicensesTab(),
+                    _buildSettingsTab(),
+                    _buildDatabaseTab(),
+                    _buildAuditTab(),
+                  ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      decoration: const BoxDecoration(
+        gradient:
+            LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF334155)]),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.shield, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Quản trị hệ thống',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold)),
+                    Text('SuperAdmin — Quản lý toàn bộ hệ thống',
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              if (_health != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _health?['status'] == 'Healthy'
+                        ? const Color(0xFF6366F1).withValues(alpha: 0.3)
+                        : Colors.red.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(
+                        _health?['status'] == 'Healthy'
+                            ? Icons.check_circle
+                            : Icons.error,
+                        color: Colors.white,
+                        size: 14),
+                    const SizedBox(width: 4),
+                    Text(_health?['status'] ?? 'N/A',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              const Tab(
+                  icon: Icon(Icons.dashboard, size: 18), text: 'Tổng quan'),
+              Tab(
+                  icon: const Icon(Icons.store, size: 18),
+                  text: 'Cửa hàng (${_stores.length})'),
+              Tab(
+                  icon: const Icon(Icons.people, size: 18),
+                  text: 'Người dùng (${_users.length})'),
+              Tab(
+                  icon: const Icon(Icons.router, size: 18),
+                  text: 'Thiết bị (${_devices.length})'),
+              Tab(
+                  icon: const Icon(Icons.support_agent, size: 18),
+                  text: 'Đại lý (${_agents.length})'),
+              Tab(
+                  icon: const Icon(Icons.vpn_key, size: 18),
+                  text: 'License (${_licenses.length})'),
+              Tab(
+                  icon: const Icon(Icons.settings, size: 18),
+                  text: 'Cài đặt (${_settings.length})'),
+              const Tab(icon: Icon(Icons.storage, size: 18), text: 'Database'),
+              const Tab(icon: Icon(Icons.history, size: 18), text: 'Nhật ký'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ DASHBOARD TAB ═══════════════════════════
+  Widget _buildDashboardTab() {
+    if (_dashboard == null) {
+      return Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.shield, size: 80, color: Colors.grey[300]),
+        const SizedBox(height: 16),
+        Text('Không thể tải dữ liệu dashboard',
+            style: TextStyle(color: Colors.grey[500])),
+        const SizedBox(height: 12),
+        ElevatedButton(
+            onPressed: () => _loadTabData(0), child: const Text('Thử lại')),
+      ]));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hint text
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              Icon(Icons.touch_app, size: 16, color: Colors.grey[400]),
+              const SizedBox(width: 6),
+              Text('Nhấn vào thẻ số liệu để xem chi tiết',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12,
+                      fontStyle: FontStyle.italic)),
+            ]),
+          ),
+          _buildDashboardStatRow(),
+          const SizedBox(height: 20),
+          if (_health != null) _buildHealthCard(),
+          const SizedBox(height: 20),
+          _buildRecentStoresPreview(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardStatRow() {
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: [
+        _buildDashStat('Cửa hàng', '${_dashboard?['totalStores'] ?? 0}',
+            Icons.store, const Color(0xFF6366F1),
+            sub: '${_dashboard?['activeStores'] ?? 0} hoạt động',
+            onTap: () => _navigateToTabAndShowDetail(1, 'stores')),
+        _buildDashStat('Người dùng', '${_dashboard?['totalUsers'] ?? 0}',
+            Icons.people, const Color(0xFF4F46E5),
+            onTap: () => _navigateToTabAndShowDetail(2, 'users')),
+        _buildDashStat('Thiết bị', '${_dashboard?['totalDevices'] ?? 0}',
+            Icons.router, const Color(0xFF0891B2),
+            sub: '${_dashboard?['onlineDevices'] ?? 0} online',
+            onTap: () => _navigateToTabAndShowDetail(3, 'devices')),
+        _buildDashStat('Đại lý', '${_dashboard?['totalAgents'] ?? 0}',
+            Icons.support_agent, const Color(0xFFEA580C),
+            onTap: () => _navigateToTabAndShowDetail(4, 'agents')),
+        _buildDashStat(
+            'Chấm công hôm nay',
+            '${_dashboard?['todayAttendances'] ?? 0}',
+            Icons.fingerprint,
+            const Color(0xFF6366F1),
+            onTap: () => _showAttendanceTodayDetail()),
+        _buildDashStat(
+            'License',
+            '${_dashboard?['totalLicenseKeys'] ?? _dashboard?['totalLicenses'] ?? 0}',
+            Icons.vpn_key,
+            const Color(0xFF4F46E5),
+            sub:
+                '${_dashboard?['usedLicenseKeys'] ?? _dashboard?['activeLicenses'] ?? 0} đã dùng',
+            onTap: () => _navigateToTabAndShowDetail(5, 'licenses')),
+      ],
+    );
+  }
+
+  void _navigateToTabAndShowDetail(int tabIndex, String type) {
+    _tabController.animateTo(tabIndex);
+    _loadTabData(tabIndex);
+  }
+
+  void _showAttendanceTodayDetail() {
+    final stores = _dashboard?['storeAttendances'] as List? ?? [];
+    final total = _dashboard?['todayAttendances'] ?? 0;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.fingerprint, color: Color(0xFF6366F1), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Chấm công hôm nay', style: TextStyle(fontSize: 16)),
+              Text('Tổng: $total lượt', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          )),
+        ]),
+        content: SizedBox(
+          width: 500,
+          height: stores.isEmpty ? 100 : (stores.length * 60.0).clamp(100, 400),
+          child: stores.isEmpty
+              ? Center(child: Text('Chưa có dữ liệu chấm công hôm nay',
+                  style: TextStyle(color: Colors.grey[500])))
+              : ListView.builder(
+                  itemCount: stores.length,
+                  itemBuilder: (ctx, i) {
+                    final s = stores[i] is Map ? stores[i] : {};
+                    final name = s['storeName'] ?? s['name'] ?? 'Cửa hàng ${i + 1}';
+                    final count = s['count'] ?? s['attendanceCount'] ?? 0;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6)),
+                          child: const Icon(Icons.store, color: Color(0xFF6366F1), size: 16),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(name.toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Text('$count lượt',
+                              style: const TextStyle(
+                                  color: Color(0xFF6366F1),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13)),
+                        ),
+                      ]),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashStat(String label, String value, IconData icon, Color color,
+      {String? sub, VoidCallback? onTap}) {
+    return SizedBox(
+      width: 220,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          hoverColor: color.withValues(alpha: 0.04),
+          splashColor: color.withValues(alpha: 0.1),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border(left: BorderSide(color: color, width: 4)),
+              boxShadow: [
+                BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10)
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(value,
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: color)),
+                        Text(label,
+                            style:
+                                TextStyle(color: Colors.grey[600], fontSize: 12)),
+                        if (sub != null)
+                          Text(sub,
+                              style:
+                                  TextStyle(color: Colors.grey[500], fontSize: 11)),
+                      ]),
+                ),
+                Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentStoresPreview() {
+    final storeStats = _dashboard?['recentStores'] as List? ?? [];
+    final storeBreakdown = _dashboard?['storeBreakdown'] as Map? ?? {};
+    final totalStores = _dashboard?['totalStores'] ?? 0;
+    final activeStores = _dashboard?['activeStores'] ?? 0;
+    final lockedStores = _dashboard?['lockedStores'] ?? 0;
+    final inactiveStores = totalStores - activeStores;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.analytics, color: Color(0xFF6366F1), size: 20),
+            const SizedBox(width: 8),
+            Text('Tổng quan nhanh',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey[800])),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _navigateToTabAndShowDetail(1, 'stores'),
+              icon: const Icon(Icons.store, size: 16),
+              label: const Text('Xem tất cả', style: TextStyle(fontSize: 12)),
+            ),
+          ]),
+          const SizedBox(height: 16),
+          // Summary chips
+          Wrap(spacing: 12, runSpacing: 8, children: [
+            _summaryChip('Hoạt động', '$activeStores', const Color(0xFF059669)),
+            if (inactiveStores > 0)
+              _summaryChip('Tạm tắt', '$inactiveStores', Colors.grey),
+            if (lockedStores > 0)
+              _summaryChip('Bị khóa', '$lockedStores', Colors.red),
+            if (storeBreakdown.isNotEmpty)
+              ...storeBreakdown.entries.map((e) =>
+                  _summaryChip(e.key.toString(), '${e.value}', const Color(0xFF4F46E5))),
+          ]),
+          if (storeStats.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text('Cửa hàng gần đây',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Colors.grey[700])),
+            const SizedBox(height: 10),
+            ...storeStats.take(5).map((s) {
+              final store = s is Map ? s : {};
+              final name = store['name'] ?? store['storeName'] ?? 'N/A';
+              final isActive = store['isActive'] as bool? ?? true;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: InkWell(
+                  onTap: () => _navigateToTabAndShowDetail(1, 'stores'),
+                  child: Row(children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive ? const Color(0xFF059669) : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(name.toString(),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w500, fontSize: 13)),
+                    ),
+                    if (store['userCount'] != null || store['totalUsers'] != null)
+                      _miniStat(Icons.people, '${store['userCount'] ?? store['totalUsers'] ?? 0}'),
+                    const SizedBox(width: 8),
+                    if (store['deviceCount'] != null || store['totalDevices'] != null)
+                      _miniStat(Icons.router, '${store['deviceCount'] ?? store['totalDevices'] ?? 0}'),
+                  ]),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(value,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: color, fontSize: 12)),
+      ]),
+    );
+  }
+
+  Widget _miniStat(IconData icon, String value) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 12, color: Colors.grey[500]),
+      const SizedBox(width: 3),
+      Text(value, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+    ]);
+  }
+
+  Widget _buildHealthCard() {
+    final checks = _health?['checks'] as List? ?? [];
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.monitor_heart, color: Color(0xFF6366F1), size: 20),
+            const SizedBox(width: 8),
+            Text('System Health',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey[800])),
+          ]),
+          const SizedBox(height: 12),
+          if (checks.isNotEmpty)
+            ...checks.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    Icon(
+                        c['status'] == 'Healthy'
+                            ? Icons.check_circle
+                            : Icons.warning,
+                        size: 16,
+                        color: c['status'] == 'Healthy'
+                            ? const Color(0xFF6366F1)
+                            : Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(c['name'] ?? '',
+                            style: TextStyle(
+                                color: Colors.grey[700], fontSize: 13))),
+                    Text(c['status'] ?? '',
+                        style: TextStyle(
+                            color: c['status'] == 'Healthy'
+                                ? const Color(0xFF6366F1)
+                                : Colors.orange,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                )),
+          if (checks.isEmpty)
+            Row(children: [
+              Icon(
+                  _health?['status'] == 'Healthy'
+                      ? Icons.check_circle
+                      : Icons.warning,
+                  size: 20,
+                  color: _health?['status'] == 'Healthy'
+                      ? const Color(0xFF6366F1)
+                      : Colors.orange),
+              const SizedBox(width: 8),
+              Text('Trạng thái: ${_health?['status'] ?? 'N/A'}',
+                  style: TextStyle(color: Colors.grey[700])),
+            ]),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ STORES TAB ═══════════════════════════
+  Widget _buildStoresTab() {
+    if (_stores.isEmpty) return _emptyState(Icons.store, 'Chưa có cửa hàng');
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _stores.length,
+      itemBuilder: (ctx, i) => _buildStoreCard(_stores[i]),
+    );
+  }
+
+  Widget _buildStoreCard(Map<String, dynamic> store) {
+    final isActive = store['isActive'] as bool? ?? true;
+    final isLocked = store['isLocked'] as bool? ?? false;
+    final name = store['name'] ?? store['storeName'] ?? 'N/A';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+            left: BorderSide(
+                color: isLocked
+                    ? Colors.red
+                    : isActive
+                        ? const Color(0xFF6366F1)
+                        : Colors.grey,
+                width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+          child: const Icon(Icons.store, color: Color(0xFF6366F1), size: 20),
+        ),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (store['phone'] != null)
+            Text(store['phone'],
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(height: 4),
+          Row(children: [
+            _statusChip(
+                isLocked
+                    ? 'Bị khóa'
+                    : isActive
+                        ? 'Hoạt động'
+                        : 'Tắt',
+                isLocked
+                    ? Colors.red
+                    : isActive
+                        ? const Color(0xFF6366F1)
+                        : Colors.grey),
+            const SizedBox(width: 6),
+            if (store['licenseType'] != null)
+              _statusChip(store['licenseType'], const Color(0xFF4F46E5)),
+          ]),
+        ]),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(children: [
+              if (store['address'] != null)
+                _infoRow(Icons.location_on, store['address']),
+              if (store['ownerEmail'] != null)
+                _infoRow(Icons.email, store['ownerEmail']),
+              _infoRow(Icons.people,
+                  'Users: ${store['userCount'] ?? store['totalUsers'] ?? 'N/A'}'),
+              _infoRow(Icons.router,
+                  'Devices: ${store['deviceCount'] ?? store['totalDevices'] ?? 'N/A'}'),
+              if (store['expiryDate'] != null)
+                _infoRow(Icons.event,
+                    'Hết hạn: ${_formatDate(store['expiryDate'])}'),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton.icon(
+                  onPressed: () => _toggleStoreStatus(store),
+                  icon:
+                      Icon(isActive ? Icons.pause : Icons.play_arrow, size: 16),
+                  label: Text(isActive ? 'Tắt' : 'Bật'),
+                ),
+                if (!isLocked)
+                  TextButton.icon(
+                    onPressed: () => _lockStore(store),
+                    icon: const Icon(Icons.lock, size: 16, color: Colors.red),
+                    label:
+                        const Text('Khóa', style: TextStyle(color: Colors.red)),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: () => _unlockStore(store),
+                    icon: const Icon(Icons.lock_open,
+                        size: 16, color: Colors.green),
+                    label: const Text('Mở khóa',
+                        style: TextStyle(color: Colors.green)),
+                  ),
+              ]),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleStoreStatus(Map<String, dynamic> store) async {
+    await _apiService.toggleStoreStatus(store['id']?.toString() ?? '');
+    _loadTabData(1);
+  }
+
+  Future<void> _lockStore(Map<String, dynamic> store) async {
+    final reason =
+        await _showInputDialog('Khóa cửa hàng', 'Lý do khóa (tùy chọn)');
+    if (reason == null) return;
+    await _apiService.lockStore(
+        store['id']?.toString() ?? '', reason.isNotEmpty ? reason : null);
+    _loadTabData(1);
+  }
+
+  Future<void> _unlockStore(Map<String, dynamic> store) async {
+    await _apiService.unlockStore(store['id']?.toString() ?? '');
+    _loadTabData(1);
+  }
+
+  // ═══════════════════════════ USERS TAB ═══════════════════════════
+  Widget _buildUsersTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8)
+                    ],
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.admin_panel_settings,
+                        color: Color(0xFF4F46E5), size: 18),
+                    const SizedBox(width: 8),
+                    Text('Tối đa 100 user gần nhất trên toàn hệ thống',
+                        style:
+                            TextStyle(color: Colors.grey[700], fontSize: 13)),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: _showCreateSuperAdminDialog,
+                icon: const Icon(Icons.person_add, size: 18),
+                label: const Text('Tạo SuperAdmin'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                  onPressed: () => _loadTabData(2),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Làm mới'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _users.isEmpty
+              ? _emptyState(Icons.people, 'Chưa có người dùng')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _users.length,
+                  itemBuilder: (ctx, i) => _buildUserCard(_users[i]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserCard(Map<String, dynamic> user) {
+    final isActive = user['isActive'] as bool? ?? true;
+    final role = user['role']?.toString() ?? 'Unknown';
+    final roleColor = switch (role.toLowerCase()) {
+      'superadmin' => const Color(0xFF4F46E5),
+      'agent' => const Color(0xFFEA580C),
+      'admin' => const Color(0xFF0891B2),
+      _ => const Color(0xFF6366F1),
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+            left: BorderSide(
+                color: isActive ? roleColor : Colors.grey, width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: roleColor.withValues(alpha: 0.1),
+          child: Text(
+            (user['fullName'] ?? user['email'] ?? 'U')
+                .toString()
+                .substring(0, 1)
+                .toUpperCase(),
+            style: TextStyle(color: roleColor, fontWeight: FontWeight.bold),
+          ),
+        ),
+        title: Text(user['fullName'] ?? user['email'] ?? 'N/A',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (user['email'] != null)
+            Text(user['email'],
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            _statusChip(role, roleColor),
+            _statusChip(isActive ? 'Hoạt động' : 'Ngưng hoạt động',
+                isActive ? const Color(0xFF059669) : Colors.grey),
+            if (user['storeName'] != null)
+              _statusChip(
+                  user['storeName'].toString(), const Color(0xFF0891B2)),
+          ]),
+          const SizedBox(height: 6),
+          Row(children: [
+            Icon(Icons.schedule, size: 12, color: Colors.grey[500]),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                user['lastLoginAt'] != null
+                    ? 'Đăng nhập cuối: ${_formatDateTime(user['lastLoginAt'])}'
+                    : 'Chưa có lần đăng nhập nào',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ),
+          ]),
+        ]),
+        trailing: IconButton(
+          icon: const Icon(Icons.lock_reset, size: 18),
+          tooltip: 'Cập nhật thông tin đăng nhập',
+          onPressed: () => _showEditUserDialog(user),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateSuperAdminDialog() {
+    final fullNameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo SuperAdmin'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _dialogField(fullNameCtrl, 'Họ tên', Icons.person),
+            const SizedBox(height: 12),
+            _dialogField(emailCtrl, 'Email', Icons.email),
+            const SizedBox(height: 12),
+            _dialogField(passwordCtrl, 'Mật khẩu', Icons.lock,
+                obscureText: true),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              final res = await _apiService.createSuperAdmin(
+                email: emailCtrl.text.trim(),
+                password: passwordCtrl.text,
+                fullName: fullNameCtrl.text.trim(),
+              );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (res['isSuccess'] == true) {
+                _loadTabData(2);
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Tạo SuperAdmin thành công')));
+              } else {
+                _showApiError(res);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white),
+            child: const Text('Tạo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditUserDialog(Map<String, dynamic> user) {
+    final fullNameCtrl =
+        TextEditingController(text: user['fullName']?.toString() ?? '');
+    final emailCtrl =
+        TextEditingController(text: user['email']?.toString() ?? '');
+    final passwordCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cập nhật thông tin đăng nhập'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _dialogField(fullNameCtrl, 'Họ tên', Icons.person),
+            const SizedBox(height: 12),
+            _dialogField(emailCtrl, 'Email', Icons.email),
+            const SizedBox(height: 12),
+            _dialogField(passwordCtrl, 'Mật khẩu mới (để trống nếu giữ nguyên)',
+                Icons.lock,
+                obscureText: true),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              final res = await _apiService.updateUserCredentials(
+                user['id']?.toString() ?? '',
+                newEmail: emailCtrl.text.trim(),
+                newPassword:
+                    passwordCtrl.text.trim().isEmpty ? null : passwordCtrl.text,
+                fullName: fullNameCtrl.text.trim(),
+              );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (res['isSuccess'] == true) {
+                _loadTabData(2);
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cập nhật user thành công')));
+              } else {
+                _showApiError(res);
+              }
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ DEVICES TAB ═══════════════════════════
+  Widget _buildDevicesTab() {
+    // Group devices by store
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final d in _devices) {
+      final storeKey = d['storeName'] ?? d['storeCode'] ?? 'Chưa gán cửa hàng';
+      grouped.putIfAbsent(storeKey, () => []).add(d);
+    }
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) => a == 'Chưa gán cửa hàng'
+          ? 1
+          : b == 'Chưa gán cửa hàng'
+              ? -1
+              : a.compareTo(b));
+
+    return Column(
+      children: [
+        // Filter bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _deviceStoreFilter,
+                      hint: const Text('Tất cả cửa hàng',
+                          style: TextStyle(fontSize: 13)),
+                      items: [
+                        const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Tất cả cửa hàng',
+                                style: TextStyle(fontSize: 13))),
+                        ..._stores.map((s) => DropdownMenuItem(
+                              value: s['id']?.toString(),
+                              child: Text(s['name'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 13)),
+                            )),
+                      ],
+                      onChanged: (v) {
+                        setState(() => _deviceStoreFilter = v);
+                        _loadDevices();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300)),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<bool?>(
+                    value: _deviceOnlineFilter,
+                    hint: const Text('Trạng thái',
+                        style: TextStyle(fontSize: 13)),
+                    items: const [
+                      DropdownMenuItem(
+                          value: null,
+                          child:
+                              Text('Tất cả', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: true,
+                          child:
+                              Text('Online', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: false,
+                          child:
+                              Text('Offline', style: TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (v) {
+                      setState(() => _deviceOnlineFilter = v);
+                      _loadDevices();
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.router, size: 16, color: Color(0xFF0891B2)),
+                  const SizedBox(width: 6),
+                  Text('${_devices.length} thiết bị',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0891B2))),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                  onPressed: () => _loadDevices(),
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: 'Làm mới'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _devices.isEmpty
+              ? _emptyState(Icons.router, 'Không tìm thấy thiết bị')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: sortedKeys.length,
+                  itemBuilder: (ctx, i) {
+                    final storeName = sortedKeys[i];
+                    final storeDevices = grouped[storeName]!;
+                    final onlineCount =
+                        storeDevices.where((d) => d['isOnline'] == true).length;
+                    return _buildDeviceStoreGroup(
+                        storeName, storeDevices, onlineCount);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceStoreGroup(
+      String storeName, List<Map<String, dynamic>> devices, int onlineCount) {
+    final isUnclaimed = storeName == 'Chưa gán cửa hàng';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+            left: BorderSide(
+                color: isUnclaimed ? Colors.grey : const Color(0xFF0891B2),
+                width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: (isUnclaimed ? Colors.grey : const Color(0xFF0891B2))
+              .withValues(alpha: 0.1),
+          child: Icon(isUnclaimed ? Icons.device_unknown : Icons.store,
+              color: isUnclaimed ? Colors.grey : const Color(0xFF0891B2),
+              size: 20),
+        ),
+        title: Text(storeName,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Row(children: [
+          _statusChip('${devices.length} thiết bị', const Color(0xFF0891B2)),
+          const SizedBox(width: 6),
+          _statusChip('$onlineCount online',
+              onlineCount > 0 ? const Color(0xFF059669) : Colors.grey),
+        ]),
+        children: devices.map((d) => _buildDeviceRow(d)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildDeviceRow(Map<String, dynamic> device) {
+    final isOnline = device['isOnline'] == true;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isOnline ? const Color(0xFF059669) : Colors.red.shade400,
+              boxShadow: isOnline
+                  ? [
+                      BoxShadow(
+                          color: const Color(0xFF059669).withValues(alpha: 0.4),
+                          blurRadius: 6)
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(device['deviceName'] ?? 'N/A',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13)),
+              Row(children: [
+                Icon(Icons.tag, size: 12, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(device['serialNumber'] ?? '',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontFamily: 'monospace')),
+              ]),
+            ]),
+          ),
+          if (device['ipAddress'] != null)
+            Text(device['ipAddress'],
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontFamily: 'monospace')),
+          const SizedBox(width: 12),
+          if (device['lastOnline'] != null)
+            Tooltip(
+              message: 'Lần cuối online',
+              child: Text(_formatDateTime(device['lastOnline']),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ AGENTS TAB ═══════════════════════════
+  Widget _buildAgentsTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _showCreateAgentDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Thêm đại lý'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEA580C),
+                    foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _agents.isEmpty
+              ? _emptyState(Icons.support_agent, 'Chưa có đại lý')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _agents.length,
+                  itemBuilder: (ctx, i) => _buildAgentCard(_agents[i]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAgentCard(Map<String, dynamic> agent) {
+    final isActive = agent['isActive'] as bool? ?? true;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+            left: BorderSide(
+                color: isActive ? const Color(0xFFEA580C) : Colors.grey,
+                width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFEA580C).withValues(alpha: 0.1),
+          child: Text(
+            (agent['name'] ?? 'A').toString().substring(0, 1).toUpperCase(),
+            style: const TextStyle(
+                color: Color(0xFFEA580C), fontWeight: FontWeight.bold),
+          ),
+        ),
+        title: Text(agent['name'] ?? 'N/A',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (agent['email'] != null)
+            Text(agent['email'],
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          if (agent['code'] != null)
+            Text('Mã: ${agent['code']}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+          const SizedBox(height: 4),
+          Row(children: [
+            _statusChip(isActive ? 'Hoạt động' : 'Tắt',
+                isActive ? const Color(0xFF6366F1) : Colors.grey),
+            const SizedBox(width: 6),
+            _statusChip(
+                '${agent['storeCount'] ?? agent['totalStores'] ?? 0} stores',
+                const Color(0xFF6366F1)),
+          ]),
+        ]),
+        trailing: PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert, color: Colors.grey[400]),
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+                value: 'token',
+                child: Row(children: [
+                  Icon(Icons.refresh, size: 16),
+                  SizedBox(width: 8),
+                  Text('Tạo lại token')
+                ])),
+            const PopupMenuItem(
+                value: 'edit',
+                child: Row(children: [
+                  Icon(Icons.edit, size: 16),
+                  SizedBox(width: 8),
+                  Text('Sửa')
+                ])),
+          ],
+          onSelected: (v) {
+            if (v == 'token') _regenerateToken(agent);
+            if (v == 'edit') _showEditAgentDialog(agent);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _regenerateToken(Map<String, dynamic> agent) async {
+    final res = await _apiService.regenerateAgentToken(
+        agentId: agent['id']?.toString());
+    if (mounted && res['isSuccess'] == true) {
+      final newToken =
+          res['data']?['registrationToken'] ?? res['data']?['token'] ?? '';
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Token mới'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Token đăng ký đại lý:', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8)),
+              child: SelectableText(newToken.toString(),
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: newToken.toString()));
+                ScaffoldMessenger.of(ctx)
+                    .showSnackBar(const SnackBar(content: Text('Đã sao chép')));
+              },
+              child: const Text('Sao chép'),
+            ),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _showCreateAgentDialog() {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thêm đại lý'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _dialogField(nameCtrl, 'Tên đại lý', Icons.person),
+            const SizedBox(height: 12),
+            _dialogField(codeCtrl, 'Mã đại lý', Icons.tag),
+            const SizedBox(height: 12),
+            _dialogField(emailCtrl, 'Email', Icons.email),
+            const SizedBox(height: 12),
+            _dialogField(phoneCtrl, 'Số điện thoại', Icons.phone),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              final res = await _apiService.createAgent(
+                  name: nameCtrl.text,
+                  code: codeCtrl.text,
+                  email: emailCtrl.text,
+                  phone: phoneCtrl.text);
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (res['isSuccess'] == true) _loadTabData(3);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEA580C)),
+            child: const Text('Tạo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditAgentDialog(Map<String, dynamic> agent) {
+    final nameCtrl = TextEditingController(text: agent['name'] ?? '');
+    final phoneCtrl = TextEditingController(text: agent['phone'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sửa đại lý'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _dialogField(nameCtrl, 'Tên đại lý', Icons.person),
+            const SizedBox(height: 12),
+            _dialogField(phoneCtrl, 'Số điện thoại', Icons.phone),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              await _apiService.updateAgent(
+                  id: agent['id']?.toString(),
+                  name: nameCtrl.text,
+                  phone: phoneCtrl.text);
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              _loadTabData(3);
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ SETTINGS TAB ═══════════════════════════
+  Widget _buildSettingsTab() {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final setting in _settings) {
+      final group = setting['group']?.toString().trim().isNotEmpty == true
+          ? setting['group'].toString()
+          : 'General';
+      grouped.putIfAbsent(group, () => []).add(setting);
+    }
+    final groups = grouped.keys.toList()..sort();
+    for (final group in groups) {
+      grouped[group]!.sort((a, b) {
+        final left = (a['displayOrder'] as num?)?.toInt() ?? 0;
+        final right = (b['displayOrder'] as num?)?.toInt() ?? 0;
+        return left.compareTo(right);
+      });
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final res = await _apiService.initializeAppSettings();
+                  if (res['isSuccess'] == true) {
+                    _loadTabData(6);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Đã khởi tạo settings mặc định')));
+                    }
+                  } else {
+                    _showApiError(res);
+                  }
+                },
+                icon: const Icon(Icons.auto_fix_high, size: 18),
+                label: const Text('Khởi tạo mặc định'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                  onPressed: () => _loadTabData(6),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Làm mới'),
+              const Spacer(),
+              if (_settings.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text('${_settings.length} cấu hình',
+                      style: const TextStyle(
+                          color: Color(0xFF6366F1),
+                          fontWeight: FontWeight.w600)),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _settings.isEmpty
+              ? _emptyState(Icons.settings, 'Chưa có cấu hình ứng dụng')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: groups.length,
+                  itemBuilder: (ctx, i) =>
+                      _buildSettingsGroup(groups[i], grouped[groups[i]]!),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsGroup(
+      String group, List<Map<String, dynamic>> settings) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            Border(left: BorderSide(color: const Color(0xFF6366F1), width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+          child: const Icon(Icons.settings, color: Color(0xFF6366F1), size: 18),
+        ),
+        title: Text(group, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('${settings.length} cấu hình',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        children: settings.map(_buildSettingRow).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSettingRow(Map<String, dynamic> setting) {
+    final dataType = setting['dataType']?.toString() ?? 'text';
+    final value = setting['value']?.toString() ?? '';
+    final description = setting['description']?.toString();
+    final isPublic = setting['isPublic'] == true;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(setting['key']?.toString() ?? 'N/A',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13)),
+                ),
+                _statusChip(dataType, const Color(0xFF0891B2)),
+                const SizedBox(width: 6),
+                _statusChip(isPublic ? 'Public' : 'Private',
+                    isPublic ? const Color(0xFF059669) : Colors.grey),
+              ]),
+              if (description != null && description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(description,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                value.isEmpty ? 'Chưa có giá trị' : value,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: value.isEmpty ? Colors.grey[500] : Colors.grey[800]),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                setting['lastModified'] != null
+                    ? 'Cập nhật: ${_formatDateTime(setting['lastModified'])}'
+                    : 'Chưa cập nhật',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: () => _showEditSettingDialog(setting),
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            tooltip: 'Sửa cấu hình',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditSettingDialog(Map<String, dynamic> setting) {
+    final valueCtrl =
+        TextEditingController(text: setting['value']?.toString() ?? '');
+    final descriptionCtrl =
+        TextEditingController(text: setting['description']?.toString() ?? '');
+    final groupCtrl =
+        TextEditingController(text: setting['group']?.toString() ?? 'General');
+    final displayOrderCtrl =
+        TextEditingController(text: (setting['displayOrder'] ?? 0).toString());
+    bool isPublic = setting['isPublic'] == true;
+    String dataType = setting['dataType']?.toString() ?? 'text';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cập nhật ${setting['key']}'),
+        content: SizedBox(
+          width: 460,
+          child: StatefulBuilder(
+            builder: (ctx, setSt) => SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _dialogField(groupCtrl, 'Nhóm', Icons.folder_open),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: dataType,
+                  decoration: InputDecoration(
+                      labelText: 'Kiểu dữ liệu',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10))),
+                  items: const [
+                    'text',
+                    'textarea',
+                    'email',
+                    'phone',
+                    'url',
+                    'image'
+                  ]
+                      .map((item) =>
+                          DropdownMenuItem(value: item, child: Text(item)))
+                      .toList(),
+                  onChanged: (value) =>
+                      setSt(() => dataType = value ?? dataType),
+                ),
+                const SizedBox(height: 12),
+                _dialogField(displayOrderCtrl, 'Thứ tự hiển thị',
+                    Icons.format_list_numbered),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Mô tả',
+                    prefixIcon: const Icon(Icons.notes, size: 20),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: valueCtrl,
+                  maxLines: dataType == 'textarea' ? 5 : 2,
+                  decoration: InputDecoration(
+                    labelText: 'Giá trị',
+                    prefixIcon: const Icon(Icons.tune, size: 20),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Cho phép public'),
+                  value: isPublic,
+                  onChanged: (value) => setSt(() => isPublic = value),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              final res = await _apiService.upsertAppSetting(
+                key: setting['key']?.toString() ?? '',
+                value: valueCtrl.text,
+                description: descriptionCtrl.text.trim(),
+                group: groupCtrl.text.trim().isEmpty
+                    ? 'General'
+                    : groupCtrl.text.trim(),
+                dataType: dataType,
+                displayOrder: int.tryParse(displayOrderCtrl.text) ?? 0,
+                isPublic: isPublic,
+              );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (res['isSuccess'] == true) {
+                _loadTabData(6);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Cập nhật cấu hình thành công')));
+              } else {
+                _showApiError(res);
+              }
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ LICENSES TAB ═══════════════════════════
+  Widget _buildLicensesTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _showCreateLicenseDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Tạo license'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _showBatchCreateDialog,
+                icon: const Icon(Icons.library_add, size: 18),
+                label: const Text('Tạo hàng loạt'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _licenses.isEmpty
+              ? _emptyState(Icons.vpn_key, 'Chưa có license key')
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _licenses.length,
+                  itemBuilder: (ctx, i) => _buildLicenseCard(_licenses[i]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLicenseCard(Map<String, dynamic> license) {
+    final status =
+        license['status'] ?? (license['isUsed'] == true ? 'used' : 'available');
+    final isUsed =
+        license['isUsed'] == true || status == 'used' || status == 'active';
+    final Color statusColor;
+    switch (status.toString().toLowerCase()) {
+      case 'active':
+      case 'used':
+        statusColor = const Color(0xFF6366F1);
+        break;
+      case 'available':
+        statusColor = const Color(0xFF6366F1);
+        break;
+      case 'revoked':
+      case 'expired':
+        statusColor = Colors.red;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: statusColor, width: 3)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8)),
+          child: Icon(Icons.vpn_key, color: statusColor, size: 18),
+        ),
+        title: Text(
+          license['key'] ?? license['licenseKey'] ?? 'N/A',
+          style: const TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              fontSize: 13),
+        ),
+        subtitle: Row(children: [
+          _statusChip(status.toString(), statusColor),
+          const SizedBox(width: 6),
+          if (license['licenseType'] != null)
+            _statusChip(license['licenseType'], const Color(0xFF4F46E5)),
+          if (license['storeName'] != null) ...[
+            const SizedBox(width: 6),
+            Flexible(
+                child: Text(license['storeName'],
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis)),
+          ],
+        ]),
+        trailing: !isUsed
+            ? IconButton(
+                icon: const Icon(Icons.block, color: Colors.red, size: 18),
+                tooltip: 'Thu hồi',
+                onPressed: () async {
+                  await _apiService
+                      .revokeLicenseKey(license['id']?.toString() ?? '');
+                  _loadTabData(4);
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _showCreateLicenseDialog() {
+    String licenseType = 'Standard';
+    final daysCtrl = TextEditingController(text: '365');
+    final usersCtrl = TextEditingController(text: '50');
+    final devicesCtrl = TextEditingController(text: '10');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo License Key'),
+        content: SizedBox(
+          width: 380,
+          child: StatefulBuilder(
+            builder: (ctx, setSt) =>
+                Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<String>(
+                initialValue: licenseType,
+                decoration: InputDecoration(
+                    labelText: 'Loại',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                items: ['Trial', 'Standard', 'Premium', 'Enterprise']
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) => setSt(() => licenseType = v ?? licenseType),
+              ),
+              const SizedBox(height: 12),
+              _dialogField(daysCtrl, 'Số ngày', Icons.calendar_today),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                    child: _dialogField(usersCtrl, 'Max users', Icons.people)),
+                const SizedBox(width: 12),
+                Expanded(
+                    child:
+                        _dialogField(devicesCtrl, 'Max devices', Icons.router)),
+              ]),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              await _apiService.createLicenseKey(
+                licenseType: licenseType,
+                durationDays: int.tryParse(daysCtrl.text),
+                maxUsers: int.tryParse(usersCtrl.text),
+                maxDevices: int.tryParse(devicesCtrl.text),
+              );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              _loadTabData(4);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5)),
+            child: const Text('Tạo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBatchCreateDialog() {
+    final countCtrl = TextEditingController(text: '10');
+    String licenseType = 'Standard';
+    final daysCtrl = TextEditingController(text: '365');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo hàng loạt License'),
+        content: SizedBox(
+          width: 380,
+          child: StatefulBuilder(
+            builder: (ctx, setSt) =>
+                Column(mainAxisSize: MainAxisSize.min, children: [
+              _dialogField(countCtrl, 'Số lượng', Icons.numbers),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: licenseType,
+                decoration: InputDecoration(
+                    labelText: 'Loại',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                items: ['Trial', 'Standard', 'Premium', 'Enterprise']
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) => setSt(() => licenseType = v ?? licenseType),
+              ),
+              const SizedBox(height: 12),
+              _dialogField(daysCtrl, 'Số ngày', Icons.calendar_today),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              await _apiService.createBatchLicenseKeys(
+                count: int.tryParse(countCtrl.text),
+                licenseType: licenseType,
+                durationDays: int.tryParse(daysCtrl.text),
+              );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              _loadTabData(4);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5)),
+            child: const Text('Tạo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ DATABASE TAB ═══════════════════════════
+  Widget _buildDatabaseTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDbInfoCard(),
+          const SizedBox(height: 16),
+          _buildBackupSection(),
+          const SizedBox(height: 16),
+          _buildBackupFilesList(),
+          const SizedBox(height: 16),
+          _buildDangerZone(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDbInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            const Border(left: BorderSide(color: Color(0xFF6366F1), width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  const Icon(Icons.storage, color: Color(0xFF6366F1), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text('Thông tin Database',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey[800])),
+            const Spacer(),
+            IconButton(
+                onPressed: () => _loadDatabaseInfo(),
+                icon: const Icon(Icons.refresh, size: 18),
+                tooltip: 'Làm mới'),
+          ]),
+          const SizedBox(height: 16),
+          if (_dbInfo != null) ...[
+            Wrap(spacing: 20, runSpacing: 12, children: [
+              _dbInfoItem(
+                  'Database', _dbInfo?['databaseName'] ?? 'N/A', Icons.dns),
+              _dbInfoItem('Host', _dbInfo?['host'] ?? 'N/A', Icons.computer),
+              _dbInfoItem(
+                  'Kích thước', _dbInfo?['size'] ?? 'N/A', Icons.pie_chart),
+              _dbInfoItem(
+                  'Backups',
+                  '${_dbInfo?['backups']?['count'] ?? 0} files (${_dbInfo?['backups']?['totalSizeMB'] ?? 0} MB)',
+                  Icons.backup),
+            ]),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text('Dữ liệu theo bảng',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.grey[700])),
+            const SizedBox(height: 10),
+            Wrap(spacing: 14, runSpacing: 10, children: [
+              _dbTableCount(
+                  'Cửa hàng', _dbInfo?['tables']?['stores'], Icons.store),
+              _dbTableCount(
+                  'Người dùng', _dbInfo?['tables']?['users'], Icons.people),
+              _dbTableCount(
+                  'Nhân viên', _dbInfo?['tables']?['employees'], Icons.badge),
+              _dbTableCount(
+                  'Thiết bị', _dbInfo?['tables']?['devices'], Icons.router),
+              _dbTableCount('Nhân sự máy', _dbInfo?['tables']?['deviceUsers'],
+                  Icons.person_pin),
+              _dbTableCount('Lệnh máy', _dbInfo?['tables']?['deviceCommands'],
+                  Icons.terminal),
+              _dbTableCount('Chấm công', _dbInfo?['tables']?['attendanceLogs'],
+                  Icons.fingerprint),
+              _dbTableCount(
+                  'Nhật ký', _dbInfo?['tables']?['auditLogs'], Icons.history),
+            ]),
+          ] else
+            const Center(
+                child:
+                    Text('Đang tải...', style: TextStyle(color: Colors.grey))),
+        ],
+      ),
+    );
+  }
+
+  Widget _dbInfoItem(String label, String value, IconData icon) {
+    return SizedBox(
+      width: 200,
+      child: Row(children: [
+        Icon(icon, size: 16, color: Colors.grey[500]),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _dbTableCount(String label, dynamic count, IconData icon) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 16, color: const Color(0xFF6366F1)),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(label,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]))),
+        Text('${count ?? 0}',
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6366F1))),
+      ]),
+    );
+  }
+
+  Widget _buildBackupSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            const Border(left: BorderSide(color: Color(0xFF059669), width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF059669).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  const Icon(Icons.backup, color: Color(0xFF059669), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text('Sao lưu dữ liệu',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey[800])),
+          ]),
+          const SizedBox(height: 16),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            ElevatedButton.icon(
+              onPressed: _isBackingUp ? null : _performFullBackup,
+              icon: _isBackingUp
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.cloud_upload, size: 18),
+              label:
+                  Text(_isBackingUp ? 'Đang backup...' : 'Backup toàn bộ DB'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isBackingUp ? null : _showBackupStoreDialog,
+              icon: const Icon(Icons.store, size: 18),
+              label: const Text('Backup theo cửa hàng'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF059669),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackupFilesList() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.folder, color: Color(0xFF6366F1), size: 20),
+            const SizedBox(width: 8),
+            Text('File backup (${_backupFiles.length})',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.grey[800])),
+            const Spacer(),
+            IconButton(
+                onPressed: () => _loadDatabaseInfo(),
+                icon: const Icon(Icons.refresh, size: 18),
+                tooltip: 'Làm mới'),
+          ]),
+          const SizedBox(height: 12),
+          if (_backupFiles.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                  child: Text('Chưa có file backup',
+                      style: TextStyle(color: Colors.grey[500]))),
+            )
+          else
+            ..._backupFiles.map((f) => Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(children: [
+                    Icon(
+                      f['type'] == 'full' ? Icons.cloud_done : Icons.store,
+                      size: 18,
+                      color: f['type'] == 'full'
+                          ? const Color(0xFF059669)
+                          : const Color(0xFF6366F1),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(f['fileName'] ?? '',
+                                style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                            Text(
+                                '${f['sizeMB'] ?? 0} MB — ${_formatDateTime(f['createdAt'])}',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey[500])),
+                          ]),
+                    ),
+                    _statusChip(
+                        f['type'] == 'full' ? 'Full' : 'Store',
+                        f['type'] == 'full'
+                            ? const Color(0xFF059669)
+                            : const Color(0xFF6366F1)),
+                    const SizedBox(width: 8),
+                    if (f['type'] == 'full')
+                      IconButton(
+                        icon: const Icon(Icons.restore,
+                            size: 18, color: Color(0xFFEA580C)),
+                        tooltip: 'Restore',
+                        onPressed: () => _showRestoreDialog(f['fileName']),
+                      ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline,
+                          size: 18, color: Colors.red[300]),
+                      tooltip: 'Xóa',
+                      onPressed: () => _deleteBackupFile(f['fileName']),
+                    ),
+                  ]),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDangerZone() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: const Border(left: BorderSide(color: Colors.red, width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  const Icon(Icons.warning_amber, color: Colors.red, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text('Vùng nguy hiểm',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.red[700])),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+              'Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          const SizedBox(height: 16),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            OutlinedButton.icon(
+              onPressed: _showDeleteStoreDataDialog,
+              icon: const Icon(Icons.delete_sweep, size: 18),
+              label: const Text('Xóa dữ liệu cửa hàng'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            ),
+            OutlinedButton.icon(
+              onPressed: _showPurgeAllDialog,
+              icon: const Icon(Icons.delete_forever, size: 18),
+              label: const Text('Xóa toàn bộ dữ liệu'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performFullBackup() async {
+    setState(() => _isBackingUp = true);
+    try {
+      final res = await _apiService.backupDatabase();
+      if (mounted) {
+        if (res['isSuccess'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Backup thành công: ${res['data']?['fileName']} (${res['data']?['sizeMB']}MB)'),
+            backgroundColor: const Color(0xFF059669),
+          ));
+          _loadDatabaseInfo();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Backup thất bại: ${res['message'] ?? res['errors']?.toString() ?? 'Unknown error'}'),
+            backgroundColor: Colors.red,
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+      }
+    }
+    setState(() => _isBackingUp = false);
+  }
+
+  void _showBackupStoreDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backup dữ liệu cửa hàng'),
+        content: SizedBox(
+          width: 400,
+          child: _stores.isEmpty
+              ? const Text('Chưa có cửa hàng nào')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Chọn cửa hàng cần backup:',
+                        style: TextStyle(fontSize: 13)),
+                    const SizedBox(height: 12),
+                    ..._stores.take(20).map((s) => ListTile(
+                          leading:
+                              const Icon(Icons.store, color: Color(0xFF6366F1)),
+                          title: Text(s['name'] ?? 'N/A'),
+                          subtitle: Text(s['code'] ?? '',
+                              style: const TextStyle(fontSize: 12)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            setState(() => _isBackingUp = true);
+                            final res = await _apiService
+                                .backupStoreData(s['id']?.toString() ?? '');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text(res['isSuccess'] == true
+                                    ? 'Backup cửa hàng ${s['name']} thành công'
+                                    : 'Backup thất bại: ${res['message'] ?? 'Unknown'}'),
+                                backgroundColor: res['isSuccess'] == true
+                                    ? const Color(0xFF059669)
+                                    : Colors.red,
+                              ));
+                              _loadDatabaseInfo();
+                            }
+                            setState(() => _isBackingUp = false);
+                          },
+                        )),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+        ],
+      ),
+    );
+  }
+
+  void _showRestoreDialog(String? fileName) {
+    if (fileName == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.warning_amber, color: Colors.orange[700]),
+          const SizedBox(width: 8),
+          const Text('Restore Database'),
+        ]),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: const Row(children: [
+                Icon(Icons.warning, color: Colors.orange, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        'Thao tác này sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại bằng dữ liệu từ file backup. Không thể hoàn tác!',
+                        style: TextStyle(fontSize: 13))),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            Text('File: $fileName',
+                style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _isBackingUp = true);
+              final res = await _apiService.restoreDatabase(fileName);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(res['isSuccess'] == true
+                      ? 'Restore thành công!'
+                      : 'Restore thất bại: ${res['message'] ?? 'Unknown'}'),
+                  backgroundColor: res['isSuccess'] == true
+                      ? const Color(0xFF059669)
+                      : Colors.red,
+                ));
+              }
+              setState(() => _isBackingUp = false);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Xác nhận Restore'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteBackupFile(String? fileName) async {
+    if (fileName == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa file backup'),
+        content: Text('Bạn có chắc muốn xóa "$fileName"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await _apiService.deleteBackupFile(fileName);
+      _loadDatabaseInfo();
+    }
+  }
+
+  void _showDeleteStoreDataDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.delete_sweep, color: Colors.red),
+          SizedBox(width: 8),
+          Text('Xóa dữ liệu cửa hàng'),
+        ]),
+        content: SizedBox(
+          width: 400,
+          child: _stores.isEmpty
+              ? const Text('Chưa có cửa hàng nào')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Row(children: [
+                        Icon(Icons.warning, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                            child: Text(
+                                'Sẽ xóa: chấm công, lệnh máy, nhân sự máy, thiết bị, nhân viên của cửa hàng được chọn.',
+                                style: TextStyle(fontSize: 13))),
+                      ]),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._stores.take(20).map((s) => ListTile(
+                          leading: const Icon(Icons.store, color: Colors.red),
+                          title: Text(s['name'] ?? 'N/A'),
+                          subtitle: Text(s['code'] ?? '',
+                              style: const TextStyle(fontSize: 12)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            final confirm = await _showConfirmDialog(
+                              'Xác nhận xóa dữ liệu',
+                              'Bạn có chắc muốn xóa TOÀN BỘ dữ liệu của "${s['name']}"? Thao tác này không thể hoàn tác!',
+                            );
+                            if (confirm == true) {
+                              final res = await _apiService
+                                  .deleteStoreData(s['id']?.toString() ?? '');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text(res['isSuccess'] == true
+                                      ? 'Đã xóa dữ liệu ${s['name']}'
+                                      : 'Lỗi: ${res['message'] ?? 'Unknown'}'),
+                                  backgroundColor: res['isSuccess'] == true
+                                      ? const Color(0xFF059669)
+                                      : Colors.red,
+                                ));
+                                _loadDatabaseInfo();
+                              }
+                            }
+                          },
+                        )),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+        ],
+      ),
+    );
+  }
+
+  void _showPurgeAllDialog() {
+    final confirmCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.delete_forever, color: Colors.red),
+          const SizedBox(width: 8),
+          Text('Xóa toàn bộ dữ liệu', style: TextStyle(color: Colors.red[700])),
+        ]),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: const Column(children: [
+                Row(children: [
+                  Icon(Icons.warning, color: Colors.red, size: 24),
+                  SizedBox(width: 8),
+                  Expanded(
+                      child: Text(
+                          'CẢNH BÁO: Thao tác này sẽ xóa TẤT CẢ dữ liệu chấm công, nhân viên, thiết bị trên toàn hệ thống!',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red))),
+                ]),
+                SizedBox(height: 8),
+                Text(
+                    'Thao tác KHÔNG THỂ HOÀN TÁC. Hãy chắc chắn đã backup trước.',
+                    style: TextStyle(fontSize: 12)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            const Text('Nhập "CONFIRM_DELETE_ALL" để xác nhận:',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmCtrl,
+              decoration: InputDecoration(
+                hintText: 'CONFIRM_DELETE_ALL',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.key, color: Colors.red),
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              if (confirmCtrl.text != 'CONFIRM_DELETE_ALL') {
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Mã xác nhận không đúng'),
+                    backgroundColor: Colors.red));
+                return;
+              }
+              Navigator.pop(ctx);
+              final res = await _apiService.purgeAllData(confirmCtrl.text);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(res['isSuccess'] == true
+                      ? 'Đã xóa toàn bộ dữ liệu!'
+                      : 'Lỗi: ${res['message'] ?? 'Unknown'}'),
+                  backgroundColor: res['isSuccess'] == true
+                      ? const Color(0xFF059669)
+                      : Colors.red,
+                ));
+                _loadDatabaseInfo();
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('XÓA TOÀN BỘ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ AUDIT TAB ═══════════════════════════
+  Widget _buildAuditTab() {
+    if (_auditLogs.isEmpty)
+      return _emptyState(Icons.history, 'Chưa có nhật ký hoạt động');
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _auditLogs.length,
+      itemBuilder: (ctx, i) => _buildAuditRow(_auditLogs[i]),
+    );
+  }
+
+  Widget _buildAuditRow(Map<String, dynamic> log) {
+    final action = log['action'] ?? log['actionType'] ?? '';
+    final Color actionColor;
+    switch (action.toString().toLowerCase()) {
+      case 'create':
+        actionColor = const Color(0xFF6366F1);
+        break;
+      case 'update':
+        actionColor = const Color(0xFF6366F1);
+        break;
+      case 'delete':
+        actionColor = Colors.red;
+        break;
+      case 'login':
+        actionColor = const Color(0xFF4F46E5);
+        break;
+      default:
+        actionColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: actionColor, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+                color: actionColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6)),
+            child: Icon(
+              action.toString().toLowerCase() == 'create'
+                  ? Icons.add
+                  : action.toString().toLowerCase() == 'delete'
+                      ? Icons.delete
+                      : action.toString().toLowerCase() == 'login'
+                          ? Icons.login
+                          : Icons.edit,
+              color: actionColor,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(log['description'] ?? log['entityType'] ?? 'N/A',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500)),
+              Row(children: [
+                _statusChip(action.toString(), actionColor),
+                if (log['userName'] != null || log['userEmail'] != null) ...[
+                  const SizedBox(width: 6),
+                  Text(log['userName'] ?? log['userEmail'] ?? '',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ],
+              ]),
+            ]),
+          ),
+          Text(_formatDate(log['createdAt'] ?? log['timestamp']),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════ HELPERS ═══════════════════════════
+  Widget _emptyState(IconData icon, String msg) {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 80, color: Colors.grey[300]),
+        const SizedBox(height: 16),
+        Text(msg, style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+      ]),
+    );
+  }
+
+  Widget _statusChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8)),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        Icon(icon, size: 14, color: Colors.grey[500]),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(text,
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]))),
+      ]),
+    );
+  }
+
+  Widget _dialogField(TextEditingController ctrl, String label, IconData icon,
+      {bool obscureText = false}) {
+    return TextField(
+      controller: ctrl,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return '';
+    try {
+      final d = DateTime.parse(date.toString());
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return date.toString();
+    }
+  }
+
+  Future<String?> _showInputDialog(String title, String label) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(
+              labelText: label,
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Hủy')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(dynamic date) {
+    if (date == null) return '';
+    try {
+      final d = DateTime.parse(date.toString()).toLocal();
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return date.toString();
+    }
+  }
+
+  Future<bool?> _showConfirmDialog(String title, String content) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+  }
+}

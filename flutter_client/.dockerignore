@@ -1,0 +1,14 @@
+# Build cache
+build/
+.dart_tool/
+.packages
+.pub/
+.idea/
+*.iml
+.vscode/
+windows/
+linux/
+macos/
+android/
+ios/
+test/

@@ -1,0 +1,11 @@
+﻿plink.exe : -- Keyboard-interactive authentication prompts from server: 
+------------------
+At line:1 char:1
++ & "C:\Program Files\PuTTY\plink.exe" -ssh root@103.133.224.176 -pw "L ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (-- Keyboard-int...--------------- 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+-- End of keyboard-interactive prompts from server ---------------------------
+cat: /tmp/dump_schema.sql: No such file or directory

@@ -1,0 +1,48 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/src/ZKTecoADMS.Api/ZKTecoADMS.Api.csproj",
+				"/property:GenerateFullPaths=true",
+				"/consoleloggerparameters:NoSummary;ForceNoAlign"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "publish",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"publish",
+				"${workspaceFolder}/src/ZKTecoADMS.Api/ZKTecoADMS.Api.csproj",
+				"/property:GenerateFullPaths=true",
+				"/consoleloggerparameters:NoSummary;ForceNoAlign"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "watch",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"watch",
+				"run",
+				"--project",
+				"${workspaceFolder}/src/ZKTecoADMS.Api/ZKTecoADMS.Api.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "flutter-web",
+			"type": "shell",
+			"command": "cd flutter_client; flutter run -d chrome --web-port=62880 --web-renderer html",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

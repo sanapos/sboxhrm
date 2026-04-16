@@ -1,0 +1,1 @@
+SELECT "Id", "EmployeeUserId", "Name", "IsActive" FROM "Shifts" LIMIT 3;

@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>ZKTecoADMS - HRM & Finance System for Small Business | Part-Time Staff Management</title>
+    <meta name="title" content="ZKTecoADMS - HRM & Finance System for Small Business | Part-Time Staff Management">
+    <meta name="description"
+        content="Complete HRM and Finance system for small businesses with part-time employees. Employee shift registration, leave submission, automated payslips, and real-time cost tracking. Start free trial today.">
+    <meta name="keywords"
+        content="HRM system, small business HR, part-time employee management, payroll automation, shift registration, leave management, employee payslips, finance tracking, biometric attendance, workforce management">
+    <meta name="author" content="ZKTecoADMS">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://yourwebsite.com/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yourwebsite.com/">
+    <meta property="og:title" content="ZKTecoADMS - HRM & Finance System for Small Business">
+    <meta property="og:description"
+        content="Complete HRM and Finance system for small businesses with part-time employees. Automate shifts, leaves, and payroll.">
+    <meta property="og:image" content="https://yourwebsite.com/og-image.jpg">
+    <meta property="og:site_name" content="ZKTecoADMS">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="vi_VN">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://yourwebsite.com/">
+    <meta name="twitter:title" content="ZKTecoADMS - HRM & Finance System for Small Business">
+    <meta name="twitter:description"
+        content="Complete HRM and Finance system for small businesses with part-time employees. Automate shifts, leaves, and payroll.">
+    <meta name="twitter:image" content="https://yourwebsite.com/twitter-image.jpg">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ZKTecoADMS",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "HRM Software",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "30-day free trial"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "250"
+      },
+      "description": "Complete HRM and Finance system for small businesses with part-time employees. Features include shift registration, leave management, automated payslips, and cost tracking.",
+      "featureList": [
+        "Employee Shift Registration",
+        "Leave Submission & Approval",
+        "Automated Payslips",
+        "Biometric Attendance Tracking",
+        "Finance & Cost Tracking",
+        "Real-time Reporting"
+      ],
+      "screenshot": "https://yourwebsite.com/screenshot.jpg"
+    }
+    </script>
+
+    <!-- Preconnect for Performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="40" height="40" rx="8" fill="url(#logo-gradient)" />
+                        <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <defs>
+                            <linearGradient id="logo-gradient" x1="0" y1="0" x2="40" y2="40">
+                                <stop offset="0%" stop-color="#6366f1" />
+                                <stop offset="100%" stop-color="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span class="logo-text">ZKTeco<span class="logo-highlight">ADMS</span></span>
+                </div>
+                <div class="nav-links">
+                    <a href="#features" class="nav-link" data-i18n="nav_features">Tính Năng</a>
+                    <a href="#how-it-works" class="nav-link" data-i18n="nav_how_it_works">Cách Hoạt Động</a>
+                    <a href="#benefits" class="nav-link" data-i18n="nav_benefits">Lợi Ích</a>
+                    <a href="#pricing" class="nav-link" data-i18n="nav_pricing">Bảng Giá</a>
+                    <div class="language-switcher">
+                        <button class="language-btn" id="languageBtn" onclick="toggleLanguageMenu()">
+                            EN
+                        </button>
+                        <div class="language-menu" id="languageMenu">
+                            <button onclick="setLanguage('en')" class="language-option">
+                                <span class="flag">🇺🇸</span> English
+                            </button>
+                            <button onclick="setLanguage('vi')" class="language-option">
+                                <span class="flag">🇻🇳</span> Tiếng Việt
+                            </button>
+                        </div>
+                    </div>
+                    <a href="#contact" class="btn btn-primary" data-i18n="nav_get_started">Bắt Đầu</a>
+                </div>
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-background">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <div class="badge">
+                        <span class="badge-dot"></span>
+                        HRM + Finance for Small Business
+                    </div>
+                    <h1 class="hero-title">
+                        Manage Part-Time Staff
+                        <span class="gradient-text">Effortlessly</span>
+                    </h1>
+                    <p class="hero-description">
+                        Complete HRM and Finance system built for small businesses with part-time employees.
+                        Let your team register shifts, submit leaves, and access payslips—while you automate
+                        attendance tracking, payroll processing, and financial reporting.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="#contact" class="btn btn-primary btn-large">
+                            Start Free Trial
+                            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                        <a href="#demo" class="btn btn-secondary btn-large">
+                            Watch Demo
+                            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">5K+</div>
+                            <div class="stat-label">Part-Time Workers</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">90%</div>
+                            <div class="stat-label">Payroll Automated</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">$2K</div>
+                            <div class="stat-label">Saved Monthly</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="dashboard-mockup">
+                        <div class="mockup-header">
+                            <div class="mockup-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <div class="mockup-title">Dashboard Overview</div>
+                        </div>
+                        <div class="mockup-content">
+                            <div class="metric-card">
+                                <div class="metric-icon"
+                                    style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-label">Total Employees</div>
+                                    <div class="metric-value">1,247</div>
+                                    <div class="metric-change positive">+12% this month</div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon"
+                                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-label">Attendance Rate</div>
+                                    <div class="metric-value">96.8%</div>
+                                    <div class="metric-change positive">+2.4% vs last week</div>
+                                </div>
+                            </div>
+                            <div class="chart-area">
+                                <svg class="chart" viewBox="0 0 300 120">
+                                    <defs>
+                                        <linearGradient id="chart-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
+                                            <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path class="chart-line"
+                                        d="M 0 80 L 30 70 L 60 75 L 90 60 L 120 65 L 150 50 L 180 55 L 210 40 L 240 45 L 270 30 L 300 35"
+                                        stroke="url(#logo-gradient)" stroke-width="3" fill="none" />
+                                    <path
+                                        d="M 0 80 L 30 70 L 60 75 L 90 60 L 120 65 L 150 50 L 180 55 L 210 40 L 240 45 L 270 30 L 300 35 L 300 120 L 0 120 Z"
+                                        fill="url(#chart-gradient)" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    Built for Small Business
+                </div>
+                <h2 class="section-title">Everything You Need to Manage Part-Time Staff</h2>
+                <p class="section-description">
+                    From employee self-service to automated payroll, our integrated HRM and Finance platform
+                    makes managing part-time workers simple, efficient, and cost-effective.
+                </p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"></path>
+                            <path d="M12 6v6l4 2"></path>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Automated Time & Attendance</h3>
+                    <p class="feature-description">
+                        Eliminate manual timesheet processing with biometric attendance tracking.
+                        Seamlessly integrate with payroll systems for accurate, automated compensation.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Biometric clock in/out</li>
+                        <li>Payroll integration ready</li>
+                        <li>Overtime calculation</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Employee Shift Registration</h3>
+                    <p class="feature-description">
+                        Let part-time employees register their own shifts through a simple self-service portal.
+                        Automatic conflict detection and manager approval workflow included.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Self-service shift booking</li>
+                        <li>Real-time availability check</li>
+                        <li>Instant manager notifications</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Easy Leave Submission</h3>
+                    <p class="feature-description">
+                        Employees submit leave requests directly from their phone or computer.
+                        Managers approve with one click, and balances update automatically.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Mobile-friendly requests</li>
+                        <li>One-click approvals</li>
+                        <li>Auto balance tracking</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
+                            <line x1="8" y1="9" x2="16" y2="9"></line>
+                            <line x1="8" y1="13" x2="16" y2="13"></line>
+                            <line x1="8" y1="17" x2="12" y2="17"></line>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Automated Payslips</h3>
+                    <p class="feature-description">
+                        Generate accurate payslips automatically based on attendance and shifts.
+                        Employees access their payslips anytime through the self-service portal.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Auto payroll calculation</li>
+                        <li>Digital payslip delivery</li>
+                        <li>Employee self-access</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Finance & Cost Tracking</h3>
+                    <p class="feature-description">
+                        Track labor costs in real-time. See exactly how much you're spending on part-time staff
+                        with detailed financial reports and budget forecasting.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Real-time cost tracking</li>
+                        <li>Labor budget reports</li>
+                        <li>Expense forecasting</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Data Security & Compliance</h3>
+                    <p class="feature-description">
+                        Protect sensitive employee data with enterprise-grade security. GDPR compliant,
+                        role-based access control, and encrypted storage ensure your HR data stays secure.
+                    </p>
+                    <ul class="feature-list">
+                        <li>GDPR & SOC 2 compliant</li>
+                        <li>Role-based permissions</li>
+                        <li>Audit trail logging</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Industry Fit Section -->
+    <section id="industries" class="industries">
+        <div class="container">
+            <div class="section-header">
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    Perfect For Small Businesses
+                </div>
+                <h2 class="section-title" data-i18n="industries_title">Suitable for Many Industries</h2>
+                <p class="section-description" data-i18n="industries_description">
+                    Trusted by small businesses across Vietnam with part-time employees and teams under 30 people
+                </p>
+            </div>
+            <div class="industries-grid">
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                            <line x1="6" y1="1" x2="6" y2="4"></line>
+                            <line x1="10" y1="1" x2="10" y2="4"></line>
+                            <line x1="14" y1="1" x2="14" y2="4"></line>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_cafe">Coffee Shops</h3>
+                    <p class="industry-description" data-i18n="industry_cafe_desc">Perfect for managing barista shifts
+                    </p>
+                </div>
+
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
+                            <path d="M7 2v20"></path>
+                            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_restaurant">Restaurants</h3>
+                    <p class="industry-description" data-i18n="industry_restaurant_desc">Streamline kitchen & service
+                        staff</p>
+                </div>
+
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <path d="M16 10a4 4 0 0 1-8 0"></path>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_retail">Retail Stores</h3>
+                    <p class="industry-description" data-i18n="industry_retail_desc">Manage sales staff efficiently</p>
+                </div>
+
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="3" width="15" height="13"></rect>
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_bakery">Bakeries</h3>
+                    <p class="industry-description" data-i18n="industry_bakery_desc">Track baker & cashier hours</p>
+                </div>
+
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                            <line x1="6" y1="1" x2="6" y2="4"></line>
+                            <line x1="10" y1="1" x2="10" y2="4"></line>
+                            <line x1="14" y1="1" x2="14" y2="4"></line>
+                            <circle cx="9" cy="14" r="1"></circle>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_tea">Tea Shops</h3>
+                    <p class="industry-description" data-i18n="industry_tea_desc">Optimize bubble tea staff</p>
+                </div>
+
+                <div class="industry-card">
+                    <div class="industry-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="industry-name" data-i18n="industry_grocery">Grocery Stores</h3>
+                    <p class="industry-description" data-i18n="industry_grocery_desc">Handle part-time stockers</p>
+                </div>
+            </div>
+
+            <div class="industry-stats">
+                <div class="industry-stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" data-i18n="stat_employees">Under 30 Employees</div>
+                        <div class="stat-label" data-i18n="stat_employees_label">Perfect team size</div>
+                    </div>
+                </div>
+
+                <div class="industry-stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" data-i18n="stat_parttime">Part-Time Staff</div>
+                        <div class="stat-label" data-i18n="stat_parttime_label">Flexible scheduling</div>
+                    </div>
+                </div>
+
+                <div class="industry-stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" data-i18n="stat_savings">Save 40%</div>
+                        <div class="stat-label" data-i18n="stat_savings_label">On HR admin costs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    Getting Started
+                </div>
+                <h2 class="section-title">Implement Your HRM System in 3 Easy Steps</h2>
+                <p class="section-description">
+                    From setup to full deployment, get your HR team up and running in minutes
+                </p>
+            </div>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Connect Your Devices</h3>
+                        <p class="step-description">
+                            Seamlessly integrate your ZKTeco biometric devices with our platform.
+                            Automatic device discovery and configuration in seconds.
+                        </p>
+                    </div>
+                    <div class="step-visual">
+                        <div class="device-icon">
+                            <svg viewBox="0 0 100 100" fill="none">
+                                <rect x="20" y="10" width="60" height="80" rx="8" fill="url(#device-gradient)"
+                                    stroke="#6366f1" stroke-width="2" />
+                                <circle cx="50" cy="50" r="15" fill="white" opacity="0.2" />
+                                <circle cx="50" cy="50" r="10" fill="white" opacity="0.3" />
+                                <defs>
+                                    <linearGradient id="device-gradient" x1="20" y1="10" x2="80" y2="90">
+                                        <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.9" />
+                                        <stop offset="100%" stop-color="#312e81" stop-opacity="0.9" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Onboard Your Employees</h3>
+                        <p class="step-description">
+                            Import employee data, set up organizational structure, assign roles and departments.
+                            Our guided onboarding makes it easy to migrate from any existing HR system.
+                        </p>
+                    </div>
+                    <div class="step-visual">
+                        <div class="team-icon">
+                            <svg viewBox="0 0 100 100" fill="none">
+                                <circle cx="35" cy="35" r="12" fill="#6366f1" opacity="0.8" />
+                                <circle cx="65" cy="35" r="12" fill="#8b5cf6" opacity="0.8" />
+                                <circle cx="50" cy="60" r="12" fill="#a78bfa" opacity="0.8" />
+                                <path d="M35 47 Q35 55 28 60" stroke="#6366f1" stroke-width="3"
+                                    stroke-linecap="round" />
+                                <path d="M65 47 Q65 55 72 60" stroke="#8b5cf6" stroke-width="3"
+                                    stroke-linecap="round" />
+                                <path d="M50 72 Q50 80 50 85" stroke="#a78bfa" stroke-width="3"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Optimize & Grow</h3>
+                        <p class="step-description">
+                            Leverage powerful HR analytics to improve workforce productivity, reduce costs,
+                            and make strategic decisions. Watch your HR efficiency soar.
+                        </p>
+                    </div>
+                    <div class="step-visual">
+                        <div class="analytics-icon">
+                            <svg viewBox="0 0 100 100" fill="none">
+                                <rect x="15" y="60" width="15" height="30" rx="3" fill="#6366f1" />
+                                <rect x="35" y="45" width="15" height="45" rx="3" fill="#8b5cf6" />
+                                <rect x="55" y="30" width="15" height="60" rx="3" fill="#a78b5fa" />
+                                <rect x="75" y="20" width="15" height="70" rx="3" fill="#c4b5fd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section id="benefits" class="benefits">
+        <div class="container">
+            <div class="benefits-content">
+                <div class="benefits-text">
+                    <div class="badge">
+                        <span class="badge-dot"></span>
+                        Transform Your HR
+                    </div>
+                    <h2 class="section-title">The Future of Human Resource Management</h2>
+                    <p class="section-description">
+                        ZKTecoADMS revolutionizes how companies manage their most valuable asset—their people.
+                        Experience the power of modern, automated HR management.
+                    </p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <div class="benefit-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="benefit-text">
+                                <h4>99.9% Uptime Guarantee</h4>
+                                <p>Enterprise-grade infrastructure ensures your system is always available</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="benefit-text">
+                                <h4>Scalable Architecture</h4>
+                                <p>Grows with your business from 10 to 10,000+ employees</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="benefit-text">
+                                <h4>24/7 Expert Support</h4>
+                                <p>Dedicated support team ready to help whenever you need</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <div class="benefit-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="benefit-text">
+                                <h4>Compliance Ready</h4>
+                                <p>GDPR, SOC 2, and industry-standard security compliance</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="benefits-visual">
+                    <div class="floating-card card-1">
+                        <div class="card-header">
+                            <div class="card-icon"
+                                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <span>System Status</span>
+                        </div>
+                        <div class="card-value">Operational</div>
+                        <div class="card-subtext">All systems running smoothly</div>
+                    </div>
+                    <div class="floating-card card-2">
+                        <div class="card-header">
+                            <div class="card-icon"
+                                style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                                </svg>
+                            </div>
+                            <span>Performance</span>
+                        </div>
+                        <div class="card-value">Fast</div>
+                        <div class="card-subtext">Average response: 120ms</div>
+                    </div>
+                    <div class="floating-card card-3">
+                        <div class="card-header">
+                            <div class="card-icon"
+                                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                </svg>
+                            </div>
+                            <span>Security</span>
+                        </div>
+                        <div class="card-value">Protected</div>
+                        <div class="card-subtext">Bank-level encryption</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2 class="cta-title">Ready to Simplify Your Part-Time Staff Management?</h2>
+                <p class="cta-description">
+                    Join small businesses saving time and money with automated HRM and Finance.
+                    Let your employees manage their own shifts and leaves while you focus on growing your business.
+                </p>
+                <div class="cta-buttons">
+                    <a href="#contact" class="btn btn-primary btn-large">
+                        Start Free Trial
+                        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </a>
+                    <a href="#contact" class="btn btn-secondary btn-large">
+                        Schedule Demo
+                    </a>
+                </div>
+                <p class="cta-note">No credit card required • 30-day free trial • Cancel anytime</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="url(#logo-gradient-footer)" />
+                            <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <defs>
+                                <linearGradient id="logo-gradient-footer" x1="0" y1="0" x2="40" y2="40">
+                                    <stop offset="0%" stop-color="#6366f1" />
+                                    <stop offset="100%" stop-color="#8b5cf6" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <span class="logo-text">ZKTeco<span class="logo-highlight">ADMS</span></span>
+                    </div>
+                    <p class="footer-description">
+                        HRM and Finance system for modern small businesses with part-time employees.
+                    </p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <a href="#features">Features</a>
+                        <a href="#pricing">Pricing</a>
+                        <a href="#demo">Demo</a>
+                        <a href="#docs">Documentation</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <a href="#about">About Us</a>
+                        <a href="#careers">Careers</a>
+                        <a href="#blog">Blog</a>
+                        <a href="#contact">Contact</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Support</h4>
+                        <a href="#help">Help Center</a>
+                        <a href="#api">API Docs</a>
+                        <a href="#status">Status</a>
+                        <a href="#security">Security</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 ZKTecoADMS. All rights reserved.</p>
+                <div class="footer-legal">
+                    <a href="#privacy">Privacy Policy</a>
+                    <a href="#terms">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Sticky CTA -->
+    <div class="mobile-sticky-cta" id="mobileCTA">
+        <a href="#contact" class="btn btn-primary btn-large mobile-cta-btn" data-i18n="hero_cta_trial">
+            Start Free Trial
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                    clip-rule="evenodd" />
+            </svg>
+        </a>
+    </div>
+
+    <script src="translations.js"></script>
+    <script src="auto-translate.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

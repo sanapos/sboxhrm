@@ -1,0 +1,853 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word 15">
+<meta name="Originator" content="Microsoft Word 15">
+<style>
+  @page { size: A4; margin: 2cm 2.5cm 2cm 3cm; }
+  body { font-family: 'Times New Roman', serif; font-size: 13pt; line-height: 1.5; color: #1a1a1a; }
+  h1 { font-size: 22pt; color: #1E3A5F; text-align: center; margin-top: 30pt; margin-bottom: 10pt; font-weight: bold; }
+  h2 { font-size: 16pt; color: #1E3A5F; margin-top: 24pt; margin-bottom: 8pt; border-bottom: 2px solid #1E3A5F; padding-bottom: 4pt; }
+  h3 { font-size: 14pt; color: #2c5282; margin-top: 18pt; margin-bottom: 6pt; }
+  h4 { font-size: 13pt; color: #2d3748; margin-top: 14pt; margin-bottom: 4pt; font-style: italic; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0 16pt 0; }
+  th { background-color: #1E3A5F; color: white; font-weight: bold; padding: 6pt 10pt; border: 1px solid #1E3A5F; text-align: left; font-size: 12pt; }
+  td { padding: 5pt 10pt; border: 1px solid #cbd5e0; font-size: 12pt; vertical-align: top; }
+  tr:nth-child(even) td { background-color: #f7fafc; }
+  .cover { text-align: center; page-break-after: always; padding-top: 120pt; }
+  .cover h1 { font-size: 32pt; border: none; margin-bottom: 20pt; }
+  .cover .subtitle { font-size: 18pt; color: #4a5568; margin: 10pt 0; }
+  .cover .info { font-size: 13pt; color: #718096; margin-top: 60pt; }
+  .highlight { background-color: #ebf8ff; padding: 8pt 12pt; border-left: 4px solid #1E3A5F; margin: 10pt 0; }
+  .flow-box { background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 8pt 12pt; margin: 8pt 0; border-radius: 4pt; font-family: 'Consolas', monospace; font-size: 11pt; }
+  .badge { display: inline-block; padding: 2pt 8pt; border-radius: 3pt; font-size: 10pt; font-weight: bold; }
+  .green { color: #22c55e; }
+  .red { color: #ef4444; }
+  .amber { color: #f59e0b; }
+  .blue { color: #3b82f6; }
+  ul { margin: 4pt 0 8pt 20pt; }
+  li { margin-bottom: 3pt; }
+  .page-break { page-break-before: always; }
+  .toc { margin: 20pt 0; }
+  .toc a { text-decoration: none; color: #1E3A5F; }
+  .note { background-color: #fffbeb; border: 1px solid #fbbf24; padding: 8pt 12pt; margin: 10pt 0; }
+</style>
+</head>
+<body>
+
+<!-- TRANG BÌA -->
+<div class="cover">
+  <div style="font-size: 14pt; color: #718096; letter-spacing: 3pt;">TÀI LIỆU GIỚI THIỆU PHẦN MỀM</div>
+  <br><br>
+  <h1 style="font-size: 36pt; border: none;">ZKTeco ADMS</h1>
+  <div class="subtitle">Hệ thống Quản lý Chấm công &amp; Nhân sự Toàn diện</div>
+  <div class="subtitle" style="font-size: 14pt; color: #718096;">Attendance Device Management System</div>
+  <br><br>
+  <div style="width: 200pt; height: 2pt; background-color: #1E3A5F; margin: 0 auto;"></div>
+  <br>
+  <div class="subtitle" style="font-size: 13pt;">Phiên bản: SaaS Multi-Tenant</div>
+  <div class="subtitle" style="font-size: 13pt;">Nền tảng: Web + Mobile (Flutter)</div>
+  <br><br><br><br>
+  <div class="info">
+    <p>Ngày lập tài liệu: 08/04/2026</p>
+    <p>Tài liệu nội bộ — Hướng dẫn sử dụng chi tiết</p>
+  </div>
+</div>
+
+<!-- MỤC LỤC -->
+<h1>MỤC LỤC</h1>
+<div class="toc">
+<p><b>1.</b> Tổng quan hệ thống</p>
+<p><b>2.</b> Các nhóm chức năng chính</p>
+<p style="margin-left: 20pt;">2.1. Đăng nhập &amp; Quản lý tài khoản</p>
+<p style="margin-left: 20pt;">2.2. Dashboard (Tổng quan)</p>
+<p style="margin-left: 20pt;">2.3. Quản lý nhân viên</p>
+<p style="margin-left: 20pt;">2.4. Chấm công (Nhóm chức năng cốt lõi)</p>
+<p style="margin-left: 20pt;">2.5. Chấm công Mobile</p>
+<p style="margin-left: 20pt;">2.6. Chấm công ngoài hiện trường</p>
+<p style="margin-left: 20pt;">2.7. Theo dõi bữa ăn</p>
+<p style="margin-left: 20pt;">2.8. Quản lý phòng ban &amp; Tổ chức</p>
+<p style="margin-left: 20pt;">2.9. Ca làm việc &amp; Lịch làm việc</p>
+<p style="margin-left: 20pt;">2.10. Nghỉ phép</p>
+<p style="margin-left: 20pt;">2.11. Lương &amp; Phúc lợi</p>
+<p style="margin-left: 20pt;">2.12. Thưởng / Phạt / Tạm ứng</p>
+<p style="margin-left: 20pt;">2.13. KPI</p>
+<p style="margin-left: 20pt;">2.14. Sản xuất &amp; Sản lượng</p>
+<p style="margin-left: 20pt;">2.15. Quản lý tài sản</p>
+<p style="margin-left: 20pt;">2.16. Thu chi</p>
+<p style="margin-left: 20pt;">2.17. Truyền thông nội bộ</p>
+<p style="margin-left: 20pt;">2.18. Quản lý công việc</p>
+<p style="margin-left: 20pt;">2.19. Thông báo</p>
+<p style="margin-left: 20pt;">2.20. Báo cáo HR</p>
+<p style="margin-left: 20pt;">2.21. Quản lý thiết bị chấm công</p>
+<p style="margin-left: 20pt;">2.22. Cài đặt hệ thống</p>
+<p style="margin-left: 20pt;">2.23. Quản trị hệ thống (SuperAdmin)</p>
+<p style="margin-left: 20pt;">2.24. Các tính năng bổ sung</p>
+<p><b>3.</b> Đặc điểm kỹ thuật nổi bật</p>
+<p><b>4.</b> Quy trình sử dụng chính (Workflow)</p>
+</div>
+
+<!-- NỘI DUNG CHÍNH -->
+<div class="page-break"></div>
+<h1>1. TỔNG QUAN HỆ THỐNG</h1>
+
+<p><b>ZKTeco ADMS</b> (Attendance Device Management System) là phần mềm quản lý chấm công và nhân sự toàn diện dạng <b>SaaS multi-tenant</b>, phục vụ doanh nghiệp từ quy mô nhỏ đến lớn với nhiều chi nhánh, cửa hàng.</p>
+
+<div class="highlight">
+<b>Nền tảng công nghệ:</b>
+<ul>
+  <li><b>Backend:</b> ASP.NET Core (C#), kiến trúc CQRS, Entity Framework Core, PostgreSQL</li>
+  <li><b>Frontend:</b> Flutter (Web + Mobile), hỗ trợ Android / iOS / Windows / Chrome</li>
+  <li><b>Realtime:</b> SignalR WebSocket — cập nhật chấm công, trạng thái thiết bị, thông báo tức thì</li>
+  <li><b>Ngôn ngữ:</b> Song ngữ Tiếng Việt — English</li>
+  <li><b>Giao diện:</b> Material Design 3, hỗ trợ Dark/Light mode, responsive (Mobile / Tablet / Desktop)</li>
+</ul>
+</div>
+
+<h3>Hệ thống vai trò phân quyền</h3>
+<table>
+  <tr><th>Vai trò</th><th>Mô tả</th></tr>
+  <tr><td><b>SuperAdmin</b></td><td>Quản trị toàn bộ hệ thống, quản lý tất cả cửa hàng/tenant, cấu hình toàn cục</td></tr>
+  <tr><td><b>Admin</b></td><td>Quản trị viên cấp cửa hàng, toàn quyền trong phạm vi store của mình</td></tr>
+  <tr><td><b>Manager</b></td><td>Quản lý cấp phòng ban, duyệt đơn từ, xem báo cáo phòng ban</td></tr>
+  <tr><td><b>HR</b></td><td>Nhân sự, quản lý thông tin nhân viên, lương, phúc lợi, tuyển dụng</td></tr>
+  <tr><td><b>Employee</b></td><td>Nhân viên, xem thông tin cá nhân, gửi đơn, chấm công</td></tr>
+</table>
+
+<h3>Giao diện màu sắc</h3>
+<table>
+  <tr><th>Thành phần</th><th>Màu</th><th>Mã màu</th></tr>
+  <tr><td>Primary (chủ đạo)</td><td style="color:#1E3A5F;">■ Navy</td><td>#1E3A5F</td></tr>
+  <tr><td>Có mặt / Thành công</td><td style="color:#22C55E;">■ Green</td><td>#22C55E</td></tr>
+  <tr><td>Đi muộn / Cảnh báo</td><td style="color:#F59E0B;">■ Amber</td><td>#F59E0B</td></tr>
+  <tr><td>Vắng mặt / Lỗi</td><td style="color:#EF4444;">■ Red</td><td>#EF4444</td></tr>
+</table>
+
+<!-- CHƯƠNG 2 -->
+<div class="page-break"></div>
+<h1>2. CÁC NHÓM CHỨC NĂNG CHÍNH</h1>
+
+<h2>2.1. Đăng nhập &amp; Quản lý tài khoản</h2>
+
+<h3>2.1.1. Đăng nhập (Login)</h3>
+<ul>
+  <li>Nhập <b>Mã cửa hàng</b>, <b>Email</b>, <b>Mật khẩu</b> → Bấm <b>ĐĂNG NHẬP</b></li>
+  <li>Hỗ trợ <b>Nhớ đăng nhập</b> (lưu token vào localStorage)</li>
+  <li><b>Admin Login:</b> Đăng nhập riêng không cần mã cửa hàng (dành cho SuperAdmin/Admin)</li>
+</ul>
+
+<h3>2.1.2. Đăng ký cửa hàng mới (Register)</h3>
+<ul>
+  <li>Nhập: Tên cửa hàng, Email, Mật khẩu, Số điện thoại</li>
+  <li>Đồng ý điều khoản sử dụng → Bấm <b>ĐĂNG KÝ</b></li>
+  <li>Hệ thống tự động tạo store mới với mã duy nhất</li>
+</ul>
+
+<h3>2.1.3. Quên / Đặt lại mật khẩu</h3>
+<ul>
+  <li>Nhập email → Nhận link qua email → Đặt mật khẩu mới</li>
+</ul>
+
+<h3>2.1.4. Quản lý tài khoản cá nhân</h3>
+<ul>
+  <li>Sửa thông tin cá nhân, đổi mật khẩu</li>
+  <li>Xem lịch sử đăng nhập, thiết bị đang đăng nhập</li>
+  <li>Xác thực 2 bước (tùy chọn)</li>
+</ul>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Mở ứng dụng → Nhập Mã cửa hàng + Email + Mật khẩu → Bấm Đăng nhập. Nếu quên mật khẩu, bấm "Quên mật khẩu?" và làm theo hướng dẫn qua email.
+</div>
+
+<!-- DASHBOARD -->
+<h2>2.2. Dashboard (Tổng quan)</h2>
+<p>Màn hình chính sau đăng nhập, tự động refresh mỗi 30 giây, hiển thị đồng hồ thời gian thực.</p>
+
+<table>
+  <tr><th>Section</th><th>Nội dung hiển thị</th></tr>
+  <tr><td><b>Thẻ tóm tắt chấm công</b></td><td>4 card: Có mặt (xanh), Vắng mặt (đỏ), Đi muộn (cam), Tổng check-in/out (xanh dương) — hiển thị số lượng + %</td></tr>
+  <tr><td><b>Trạng thái thiết bị</b></td><td>Số thiết bị online (🟢) / offline (🔴)</td></tr>
+  <tr><td><b>Biểu đồ 7 ngày</b></td><td>Line/Bar chart: xu hướng Có mặt, Vắng, Muộn theo ngày</td></tr>
+  <tr><td><b>Sinh nhật</b></td><td>Nhân viên có sinh nhật hôm nay + sắp tới 30 ngày</td></tr>
+  <tr><td><b>Tin tức</b></td><td>5 thông báo/tin tức mới nhất</td></tr>
+  <tr><td><b>Nghỉ phép</b></td><td>Số đơn chờ duyệt, lịch trình hôm nay</td></tr>
+  <tr><td><b>KPI</b></td><td>Chỉ số KPI chính với progress indicator</td></tr>
+  <tr><td><b>Pending</b></td><td>Số đơn điều chỉnh, đổi ca, nghỉ phép đang chờ duyệt</td></tr>
+  <tr><td><b>Thu chi</b></td><td>Tóm tắt dòng tiền ròng</td></tr>
+  <tr><td><b>Báo cáo tháng</b></td><td>Tổng hợp chấm công tháng hiện tại</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Đăng nhập thành công → Dashboard hiện tự động. Bấm vào từng card/section để đi đến màn hình chi tiết tương ứng. Dữ liệu cập nhật realtime qua SignalR.
+</div>
+
+<!-- NHÂN VIÊN -->
+<div class="page-break"></div>
+<h2>2.3. Quản lý Nhân viên (Employees)</h2>
+
+<h3>Chức năng chính</h3>
+<ul>
+  <li><b>Xem danh sách:</b> Tìm kiếm theo tên/mã/email/SĐT, lọc theo phòng ban, trạng thái</li>
+  <li><b>Thêm nhân viên:</b> Form gồm 6 tab chi tiết</li>
+  <li><b>Sửa / Xoá nhân viên</b></li>
+  <li><b>Import / Export</b> danh sách (Excel)</li>
+</ul>
+
+<h3>Form thêm/sửa nhân viên — 6 Tab</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Tab 1: Thông tin cá nhân</b></td><td>Họ, Tên, Giới tính, Ngày sinh, Email, Số điện thoại</td></tr>
+  <tr><td><b>Tab 2: Tổ chức</b></td><td>Phòng ban, Chức vụ, Cấp bậc, Quản lý trực tiếp</td></tr>
+  <tr><td><b>Tab 3: Địa chỉ</b></td><td>Địa chỉ thường trú, Địa chỉ tạm trú, Quê quán</td></tr>
+  <tr><td><b>Tab 4: Thông tin khác</b></td><td>CCCD/CMND (số, ngày cấp, nơi cấp), Trình độ học vấn, Tình trạng hôn nhân, Upload ảnh CCCD (có crop)</td></tr>
+  <tr><td><b>Tab 5: Ngân hàng</b></td><td>Tên NH, Chủ tài khoản, Số tài khoản, Chi nhánh</td></tr>
+  <tr><td><b>Tab 6: Liên hệ khẩn cấp</b></td><td>Tên người liên hệ, Số điện thoại</td></tr>
+</table>
+
+<h3>Cột hiển thị trong danh sách</h3>
+<table>
+  <tr><th>Cột</th><th>Mô tả</th></tr>
+  <tr><td>Avatar</td><td>Thumbnail ảnh hoặc chữ cái đầu</td></tr>
+  <tr><td>Mã NV</td><td>Employee code</td></tr>
+  <tr><td>Họ tên</td><td>FirstName + LastName</td></tr>
+  <tr><td>Email</td><td>Email cá nhân</td></tr>
+  <tr><td>SĐT</td><td>Số điện thoại</td></tr>
+  <tr><td>Phòng ban</td><td>Department name</td></tr>
+  <tr><td>Chức vụ</td><td>Position</td></tr>
+  <tr><td>Trạng thái</td><td>Badge: <span class="green">Đang làm</span> / <span class="amber">Thử việc</span> / Nghỉ phép / <span class="red">Đã nghỉ</span></td></tr>
+  <tr><td>Thao tác</td><td>Sửa / Xoá / Chi tiết</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b>
+<ol>
+  <li>Vào menu <b>Nhân viên</b> → Xem danh sách</li>
+  <li>Bấm <b>➕ Thêm</b> → Điền đầy đủ các tab → Bấm <b>Lưu</b></li>
+  <li>Bấm icon ✏️ trên dòng để sửa, 🗑️ để xoá</li>
+  <li>Sử dụng thanh tìm kiếm + bộ lọc phòng ban/trạng thái để lọc nhanh</li>
+  <li>Bấm <b>📥 Import</b> để nhập từ Excel, <b>📤 Export</b> để xuất danh sách</li>
+</ol>
+</div>
+
+<!-- CHẤM CÔNG -->
+<div class="page-break"></div>
+<h2>2.4. Chấm công — Nhóm chức năng cốt lõi</h2>
+
+<h3>2.4.1. Chấm công Realtime</h3>
+<p>Xem bản ghi chấm công <b>cập nhật tức thì</b> qua SignalR WebSocket, có auto-refresh 5 giây (toggle bật/tắt).</p>
+
+<p><b>Bộ lọc:</b></p>
+<ul>
+  <li>DateRange Picker (presets: Hôm nay, Hôm qua, 7 ngày, Tuần trước, Tháng này)</li>
+  <li>Dropdown Thiết bị (multi-select)</li>
+  <li>Tìm theo PIN/Nhân viên</li>
+  <li>Loại xác thực: Vân tay / Thẻ / Khuôn mặt / Mật khẩu</li>
+</ul>
+
+<table>
+  <tr><th>Cột</th><th>Mô tả</th></tr>
+  <tr><td>Thời gian</td><td>HH:MM:SS, có thể sort tăng/giảm</td></tr>
+  <tr><td>PIN</td><td>Mã nhân viên trên thiết bị</td></tr>
+  <tr><td>Tên nhân viên</td><td>Họ tên</td></tr>
+  <tr><td>Thiết bị</td><td>Tên thiết bị chấm công</td></tr>
+  <tr><td>Loại xác thực</td><td>👆 Vân tay / 💳 Thẻ / 😊 Khuôn mặt / 🔑 Mật khẩu</td></tr>
+  <tr><td>Trạng thái</td><td>CheckIn / CheckOut / MealIn / MealOut / BreakIn / BreakOut</td></tr>
+</table>
+
+<p><b>Yêu cầu điều chỉnh:</b> Bấm ✏️ → Nhập thời gian mới + Lý do + Loại (Thêm/Sửa/Xoá) → Gửi yêu cầu.</p>
+
+<h3>2.4.2. Tổng hợp chấm công (Attendance Summary)</h3>
+<ul>
+  <li>Tóm tắt theo nhân viên/ngày: Giờ vào, Giờ ra, Trạng thái, Số giờ làm việc</li>
+  <li>Lọc theo tháng, ca làm việc, trạng thái (Có mặt/Muộn/Vắng/Nghỉ phép)</li>
+  <li>Export Excel, nhóm theo ca, multi-select batch</li>
+</ul>
+
+<h3>2.4.3. Chấm công theo ca (Attendance By Shift)</h3>
+<ul>
+  <li>Tổng quan theo ca: NV dự kiến vs Có mặt vs Vắng vs Muộn</li>
+  <li>Tỷ lệ % = Có mặt / Dự kiến × 100</li>
+  <li>Biểu đồ Donut/Pie cho mỗi ca</li>
+  <li>Drill-down xem danh sách nhân viên cụ thể trong ca</li>
+</ul>
+
+<h3>2.4.4. Điều chỉnh chấm công (Corrections)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Đang chờ (Pending)</b></td><td>Yêu cầu chưa xử lý: NV, Giờ gốc, Giờ yêu cầu, Lý do, Loại (Thêm/Sửa/Xoá)</td></tr>
+  <tr><td><b>Đã xử lý (Processed)</b></td><td>Yêu cầu đã duyệt/từ chối: thêm cột Người duyệt, Ngày duyệt, Lý do từ chối</td></tr>
+</table>
+
+<h3>2.4.5. Duyệt chấm công (Attendance Approval) — Manager</h3>
+<ul>
+  <li>Tab: Chờ duyệt | Đã duyệt | Từ chối</li>
+  <li>Hành động: ✅ Duyệt / ❌ Từ chối (bắt buộc nhập lý do)</li>
+  <li>Hỗ trợ <b>duyệt hàng loạt</b> (multi-select checkbox)</li>
+  <li>Audit trail: Ghi nhận người duyệt + thời gian duyệt</li>
+  <li>Export Excel</li>
+</ul>
+
+<h3>2.4.6. Báo cáo chấm công (Attendance Report)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Báo cáo ngày</b></td><td>Chi tiết NV theo ngày chọn, drill-down xem từng NV</td></tr>
+  <tr><td><b>Báo cáo tháng</b></td><td>Tổng ngày làm, Ngày có mặt, % chấm công mỗi NV</td></tr>
+  <tr><td><b>Báo cáo muộn/sớm</b></td><td>Lọc theo ngưỡng: &gt;5 phút / &gt;15 phút / &gt;30 phút</td></tr>
+  <tr><td><b>Phân tích theo phòng ban</b></td><td>Summary + Pie/Donut chart + Drill-down vào NV phòng ban</td></tr>
+</table>
+<p><b>Export:</b> CSV, Excel (có format header/data/footer), filename: attendance_report_YYYY-MM-DD.xlsx</p>
+
+<div class="note">
+<b>💡 Hướng dẫn sử dụng nhóm Chấm công:</b>
+<ol>
+  <li>Vào <b>Chấm công</b> → Xem dữ liệu realtime. Bật auto-refresh nếu cần theo dõi liên tục</li>
+  <li>Vào <b>Tổng hợp</b> để xem tóm tắt ngày. Dùng bộ lọc tháng/ca để thu hẹp</li>
+  <li>Nếu cần sửa giờ chấm công: Bấm ✏️ → Điền giờ mới + lý do → Gửi. Manager duyệt tại <b>Duyệt chấm công</b></li>
+  <li>Xem <b>Báo cáo</b> → Chọn tab phù hợp → Export Excel/CSV khi cần</li>
+</ol>
+</div>
+
+<!-- CHẤM CÔNG MOBILE -->
+<div class="page-break"></div>
+<h2>2.5. Chấm công Mobile (Mobile Attendance)</h2>
+
+<h3>2.5.1. Check-in/out bằng khuôn mặt + GPS</h3>
+<p>Giao diện mobile-first, full-screen:</p>
+<ul>
+  <li>Hiển thị: Tên NV, mã NV, phòng ban</li>
+  <li>Đồng hồ realtime lớn (HH:MM:SS)</li>
+  <li>Vị trí GPS: Tên vị trí, địa chỉ, bán kính cho phép, khoảng cách hiện tại
+    <ul>
+      <li><span class="green"><b>Xanh lá</b></span> = Trong bán kính cho phép</li>
+      <li><span class="red"><b>Đỏ</b></span> = Ngoài bán kính</li>
+    </ul>
+  </li>
+  <li>Nút <b>"Xác thực khuôn mặt"</b> → Camera chụp → Hệ thống so khớp (ngưỡng &gt;80%)</li>
+  <li>Nút <b>CHECK IN</b> hoặc <b>CHECK OUT</b></li>
+  <li>Lịch sử check-in/out hôm nay (giờ, loại, trạng thái, điểm khớp, khoảng cách)</li>
+</ul>
+
+<h3>2.5.2. Đăng ký thiết bị mobile</h3>
+<p>Đăng ký thiết bị di động được phép sử dụng chấm công mobile.</p>
+
+<h3>2.5.3. Duyệt chấm công mobile — Manager</h3>
+<p>Tương tự duyệt chấm công thường, áp dụng riêng cho bản ghi mobile.</p>
+
+<h3>2.5.4. Cài đặt chấm công mobile — Admin</h3>
+<table>
+  <tr><th>Section</th><th>Nội dung</th></tr>
+  <tr><td><b>Vị trí làm việc</b></td><td>CRUD vị trí: Tên, Địa chỉ, Toạ độ GPS, Bán kính (m), Active/Inactive</td></tr>
+  <tr><td><b>Đăng ký khuôn mặt</b></td><td>Upload ảnh, crop, quality score (tối đa 5 ảnh/NV)</td></tr>
+  <tr><td><b>Quy tắc tự duyệt</b></td><td>Ngưỡng khoảng cách (VD: &lt;100m = tự duyệt), Ngưỡng khớp mặt (VD: &gt;95%)</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn sử dụng chấm công Mobile:</b>
+<ol>
+  <li>Mở ứng dụng trên điện thoại → Vào <b>Chấm công Mobile</b></li>
+  <li>Đảm bảo GPS đã bật, camera sẵn sàng</li>
+  <li>Bấm <b>Xác thực khuôn mặt</b> → Giơ mặt vào camera → Chờ kết quả (&gt;80% = đạt)</li>
+  <li>Kiểm tra vị trí GPS (xanh = OK) → Bấm <b>CHECK IN</b></li>
+  <li>Cuối ca → Lặp lại quy trình → Bấm <b>CHECK OUT</b></li>
+</ol>
+</div>
+
+<!-- FIELD CHECK-IN & MEALS -->
+<h2>2.6. Chấm công ngoài hiện trường (Field Check-in)</h2>
+<ul>
+  <li>Chấm công cho nhân viên đi công tác, làm việc ngoài văn phòng</li>
+  <li>Ghi nhận vị trí GPS + thời gian + báo cáo thăm viếng (Visit Report)</li>
+  <li>Phân công địa điểm cho nhân viên (Field Location Assignment)</li>
+</ul>
+
+<h2>2.7. Theo dõi bữa ăn (Meal Tracking)</h2>
+<ul>
+  <li>Ghi nhận bữa ăn nhân viên theo phiên (Sáng / Trưa / Tối)</li>
+  <li><b>Tổng hợp bữa ăn:</b> Số bữa/NV, chi tiết theo ngày, phiên ăn, giờ ăn</li>
+  <li>Liên kết với nhân viên qua mã NV / ApplicationUserId</li>
+  <li>Cấu hình Menu bữa ăn, phiên ăn theo ca</li>
+</ul>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Theo dõi bữa ăn</b> → Xem tổng hợp theo khoảng ngày → Lọc theo NV nếu cần.
+</div>
+
+<!-- PHÒNG BAN & TỔ CHỨC -->
+<div class="page-break"></div>
+<h2>2.8. Quản lý Phòng ban &amp; Tổ chức</h2>
+
+<h3>2.8.1. Phòng ban (Departments)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Tab Danh sách</b></td><td>CRUD phòng ban phân cấp cha-con: Tên, Mã, Quản lý, Số NV trực tiếp/tổng, Cấp, Trạng thái</td></tr>
+  <tr><td><b>Tab Sơ đồ tổ chức</b></td><td>Interactive tree/graph: Zoom/Pan, click node xem chi tiết, highlight đường dẫn từ root</td></tr>
+</table>
+
+<h3>2.8.2. Sơ đồ tổ chức (Org Chart)</h3>
+<ul>
+  <li>Biểu đồ toàn bộ cấu trúc tổ chức dạng tree</li>
+  <li>Mỗi node: Box chức vụ/vai trò + tên nhân viên</li>
+  <li>Click nhân viên → Popup chi tiết, drill-down theo phòng ban</li>
+</ul>
+
+<h3>2.8.3. Chi nhánh (Branches)</h3>
+<ul>
+  <li>CRUD chi nhánh: Tên, Địa điểm, Quản lý, Số NV, Số thiết bị, Trạng thái</li>
+  <li>Xem danh sách NV và thiết bị của từng chi nhánh</li>
+</ul>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Phòng ban</b> → Tab <b>Danh sách</b> để thêm/sửa/xoá. Tab <b>Sơ đồ</b> để xem trực quan. Bấm ➕ trên dòng phòng ban cha để thêm phòng con.
+</div>
+
+<!-- CA LÀM VIỆC -->
+<h2>2.9. Ca làm việc &amp; Lịch làm việc</h2>
+
+<h3>2.9.1. Lịch làm việc (Work Schedule)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Tab Theo ca</b></td><td>Ma trận Tuần × Ca: Mỗi ô hiện số NV, click xem danh sách, bấm ➕ thêm NV vào ca</td></tr>
+  <tr><td><b>Tab Theo NV</b></td><td>Ma trận Tuần × NV: Mỗi ô hiện tên ca hoặc "OFF"</td></tr>
+  <tr><td><b>Tab Duyệt đăng ký</b></td><td>Manager duyệt yêu cầu đăng ký/đổi ca</td></tr>
+</table>
+<p><b>Phân ca hàng loạt:</b> Chọn nhiều NV → Chọn khoảng ngày + ca → Áp dụng</p>
+
+<h3>2.9.2. Đăng ký ca (Shift Registration)</h3>
+<p>Nhân viên đăng ký ca làm việc ưu tiên → Chờ Manager duyệt.</p>
+
+<h3>2.9.3. Đổi ca (Shift Swap)</h3>
+<p>NV A yêu cầu đổi ca với NV B → NV B đồng ý → Manager phê duyệt cuối cùng.</p>
+
+<h3>2.9.4. Cài đặt ca (Shift Settings) — Admin</h3>
+<p>CRUD ca làm việc: Mã ca, Tên, Giờ bắt đầu/kết thúc, Giờ nghỉ, Thời lượng nghỉ, Ca linh hoạt (toggle).</p>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b>
+<ol>
+  <li><b>Admin:</b> Vào Cài đặt → Ca làm việc → Tạo các ca cần thiết</li>
+  <li><b>Admin/Manager:</b> Vào Lịch làm việc → Phân ca cho NV bằng dialog multi-select</li>
+  <li><b>Nhân viên:</b> Vào Đăng ký ca để đăng ký, hoặc Đổi ca để yêu cầu swap</li>
+  <li><b>Manager:</b> Duyệt tại tab "Duyệt đăng ký"</li>
+</ol>
+</div>
+
+<!-- NGHỈ PHÉP -->
+<div class="page-break"></div>
+<h2>2.10. Nghỉ phép (Leave)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Vai trò</th><th>Nội dung</th></tr>
+  <tr><td><b>Nghỉ phép của tôi</b></td><td>Tất cả</td><td>Xem đơn đã gửi, trạng thái: Chờ (vàng) / Duyệt (xanh) / Từ chối (đỏ) / Huỷ (xám)</td></tr>
+  <tr><td><b>Tất cả nghỉ phép</b></td><td>Manager</td><td>Toàn bộ đơn, lọc theo PB/loại/trạng thái/thời gian</td></tr>
+  <tr><td><b>Chờ duyệt</b></td><td>Manager</td><td>✅ Duyệt / ❌ Từ chối (bắt buộc nhập lý do)</td></tr>
+</table>
+
+<h3>Các loại nghỉ phép</h3>
+<table>
+  <tr><th>Loại</th><th>Mã</th></tr>
+  <tr><td>Nghỉ không lương</td><td>UnpaidLeave</td></tr>
+  <tr><td>Phép năm</td><td>AnnualLeave</td></tr>
+  <tr><td>Nghỉ có lương</td><td>PaidLeave</td></tr>
+  <tr><td>Nghỉ bệnh</td><td>SickLeave</td></tr>
+  <tr><td>Nghỉ thai sản</td><td>MaternityLeave</td></tr>
+</table>
+
+<p><b>Tạo đơn:</b> Chọn loại nghỉ → Chọn ngày bắt đầu/kết thúc → Nhập lý do → Chọn ca (nếu áp dụng) → Gửi. Hệ thống tự tính số ngày nghỉ.</p>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Nghỉ phép</b> → Bấm ➕ → Chọn loại + ngày + lý do → <b>Gửi</b>. Manager vào tab <b>Chờ duyệt</b> để xử lý. NV có thể huỷ đơn khi đang ở trạng thái Chờ.
+</div>
+
+<!-- LƯƠNG -->
+<h2>2.11. Lương &amp; Phúc lợi</h2>
+
+<h3>2.11.1. Cài đặt lương (Salary Settings) — Admin/HR</h3>
+<table>
+  <tr><th>Section</th><th>Nội dung cấu hình</th></tr>
+  <tr><td><b>Loại lương</b></td><td>Tháng / Ngày / Giờ</td></tr>
+  <tr><td><b>Lương cơ bản</b></td><td>Số tiền (format VND)</td></tr>
+  <tr><td><b>Phụ cấp</b></td><td>Phụ cấp cố định, ăn trưa, trách nhiệm</td></tr>
+  <tr><td><b>Bảo hiểm</b></td><td>Loại (Bắt buộc/Tự nguyện/Không), % đóng, Số tiền khấu trừ</td></tr>
+  <tr><td><b>Lịch làm việc</b></td><td>Số ca/ngày, ngày nghỉ, loại chấm công (Chỉ vào / Vào-Ra / Theo giờ)</td></tr>
+</table>
+
+<h3>2.11.2. Bảng lương (Payroll)</h3>
+<p>Tổng hợp lương tháng tự động dựa trên chấm công + cài đặt lương:</p>
+<table>
+  <tr><th>Cột</th><th>Mô tả</th></tr>
+  <tr><td>Mã NV, Họ tên, Chức vụ/PB</td><td>Thông tin nhân viên</td></tr>
+  <tr><td>Ngày có mặt / vắng / muộn</td><td>Tổng hợp từ chấm công</td></tr>
+  <tr><td>Tổng giờ</td><td>Total paid hours</td></tr>
+  <tr><td>Lương cơ bản</td><td>Base salary</td></tr>
+  <tr><td>Phụ cấp ăn</td><td>Meal allowance</td></tr>
+  <tr><td>Thưởng chuyên cần</td><td>Attendance bonus</td></tr>
+  <tr><td>BHXH</td><td>Social insurance deduction</td></tr>
+  <tr><td>Thuế</td><td>Tax deductions</td></tr>
+  <tr><td>Tổng khấu trừ</td><td>Total deductions</td></tr>
+  <tr><td><b>Lương thực nhận</b></td><td><b>Net salary = Cơ bản + Phụ cấp + Thưởng − Khấu trừ</b></td></tr>
+</table>
+<p><b>Tính năng:</b> Ẩn/hiện cột tuỳ chọn, Sort, Multi-select, Export Excel (có format), Export PNG.</p>
+
+<h3>2.11.3. Phiếu lương (Payslip)</h3>
+<ul>
+  <li>NV xem phiếu lương cá nhân theo tháng</li>
+  <li>Chi tiết: Lương cơ bản + Phụ cấp − Khấu trừ = <b>Thực nhận</b></li>
+  <li>YTD summary (Year-to-date)</li>
+  <li>Tải PDF / In / Gửi email</li>
+</ul>
+
+<h3>2.11.4. Báo cáo lương (Payroll Report)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td>Tổng quan</td><td>Metrics + Pie chart phân bổ chi phí</td></tr>
+  <tr><td>Theo phòng ban</td><td>PB, Số NV, Tổng lương, TB lương, % tổng + drill-down</td></tr>
+  <tr><td>Theo chức vụ</td><td>Chức vụ, Số lượng, Tổng, Trung bình</td></tr>
+  <tr><td>Theo hình thức</td><td>So sánh lương Giờ vs Tháng</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b>
+<ol>
+  <li><b>Admin/HR:</b> Vào Cài đặt → Cài đặt lương → Cấu hình lương cho từng NV</li>
+  <li>Cuối tháng, vào <b>Bảng lương</b> → Hệ thống tự tổng hợp</li>
+  <li>NV xem <b>Phiếu lương</b> → Tải PDF nếu cần</li>
+  <li>Manager/HR xem <b>Báo cáo lương</b> để phân tích tổng thể</li>
+</ol>
+</div>
+
+<!-- THƯỞNG / PHẠT / TẠM ỨNG -->
+<div class="page-break"></div>
+<h2>2.12. Thưởng / Phạt / Tạm ứng</h2>
+
+<h3>2.12.1. Thưởng &amp; Phạt (Bonus &amp; Penalty)</h3>
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Giao dịch</b></td><td>Danh sách: NV, Loại (<span class="green">Thưởng</span>/<span class="red">Phạt</span>), Số tiền, Lý do, Ngày, Người duyệt, Trạng thái</td></tr>
+  <tr><td><b>Thống kê</b></td><td>Tổng thưởng vs phạt, xu hướng (7/30/90 ngày), Top 5 NV thưởng/phạt cao nhất, phân bổ theo PB</td></tr>
+</table>
+<p><b>Thêm mới:</b> Chọn NV → Chọn Thưởng/Phạt → Nhập Số tiền + Lý do + Ngày → Lưu</p>
+
+<h3>2.12.2. Phiếu phạt (Penalty Tickets)</h3>
+<ul>
+  <li>Phiếu phạt chi tiết: Loại vi phạm, số tiền, trạng thái (Xác nhận/Khiếu nại/Đã xử lý)</li>
+  <li>NV có thể <b>khiếu nại</b>: Gửi lý do + bằng chứng</li>
+</ul>
+
+<h3>2.12.3. Cài đặt phạt (Penalty Settings) — Admin</h3>
+<p>Quy tắc phạt tự động: Tên quy tắc, Điều kiện (VD: muộn &gt;15 phút), Số tiền/%, Danh mục, Toggle bật/tắt.</p>
+
+<h3>2.12.4. Tạm ứng lương (Advance Requests)</h3>
+<ul>
+  <li><b>NV gửi yêu cầu:</b> Số tiền (hiển thị max có thể tạm ứng) + Lý do + Ngày hoàn trả (tùy chọn)</li>
+  <li><b>Manager duyệt:</b> Có thể duyệt số tiền thấp hơn yêu cầu + Chọn lịch trả (1/2/3 tháng)</li>
+  <li>Trạng thái: <span class="amber">Chờ</span> / <span class="green">Duyệt</span> / <span class="red">Từ chối</span></li>
+</ul>
+
+<!-- KPI -->
+<h2>2.13. KPI (Key Performance Indicator)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Dashboard KPI</b></td><td>Metrics: Tổng NV có KPI, % đạt target, TB thưởng KPI. Charts: Histogram, Top/Bottom performers, Xu hướng</td></tr>
+  <tr><td><b>Kỳ đánh giá</b></td><td>Tạo kỳ (tên, ngày BĐ/KT), xem targets, xem lương, đóng kỳ</td></tr>
+  <tr><td><b>Mục tiêu KPI</b></td><td>NV, Chỉ tiêu, Giá trị mục tiêu, Trọng số %, Giá trị hiện tại, % đạt</td></tr>
+  <tr><td><b>Lương KPI</b></td><td>NV, Lương cơ bản, Thưởng KPI, Tổng, Ngày chi → Duyệt chi → Export Payroll</td></tr>
+  <tr><td><b>Google Sheets</b></td><td>Upload service account JSON, Test kết nối, Cấu hình sync</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b>
+<ol>
+  <li>Admin tạo <b>Kỳ đánh giá</b> → Gán <b>Mục tiêu</b> cho từng NV (chỉ tiêu, trọng số %)</li>
+  <li>Trong kỳ, NV/Manager cập nhật giá trị hiện tại</li>
+  <li>Kết thúc kỳ → Xem Dashboard phân tích → Tính <b>Lương KPI</b> → Duyệt chi → Export sang Payroll</li>
+</ol>
+</div>
+
+<!-- SẢN XUẤT -->
+<h2>2.14. Sản xuất &amp; Sản lượng (Production Output)</h2>
+<ul>
+  <li>Ghi nhận sản lượng sản xuất theo nhân viên, nhóm sản phẩm, mặt hàng</li>
+  <li>Bảng giá theo tier (mức sản lượng)</li>
+  <li>Tính lương sản phẩm (Product Salary)</li>
+  <li>Cấu hình nhóm sản phẩm, mặt hàng, bậc giá</li>
+</ul>
+
+<!-- TÀI SẢN -->
+<div class="page-break"></div>
+<h2>2.15. Quản lý Tài sản (Asset Management)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Tài sản</b></td><td>CRUD: Mã, Tên, Loại (Điện tử/Nội thất/Xe/Công cụ/Máy móc/Phần mềm/Khác), Người giữ, Vị trí, Ngày mua, Giá trị (VND), Trạng thái (Active/Bảo trì/Hỏng/Thanh lý/Thất lạc/Trong kho)</td></tr>
+  <tr><td><b>Chuyển giao</b></td><td>Lịch sử chuyển: Tên TS, Từ NV, Đến NV, Ngày, Loại (Giao/Chuyển/Trả/Bảo trì/Thanh lý)</td></tr>
+  <tr><td><b>Kiểm kê</b></td><td>Bản ghi kiểm kê vật lý: Ngày, Người kiểm, Tổng TS, Tình trạng</td></tr>
+  <tr><td><b>Danh mục</b></td><td>CRUD danh mục tài sản</td></tr>
+  <tr><td><b>Thống kê</b></td><td>Tổng TS theo danh mục, Pie chart trạng thái, Giá trị, Khấu hao, Chi phí bảo trì</td></tr>
+</table>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Tài sản</b> → ➕ Thêm → Điền thông tin → Lưu. Để chuyển tài sản: Bấm 🔄 → Chọn NV nhận → Loại chuyển → Xác nhận.
+</div>
+
+<!-- THU CHI -->
+<h2>2.16. Thu chi (Cash Transactions)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Giao dịch</b></td><td>CRUD: Ngày, Loại (<span class="green">Thu</span>/<span class="red">Chi</span>), Mô tả, Danh mục, Số tiền (VND), Trạng thái</td></tr>
+  <tr><td><b>Summary</b></td><td>4 card: Tổng thu, Tổng chi, Dòng tiền ròng, Ngân sách vs Thực tế</td></tr>
+  <tr><td><b>Danh mục</b></td><td>CRUD danh mục giao dịch</td></tr>
+  <tr><td><b>Tài khoản NH</b></td><td>Danh sách tài khoản, số dư</td></tr>
+  <tr><td><b>VietQR Banks</b></td><td>Danh sách NH hỗ trợ QR (read-only)</td></tr>
+</table>
+
+<!-- TRUYỀN THÔNG -->
+<h2>2.17. Truyền thông nội bộ (Communication)</h2>
+
+<ul>
+  <li><b>Dashboard:</b> Stats, bài viết xem nhiều, thông báo mới</li>
+  <li><b>Tabs:</b> Tất cả | Tin tức | Thông báo | Quy định | Đào tạo | Sự kiện | Chính sách</li>
+  <li><b>Card bài viết:</b> Thumbnail, Title, Excerpt, Badge loại/ưu tiên, View count, Like (❤️), Pin (📌)</li>
+  <li><b>Chi tiết bài viết:</b> Full content, Cover image, Comments (threaded), Chia sẻ/In/PDF</li>
+  <li><b>Tạo bài (Admin/Manager):</b> Rich text editor WYSIWYG, Upload ảnh bìa, Chọn loại + ưu tiên + đối tượng, Lên lịch đăng, Ghim, Cho phép comment</li>
+</ul>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Truyền thông</b> → Đọc bài viết → Like/Comment. Admin bấm ➕ → Soạn bài → Chọn loại + đối tượng → <b>Đăng</b> hoặc <b>Lưu nháp</b>.
+</div>
+
+<!-- CÔNG VIỆC -->
+<div class="page-break"></div>
+<h2>2.18. Quản lý Công việc (Task Management)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Danh sách</b></td><td>CRUD task: Tiêu đề, Mô tả, Loại (Task/Bug/Feature/Improvement/Meeting/Other), Ưu tiên (Low/Medium/High/Urgent), NV nhận, Hạn, Tiến độ 0-100%</td></tr>
+  <tr><td><b>Kanban Board</b></td><td>6 cột: To Do | In Progress | In Review | Completed | On Hold | Cancelled. Kéo-thả card giữa cột</td></tr>
+  <tr><td><b>Thống kê</b></td><td>Pie: theo trạng thái. Bar: theo ưu tiên. Task quá hạn, Tỷ lệ hoàn thành, TB thời gian, Workload</td></tr>
+</table>
+
+<p><b>Chi tiết task (Side panel):</b> Full info, Status dropdown, Progress slider, Comments (reply thread), History/Activity log, Linked tasks, Attachments preview.</p>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Vào <b>Công việc</b> → Tab <b>Kanban</b> để quản lý trực quan bằng kéo-thả. Hoặc dùng <b>Danh sách</b> để thêm/sửa chi tiết. Bấm vào task để mở panel chi tiết.
+</div>
+
+<!-- THÔNG BÁO -->
+<h2>2.19. Thông báo (Notifications)</h2>
+<ul>
+  <li>Push notification <b>realtime</b> qua SignalR WebSocket</li>
+  <li>Popup overlay góc trên phải, auto-dismiss 5 giây</li>
+  <li>Filter chips: Tất cả | Chưa đọc | Đã đọc</li>
+  <li>Loại: LeaveRequest, AdvanceRequest, AttendanceCorrection, ScheduleRegistration, Payslip, System</li>
+  <li>Badge: <span class="blue">Info</span> / <span class="green">Success</span> / <span class="amber">Warning</span> / <span class="red">Error</span> / ApprovalRequired / Reminder</li>
+  <li>Click thông báo → Đánh dấu đã đọc + Navigate đến entity liên quan</li>
+</ul>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b> Bấm 🔔 trên AppBar → Xem danh sách thông báo. Bấm vào từng thông báo để đến chi tiết. Cấu hình nhận thông báo tại <b>Cài đặt thông báo</b>.
+</div>
+
+<!-- BÁO CÁO HR -->
+<h2>2.20. Báo cáo HR (HR Report)</h2>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung</th></tr>
+  <tr><td><b>Tổng quan</b></td><td>Tổng NV active/inactive, Tỷ lệ nghỉ việc, TB thâm niên, Nam/Nữ, Org chart mini, Xu hướng 3 tháng</td></tr>
+  <tr><td><b>Nhân khẩu học</b></td><td>Biểu đồ: Giới tính (pie), Hôn nhân (pie), Học vấn (bar), Phân bổ độ tuổi (histogram), Quê quán</td></tr>
+  <tr><td><b>Thâm niên</b></td><td>Nhóm: &lt;1 năm, 1-3, 3-5, 5-10, 10+ năm. Chart + table</td></tr>
+  <tr><td><b>Tỷ lệ nghỉ việc</b></td><td>Trend 12 tháng, Lý do nghỉ, Phân tích theo phòng ban</td></tr>
+  <tr><td><b>Đào tạo</b></td><td>Chương trình, % hoàn thành, Top khóa phổ biến</td></tr>
+  <tr><td><b>Lương thưởng</b></td><td>TB lương theo PB, Phân bổ lương (histogram), Lương vs Thâm niên (scatter plot)</td></tr>
+</table>
+<p><b>Sinh nhật:</b> Sinh nhật tháng này + 30 ngày tới</p>
+<p><b>Export:</b> PDF, Excel, Print</p>
+
+<!-- THIẾT BỊ -->
+<div class="page-break"></div>
+<h2>2.21. Quản lý Thiết bị Chấm công (Devices — ADMS)</h2>
+
+<h3>2.21.1. Thiết bị (Devices)</h3>
+<table>
+  <tr><th>Cột</th><th>Mô tả</th></tr>
+  <tr><td>Tên thiết bị</td><td>Device name</td></tr>
+  <tr><td>Serial</td><td>Serial number</td></tr>
+  <tr><td>IP</td><td>Địa chỉ IP</td></tr>
+  <tr><td>Online</td><td>🟢 Xanh (&lt;2 phút) / 🔴 Đỏ (&gt;2 phút)</td></tr>
+  <tr><td>Lần cuối</td><td>Thời gian kết nối cuối ("2 phút trước")</td></tr>
+  <tr><td>SL users</td><td>Số người dùng trên thiết bị</td></tr>
+  <tr><td>SL chấm công</td><td>Số lượt chấm công tháng này</td></tr>
+  <tr><td>Trạng thái</td><td>Active / Inactive</td></tr>
+</table>
+
+<h3>2.21.2. Người dùng thiết bị (Device Users)</h3>
+<ul>
+  <li>Danh sách user trên thiết bị: PIN, Tên, Số thẻ, Cấp (0=User, 14=Admin)</li>
+  <li><b>Liên kết NV:</b> Mapping device user ↔ Employee trong hệ thống (dropdown searchable)</li>
+</ul>
+
+<h3>2.21.3. Cấu hình thiết bị (Device Management Settings)</h3>
+<ul>
+  <li><b>Device Info:</b> Tên, Serial, MAC, Firmware (read-only)</li>
+  <li><b>Network:</b> IP, Port, Test kết nối</li>
+  <li><b>Sync:</b> Auto-sync toggle, Tần suất, Pull attendance, Push users</li>
+  <li><b>Hành động:</b> Khoá/Mở thiết bị, Restart, Xoá bộ nhớ</li>
+</ul>
+
+<h3>2.21.4. Đăng ký khuôn mặt (Face Registration)</h3>
+<p>Chọn NV → Upload/Chụp ảnh → Crop (rectangle selector, zoom, rotate) → Lưu. Tối đa 5 ảnh/NV, hiển thị quality score.</p>
+
+<h3>2.21.5. Sinh trắc học (Biometrics)</h3>
+<p>Quản lý vân tay, khuôn mặt đã đăng ký trên thiết bị.</p>
+
+<div class="note">
+<b>💡 Hướng dẫn:</b>
+<ol>
+  <li><b>Thêm thiết bị:</b> Vào Thiết bị → ➕ → Nhập Serial, IP, Port (mặc định 4370) → Đăng ký</li>
+  <li><b>Liên kết:</b> Vào Người dùng thiết bị → Bấm 🔗 → Chọn NV → Lưu</li>
+  <li><b>Đăng ký mặt:</b> Vào Đăng ký khuôn mặt → Chọn NV → Upload ảnh → Crop → Lưu</li>
+  <li><b>Sync:</b> Cấu hình auto-sync tại Cài đặt thiết bị, hoặc bấm Sync thủ công</li>
+</ol>
+</div>
+
+<!-- CÀI ĐẶT -->
+<h2>2.22. Cài đặt hệ thống (Settings Hub) — Admin</h2>
+
+<p>Trung tâm cài đặt dạng Grid, mỗi mục là 1 Card có icon + title + mô tả:</p>
+
+<table>
+  <tr><th>Mục</th><th>Mô tả</th></tr>
+  <tr><td>💰 Cài đặt lương</td><td>Cấu hình lương cơ bản, phụ cấp, khấu trừ cho từng NV</td></tr>
+  <tr><td>🔄 Cài đặt ca</td><td>CRUD ca làm việc (giờ BĐ/KT, nghỉ giữa ca, ca linh hoạt)</td></tr>
+  <tr><td>🎄 Ngày lễ</td><td>Ngày lễ quốc gia (read-only) + Ngày lễ công ty + Cấu hình cuối tuần</td></tr>
+  <tr><td>🏥 Bảo hiểm</td><td>Loại BH, % bao phủ, % NV đóng, % Cty đóng, Ngày hiệu lực</td></tr>
+  <tr><td>⚠️ Quy định phạt</td><td>Quy tắc phạt tự động (điều kiện, số tiền/%)</td></tr>
+  <tr><td>💵 Phụ cấp</td><td>Các loại phụ cấp: Cố định / Ngày / Giờ, Chịu thuế toggle</td></tr>
+  <tr><td>📱 Chấm công Mobile</td><td>Vị trí GPS, Khuôn mặt, Quy tắc tự duyệt</td></tr>
+  <tr><td>📟 Thiết bị</td><td>Cấu hình thiết bị ZKTeco (network, sync, restart)</td></tr>
+  <tr><td>☁️ Google Drive</td><td>OAuth, Thư mục backup, Auto-backup frequency</td></tr>
+  <tr><td>📊 Google Sheets</td><td>Service account, Spreadsheets, Cấu hình sync KPI</td></tr>
+  <tr><td>🔐 Phân quyền vai trò</td><td>Ma trận: Tính năng × Hành động × Vai trò (Xem/Tạo/Sửa/Xoá/Duyệt/Xuất)</td></tr>
+  <tr><td>🏢 Phân quyền PB</td><td>Quyền theo phòng ban + vai trò</td></tr>
+  <tr><td>⚙️ Hệ thống</td><td>Giờ kết thúc ngày, Tiền tệ, Định dạng ngày, Thông tin công ty</td></tr>
+</table>
+
+<!-- SYSTEM ADMIN -->
+<div class="page-break"></div>
+<h2>2.23. Quản trị Hệ thống (System Admin) — SuperAdmin Only</h2>
+
+<p>Màn hình quản trị cấp cao nhất, 11 tab, chỉ dành cho SuperAdmin:</p>
+
+<table>
+  <tr><th>Tab</th><th>Nội dung chi tiết</th></tr>
+  <tr><td><b>Dashboard</b></td><td>Metrics: Tổng stores, Active stores, Users, Devices, Online/Offline, Chấm công hôm nay. Charts: Top stores, Device online ratio. Timeline hoạt động.</td></tr>
+  <tr><td><b>Cửa hàng</b></td><td>CRUD stores: Mã, Tên, Liên hệ, Email, SĐT, Gói dịch vụ, Số users/devices. Hành động: Kích hoạt/Tạm dừng/Xoá.</td></tr>
+  <tr><td><b>Users</b></td><td>Quản lý tài khoản: Tên, Store, Vai trò, Email, Trạng thái, Last login. Hành động: Sửa/Khoá/Mở/Xoá/Reset mật khẩu.</td></tr>
+  <tr><td><b>Devices</b></td><td>Thiết bị toàn hệ thống (cross-store), thêm cột "Cửa hàng".</td></tr>
+  <tr><td><b>Đại lý</b></td><td>CRUD agents: Mã, Tên, Số cửa hàng, Hoa hồng %, Trạng thái.</td></tr>
+  <tr><td><b>Licenses</b></td><td>License keys: Key (masked), Store, Gói, Ngày kích hoạt/hết hạn, Trạng thái (Valid/Expiring/Expired), Gia hạn/Thu hồi.</td></tr>
+  <tr><td><b>Cài đặt</b></td><td>Global: Company info, SMTP, SMS, API rate limits, Data retention, Backup, Security.</td></tr>
+  <tr><td><b>Database</b></td><td>DB size, Connection status, Backup schedule, Check integrity, Cleanup, View logs.</td></tr>
+  <tr><td><b>Audit Log</b></td><td>Lịch sử: Thời gian, User, Action (Create/Update/Delete/Download), Entity, Kết quả (Success/Failure), IP, Device/Browser.</td></tr>
+  <tr><td><b>Gói dịch vụ</b></td><td>CRUD packages: Tên, Giá tháng (VND), Features, Max users/devices/chấm công, Trạng thái.</td></tr>
+  <tr><td><b>Khuyến mãi</b></td><td>CRUD promotions: Tên, Loại giảm (%/Fixed), Giá trị, Gói áp dụng, Thời hạn, Số lần dùng.</td></tr>
+</table>
+
+<!-- TÍNH NĂNG BỔ SUNG -->
+<h2>2.24. Các tính năng bổ sung</h2>
+
+<table>
+  <tr><th>Chức năng</th><th>Mô tả</th></tr>
+  <tr><td><b>Ngoài giờ (Overtime)</b></td><td>Gửi/duyệt yêu cầu làm ngoài giờ. Tabs: Của tôi | Tất cả | Duyệt | Báo cáo</td></tr>
+  <tr><td><b>Phản hồi (Feedback)</b></td><td>NV gửi phản hồi, góp ý cho quản lý/công ty</td></tr>
+  <tr><td><b>Đào tạo (Training)</b></td><td>Chương trình đào tạo, đăng ký khóa, phân công, chứng chỉ</td></tr>
+  <tr><td><b>Tài liệu HR</b></td><td>Quản lý tài liệu nhân sự (hợp đồng, quyết định...)</td></tr>
+  <tr><td><b>Quy định công ty</b></td><td>Nội quy, quy chế công ty</td></tr>
+  <tr><td><b>Geofence</b></td><td>Quản lý vùng địa lý cho chấm công (định nghĩa polygon/circle)</td></tr>
+  <tr><td><b>Quản lý nội dung</b></td><td>CMS cho website/ứng dụng nội bộ</td></tr>
+  <tr><td><b>AI Settings</b></td><td>Cấu hình tích hợp AI (nhận diện, phân tích)</td></tr>
+  <tr><td><b>Cài đặt thuế</b></td><td>Thuế thu nhập cá nhân, các mức khấu trừ</td></tr>
+  <tr><td><b>Cài đặt phụ cấp</b></td><td>Phụ cấp ăn, đi lại, trách nhiệm, điện thoại...</td></tr>
+  <tr><td><b>Cài đặt thông báo</b></td><td>Toggle: Email, In-app, Push, SMS. Tần suất: Realtime/Hàng ngày/Hàng tuần</td></tr>
+</table>
+
+<!-- CHƯƠNG 3 -->
+<div class="page-break"></div>
+<h1>3. ĐẶC ĐIỂM KỸ THUẬT NỔI BẬT</h1>
+
+<table>
+  <tr><th style="width:25%;">Tính năng</th><th>Chi tiết</th></tr>
+  <tr><td><b>Realtime</b></td><td>SignalR WebSocket — Chấm công, trạng thái thiết bị, thông báo cập nhật tức thì. Auto-refresh: Dashboard 30s, Attendance 5s, Device 2 phút.</td></tr>
+  <tr><td><b>Offline</b></td><td>Cache localStorage: credentials, corrections, preferences. Sync queue khi mất mạng. Visual indicator pending sync. Retry tự động khi kết nối lại.</td></tr>
+  <tr><td><b>Responsive</b></td><td><b>Mobile (&lt;768px):</b> Table → Card list, Dialogs → Bottom sheet, Actions → FAB.<br><b>Tablet (768-1024px):</b> Multi-column, table scroll ngang.<br><b>Desktop (&gt;1024px):</b> Full layout, side panels, master-detail view.</td></tr>
+  <tr><td><b>Bảo mật</b></td><td>JWT authentication, Phân quyền RBAC 5 cấp (SuperAdmin → Employee), Audit log toàn bộ hành động.</td></tr>
+  <tr><td><b>Đa ngôn ngữ</b></td><td>Tiếng Việt (mặc định) + English. Format ngày/tiền tệ theo locale (dd/MM/yyyy, 1.234.567 ₫).</td></tr>
+  <tr><td><b>Export</b></td><td>Excel, CSV, PDF, PNG cho hầu hết báo cáo. Filename tự động theo ngày.</td></tr>
+  <tr><td><b>Tích hợp</b></td><td>Google Drive (backup tự động), Google Sheets (sync KPI), VietQR (ngân hàng VN).</td></tr>
+  <tr><td><b>Face ID</b></td><td>Nhận diện khuôn mặt cho chấm công mobile. Ngưỡng khớp &gt;80%. Upload/crop ảnh đăng ký.</td></tr>
+  <tr><td><b>GPS</b></td><td>Kiểm tra vị trí chấm công trong bán kính cho phép (mét). Geofence polygon/circle.</td></tr>
+  <tr><td><b>Multi-tenant SaaS</b></td><td>Mỗi cửa hàng/tenant dữ liệu riêng biệt. Quản lý tập trung bởi SuperAdmin.</td></tr>
+</table>
+
+<!-- CHƯƠNG 4 -->
+<div class="page-break"></div>
+<h1>4. QUY TRÌNH SỬ DỤNG CHÍNH (WORKFLOW)</h1>
+
+<h2>Flow 1: Vận hành chấm công hàng ngày</h2>
+<div class="flow-box">
+Admin cài đặt thiết bị → Liên kết NV ↔ Device User → Phân ca<br>
+→ NV chấm công (thiết bị ZKTeco / mobile face) → Dữ liệu realtime qua SignalR<br>
+→ Tổng hợp chấm công → Điều chỉnh (nếu cần) → Manager duyệt → Báo cáo chấm công
+</div>
+
+<h2>Flow 2: Tính lương cuối tháng</h2>
+<div class="flow-box">
+Cài đặt lương NV (loại, cơ bản, phụ cấp, BH) → Chấm công cả tháng<br>
+→ Hệ thống tổng hợp ngày công tự động<br>
+→ + Phụ cấp + Thưởng KPI + Thưởng chuyên cần<br>
+→ − Phạt − BHXH − Thuế TNCN − Tạm ứng<br>
+→ = Bảng lương → Phiếu lương → Export Excel / PDF / In / Email
+</div>
+
+<h2>Flow 3: Quản lý nghỉ phép</h2>
+<div class="flow-box">
+NV tạo đơn nghỉ phép → Hệ thống gửi thông báo realtime cho Manager<br>
+→ Manager duyệt / từ chối (+ lý do)<br>
+→ Cập nhật lịch làm việc → Phản ánh trong chấm công + bảng lương
+</div>
+
+<h2>Flow 4: Đánh giá KPI</h2>
+<div class="flow-box">
+Admin tạo kỳ đánh giá → Gán mục tiêu KPI cho từng NV (chỉ tiêu, trọng số %)<br>
+→ Trong kỳ: Cập nhật giá trị hiện tại<br>
+→ Kết thúc kỳ: Đóng kỳ → Dashboard phân tích → Tính thưởng KPI<br>
+→ Duyệt chi → Export sang Payroll → Bảng lương
+</div>
+
+<h2>Flow 5: Chấm công Mobile</h2>
+<div class="flow-box">
+Admin đăng ký vị trí GPS + Cấu hình ngưỡng → NV đăng ký khuôn mặt (upload ảnh)<br>
+→ NV mở app → Xác thực mặt (camera) → Kiểm tra GPS (trong bán kính?)<br>
+→ CHECK IN / CHECK OUT → Auto-approve (nếu đạt ngưỡng) hoặc Manager duyệt
+</div>
+
+<h2>Flow 6: Quản lý Tài sản</h2>
+<div class="flow-box">
+Admin tạo danh mục → Thêm tài sản (mã, tên, giá trị, vị trí)<br>
+→ Giao cho NV → Sử dụng → Chuyển giao / Bảo trì / Thanh lý<br>
+→ Kiểm kê định kỳ → Thống kê / Báo cáo
+</div>
+
+<br><br>
+<div style="text-align: center; color: #718096; margin-top: 40pt; border-top: 2px solid #1E3A5F; padding-top: 20pt;">
+<p><b>ZKTeco ADMS — Hệ thống Quản lý Chấm công &amp; Nhân sự Toàn diện</b></p>
+<p>Tài liệu giới thiệu phần mềm &amp; Hướng dẫn sử dụng chi tiết</p>
+<p>Ngày lập: 08/04/2026 | Phiên bản tài liệu: 1.0</p>
+</div>
+
+</body>
+</html>
