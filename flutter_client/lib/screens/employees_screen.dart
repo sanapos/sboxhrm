@@ -3977,11 +3977,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
             ),
             bottomNavigationBar: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 8,
-                children: actionButtons,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: actionButtons.map((btn) => Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: btn,
+                )).toList(),
               ),
             ),
           ),
