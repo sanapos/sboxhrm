@@ -95,6 +95,10 @@ dependencies:
   image: ^4.3.0
   tflite_flutter: ^0.12.1
   flutter_local_notifications: 18.0.0
+
+dependency_overrides:
+  path_provider_foundation: 2.4.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

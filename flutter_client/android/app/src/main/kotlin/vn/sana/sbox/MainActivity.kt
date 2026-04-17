@@ -1,4 +1,4 @@
-package com.example.zkteco_flutter_client
+package vn.sana.sbox
 
 import android.content.ContentValues
 import android.os.Build
