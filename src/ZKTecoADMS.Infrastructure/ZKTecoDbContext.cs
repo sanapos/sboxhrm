@@ -158,6 +158,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<MobileFaceRegistration> MobileFaceRegistrations => Set<MobileFaceRegistration>();
     public DbSet<AuthorizedMobileDevice> AuthorizedMobileDevices => Set<AuthorizedMobileDevice>();
     public DbSet<MobileAttendanceRecord> MobileAttendanceRecords => Set<MobileAttendanceRecord>();
+    public DbSet<DeviceChangeRequest> DeviceChangeRequests => Set<DeviceChangeRequest>();
 
     // Field Check-in / Check-in điểm bán
     public DbSet<FieldLocation> FieldLocations => Set<FieldLocation>();

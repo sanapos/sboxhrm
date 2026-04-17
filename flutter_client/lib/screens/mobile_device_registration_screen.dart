@@ -18,7 +18,7 @@ class MobileDeviceRegistrationScreen extends StatefulWidget {
       _MobileDeviceRegistrationScreenState();
 }
 
-enum _RegStatus { loading, notRegistered, pending, approved, error }
+enum _RegStatus { loading, notRegistered, pending, approved, alreadyRegisteredOnOtherDevice, pendingDeviceChange, error }
 
 class _MobileDeviceRegistrationScreenState
     extends State<MobileDeviceRegistrationScreen> {
@@ -40,6 +40,13 @@ class _MobileDeviceRegistrationScreenState
   // Registration result
   String? _registeredDeviceName;
   DateTime? _registeredAt;
+
+  // Already registered device info (different device)
+  String? _existingDeviceName;
+  String? _existingDeviceModel;
+
+  // Device change request
+  String? _changeRequestReason;
 
   @override
   void initState() {
@@ -117,9 +124,47 @@ class _MobileDeviceRegistrationScreenState
         final data = response['data'];
         final registered = data['registered'] == true;
         final approved = data['approved'] == true;
+        final registeredDeviceId = data['deviceId'] as String?;
 
         if (!registered) {
+          // Check if there's a pending device change request
+          final changeReqResponse = await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
+          if (changeReqResponse['isSuccess'] == true && changeReqResponse['data'] != null) {
+            final crData = changeReqResponse['data'];
+            if (crData['hasPendingRequest'] == true) {
+              setState(() {
+                _status = _RegStatus.pendingDeviceChange;
+                _existingDeviceName = crData['oldDeviceName'];
+                _registeredDeviceName = crData['newDeviceName'];
+              });
+              return;
+            }
+          }
           setState(() => _status = _RegStatus.notRegistered);
+        } else if (registered && registeredDeviceId != null && registeredDeviceId != _deviceId && _deviceId.isNotEmpty) {
+          // Device is registered but on a DIFFERENT device
+          // Check if there's already a pending change request
+          final changeReqResponse = await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
+          bool hasPendingChange = false;
+          if (changeReqResponse['isSuccess'] == true && changeReqResponse['data'] != null) {
+            hasPendingChange = changeReqResponse['data']['hasPendingRequest'] == true;
+          }
+          if (hasPendingChange) {
+            setState(() {
+              _status = _RegStatus.pendingDeviceChange;
+              _existingDeviceName = data['deviceName'];
+              _registeredDeviceName = changeReqResponse['data']?['newDeviceName'];
+            });
+          } else {
+            setState(() {
+              _status = _RegStatus.alreadyRegisteredOnOtherDevice;
+              _existingDeviceName = data['deviceName'];
+              _existingDeviceModel = data['deviceModel'];
+              _registeredAt = data['registeredAt'] != null
+                  ? DateTime.parse(data['registeredAt'])
+                  : null;
+            });
+          }
         } else if (approved) {
           setState(() {
             _status = _RegStatus.approved;
@@ -203,6 +248,15 @@ class _MobileDeviceRegistrationScreenState
           _registeredAt = DateTime.now();
           _capturedImages.clear();
         });
+      } else if (response['alreadyRegistered'] == true) {
+        // Already registered on another device
+        final data = response['data'];
+        setState(() {
+          _status = _RegStatus.alreadyRegisteredOnOtherDevice;
+          _existingDeviceName = data?['existingDeviceName'] ?? 'Không rõ';
+          _existingDeviceModel = data?['existingDeviceModel'] ?? '';
+          _capturedImages.clear();
+        });
       } else {
         _showSnackBar(response['message'] ?? 'Đăng ký thất bại', isError: true);
       }
@@ -220,6 +274,59 @@ class _MobileDeviceRegistrationScreenState
       NotificationOverlayManager().showError(title: 'Lỗi', message: message);
     } else {
       NotificationOverlayManager().showSuccess(title: 'Thành công', message: message);
+    }
+  }
+
+  Future<void> _submitDeviceChangeRequest() async {
+    if (_capturedImages.isEmpty) {
+      _showSnackBar('Vui lòng chụp ảnh khuôn mặt trước', isError: true);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.currentUser;
+      final employeeId = user?.id ?? '';
+      final employeeName = user?.fullName ?? '';
+
+      if (employeeId.isEmpty) {
+        _showSnackBar('Không xác định được nhân viên', isError: true);
+        return;
+      }
+
+      final response = await _apiService.requestDeviceChange(
+        employeeId: employeeId,
+        employeeName: employeeName,
+        newDeviceId: _deviceId,
+        newDeviceName: _deviceName,
+        newDeviceModel: _deviceModel,
+        newOsVersion: _osVersion,
+        newWifiBssid: _wifiBssid,
+        faceImages: _capturedImages,
+        reason: _changeRequestReason,
+      );
+
+      if (!mounted) return;
+
+      if (response['isSuccess'] == true) {
+        _showSnackBar('Yêu cầu đổi máy đã được gửi. Chờ quản lý duyệt.');
+        setState(() {
+          _status = _RegStatus.pendingDeviceChange;
+          _registeredDeviceName = _deviceName;
+          _capturedImages.clear();
+          _changeRequestReason = null;
+        });
+      } else {
+        _showSnackBar(response['message'] ?? 'Gửi yêu cầu thất bại', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Lỗi kết nối: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -256,6 +363,12 @@ class _MobileDeviceRegistrationScreenState
 
       case _RegStatus.approved:
         return _buildApprovedView();
+
+      case _RegStatus.alreadyRegisteredOnOtherDevice:
+        return _buildAlreadyRegisteredView();
+
+      case _RegStatus.pendingDeviceChange:
+        return _buildPendingDeviceChangeView();
 
       case _RegStatus.error:
         return _buildErrorView();
@@ -724,6 +837,359 @@ class _MobileDeviceRegistrationScreenState
                 color: Color(0xFF1E3A5F),
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlreadyRegisteredView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Warning header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFB45309), Color(0xFFF59E0B)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Đã đăng ký trên thiết bị khác',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Tài khoản của bạn đã đăng ký chấm công trên thiết bị:',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.smartphone, color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _existingDeviceName ?? 'Không rõ',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_existingDeviceModel != null && _existingDeviceModel!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28),
+                          child: Text(
+                            _existingDeviceModel!,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_registeredAt != null) ...[
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28),
+                          child: Text(
+                            'Đăng ký: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Device change request form
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.swap_horiz, color: Color(0xFF2563EB), size: 24),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Yêu cầu đổi sang thiết bị này',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF18181B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Gửi yêu cầu đổi máy để chuyển chấm công sang thiết bị hiện tại. '
+                  'Sau khi được duyệt, thiết bị cũ và khuôn mặt cũ sẽ bị xóa.',
+                  style: TextStyle(
+                    color: Color(0xFF71717A),
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // New device info
+                _buildInfoRow(Icons.badge, 'Thiết bị mới', _deviceName),
+                _buildInfoRow(Icons.phone_android, 'Model', _deviceModel),
+                _buildInfoRow(Icons.system_update, 'Hệ điều hành', _osVersion),
+                const SizedBox(height: 16),
+
+                // Reason input
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Lý do đổi máy (tùy chọn)',
+                    hintText: 'VD: Máy cũ bị hỏng, đổi máy mới...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  maxLines: 2,
+                  onChanged: (v) => _changeRequestReason = v.isEmpty ? null : v,
+                ),
+                const SizedBox(height: 16),
+
+                // Face capture
+                if (_capturedImages.isEmpty) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _openFaceCapture,
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Chụp khuôn mặt mới'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E3A5F),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
+                        style: const TextStyle(
+                          color: Color(0xFF22C55E),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _openFaceCapture,
+                        child: const Text('Chụp lại'),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+
+                // Submit button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: (_capturedImages.isNotEmpty && !_isSubmitting)
+                        ? _submitDeviceChangeRequest
+                        : null,
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.send),
+                    label: Text(
+                      _isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đổi máy',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFFD4D4D8),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Info note
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Sau khi gửi yêu cầu, quản lý sẽ duyệt và thiết bị cũ + khuôn mặt cũ sẽ bị xóa. '
+                    'Thiết bị mới sẽ được tự động kích hoạt.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF92400E),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingDeviceChangeView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDBEAFE),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.swap_horiz,
+                  size: 64, color: Color(0xFF2563EB)),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Đang chờ duyệt đổi máy',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF18181B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Yêu cầu đổi sang "${_registeredDeviceName ?? 'thiết bị mới'}" đang chờ quản lý duyệt.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF71717A),
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            if (_existingDeviceName != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Thiết bị hiện tại: $_existingDeviceName',
+                style: const TextStyle(
+                  color: Color(0xFFA1A1AA),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+            OutlinedButton.icon(
+              onPressed: _checkRegistrationStatus,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Kiểm tra lại'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],

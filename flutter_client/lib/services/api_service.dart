@@ -3230,9 +3230,122 @@ class ApiService {
             body: json.encode(body),
           )
           .timeout(const Duration(seconds: 30));
+
+      // Handle 409 Conflict (already registered) - return device info
+      if (response.statusCode == 409) {
+        try {
+          final data = json.decode(response.body);
+          if (data is Map<String, dynamic> && data['data'] != null) {
+            return {
+              'isSuccess': false,
+              'alreadyRegistered': true,
+              'message': data['data']['message'] ?? 'Tài khoản đã đăng ký thiết bị',
+              'data': data['data'],
+              'statusCode': 409,
+            };
+          }
+        } catch (_) {}
+      }
+
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error registering mobile device: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Nhân viên gửi yêu cầu đổi thiết bị chấm công
+  Future<Map<String, dynamic>> requestDeviceChange({
+    required String employeeId,
+    required String employeeName,
+    required String newDeviceId,
+    required String newDeviceName,
+    required String newDeviceModel,
+    String? newOsVersion,
+    String? newWifiBssid,
+    required List<String> faceImages,
+    String? reason,
+  }) async {
+    try {
+      final body = {
+        'employeeId': employeeId,
+        'employeeName': employeeName,
+        'newDeviceId': newDeviceId,
+        'newDeviceName': newDeviceName,
+        'newDeviceModel': newDeviceModel,
+        'newOsVersion': newOsVersion,
+        'newWifiBssid': newWifiBssid,
+        'faceImages': faceImages,
+        'reason': reason,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/mobile-attendance/request-device-change'),
+            headers: _headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error requesting device change: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Nhân viên kiểm tra yêu cầu đổi máy
+  Future<Map<String, dynamic>> getMyDeviceChangeRequest({String? employeeId}) async {
+    try {
+      final uri = employeeId != null
+          ? '$baseUrl/api/mobile-attendance/my-device-change-request?employeeId=$employeeId'
+          : '$baseUrl/api/mobile-attendance/my-device-change-request';
+      final response = await http
+          .get(Uri.parse(uri), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting device change request: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Quản lý lấy danh sách yêu cầu đổi máy
+  Future<Map<String, dynamic>> getDeviceChangeRequests({int? status}) async {
+    try {
+      final uri = status != null
+          ? '$baseUrl/api/mobile-attendance/device-change-requests?status=$status'
+          : '$baseUrl/api/mobile-attendance/device-change-requests';
+      final response = await http
+          .get(Uri.parse(uri), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting device change requests: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Quản lý duyệt/từ chối yêu cầu đổi máy
+  Future<Map<String, dynamic>> approveDeviceChange({
+    required String requestId,
+    required bool approved,
+    String? rejectionReason,
+  }) async {
+    try {
+      final body = {
+        'approved': approved,
+        'rejectionReason': rejectionReason,
+      };
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/mobile-attendance/approve-device-change/$requestId'),
+            headers: _headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error approving device change: $e');
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }

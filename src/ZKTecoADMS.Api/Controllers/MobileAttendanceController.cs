@@ -26,6 +26,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     private readonly IMemoryCache _cache;
     private readonly FaceComparisonService _faceComparisonService;
     private readonly IAttendanceNotificationService _attendanceNotificationService;
+    private readonly ISystemNotificationService _systemNotificationService;
 
     // Normalize BSSID to hex-only lowercase string for comparison
     // Handles: "AA:BB:CC:DD:EE:FF", "aa-bb-cc-dd-ee-ff", "aabbccddeeff", " AA:BB:CC:DD:EE:FF "
@@ -38,7 +39,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         ILogger<MobileAttendanceController> logger,
         IMemoryCache cache,
         FaceComparisonService faceComparisonService,
-        IAttendanceNotificationService attendanceNotificationService)
+        IAttendanceNotificationService attendanceNotificationService,
+        ISystemNotificationService systemNotificationService)
     {
         _fileStorageService = fileStorageService;
         _dbContext = dbContext;
@@ -46,6 +48,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         _cache = cache;
         _faceComparisonService = faceComparisonService;
         _attendanceNotificationService = attendanceNotificationService;
+        _systemNotificationService = systemNotificationService;
     }
 
     private async Task<string> GetStoreFolderAsync(string subfolder)
@@ -682,7 +685,25 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(d => d.EmployeeId == employeeId && d.StoreId == storeId && d.Deleted == null);
 
         if (existingDevice != null)
-            return BadRequest(AppResponse<object>.Fail("Tài khoản đã đăng ký thiết bị. Mỗi tài khoản chỉ được đăng ký 1 thiết bị."));
+        {
+            // Check if there's already a pending device change request
+            var pendingChangeRequest = await _dbContext.DeviceChangeRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.EmployeeId == employeeId && r.StoreId == storeId && r.Status == 0 && r.Deleted == null);
+
+            return Conflict(AppResponse<object>.Success(new
+            {
+                alreadyRegistered = true,
+                message = "Tài khoản đã đăng ký thiết bị. Mỗi tài khoản chỉ được đăng ký 1 thiết bị.",
+                existingDeviceName = existingDevice.DeviceName,
+                existingDeviceModel = existingDevice.DeviceModel,
+                existingDeviceId = existingDevice.DeviceId,
+                isAuthorized = existingDevice.IsAuthorized,
+                registeredAt = existingDevice.AuthorizedAt,
+                hasPendingChangeRequest = pendingChangeRequest != null,
+                pendingChangeRequestId = pendingChangeRequest?.Id.ToString(),
+            }));
+        }
 
         // Check if this device is already registered by another employee
         var deviceUsed = await _dbContext.AuthorizedMobileDevices
@@ -904,6 +925,384 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             isAuthorized = device.IsAuthorized,
             action = request.Approved ? "approved" : "rejected",
         }));
+    }
+
+    // ==================== DEVICE CHANGE REQUEST ====================
+
+    /// <summary>
+    /// Employee requests to change their registered mobile device.
+    /// </summary>
+    [HttpPost("request-device-change")]
+    [Authorize]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<ActionResult> RequestDeviceChange([FromBody] DeviceChangeRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewDeviceId) || string.IsNullOrWhiteSpace(request.NewDeviceName))
+            return BadRequest(AppResponse<object>.Fail("Thông tin thiết bị mới không hợp lệ"));
+
+        if (request.FaceImages == null || request.FaceImages.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Vui lòng chụp ảnh khuôn mặt"));
+
+        if (request.FaceImages.Count > 5)
+            return BadRequest(AppResponse<object>.Fail("Tối đa 5 ảnh khuôn mặt"));
+
+        var storeId = RequiredStoreId;
+        var employeeId = request.EmployeeId;
+        var employeeName = request.EmployeeName;
+
+        if (string.IsNullOrWhiteSpace(employeeId) || string.IsNullOrWhiteSpace(employeeName))
+            return BadRequest(AppResponse<object>.Fail("Không xác định được nhân viên"));
+
+        // Must have an existing device
+        var existingDevice = await _dbContext.AuthorizedMobileDevices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.EmployeeId == employeeId && d.StoreId == storeId && d.Deleted == null);
+
+        if (existingDevice == null)
+            return BadRequest(AppResponse<object>.Fail("Chưa có thiết bị đăng ký. Vui lòng đăng ký thiết bị mới."));
+
+        // Check for existing pending request
+        var pendingRequest = await _dbContext.DeviceChangeRequests
+            .FirstOrDefaultAsync(r => r.EmployeeId == employeeId && r.StoreId == storeId && r.Status == 0 && r.Deleted == null);
+
+        if (pendingRequest != null)
+            return BadRequest(AppResponse<object>.Fail("Đã có yêu cầu đổi máy đang chờ duyệt."));
+
+        // Check if new device is used by another employee
+        var deviceUsed = await _dbContext.AuthorizedMobileDevices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.DeviceId == request.NewDeviceId && d.StoreId == storeId && d.Deleted == null);
+
+        if (deviceUsed != null && deviceUsed.EmployeeId != employeeId)
+            return BadRequest(AppResponse<object>.Fail($"Thiết bị mới đã được đăng ký bởi nhân viên khác ({deviceUsed.EmployeeName})."));
+
+        try
+        {
+            var changeRequest = new DeviceChangeRequest
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                EmployeeId = employeeId,
+                EmployeeName = employeeName,
+                OldDeviceRecordId = existingDevice.Id,
+                OldDeviceName = existingDevice.DeviceName,
+                OldDeviceModel = existingDevice.DeviceModel,
+                NewDeviceId = request.NewDeviceId,
+                NewDeviceName = request.NewDeviceName,
+                NewDeviceModel = request.NewDeviceModel ?? "Unknown",
+                NewOsVersion = request.NewOsVersion,
+                NewWifiBssid = request.NewWifiBssid,
+                NewFaceImagesJson = JsonSerializer.Serialize(request.FaceImages),
+                Status = 0,
+                Reason = request.Reason,
+                RequestedAt = DateTime.UtcNow,
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            };
+
+            _dbContext.DeviceChangeRequests.Add(changeRequest);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Device change request {Id} created by employee {EmployeeId} ({EmployeeName}): {OldDevice} -> {NewDevice}",
+                changeRequest.Id, employeeId, employeeName, existingDevice.DeviceName, request.NewDeviceName);
+
+            // Notify managers
+            try
+            {
+                var managerIds = await _dbContext.Users
+                    .Where(u => u.StoreId == storeId && u.IsActive
+                        && (u.Role == "Manager" || u.Role == "Admin"))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                foreach (var managerId in managerIds)
+                {
+                    await _systemNotificationService.CreateAndSendAsync(
+                        managerId,
+                        NotificationType.ApprovalRequired,
+                        "Yêu cầu đổi thiết bị chấm công",
+                        $"{employeeName} yêu cầu đổi thiết bị từ \"{existingDevice.DeviceName}\" sang \"{request.NewDeviceName}\"",
+                        relatedEntityType: "DeviceChangeRequest",
+                        relatedEntityId: changeRequest.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send device change notification");
+            }
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                requestId = changeRequest.Id.ToString(),
+                status = "pending",
+                message = "Yêu cầu đổi máy đã được gửi. Chờ quản lý duyệt.",
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating device change request for employee {EmployeeId}", employeeId);
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi gửi yêu cầu đổi máy"));
+        }
+    }
+
+    /// <summary>
+    /// Employee checks their device change request status.
+    /// </summary>
+    [HttpGet("my-device-change-request")]
+    [Authorize]
+    public async Task<ActionResult> GetMyDeviceChangeRequest([FromQuery] string? employeeId)
+    {
+        var storeId = RequiredStoreId;
+        var empId = employeeId ?? CurrentUserId.ToString();
+
+        var request = await _dbContext.DeviceChangeRequests
+            .AsNoTracking()
+            .Where(r => r.EmployeeId == empId && r.StoreId == storeId && r.Status == 0 && r.Deleted == null)
+            .OrderByDescending(r => r.RequestedAt)
+            .FirstOrDefaultAsync();
+
+        if (request == null)
+            return Ok(AppResponse<object>.Success(new { hasPendingRequest = false }));
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            hasPendingRequest = true,
+            requestId = request.Id.ToString(),
+            oldDeviceName = request.OldDeviceName,
+            oldDeviceModel = request.OldDeviceModel,
+            newDeviceName = request.NewDeviceName,
+            newDeviceModel = request.NewDeviceModel,
+            reason = request.Reason,
+            requestedAt = request.RequestedAt,
+        }));
+    }
+
+    /// <summary>
+    /// Manager gets list of device change requests.
+    /// </summary>
+    [HttpGet("device-change-requests")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult> GetDeviceChangeRequests([FromQuery] int? status)
+    {
+        var storeId = RequiredStoreId;
+        var query = _dbContext.DeviceChangeRequests
+            .AsNoTracking()
+            .Where(r => r.StoreId == storeId && r.Deleted == null);
+
+        if (status.HasValue)
+            query = query.Where(r => r.Status == status.Value);
+
+        var requests = await query
+            .OrderByDescending(r => r.RequestedAt)
+            .Select(r => new
+            {
+                id = r.Id,
+                employeeId = r.EmployeeId,
+                employeeName = r.EmployeeName,
+                oldDeviceName = r.OldDeviceName,
+                oldDeviceModel = r.OldDeviceModel,
+                newDeviceName = r.NewDeviceName,
+                newDeviceModel = r.NewDeviceModel,
+                newOsVersion = r.NewOsVersion,
+                reason = r.Reason,
+                status = r.Status,
+                requestedAt = r.RequestedAt,
+                approvedAt = r.ApprovedAt,
+                rejectReason = r.RejectReason,
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<object>.Success(requests));
+    }
+
+    /// <summary>
+    /// Manager approves or rejects a device change request.
+    /// On approval: deletes old device + face data, registers new device + face.
+    /// </summary>
+    [HttpPost("approve-device-change/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<ActionResult> ApproveDeviceChange(Guid id, [FromBody] ApproveRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var changeReq = await _dbContext.DeviceChangeRequests
+            .AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
+
+        if (changeReq == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy yêu cầu đổi máy"));
+
+        if (changeReq.Status != 0)
+            return BadRequest(AppResponse<object>.Fail("Yêu cầu này đã được xử lý"));
+
+        changeReq.UpdatedAt = DateTime.UtcNow;
+        changeReq.UpdatedBy = CurrentUserEmail;
+
+        if (!request.Approved)
+        {
+            // Reject
+            changeReq.Status = 2;
+            changeReq.RejectReason = request.RejectionReason;
+            changeReq.ApprovedBy = CurrentUserId;
+            changeReq.ApprovedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Device change request {Id} rejected by {User}", id, CurrentUserEmail);
+
+            // Notify employee
+            try
+            {
+                var empUserId = Guid.TryParse(changeReq.EmployeeId, out var eid) ? eid : (Guid?)null;
+                if (empUserId.HasValue)
+                {
+                    await _systemNotificationService.CreateAndSendAsync(
+                        empUserId.Value,
+                        NotificationType.Warning,
+                        "Yêu cầu đổi máy bị từ chối",
+                        $"Yêu cầu đổi thiết bị sang \"{changeReq.NewDeviceName}\" đã bị từ chối.{(string.IsNullOrEmpty(request.RejectionReason) ? "" : $" Lý do: {request.RejectionReason}")}",
+                        relatedEntityType: "DeviceChangeRequest",
+                        relatedEntityId: changeReq.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send rejection notification"); }
+
+            return Ok(AppResponse<object>.Success(new { action = "rejected" }));
+        }
+
+        // Approve - delete old device + face, create new ones
+        try
+        {
+            // 1. Soft-delete old device
+            var oldDevice = await _dbContext.AuthorizedMobileDevices
+                .AsTracking()
+                .FirstOrDefaultAsync(d => d.Id == changeReq.OldDeviceRecordId && d.Deleted == null);
+
+            if (oldDevice != null)
+            {
+                oldDevice.Deleted = DateTime.UtcNow;
+                oldDevice.DeletedBy = CurrentUserEmail;
+            }
+
+            // 2. Soft-delete old face registration
+            var oldFace = await _dbContext.MobileFaceRegistrations
+                .AsTracking()
+                .FirstOrDefaultAsync(f => f.OdooEmployeeId == changeReq.EmployeeId && f.StoreId == storeId && f.Deleted == null);
+
+            if (oldFace != null)
+            {
+                oldFace.Deleted = DateTime.UtcNow;
+                oldFace.DeletedBy = CurrentUserEmail;
+            }
+
+            // 3. Upload new face images
+            var faceImages = JsonSerializer.Deserialize<List<string>>(changeReq.NewFaceImagesJson) ?? new List<string>();
+            var uploadFolder = await GetStoreFolderAsync("uploads/face-registrations");
+            var storedImageUrls = new List<string>();
+
+            foreach (var base64Image in faceImages)
+            {
+                if (string.IsNullOrWhiteSpace(base64Image)) continue;
+
+                var base64Data = base64Image;
+                if (base64Data.Contains(","))
+                    base64Data = base64Data.Substring(base64Data.IndexOf(",") + 1);
+
+                byte[] imageBytes;
+                try { imageBytes = Convert.FromBase64String(base64Data); }
+                catch { continue; }
+
+                var ext = (imageBytes.Length >= 2 && imageBytes[0] == 0xFF && imageBytes[1] == 0xD8) ? ".jpg" : ".png";
+                var fileName = $"face_{changeReq.EmployeeId}_{Guid.NewGuid():N}{ext}";
+
+                using var stream = new MemoryStream(imageBytes);
+                var storedPath = await _fileStorageService.UploadAsync(stream, fileName, uploadFolder);
+                storedImageUrls.Add(storedPath);
+            }
+
+            // 4. Create new face registration
+            var newFace = new MobileFaceRegistration
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                OdooEmployeeId = changeReq.EmployeeId,
+                EmployeeName = changeReq.EmployeeName,
+                FaceImagesJson = JsonSerializer.Serialize(storedImageUrls),
+                IsVerified = true,
+                RegisteredAt = DateTime.UtcNow,
+                LastVerifiedAt = DateTime.UtcNow,
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            };
+            _dbContext.MobileFaceRegistrations.Add(newFace);
+
+            // 5. Create new device (already approved)
+            var newDevice = new AuthorizedMobileDevice
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                DeviceId = changeReq.NewDeviceId,
+                DeviceName = changeReq.NewDeviceName,
+                DeviceModel = changeReq.NewDeviceModel,
+                OsVersion = changeReq.NewOsVersion,
+                EmployeeId = changeReq.EmployeeId,
+                EmployeeName = changeReq.EmployeeName,
+                IsAuthorized = true,
+                CanUseFaceId = true,
+                CanUseGps = true,
+                WifiBssid = changeReq.NewWifiBssid,
+                AuthorizedAt = DateTime.UtcNow,
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            };
+            _dbContext.AuthorizedMobileDevices.Add(newDevice);
+
+            // 6. Update request status
+            changeReq.Status = 1;
+            changeReq.ApprovedBy = CurrentUserId;
+            changeReq.ApprovedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Device change request {Id} approved by {User}: old={OldDevice} -> new={NewDevice}",
+                id, CurrentUserEmail, changeReq.OldDeviceName, changeReq.NewDeviceName);
+
+            // Notify employee
+            try
+            {
+                var empUserId2 = Guid.TryParse(changeReq.EmployeeId, out var eid2) ? eid2 : (Guid?)null;
+                if (empUserId2.HasValue)
+                {
+                    await _systemNotificationService.CreateAndSendAsync(
+                        empUserId2.Value,
+                        NotificationType.Success,
+                        "Yêu cầu đổi máy được duyệt",
+                        $"Thiết bị chấm công đã được chuyển sang \"{changeReq.NewDeviceName}\". Bạn có thể sử dụng ngay.",
+                        relatedEntityType: "DeviceChangeRequest",
+                        relatedEntityId: changeReq.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send approval notification"); }
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                action = "approved",
+                newDeviceId = newDevice.Id.ToString(),
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error approving device change request {Id}", id);
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi duyệt yêu cầu đổi máy"));
+        }
     }
 
     // ==================== WIFI CHECK ====================
@@ -1875,6 +2274,19 @@ public class RegisterDeviceWithFaceRequest
     public string EmployeeName { get; set; } = string.Empty;
     public List<string> FaceImages { get; set; } = new();
     public string? WifiBssid { get; set; }
+}
+
+public class DeviceChangeRequestDto
+{
+    public string EmployeeId { get; set; } = string.Empty;
+    public string EmployeeName { get; set; } = string.Empty;
+    public string NewDeviceId { get; set; } = string.Empty;
+    public string NewDeviceName { get; set; } = string.Empty;
+    public string? NewDeviceModel { get; set; }
+    public string? NewOsVersion { get; set; }
+    public string? NewWifiBssid { get; set; }
+    public List<string> FaceImages { get; set; } = new();
+    public string? Reason { get; set; }
 }
 
 internal class FaceRegistrationInfo

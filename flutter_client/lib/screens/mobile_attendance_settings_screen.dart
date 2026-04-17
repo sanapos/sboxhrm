@@ -34,6 +34,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   String _locationSearchQuery = '';
   List<FaceRegistration> _faceRegistrations = [];
   List<AuthorizedDevice> _authorizedDevices = [];
+  List<Map<String, dynamic>> _deviceChangeRequests = [];
   bool _showMobileFilters = false;
 
   @override
@@ -66,6 +67,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         _apiService.getWorkLocations(),
         _apiService.getFaceRegistrations(),
         _apiService.getAuthorizedDevices(),
+        _apiService.getDeviceChangeRequests(status: 0),
       ]);
 
       if (!mounted) return;
@@ -99,6 +101,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         final data = results[3]['data'];
         if (data is List) {
           _authorizedDevices = data.map((e) => AuthorizedDevice.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+
+      // Device change requests
+      if (results[4]['isSuccess'] == true && results[4]['data'] != null) {
+        final data = results[4]['data'];
+        if (data is List) {
+          _deviceChangeRequests = data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }
       }
     } catch (e) {
@@ -1773,33 +1783,74 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
         ),
         Expanded(
-          child: _authorizedDevices.isEmpty
+          child: _authorizedDevices.isEmpty && _deviceChangeRequests.isEmpty
               ? _buildEmptyState(
                   icon: Icons.phone_android,
                   title: 'Chưa có thiết bị được cấp quyền',
                   subtitle: 'Cấp quyền cho điện thoại của nhân viên để chấm công',
                 )
-              : ListView.builder(
+              : ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: _authorizedDevices.length,
-                  itemBuilder: (_, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                  children: [
+                    // Device change requests section
+                    if (_deviceChangeRequests.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8, top: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Yêu cầu đổi máy (${_deviceChangeRequests.length})',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: _buildDeviceDeckItem(_authorizedDevices[index]),
-                    ),
-                  ),
+                      ..._deviceChangeRequests.map((req) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: _buildDeviceChangeRequestItem(req),
+                        ),
+                      )),
+                      const Divider(height: 24),
+                    ],
+                    // Regular devices
+                    ..._authorizedDevices.map((device) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildDeviceDeckItem(device),
+                      ),
+                    )),
+                  ],
                 ),
         ),
       ],
@@ -2778,6 +2829,142 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _loadData();
         } else {
           appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể thay đổi cài đặt');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+      }
+    }
+  }
+
+  Widget _buildDeviceChangeRequestItem(Map<String, dynamic> req) {
+    final requestedAt = req['requestedAt'] != null
+        ? DateTime.tryParse(req['requestedAt'].toString())
+        : null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  req['employeeName'] ?? '',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${req['oldDeviceName'] ?? '?'} → ${req['newDeviceName'] ?? '?'}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (req['reason'] != null && (req['reason'] as String).isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Lý do: ${req['reason']}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (requestedAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${requestedAt.day}/${requestedAt.month}/${requestedAt.year}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _approveDeviceChange(req, true),
+            icon: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
+            tooltip: 'Duyệt đổi máy',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
+          IconButton(
+            onPressed: () => _approveDeviceChange(req, false),
+            icon: const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 24),
+            tooltip: 'Từ chối',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _approveDeviceChange(Map<String, dynamic> req, bool approve) async {
+    String? rejectionReason;
+    if (!approve) {
+      rejectionReason = await showDialog<String>(
+        context: context,
+        builder: (ctx) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text('Từ chối đổi máy'),
+            content: SingleChildScrollView(
+              child: TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Lý do từ chối (không bắt buộc)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, controller.text),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                child: const Text('Từ chối'),
+              ),
+            ],
+          );
+        },
+      );
+      if (rejectionReason == null || !mounted) return;
+    }
+
+    try {
+      final requestId = req['id']?.toString() ?? '';
+      final response = await _apiService.approveDeviceChange(
+        requestId: requestId,
+        approved: approve,
+        rejectionReason: rejectionReason,
+      );
+
+      if (mounted) {
+        if (response['isSuccess'] == true) {
+          appNotification.showSuccess(
+            title: 'Thành công',
+            message: approve
+                ? 'Đã duyệt đổi máy cho ${req['employeeName']}'
+                : 'Đã từ chối đổi máy cho ${req['employeeName']}',
+          );
+          _loadData();
+        } else {
+          appNotification.showError(
+            title: 'Lỗi',
+            message: response['message'] ?? 'Không thể xử lý yêu cầu',
+          );
         }
       }
     } catch (e) {

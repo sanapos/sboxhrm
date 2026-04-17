@@ -1214,13 +1214,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       child: Scaffold(
         key: _mobileScaffoldKey,
         appBar: AppBar(
+          toolbarHeight: 44,
           leading: _canGoBack
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.arrow_back, size: 22),
                   onPressed: _goBack,
                   tooltip: l.goBack,
+                  visualDensity: VisualDensity.compact,
                 )
               : null,
+          titleTextStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(fontSize: 17),
           title: Text(_navItems[_selectedIndex].localizedLabel(l)),
           actions: [
             IconButton(
@@ -1278,16 +1281,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         color: surfaceColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Row(
             children: List.generate(allItems.length, (index) {
               final item = allItems[index];
@@ -1345,9 +1348,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 56,
-            height: 56,
-            margin: const EdgeInsets.only(bottom: 2),
+            width: 46,
+            height: 46,
+            margin: const EdgeInsets.only(bottom: 1),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -1359,22 +1362,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: primaryColor.withValues(alpha: isSelected ? 0.45 : 0.25),
-                  blurRadius: isSelected ? 16 : 10,
-                  offset: const Offset(0, 4),
+                  color: primaryColor.withValues(alpha: isSelected ? 0.35 : 0.2),
+                  blurRadius: isSelected ? 12 : 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Icon(
               icon,
               color: Colors.white,
-              size: 28,
+              size: 24,
             ),
           ),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w600,
               color: isSelected ? primaryColor : primaryColor.withValues(alpha: 0.7),
             ),
@@ -1397,11 +1400,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: isSelected
             ? BoxDecoration(
                 color: selectedColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               )
             : null,
         child: Column(
@@ -1409,10 +1412,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           children: [
             Icon(
               icon,
-              size: 22,
+              size: 20,
               color: isSelected ? selectedColor : unselectedColor,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               label,
               style: TextStyle(
