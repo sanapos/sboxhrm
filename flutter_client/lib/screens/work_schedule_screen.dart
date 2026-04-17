@@ -16,6 +16,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import 'main_layout.dart';
 
 class WorkScheduleScreen extends StatefulWidget {
   const WorkScheduleScreen({super.key});
@@ -443,11 +444,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   Widget _buildTabPendingRegistrations() {
     final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('WorkSchedule');
+    final canApprove = Provider.of<PermissionProvider>(context, listen: false).canView('ScheduleApproval');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCopyScheduleToolbar(),
+          if (canApprove)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: OutlinedButton.icon(
+                onPressed: () => NavigationNotifier.goTo(NavigationNotifier.scheduleApproval),
+                icon: const Icon(Icons.assignment_turned_in, size: 16, color: Color(0xFFF59E0B)),
+                label: const Text('Duyệt lịch làm việc', style: TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFF59E0B)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+              ),
+            ),
           if (canExport)
             _buildExportBar(
               onExportExcel: _exportScheduleTableExcel,
