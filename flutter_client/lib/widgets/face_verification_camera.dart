@@ -266,6 +266,36 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
     // On-device face comparison if registered faces are available
     final regPaths = widget.registeredFacePaths;
     if (regPaths != null && regPaths.isNotEmpty && capturedBytes != null) {
+      // Check if TFLite embedding service is available
+      if (!FaceEmbeddingService.isReady) {
+        try {
+          await FaceEmbeddingService.initialize();
+        } catch (e) {
+          debugPrint('TFLite init failed: $e');
+        }
+      }
+
+      if (!FaceEmbeddingService.isReady) {
+        // TFLite not available (common on iOS) → skip on-device comparison
+        // Return image for server-side verification
+        debugPrint('TFLite not available, skipping on-device comparison');
+        _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
+        _successController.forward();
+
+        final result = FaceVerificationResult(
+          matchScore: -1, // Signal: server should verify
+          faceImageBase64: faceBase64,
+        );
+
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) {
+          widget.onVerifiedWithImage?.call(result);
+          widget.onVerified?.call(result.matchScore);
+          widget.onSuccess?.call();
+        }
+        return;
+      }
+
       _updateStatus(_VerifyStatus.verified, 'Đang nhận dạng khuôn mặt...');
 
       // ML Kit face detection + crop for accurate comparison
@@ -294,7 +324,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         }
       }
 
-      _updateStatus(_VerifyStatus.verified, '\u0110ang so s\u00e1nh khu\u00f4n m\u1eb7t (AI)...');
+      _updateStatus(_VerifyStatus.verified, 'Đang so sánh khuôn mặt (AI)...');
 
       final (score, details) = await FaceEmbeddingService.compareWithCachedRegistered(
         comparisonBytes,
@@ -320,8 +350,26 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           widget.onVerified?.call(result.matchScore);
           widget.onSuccess?.call();
         }
+      } else if (score <= 0) {
+        // Score = 0 likely means embedding extraction failed (TFLite issue)
+        // Return image for server-side verification instead of blocking
+        debugPrint('On-device comparison returned 0, falling back to server verification');
+        _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
+        _successController.forward();
+
+        final result = FaceVerificationResult(
+          matchScore: -1, // Signal: server should verify
+          faceImageBase64: faceBase64,
+        );
+
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) {
+          widget.onVerifiedWithImage?.call(result);
+          widget.onVerified?.call(result.matchScore);
+          widget.onSuccess?.call();
+        }
       } else {
-        // Match failed - show error and allow retry
+        // Score > 0 but below threshold = genuine mismatch
         _updateStatus(_VerifyStatus.error,
             'Khuôn mặt không khớp (${score.toStringAsFixed(0)} điểm). Thử lại...');
 
@@ -341,9 +389,26 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           } catch (_) {}
         }
       }
+    } else if (capturedBytes != null && faceBase64 != null) {
+      // No registered faces but captured image → send to server for verification
+      debugPrint('No registered faces for local comparison, sending to server');
+      _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
+      _successController.forward();
+
+      final result = FaceVerificationResult(
+        matchScore: -1,
+        faceImageBase64: faceBase64,
+      );
+
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) {
+        widget.onVerifiedWithImage?.call(result);
+        widget.onVerified?.call(result.matchScore);
+        widget.onSuccess?.call();
+      }
     } else {
-      // No registered faces for local comparison → BLOCK, don't allow bypass
-      _updateStatus(_VerifyStatus.error, 'Chưa có dữ liệu khuôn mặt đăng ký. Không thể xác thực.');
+      // No registered faces AND no captured image → fail
+      _updateStatus(_VerifyStatus.error, 'Không thể chụp ảnh xác thực.');
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         Navigator.of(context).pop(null); // Return null = failed

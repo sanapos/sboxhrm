@@ -362,15 +362,30 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     } catch (_) {}
 
     String base64Image = '';
+    XFile? xFile;
     try {
       if (_cameraController != null && _cameraController!.value.isInitialized) {
-        final xFile = await _cameraController!.takePicture();
-        final bytes = await File(xFile.path).readAsBytes();
-        base64Image = base64Encode(bytes);
-        try { await File(xFile.path).delete(); } catch (_) {}
+        xFile = await _cameraController!.takePicture();
       }
     } catch (e) {
       debugPrint('📸 Capture error: $e');
+    }
+
+    // Restart image stream IMMEDIATELY after capture (before processing file)
+    // This minimizes the camera preview freeze on iOS
+    if (_currentStep < _steps.length - 1) {
+      try {
+        await _cameraController?.startImageStream(_onCameraFrame);
+      } catch (_) {}
+    }
+
+    // Process captured file in parallel with stream restart
+    if (xFile != null) {
+      try {
+        final bytes = await File(xFile.path).readAsBytes();
+        base64Image = base64Encode(bytes);
+        try { await File(xFile.path).delete(); } catch (_) {}
+      } catch (_) {}
     }
 
     if (!mounted) return;
@@ -378,15 +393,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     setState(() => _isCapturing = false);
     _segmentController.forward(from: 0);
 
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
     if (_currentStep < _steps.length - 1) {
       setState(() => _currentStep++);
-      // Restart image stream for next step
-      try {
-        await _cameraController?.startImageStream(_onCameraFrame);
-      } catch (_) {}
       _startStep();
     } else {
       _onAllDone();
