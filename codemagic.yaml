@@ -25,10 +25,12 @@ workflows:
           openssl genrsa -out /tmp/cert_key.pem 2048
           
           echo "=== Step 2: Revoke existing distribution certificates ==="
-          # Get list of existing distribution cert IDs and revoke them
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --json 2>/dev/null | python3 -c "
+          # Revoke both IOS_DISTRIBUTION and DISTRIBUTION cert types
+          for cert_type in IOS_DISTRIBUTION DISTRIBUTION; do
+            echo "Checking $cert_type certificates..."
+            app-store-connect certificates list \
+              --type "$cert_type" \
+              --json 2>/dev/null | python3 -c "
           import sys, json
           try:
               certs = json.load(sys.stdin)
@@ -37,10 +39,11 @@ workflows:
           except:
               pass
           " | while read cert_id; do
-            if [ -n "$cert_id" ]; then
-              echo "Revoking certificate: $cert_id"
-              app-store-connect certificates revoke "$cert_id" || true
-            fi
+              if [ -n "$cert_id" ]; then
+                echo "Revoking $cert_type certificate: $cert_id"
+                app-store-connect certificates revoke "$cert_id" || true
+              fi
+            done
           done
           
           echo "=== Step 3: Fetch signing files (create new cert + profile) ==="
