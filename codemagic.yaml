@@ -12,8 +12,6 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - certificate_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
         BUNDLE_ID: "vn.sana.sbox"
