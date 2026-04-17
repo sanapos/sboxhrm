@@ -12,6 +12,8 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - certificate_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
         BUNDLE_ID: "vn.sana.sbox"
@@ -21,9 +23,8 @@ workflows:
         script: |
           set -e
           
-          echo "=== Step 1: Generate certificate private key ==="
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert_key.pem)
+          echo "=== Step 1: Save certificate private key ==="
+          echo "$CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
           
           echo "=== Step 2: Fetch signing files ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
@@ -32,26 +33,22 @@ workflows:
             --create \
             --certificate-key=@file:/tmp/cert_key.pem
           
-          echo "=== Step 3: Check downloaded profiles ==="
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles dir"
-          
-          echo "=== Step 4: Initialize keychain ==="
+          echo "=== Step 3: Initialize keychain ==="
           keychain initialize
           
-          echo "=== Step 5: List and save certificates ==="
+          echo "=== Step 4: List and save certificates ==="
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
             --certificate-key=@file:/tmp/cert_key.pem \
             --save
           
-          echo "=== Step 6: Add certificates to keychain ==="
+          echo "=== Step 5: Add certificates to keychain ==="
           keychain add-certificates
           
-          echo "=== Step 7: Apply profiles to Xcode project ==="
+          echo "=== Step 6: Apply profiles to Xcode project ==="
           xcode-project use-profiles
           
           echo "=== Done ==="
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Get Flutter packages
         script: flutter pub get
