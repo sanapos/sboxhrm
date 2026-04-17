@@ -398,28 +398,25 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 Expanded(child: _buildStatusFilterDropdown()),
               ]),
             ])
-          : Row(children: [
+          : Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
               OutlinedButton.icon(
                 onPressed: _previousWeek,
                 icon: const Icon(Icons.chevron_left, size: 18),
                 label: const Text('Tuần trước'),
                 style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF71717A), side: const BorderSide(color: Color(0xFFE4E4E7)), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
               ),
-              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: _goToThisWeek,
                 icon: const Icon(Icons.today, size: 18),
                 label: const Text('Tuần này'),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
               ),
-              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: _nextWeek,
                 icon: const Text('Tuần sau'),
                 label: const Icon(Icons.chevron_right, size: 18),
                 style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF71717A), side: const BorderSide(color: Color(0xFFE4E4E7)), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
               ),
-              const SizedBox(width: 16),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(8)),
@@ -428,7 +425,6 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
-              const Spacer(),
               SizedBox(width: 180, child: _buildStatusFilterDropdown()),
             ]),
     );

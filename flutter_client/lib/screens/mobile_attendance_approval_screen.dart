@@ -267,17 +267,22 @@ class _MobileAttendanceApprovalScreenState
           ),
         ],
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Expanded(
-            child: Text(
-              '${_pendingRecords.length} yêu cầu chờ duyệt',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF18181B),
-              ),
+          Text(
+            '${_pendingRecords.length} yêu cầu chờ duyệt',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF18181B),
             ),
           ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           if (Provider.of<PermissionProvider>(context, listen: false).canApprove('MobileAttendanceApproval'))
           OutlinedButton.icon(
             onPressed: () => _bulkAction(false),
@@ -301,6 +306,8 @@ class _MobileAttendanceApprovalScreenState
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               elevation: 0,
             ),
+          ),
+            ],
           ),
         ],
       ),

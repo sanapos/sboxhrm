@@ -825,6 +825,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Duyệt & quản lý đăng ký khuôn mặt',
       screen: const MobileAttendanceApprovalScreen(),
       group: 'Chấm công',
+      showInSidebar: false,
       themeColor: const Color(0xFF0284C7),
       moduleCode: 'MobileAttendanceApproval',
     ),

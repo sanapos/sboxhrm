@@ -3115,12 +3115,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
               bottomNavigationBar: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: actionButtons.map((btn) => Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: btn,
-                  )).toList(),
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: actionButtons,
                 ),
               ),
             ),

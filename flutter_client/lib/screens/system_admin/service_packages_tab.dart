@@ -255,8 +255,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               'Tạo lúc: ${AdminHelpers.formatDateTime(pkg['createdAt'])}'),
           const Divider(height: 24),
           // Action buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: () => _showCreateEditDialog(pkg),
@@ -267,7 +269,6 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     side: BorderSide(
                         color: AdminHelpers.info.withValues(alpha: 0.3))),
               ),
-              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () => _togglePackageStatus(pkg),
                 icon: Icon(isActive ? Icons.pause : Icons.play_arrow,
@@ -283,7 +284,6 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                 : AdminHelpers.success)
                             .withValues(alpha: 0.3))),
               ),
-              const SizedBox(width: 8),
               if (storeCount == 0)
                 OutlinedButton.icon(
                   onPressed: () => _deletePackage(pkg),

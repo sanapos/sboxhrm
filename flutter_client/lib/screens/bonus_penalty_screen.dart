@@ -565,7 +565,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         color: Colors.blue.shade50,
         border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           // Select all pending
           TextButton.icon(
@@ -586,7 +590,6 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             label: Text('Chọn chờ duyệt (${_pendingInCurrentTab.length})',
                 style: const TextStyle(fontSize: 12)),
           ),
-          const SizedBox(width: 8),
           // Select all approved
           TextButton.icon(
             onPressed: _approvedUnpaidInCurrentTab.isEmpty
@@ -606,10 +609,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             label: Text('Chọn đã duyệt (${_approvedUnpaidInCurrentTab.length})',
                 style: const TextStyle(fontSize: 12)),
           ),
-          const Spacer(),
           Text('Đã chọn: ${_selectedIds.length}',
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(width: 16),
           // Batch approve
           if (pendingSelected.isNotEmpty && Provider.of<PermissionProvider>(context, listen: false).canApprove('BonusPenalty'))
             ElevatedButton.icon(
@@ -619,7 +620,6 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green, foregroundColor: Colors.white),
             ),
-          if (pendingSelected.isNotEmpty) const SizedBox(width: 8),
           // Batch pay
           if (approvedSelected.isNotEmpty)
             ElevatedButton.icon(

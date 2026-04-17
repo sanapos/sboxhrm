@@ -376,25 +376,31 @@ class _ReportScreenState extends State<ReportScreen> with SingleTickerProviderSt
               ),
             ],
           )
-        : Row(
+        : Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Icon(Icons.assessment, color: Theme.of(context).primaryColor, size: 28),
-          const SizedBox(width: 12),
-          const Text(
-            'Báo cáo chấm công',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.assessment, color: Theme.of(context).primaryColor, size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Báo cáo chấm công',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
           if (_reportData != null) ...[
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _exportReport,
               icon: const Icon(Icons.download),
               label: const Text('Xuất CSV'),
             ),
-            const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _exportExcel,
               icon: const Icon(Icons.table_chart),
@@ -404,7 +410,6 @@ class _ReportScreenState extends State<ReportScreen> with SingleTickerProviderSt
                 foregroundColor: Colors.white,
               ),
             ),
-            const SizedBox(width: 8),
           ],
           ElevatedButton.icon(
             onPressed: _isLoading ? null : () {

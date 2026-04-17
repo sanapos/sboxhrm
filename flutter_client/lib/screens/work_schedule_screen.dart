@@ -3433,7 +3433,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           if (totalPages > 1)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
@@ -3465,6 +3467,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _schedulePage++) : null),
                   IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _schedulePage = totalPages) : null),
                 ],
+              ),
               ),
             ),
           ]);
@@ -4575,10 +4578,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.schedule_send, color: Color(0xFF856404)),
                   const SizedBox(width: 8),
@@ -4592,7 +4599,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   ),
                 ],
               ),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
                     onPressed: _clearAllPendingRegistrations,
@@ -4603,7 +4612,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       side: const BorderSide(color: Color(0xFF856404)),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: _submitAllRegistrations,
                     icon: const Icon(Icons.send, size: 18),

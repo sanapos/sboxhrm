@@ -776,6 +776,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                             final record = entry.value;
 
                                             return DataRow(
+                                              onSelectChanged: (_) => _showRecordDetail(record),
                                               cells: [
                                                 DataCell(Center(child: Text('${startIndex + index + 1}', style: const TextStyle(fontSize: 12, color: Colors.grey)))),
                                                 DataCell(Center(child: Text(record.employeeName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
@@ -1522,21 +1523,144 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     );
   }
 
+  void _showRecordDetail(_DailyShiftRecord record) {
+    final dateStr = DateFormat('dd/MM/yyyy').format(record.date);
+    final dayOfWeek = _getDayOfWeekVN(record.date.weekday);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: record.statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Center(child: Text(dayOfWeek.substring(0, 2), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: record.statusColor))),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(record.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('${record.employeeCode} · $dayOfWeek $dateStr', style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                ])),
+                _buildStatusBadge(record.status, record.statusColor),
+              ]),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              // Shift names
+              if (record.shiftNames.isNotEmpty) ...[
+                _detailRow('Ca làm việc', record.shiftNames.join(', ')),
+                const SizedBox(height: 10),
+              ],
+              // Punch times
+              _detailLabel('Giờ chấm công'),
+              const SizedBox(height: 6),
+              if (record.punchTimes.isEmpty)
+                const Text('Không có dữ liệu', style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: record.punchTimes.asMap().entries.map((e) {
+                    final isIn = e.key.isEven;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isIn ? const Color(0xFFEFF6FF) : const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isIn ? const Color(0xFF3B82F6).withValues(alpha: 0.3) : const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(isIn ? Icons.login : Icons.logout, size: 14, color: isIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444)),
+                        const SizedBox(width: 4),
+                        Text(DateFormat('HH:mm:ss').format(e.value),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444))),
+                      ]),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              // Summary grid
+              Row(children: [
+                Expanded(child: _detailSummaryCard('Đi trễ', '${record.lateMinutes}P', Colors.orange)),
+                const SizedBox(width: 8),
+                Expanded(child: _detailSummaryCard('Về sớm', '${record.earlyMinutes}P', Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: _detailSummaryCard('Tăng ca', '${record.overtimeMinutes}P', Colors.purple)),
+                const SizedBox(width: 8),
+                Expanded(child: _detailSummaryCard('Tổng giờ', _formatHoursMinutes(record.workHours), Colors.green)),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: _detailSummaryCard('Giờ (thập phân)', record.decimalHours.toStringAsFixed(2), Colors.teal)),
+                const SizedBox(width: 8),
+                Expanded(child: _detailSummaryCard('Công', record.workCount == record.workCount.roundToDouble() ? '${record.workCount.toInt()}' : record.workCount.toStringAsFixed(2), Colors.blue)),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Row(children: [
+      Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+      const Spacer(),
+      Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    ]);
+  }
+
+  Widget _detailLabel(String label) {
+    return Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13, fontWeight: FontWeight.w500));
+  }
+
+  Widget _detailSummaryCard(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+      ]),
+    );
+  }
+
   Widget _buildShiftDeckItem(_DailyShiftRecord record) {
     final dayOfWeek = _getDayOfWeekVN(record.date.weekday);
     final dateStr = DateFormat('dd/MM/yyyy').format(record.date);
 
     return InkWell(
-      onTap: () {
-        final cardKey = record.date.millisecondsSinceEpoch ^ record.employeeId.hashCode;
-        setState(() {
-          if (_expandedCardIndices.contains(cardKey)) {
-            _expandedCardIndices.remove(cardKey);
-          } else {
-            _expandedCardIndices.add(cardKey);
-          }
-        });
-      },
+      onTap: () => _showRecordDetail(record),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
