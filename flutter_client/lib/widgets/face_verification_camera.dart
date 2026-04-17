@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
+import '../services/face_comparison_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 
@@ -276,22 +277,90 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       }
 
       if (!FaceEmbeddingService.isReady) {
-        // TFLite not available (common on iOS) → skip on-device comparison
-        // Return image for server-side verification
-        debugPrint('TFLite not available, skipping on-device comparison');
-        _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
-        _successController.forward();
+        // TFLite not available (common on iOS) → use feature-based fallback
+        debugPrint('TFLite not available, using HOG+LBP feature-based comparison');
+        _updateStatus(_VerifyStatus.verified, 'Đang nhận dạng khuôn mặt...');
 
-        final result = FaceVerificationResult(
-          matchScore: -1, // Signal: server should verify
-          faceImageBase64: faceBase64,
+        // ML Kit face crop for captured image
+        Uint8List fallbackCaptured = capturedBytes;
+        if (capturedFilePath != null) {
+          final cropped = await _detectAndCropFace(capturedFilePath);
+          if (cropped != null) {
+            fallbackCaptured = cropped;
+            debugPrint('Fallback: ML Kit face crop OK (captured)');
+          }
+        }
+
+        // ML Kit face crop for registered images
+        final fallbackRegBytes = <Uint8List>[];
+        for (final path in regPaths) {
+          final cropped = await _detectAndCropFace(path);
+          if (cropped != null) {
+            fallbackRegBytes.add(cropped);
+          } else {
+            fallbackRegBytes.add(await File(path).readAsBytes());
+          }
+        }
+
+        _updateStatus(_VerifyStatus.verified, 'Đang so sánh khuôn mặt...');
+        final (fbScore, fbDetails) = await FaceComparisonService.compareAllBytes(
+          fallbackCaptured,
+          fallbackRegBytes,
         );
+        debugPrint('Fallback face comparison: score=$fbScore, details=$fbDetails');
 
-        await Future.delayed(const Duration(milliseconds: 800));
-        if (mounted) {
-          widget.onVerifiedWithImage?.call(result);
-          widget.onVerified?.call(result.matchScore);
-          widget.onSuccess?.call();
+        if (fbScore >= widget.minMatchScore) {
+          // Match passed with feature-based comparison
+          _updateStatus(_VerifyStatus.verified, 'Xác thực thành công! Điểm: ${fbScore.toStringAsFixed(0)}');
+          _successController.forward();
+
+          final result = FaceVerificationResult(
+            matchScore: fbScore,
+            faceImageBase64: faceBase64,
+          );
+
+          await Future.delayed(const Duration(milliseconds: 1200));
+          if (mounted) {
+            widget.onVerifiedWithImage?.call(result);
+            widget.onVerified?.call(result.matchScore);
+            widget.onSuccess?.call();
+          }
+        } else if (fbScore <= 0) {
+          // Feature comparison also failed → fall back to server
+          debugPrint('Feature comparison failed ($fbScore), falling back to server');
+          _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
+          _successController.forward();
+
+          final result = FaceVerificationResult(
+            matchScore: -1,
+            faceImageBase64: faceBase64,
+          );
+
+          await Future.delayed(const Duration(milliseconds: 800));
+          if (mounted) {
+            widget.onVerifiedWithImage?.call(result);
+            widget.onVerified?.call(result.matchScore);
+            widget.onSuccess?.call();
+          }
+        } else {
+          // Score > 0 but below threshold = genuine mismatch → retry
+          _updateStatus(_VerifyStatus.error,
+              'Khuôn mặt không khớp (${fbScore.toStringAsFixed(0)} điểm). Thử lại...');
+
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            setState(() {
+              _captured = false;
+              _consecutiveDetections = 0;
+              _progress = 0.0;
+              _status = _VerifyStatus.waiting;
+              _statusMessage = 'Đưa khuôn mặt vào khung tròn';
+            });
+            _pulseController.repeat(reverse: true);
+            try {
+              await _cameraController?.startImageStream(_onCameraFrame);
+            } catch (_) {}
+          }
         }
         return;
       }
