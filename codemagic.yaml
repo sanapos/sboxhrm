@@ -40,8 +40,8 @@ workflows:
               pass
           " | while read cert_id; do
               if [ -n "$cert_id" ]; then
-                echo "Revoking $cert_type certificate: $cert_id"
-                app-store-connect certificates revoke "$cert_id" || true
+                echo "Deleting $cert_type certificate: $cert_id"
+                app-store-connect certificates delete "$cert_id" || true
               fi
             done
           done
