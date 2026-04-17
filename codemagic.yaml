@@ -63,6 +63,10 @@ workflows:
 
       - name: Build IPA
         script: |
+          # Remove shorebird if installed to prevent it from intercepting flutter commands
+          rm -f ~/.shorebird/bin/shorebird 2>/dev/null || true
+          export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v shorebird | tr '\n' ':')
+          
           flutter build ipa --release \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
