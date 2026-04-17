@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// MethodChannel to interact with native Android MediaStore for saving files
 const _channel = MethodChannel('com.sboxhrm/file_saver');
@@ -25,10 +26,20 @@ Future<void> saveFileBytes(List<int> bytes, String filename, String mimeType) as
     }
   }
 
-  // Fallback: save to downloads directory
-  final dir = Platform.isAndroid
-      ? Directory('/storage/emulated/0/Download')
-      : await getApplicationDocumentsDirectory();
+  // iOS: save to temp + show share sheet so user can save/share
+  if (Platform.isIOS) {
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/$filename';
+    final file = File(filePath);
+    await file.writeAsBytes(bytes);
+    await Share.shareXFiles(
+      [XFile(filePath, mimeType: mimeType)],
+    );
+    return;
+  }
+
+  // Android fallback: save to downloads directory
+  final dir = Directory('/storage/emulated/0/Download');
   if (!await dir.exists()) await dir.create(recursive: true);
   final filePath = '${dir.path}/$filename';
   final file = File(filePath);

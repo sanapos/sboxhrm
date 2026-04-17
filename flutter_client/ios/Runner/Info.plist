@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>SBOX</string>
+	<string>SBOX HRM</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -74,11 +74,14 @@
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh đại diện</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Ứng dụng cần truy cập mạng nội bộ để kết nối WiFi chấm công</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Ứng dụng sử dụng Face ID để xác thực</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
