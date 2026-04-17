@@ -1755,6 +1755,38 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         _logger.LogWarning("✅ PUNCH SUCCESS: {EmployeeId}, type={PunchType}, status={Status}",
             request.EmployeeId, request.PunchType, status);
 
+        // Gửi thông báo cho quản lý nếu bản ghi cần duyệt
+        if (status == "pending")
+        {
+            try
+            {
+                var managerIds = await _dbContext.Users
+                    .Where(u => u.StoreId == storeId && u.IsActive
+                        && (u.Role == "Manager" || u.Role == "Admin"))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                var punchLabel = record.PunchType == 0 ? "vào" : "ra";
+                foreach (var managerId in managerIds)
+                {
+                    await _systemNotificationService.CreateAndSendAsync(
+                        managerId,
+                        NotificationType.ApprovalRequired,
+                        "Chấm công Mobile chờ duyệt",
+                        $"{employeeName ?? record.OdooEmployeeId} chấm công {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt",
+                        relatedEntityType: "MobileAttendance",
+                        relatedEntityId: record.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send notification for mobile attendance {RecordId}", record.Id);
+            }
+        }
+
         return Ok(AppResponse<object>.Success(new
         {
             id = record.Id.ToString(),
@@ -1888,6 +1920,48 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         if (request.Approved)
         {
             await SyncMobileRecordToAttendanceLog(record);
+        }
+
+        // Gửi thông báo cho nhân viên về kết quả duyệt
+        try
+        {
+            if (Guid.TryParse(record.OdooEmployeeId, out var empUserId))
+            {
+                var punchLabel = record.PunchType == 0 ? "vào" : "ra";
+                var timeStr = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
+                if (request.Approved)
+                {
+                    await _systemNotificationService.CreateAndSendAsync(
+                        empUserId,
+                        NotificationType.Success,
+                        "Chấm công Mobile đã được duyệt",
+                        $"Chấm công {punchLabel} lúc {timeStr} đã được duyệt bởi {CurrentUserEmail}",
+                        relatedEntityType: "MobileAttendance",
+                        relatedEntityId: record.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+                else
+                {
+                    var reason = !string.IsNullOrEmpty(request.RejectionReason)
+                        ? $". Lý do: {request.RejectionReason}" : "";
+                    await _systemNotificationService.CreateAndSendAsync(
+                        empUserId,
+                        NotificationType.Warning,
+                        "Chấm công Mobile bị từ chối",
+                        $"Chấm công {punchLabel} lúc {timeStr} đã bị từ chối bởi {CurrentUserEmail}{reason}",
+                        relatedEntityType: "MobileAttendance",
+                        relatedEntityId: record.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send approval notification for mobile attendance {RecordId}", recordId);
         }
 
         _logger.LogInformation("Mobile attendance record {RecordId} {Action}", recordId, record.Status);
