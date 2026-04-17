@@ -372,6 +372,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = B99JF43G9V;
 				PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;
@@ -553,6 +554,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = B99JF43G9V;
 				PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;
@@ -577,6 +579,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = B99JF43G9V;
 				PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;
