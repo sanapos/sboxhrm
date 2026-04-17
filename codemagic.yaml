@@ -21,29 +21,48 @@ workflows:
         script: |
           set -e
           
-          echo "=== Step 1: Save certificate private key ==="
-          echo "$CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
+          echo "=== Step 1: Generate certificate private key ==="
+          openssl genrsa -out /tmp/cert_key.pem 2048
           
-          echo "=== Step 2: Fetch signing files ==="
+          echo "=== Step 2: Revoke existing distribution certificates ==="
+          # Get list of existing distribution cert IDs and revoke them
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --json 2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              certs = json.load(sys.stdin)
+              for cert in certs:
+                  print(cert.get('id', ''))
+          except:
+              pass
+          " | while read cert_id; do
+            if [ -n "$cert_id" ]; then
+              echo "Revoking certificate: $cert_id"
+              app-store-connect certificates revoke "$cert_id" || true
+            fi
+          done
+          
+          echo "=== Step 3: Fetch signing files (create new cert + profile) ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
             --create \
             --certificate-key=@file:/tmp/cert_key.pem
           
-          echo "=== Step 3: Initialize keychain ==="
+          echo "=== Step 4: Initialize keychain ==="
           keychain initialize
           
-          echo "=== Step 4: List and save certificates ==="
+          echo "=== Step 5: List and save certificates ==="
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
             --certificate-key=@file:/tmp/cert_key.pem \
             --save
           
-          echo "=== Step 5: Add certificates to keychain ==="
+          echo "=== Step 6: Add certificates to keychain ==="
           keychain add-certificates
           
-          echo "=== Step 6: Apply profiles to Xcode project ==="
+          echo "=== Step 7: Apply profiles to Xcode project ==="
           xcode-project use-profiles
           
           echo "=== Done ==="
