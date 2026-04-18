@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -13,7 +14,10 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationService notificationService) : AuthenticatedControllerBase
+public class FeedbackController(
+    ZKTecoDbContext dbContext,
+    ISystemNotificationService notificationService,
+    IFileStorageService fileStorageService) : AuthenticatedControllerBase
 {
     #region DTOs
 
@@ -23,13 +27,20 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
         Guid? SenderEmployeeId, Guid? RecipientEmployeeId,
         string? RecipientName, string? Response,
         string? RespondedByName, DateTime? RespondedAt,
-        DateTime CreatedAt);
+        DateTime CreatedAt, List<string>? ImageUrls = null, int ReplyCount = 0);
 
     public record FeedbackCreateDto(
         string Title, string Content, string Category,
         bool IsAnonymous, Guid? RecipientEmployeeId);
 
     public record FeedbackRespondDto(string Response, string Status);
+
+    public record FeedbackReplyDto(
+        Guid Id, Guid FeedbackId, string Content, List<string>? ImageUrls,
+        bool IsFromSender, string? SenderName, Guid? SenderEmployeeId,
+        DateTime CreatedAt);
+
+    public record FeedbackReplyCreateDto(string Content);
 
     #endregion
 
@@ -103,6 +114,7 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
             {
                 f.Id, f.Title, f.Content, f.Category, f.Status,
                 f.IsAnonymous, f.SenderEmployeeId, f.RecipientEmployeeId,
+                f.ImageUrls,
                 SenderName = f.SenderEmployee != null
                     ? (f.SenderEmployee.LastName + " " + f.SenderEmployee.FirstName).Trim() : null,
                 SenderCode = f.SenderEmployee != null ? f.SenderEmployee.EmployeeCode : null,
@@ -116,6 +128,7 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
                 f.CreatedAt,
                 f.CreatedBy,
                 f.UpdatedBy,
+                ReplyCount = f.Replies.Count,
             })
             .ToListAsync();
 
@@ -165,7 +178,9 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
                 ?? (f.RespondedByEmployeeId.HasValue && resolvedNames.TryGetValue(f.RespondedByEmployeeId.Value, out var rn) ? rn : null)
                 ?? (f.Response != null && f.UpdatedBy != null && userNames.TryGetValue(f.UpdatedBy, out var respUserName) ? respUserName : null),
             f.RespondedAt,
-            f.CreatedAt
+            f.CreatedAt,
+            ParseImageUrls(f.ImageUrls),
+            f.ReplyCount
         )).ToList();
 
         return Ok(AppResponse<object>.Success(new { items, total, page, pageSize }));
@@ -188,6 +203,7 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
             {
                 f.Id, f.Title, f.Content, f.Category, f.Status,
                 f.IsAnonymous, f.SenderEmployeeId, f.RecipientEmployeeId,
+                f.ImageUrls,
                 RecipientName = f.RecipientEmployee != null
                     ? (f.RecipientEmployee.LastName + " " + f.RecipientEmployee.FirstName).Trim() : null,
                 f.Response,
@@ -196,6 +212,7 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
                 f.RespondedByEmployeeId,
                 f.RespondedAt, f.CreatedAt,
                 f.UpdatedBy,
+                ReplyCount = f.Replies.Count,
             })
             .ToListAsync();
 
@@ -229,7 +246,9 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
             f.RespondedByName
                 ?? (f.RespondedByEmployeeId.HasValue && resolvedNames.TryGetValue(f.RespondedByEmployeeId.Value, out var rn) ? rn : null)
                 ?? (f.Response != null && f.UpdatedBy != null && userNames.TryGetValue(f.UpdatedBy, out var run) ? run : null),
-            f.RespondedAt, f.CreatedAt
+            f.RespondedAt, f.CreatedAt,
+            ParseImageUrls(f.ImageUrls),
+            f.ReplyCount
         )).ToList();
 
         return Ok(AppResponse<List<FeedbackDto>>.Success(items));
@@ -395,5 +414,252 @@ public class FeedbackController(ZKTecoDbContext dbContext, ISystemNotificationSe
             .ToListAsync();
 
         return Ok(AppResponse<List<object>>.Success(managers.Cast<object>().ToList()));
+    }
+
+    // ══════════════════ UPLOAD IMAGE ══════════════════
+
+    [HttpPost("upload-image")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult<AppResponse<object>>> UploadImage(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(AppResponse<object>.Fail("Chưa chọn file"));
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        if (!allowedExts.Contains(ext))
+            return BadRequest(AppResponse<object>.Fail("Chỉ hỗ trợ ảnh JPG, PNG, GIF, WEBP"));
+
+        try
+        {
+            var storeFolder = await GetStoreFolderAsync("uploads/feedback");
+            using var stream = file.OpenReadStream();
+            var filePath = await fileStorageService.UploadAsync(stream, file.FileName, storeFolder);
+            var fileUrl = fileStorageService.GetFileUrl(filePath);
+
+            return Ok(AppResponse<object>.Success(new { filePath, fileUrl }));
+        }
+        catch
+        {
+            return StatusCode(500, AppResponse<object>.Fail("Không thể tải ảnh lên"));
+        }
+    }
+
+    // ══════════════════ REPLIES (Chat-style) ══════════════════
+
+    [HttpGet("{id}/replies")]
+    public async Task<ActionResult<AppResponse<object>>> GetReplies(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var employeeId = await ResolveEmployeeIdAsync();
+
+        var feedback = await dbContext.Feedbacks
+            .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
+        if (feedback == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy phản ánh"));
+
+        // Check access
+        if (!IsAdmin && !IsManager
+            && feedback.SenderEmployeeId != employeeId
+            && feedback.CreatedBy != CurrentUserId.ToString())
+            return BadRequest(AppResponse<object>.Fail("Không có quyền xem"));
+
+        var replies = await dbContext.FeedbackReplies
+            .Where(r => r.FeedbackId == id)
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => new
+            {
+                r.Id, r.FeedbackId, r.Content, r.ImageUrls,
+                r.IsFromSender, r.SenderEmployeeId, r.CreatedAt,
+                SenderName = r.SenderEmployee != null
+                    ? (r.SenderEmployee.LastName + " " + r.SenderEmployee.FirstName).Trim() : null,
+            })
+            .ToListAsync();
+
+        // For anonymous feedback, hide sender name when IsFromSender=true
+        var result = replies.Select(r => new FeedbackReplyDto(
+            r.Id, r.FeedbackId, r.Content, ParseImageUrls(r.ImageUrls),
+            r.IsFromSender,
+            feedback.IsAnonymous && r.IsFromSender ? null : r.SenderName,
+            feedback.IsAnonymous && r.IsFromSender ? null : r.SenderEmployeeId,
+            r.CreatedAt
+        )).ToList();
+
+        // Also return feedback info for chat header
+        var senderName = feedback.IsAnonymous ? null : await GetEmployeeNameAsync(feedback.SenderEmployeeId);
+        var recipientName = await GetEmployeeNameAsync(feedback.RecipientEmployeeId);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            feedback = new
+            {
+                feedback.Id, feedback.Title, feedback.Content, feedback.Category,
+                feedback.Status, feedback.IsAnonymous,
+                SenderName = senderName,
+                feedback.SenderEmployeeId,
+                RecipientName = recipientName,
+                feedback.RecipientEmployeeId,
+                ImageUrls = ParseImageUrls(feedback.ImageUrls),
+                feedback.CreatedAt,
+            },
+            replies = result,
+        }));
+    }
+
+    [HttpPost("{id}/replies")]
+    public async Task<ActionResult<AppResponse<FeedbackReplyDto>>> CreateReply(
+        Guid id, [FromBody] FeedbackReplyCreateDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var employeeId = await ResolveEmployeeIdAsync();
+
+        var feedback = await dbContext.Feedbacks.AsTracking()
+            .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
+        if (feedback == null)
+            return NotFound(AppResponse<FeedbackReplyDto>.Fail("Không tìm thấy phản ánh"));
+
+        // Determine if the reply is from the original sender
+        var isSender = feedback.SenderEmployeeId == employeeId
+            || feedback.CreatedBy == CurrentUserId.ToString();
+
+        // Check access: sender or recipient/admin/manager
+        if (!isSender && !IsAdmin && !IsManager
+            && feedback.RecipientEmployeeId != employeeId)
+            return BadRequest(AppResponse<FeedbackReplyDto>.Fail("Không có quyền phản hồi"));
+
+        var reply = new FeedbackReply
+        {
+            FeedbackId = id,
+            SenderEmployeeId = employeeId,
+            Content = dto.Content,
+            IsFromSender = isSender,
+            StoreId = storeId,
+            CreatedBy = CurrentUserId.ToString(),
+        };
+
+        dbContext.FeedbackReplies.Add(reply);
+
+        // Auto-update feedback status if it's still Pending
+        if (feedback.Status == "Pending" && !isSender)
+        {
+            feedback.Status = "InProgress";
+        }
+        feedback.UpdatedAt = DateTime.Now;
+        feedback.UpdatedBy = CurrentUserId.ToString();
+
+        await dbContext.SaveChangesAsync();
+
+        // Send notification to the other party
+        try
+        {
+            Guid? targetEmployeeId = isSender
+                ? feedback.RecipientEmployeeId  // sender replied → notify recipient
+                : feedback.SenderEmployeeId;    // recipient replied → notify sender
+
+            if (targetEmployeeId.HasValue)
+            {
+                var targetUserId = await dbContext.Employees
+                    .Where(e => e.Id == targetEmployeeId.Value && e.ApplicationUserId != null)
+                    .Select(e => e.ApplicationUserId!.Value)
+                    .FirstOrDefaultAsync();
+
+                if (targetUserId != Guid.Empty && targetUserId != CurrentUserId)
+                {
+                    string senderLabel;
+                    if (isSender && feedback.IsAnonymous)
+                        senderLabel = "Ẩn danh";
+                    else
+                        senderLabel = await GetEmployeeNameAsync(employeeId) ?? "Nhân viên";
+
+                    var preview = dto.Content.Length > 100 ? dto.Content[..100] + "..." : dto.Content;
+                    await notificationService.CreateAndSendAsync(
+                        targetUserId, NotificationType.Info,
+                        "Phản hồi mới",
+                        $"{senderLabel}: \"{preview}\"",
+                        relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
+                        fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
+                }
+            }
+        }
+        catch { /* Notification failure should not affect main operation */ }
+
+        var senderName = await GetEmployeeNameAsync(employeeId);
+
+        return Ok(AppResponse<FeedbackReplyDto>.Success(new FeedbackReplyDto(
+            reply.Id, reply.FeedbackId, reply.Content, null,
+            reply.IsFromSender,
+            feedback.IsAnonymous && isSender ? null : senderName,
+            feedback.IsAnonymous && isSender ? null : employeeId,
+            reply.CreatedAt
+        )));
+    }
+
+    // ══════════════════ UPLOAD REPLY IMAGE ══════════════════
+
+    [HttpPost("{id}/replies/{replyId}/image")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult<AppResponse<object>>> UploadReplyImage(
+        Guid id, Guid replyId, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(AppResponse<object>.Fail("Chưa chọn file"));
+
+        var reply = await dbContext.FeedbackReplies.AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == replyId && r.FeedbackId == id);
+        if (reply == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy phản hồi"));
+
+        // Only the reply creator can add images
+        if (reply.CreatedBy != CurrentUserId.ToString())
+            return BadRequest(AppResponse<object>.Fail("Không có quyền"));
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        if (!allowedExts.Contains(ext))
+            return BadRequest(AppResponse<object>.Fail("Chỉ hỗ trợ ảnh JPG, PNG, GIF, WEBP"));
+
+        try
+        {
+            var storeFolder = await GetStoreFolderAsync("uploads/feedback");
+            using var stream = file.OpenReadStream();
+            var filePath = await fileStorageService.UploadAsync(stream, file.FileName, storeFolder);
+            var fileUrl = fileStorageService.GetFileUrl(filePath);
+
+            // Append to reply's ImageUrls
+            var urls = ParseImageUrls(reply.ImageUrls) ?? new List<string>();
+            urls.Add(fileUrl);
+            reply.ImageUrls = JsonSerializer.Serialize(urls);
+            await dbContext.SaveChangesAsync();
+
+            return Ok(AppResponse<object>.Success(new { filePath, fileUrl, imageUrls = urls }));
+        }
+        catch
+        {
+            return StatusCode(500, AppResponse<object>.Fail("Không thể tải ảnh lên"));
+        }
+    }
+
+    // ══════════════════ HELPERS ══════════════════
+
+    private async Task<string> GetStoreFolderAsync(string subfolder)
+    {
+        var storeId = CurrentStoreId;
+        if (storeId.HasValue)
+        {
+            var storeCode = await dbContext.Stores
+                .Where(s => s.Id == storeId.Value)
+                .Select(s => s.Code)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrEmpty(storeCode))
+                return $"stores/{storeCode}/{subfolder}";
+        }
+        return subfolder;
+    }
+
+    private static List<string>? ParseImageUrls(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonSerializer.Deserialize<List<string>>(json); }
+        catch { return null; }
     }
 }

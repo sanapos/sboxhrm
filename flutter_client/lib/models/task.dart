@@ -339,6 +339,10 @@ class TaskComment {
   final String? userAvatar;
   final String content;
   final String? parentCommentId;
+  final int commentType; // 0=Comment, 1=ProgressUpdate
+  final String? imageUrls; // JSON array
+  final String? linkUrls; // JSON array
+  final int? progressSnapshot;
   final DateTime createdAt;
   final List<TaskComment>? replies;
 
@@ -350,9 +354,33 @@ class TaskComment {
     this.userAvatar,
     required this.content,
     this.parentCommentId,
+    this.commentType = 0,
+    this.imageUrls,
+    this.linkUrls,
+    this.progressSnapshot,
     required this.createdAt,
     this.replies,
   });
+
+  bool get isProgressUpdate => commentType == 1;
+
+  List<String> get imageUrlList {
+    if (imageUrls == null || imageUrls!.isEmpty) return [];
+    try {
+      return imageUrls!.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  List<String> get linkUrlList {
+    if (linkUrls == null || linkUrls!.isEmpty) return [];
+    try {
+      return linkUrls!.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 
   factory TaskComment.fromJson(Map<String, dynamic> json) {
     return TaskComment(
@@ -363,6 +391,10 @@ class TaskComment {
       userAvatar: json['userAvatar'],
       content: json['content'] ?? '',
       parentCommentId: json['parentCommentId'],
+      commentType: json['commentType'] ?? 0,
+      imageUrls: json['imageUrls'],
+      linkUrls: json['linkUrls'],
+      progressSnapshot: json['progressSnapshot'],
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       replies: json['replies'] != null
           ? (json['replies'] as List).map((e) => TaskComment.fromJson(e)).toList()

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
@@ -110,7 +111,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         setState(() => _employees = [Employee.fromJson(resp['data'])]);
       }
     } else {
-      final r = await _api.getEmployees();
+      final r = await _api.getEmployees(pageSize: 500);
       if (mounted) {
         setState(() => _employees = r.map((e) => Employee.fromJson(e)).toList());
       }
@@ -1649,6 +1650,21 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 _updateProgress(t.id, v.toInt()),
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _updateProgress(t.id, t.progress),
+                            icon: const Icon(Icons.upload, size: 14),
+                            label: const Text('Cập nhật tiến độ (có ghi chú & hình ảnh)', style: TextStyle(fontSize: 11)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1E3A5F),
+                              side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
                       ]),
                 ),
                 const SizedBox(height: 12),
@@ -1904,27 +1920,54 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _buildCommentCard(TaskComment c) {
+    final isProgress = c.isProgressUpdate;
+    final images = c.imageUrlList;
+    final links = c.linkUrlList;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8)),
+          color: isProgress ? const Color(0xFFF0FDF4) : const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(8),
+          border: isProgress ? Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)) : null),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
               CircleAvatar(
                   radius: 12,
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  child: Text(c.userName?[0] ?? '?',
-                      style: const TextStyle(
-                          fontSize: 10, color: Colors.white))),
+                  backgroundColor: isProgress ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F),
+                  child: Icon(
+                    isProgress ? Icons.trending_up : Icons.person,
+                    size: 12,
+                    color: Colors.white,
+                  )),
               const SizedBox(width: 8),
-              Text(c.userName ?? 'Unknown',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 12)),
-              const Spacer(),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c.userName ?? 'Unknown',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 12)),
+                    if (isProgress && c.progressSnapshot != null)
+                      Text('Cập nhật tiến độ: ${c.progressSnapshot}%',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF22C55E), fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+              if (isProgress && c.progressSnapshot != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${c.progressSnapshot}%',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              const SizedBox(width: 6),
               Text(
                   DateFormat('dd/MM HH:mm').format(c.createdAt),
                   style: const TextStyle(
@@ -1934,7 +1977,94 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             Text(c.content,
                 style: const TextStyle(
                     fontSize: 12, color: Color(0xFF334155))),
+            // Images
+            if (images.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: images.map((url) => InkWell(
+                  onTap: () => _showImageDialog(url),
+                  child: Container(
+                    width: 80,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: Image.network(url, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image, size: 20, color: Color(0xFFA1A1AA)),
+                        ),
+                      ),
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ],
+            // Links
+            if (links.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: links.map((url) => InkWell(
+                  onTap: () {}, // url_launcher can be used here
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.link, size: 12, color: Color(0xFF1E3A5F)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            url.length > 40 ? '${url.substring(0, 40)}...' : url,
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), decoration: TextDecoration.underline),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ],
           ]),
+    );
+  }
+
+  void _showImageDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              title: const Text('Hình ảnh', style: TextStyle(fontSize: 14)),
+              automaticallyImplyLeading: false,
+              actions: [IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close))],
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+              child: Image.network(url, fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Icon(Icons.broken_image, size: 60, color: Color(0xFFA1A1AA)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1947,10 +2077,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final hoursCtrl = TextEditingController();
     var type = TaskType.task;
     var priority = TaskPriority.medium;
-    String? assigneeId;
+    List<String> selectedAssigneeIds = [];
     DateTime? startDate, dueDate;
     bool saving = false;
     final isMobile = Responsive.isMobile(context);
+
+    void calcHours(StateSetter ss) {
+      if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!)) {
+        final diff = dueDate!.difference(startDate!);
+        final hours = (diff.inMinutes / 60.0);
+        ss(() => hoursCtrl.text = hours.toStringAsFixed(1));
+      }
+    }
 
     showDialog(
         context: context,
@@ -2010,42 +2148,94 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               )),
                             ]),
                             const SizedBox(height: 12),
-                            DropdownButtonFormField<String?>(
-                              initialValue: assigneeId,
-                              decoration:
-                                  _dropDecor('Giao cho (Phân công)'),
-                              items: [
-                                const DropdownMenuItem(
-                                    value: null,
-                                    child: Text('Chưa chọn',
-                                        style: TextStyle(
-                                            fontSize: 13))),
-                                ..._employees.map((e) =>
-                                    DropdownMenuItem(
-                                        value: e.id,
-                                        child: Text(e.fullName,
-                                            style: const TextStyle(
-                                                fontSize: 13))))
-                              ],
-                              onChanged: (v) =>
-                                  ss(() => assigneeId = v),
+                            // Multi-assignee picker
+                            InputDecorator(
+                              decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (selectedAssigneeIds.isNotEmpty)
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: selectedAssigneeIds.map((id) {
+                                        final emp = _employees.firstWhere(
+                                          (e) => e.id == id,
+                                          orElse: () => _employees.first,
+                                        );
+                                        return Chip(
+                                          label: Text(emp.fullName, style: const TextStyle(fontSize: 12)),
+                                          deleteIcon: const Icon(Icons.close, size: 14),
+                                          onDeleted: () => ss(() => selectedAssigneeIds.remove(id)),
+                                          backgroundColor: const Color(0xFFEFF6FF),
+                                          side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                                          labelPadding: const EdgeInsets.only(left: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          visualDensity: VisualDensity.compact,
+                                        );
+                                      }).toList(),
+                                    ),
+                                  const SizedBox(height: 4),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showDialog<List<String>>(
+                                        context: ctx,
+                                        builder: (dCtx) => _MultiAssigneePicker(
+                                          employees: _employees,
+                                          selected: List.from(selectedAssigneeIds),
+                                        ),
+                                      );
+                                      if (picked != null) ss(() => selectedAssigneeIds = picked);
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.person_add, size: 16, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          selectedAssigneeIds.isEmpty ? 'Chọn người thực hiện...' : 'Thêm người...',
+                                          style: TextStyle(fontSize: 13, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Row(children: [
                               Expanded(
                                   child: _datePickerField(
-                                      'Ngày bắt đầu',
+                                      'Bắt đầu (ngày giờ)',
                                       startDate,
-                                      (d) =>
-                                          ss(() => startDate = d))),
+                                      (d) {
+                                        ss(() => startDate = d);
+                                        calcHours(ss);
+                                      })),
                               const SizedBox(width: 12),
                               Expanded(
                                   child: _datePickerField(
-                                      'Ngày hết hạn',
+                                      'Hết hạn (ngày giờ)',
                                       dueDate,
-                                      (d) =>
-                                          ss(() => dueDate = d))),
+                                      (d) {
+                                        ss(() => dueDate = d);
+                                        calcHours(ss);
+                                      })),
                             ]),
+                            if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             _dialogField(hoursCtrl, 'Giờ ước tính',
                                 Icons.access_time,
@@ -2069,7 +2259,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 : descCtrl.text.trim(),
                         taskType: type.index,
                         priority: priority.index,
-                        assigneeId: assigneeId,
+                        assigneeId: selectedAssigneeIds.isNotEmpty ? selectedAssigneeIds.first : null,
+                        assigneeIds: selectedAssigneeIds.length > 1 ? selectedAssigneeIds : null,
                         startDate: startDate,
                         dueDate: dueDate,
                         estimatedHours: double.tryParse(
@@ -2110,15 +2301,21 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
-                      bottomNavigationBar: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          AppDialogActions(
-                            onConfirm: onSave,
-                            confirmLabel: saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
-                            isLoading: saveChild is! Text,
+                      bottomNavigationBar: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: FilledButton(
+                            onPressed: onSave,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E3A5F),
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: saving
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('Tạo công việc', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   ),
@@ -2162,10 +2359,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         text: task.actualHours?.toString() ?? '');
     var type = task.taskType;
     var priority = task.priority;
-    String? assigneeId = task.assigneeId;
+    // Build initial selectedAssigneeIds from assignees list or single assigneeId
+    List<String> selectedAssigneeIds = [];
+    if (task.assignees != null && task.assignees!.isNotEmpty) {
+      selectedAssigneeIds = task.assignees!.map((a) => a.employeeId).toList();
+    } else if (task.assigneeId != null) {
+      selectedAssigneeIds = [task.assigneeId!];
+    }
     DateTime? startDate = task.startDate, dueDate = task.dueDate;
     bool saving = false;
     final isMobile = Responsive.isMobile(context);
+
+    void calcHours(StateSetter ss) {
+      if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!)) {
+        final diff = dueDate!.difference(startDate!);
+        final hours = (diff.inMinutes / 60.0);
+        ss(() => hoursCtrl.text = hours.toStringAsFixed(1));
+      }
+    }
 
     showDialog(
         context: context,
@@ -2232,43 +2443,92 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                           () => priority = v!))),
                             ]),
                             const SizedBox(height: 12),
-                            DropdownButtonFormField<String?>(
-                                initialValue: assigneeId,
-                                decoration:
-                                    _dropDecor('Giao cho'),
-                                items: [
-                                  const DropdownMenuItem(
-                                      value: null,
-                                      child: Text('Chưa chọn',
-                                          style: TextStyle(
-                                              fontSize: 13))),
-                                  ..._employees.map((e) =>
-                                      DropdownMenuItem(
-                                          value: e.id,
-                                          child: Text(e.fullName,
-                                              style:
-                                                  const TextStyle(
-                                                      fontSize:
-                                                          13))))
+                            // Multi-assignee picker
+                            InputDecorator(
+                              decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (selectedAssigneeIds.isNotEmpty)
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: selectedAssigneeIds.map((id) {
+                                        final emp = _employees.firstWhere(
+                                          (e) => e.id == id,
+                                          orElse: () => _employees.first,
+                                        );
+                                        return Chip(
+                                          label: Text(emp.fullName, style: const TextStyle(fontSize: 12)),
+                                          deleteIcon: const Icon(Icons.close, size: 14),
+                                          onDeleted: () => ss(() => selectedAssigneeIds.remove(id)),
+                                          backgroundColor: const Color(0xFFEFF6FF),
+                                          side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          visualDensity: VisualDensity.compact,
+                                        );
+                                      }).toList(),
+                                    ),
+                                  const SizedBox(height: 4),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showDialog<List<String>>(
+                                        context: ctx,
+                                        builder: (dCtx) => _MultiAssigneePicker(
+                                          employees: _employees,
+                                          selected: List.from(selectedAssigneeIds),
+                                        ),
+                                      );
+                                      if (picked != null) ss(() => selectedAssigneeIds = picked);
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.person_add, size: 16, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          selectedAssigneeIds.isEmpty ? 'Chọn người thực hiện...' : 'Thêm người...',
+                                          style: TextStyle(fontSize: 13, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
-                                onChanged: (v) =>
-                                    ss(() => assigneeId = v)),
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             Row(children: [
                               Expanded(
                                   child: _datePickerField(
-                                      'Ngày bắt đầu',
+                                      'Bắt đầu (ngày giờ)',
                                       startDate,
-                                      (d) => ss(
-                                          () => startDate = d))),
+                                      (d) {
+                                        ss(() => startDate = d);
+                                        calcHours(ss);
+                                      })),
                               const SizedBox(width: 12),
                               Expanded(
                                   child: _datePickerField(
-                                      'Ngày hết hạn',
+                                      'Hết hạn (ngày giờ)',
                                       dueDate,
-                                      (d) =>
-                                          ss(() => dueDate = d))),
+                                      (d) {
+                                        ss(() => dueDate = d);
+                                        calcHours(ss);
+                                      })),
                             ]),
+                            if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             Row(children: [
                               Expanded(
@@ -2303,8 +2563,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             descCtrl.text.trim(),
                         'taskType': type.index,
                         'priority': priority.index,
-                        if (assigneeId != null)
-                          'assigneeId': assigneeId,
+                        if (selectedAssigneeIds.isNotEmpty)
+                          'assigneeId': selectedAssigneeIds.first,
+                        if (selectedAssigneeIds.length > 1)
+                          'assigneeIds': selectedAssigneeIds,
                         if (startDate != null)
                           'startDate':
                               startDate!.toIso8601String(),
@@ -2356,15 +2618,21 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
-                      bottomNavigationBar: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          AppDialogActions(
-                            onConfirm: onSave,
-                            confirmLabel: saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
-                            isLoading: saveChild is! Text,
+                      bottomNavigationBar: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: FilledButton(
+                            onPressed: onSave,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E3A5F),
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: saving
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('Lưu thay đổi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   ),
@@ -2492,17 +2760,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
-                      bottomNavigationBar: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          AppDialogActions(
-                            onConfirm: onSend,
-                            confirmLabel: 'Gửi đốc thúc',
-                            confirmIcon: sendIcon is Icon ? sendIcon.icon : Icons.send,
-                            confirmVariant: AppButtonVariant.warning,
-                            isLoading: sendIcon is! Icon,
+                      bottomNavigationBar: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: FilledButton.icon(
+                            onPressed: onSend,
+                            icon: sending
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.send, size: 16),
+                            label: const Text('Gửi đốc thúc', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFF59E0B),
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   ),
@@ -2621,16 +2894,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
-                      bottomNavigationBar: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          AppDialogActions(
-                            onConfirm: onSave,
-                            confirmLabel: 'Lưu đánh giá',
-                            confirmIcon: saveIcon is Icon ? saveIcon.icon : Icons.save,
-                            isLoading: saveIcon is! Icon,
+                      bottomNavigationBar: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: FilledButton.icon(
+                            onPressed: onSave,
+                            icon: saving
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.check, size: 16),
+                            label: const Text('Lưu đánh giá', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E3A5F),
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   ),
@@ -2742,14 +3021,23 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             initialDate: value ?? DateTime.now(),
             firstDate: DateTime(2020),
             lastDate: DateTime(2030));
-        if (d != null) onPicked(d);
+        if (d != null) {
+          final t = await showTimePicker(
+              context: context,
+              initialTime: value != null
+                  ? TimeOfDay(hour: value.hour, minute: value.minute)
+                  : TimeOfDay.now());
+          final picked = DateTime(d.year, d.month, d.day,
+              t?.hour ?? 0, t?.minute ?? 0);
+          onPicked(picked);
+        }
       },
       child: InputDecorator(
         decoration: _dropDecor(label),
         child: Text(
             value != null
-                ? DateFormat('dd/MM/yyyy').format(value)
-                : 'Chọn ngày',
+                ? DateFormat('dd/MM/yyyy HH:mm').format(value)
+                : 'Chọn ngày giờ',
             style: TextStyle(
                 fontSize: 13,
                 color: value != null
@@ -2778,12 +3066,145 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Future<void> _updateProgress(String taskId, int progress) async {
-    final r = await _api.updateTaskProgress(taskId, progress);
+    final progressCtrl = TextEditingController(text: progress.toString());
+    final notesCtrl = TextEditingController();
+    final imageUrlsCtrl = TextEditingController();
+    final linkUrlsCtrl = TextEditingController();
+    double sliderVal = progress.toDouble().clamp(0, 100);
+    bool saving = false;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.trending_up, color: Color(0xFF1E3A5F)),
+            const SizedBox(width: 8),
+            const Text('Cập nhật tiến độ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ]),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Progress slider
+                  Row(children: [
+                    const Text('Tiến độ: ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text('${sliderVal.toInt()}%',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                  ]),
+                  Slider(
+                    value: sliderVal,
+                    min: 0,
+                    max: 100,
+                    divisions: 20,
+                    label: '${sliderVal.toInt()}%',
+                    activeColor: const Color(0xFF1E3A5F),
+                    onChanged: (v) => ss(() {
+                      sliderVal = v;
+                      progressCtrl.text = v.toInt().toString();
+                    }),
+                  ),
+                  // Quick buttons
+                  Wrap(
+                    spacing: 6,
+                    children: [0, 25, 50, 75, 100].map((v) => ActionChip(
+                      label: Text('$v%', style: const TextStyle(fontSize: 11)),
+                      backgroundColor: sliderVal.toInt() == v ? const Color(0xFF1E3A5F) : null,
+                      labelStyle: TextStyle(color: sliderVal.toInt() == v ? Colors.white : null),
+                      onPressed: () => ss(() {
+                        sliderVal = v.toDouble();
+                        progressCtrl.text = v.toString();
+                      }),
+                      visualDensity: VisualDensity.compact,
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  // Notes
+                  TextField(
+                    controller: notesCtrl,
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Ghi chú tiến độ',
+                      hintText: 'Mô tả công việc đã hoàn thành...',
+                      prefixIcon: const Icon(Icons.notes, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Image URLs
+                  TextField(
+                    controller: imageUrlsCtrl,
+                    maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Link hình ảnh (mỗi dòng 1 link)',
+                      hintText: 'https://example.com/image1.png\nhttps://...',
+                      prefixIcon: const Icon(Icons.image, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Link URLs
+                  TextField(
+                    controller: linkUrlsCtrl,
+                    maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Link tài liệu (mỗi dòng 1 link)',
+                      hintText: 'https://docs.google.com/...\nhttps://...',
+                      prefixIcon: const Icon(Icons.link, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            FilledButton.icon(
+              onPressed: saving ? null : () => Navigator.pop(ctx, true),
+              icon: saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check, size: 16),
+              label: const Text('Cập nhật'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    // Build image/link arrays from text
+    final imageLines = imageUrlsCtrl.text.trim().split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final linkLines = linkUrlsCtrl.text.trim().split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+    final data = <String, dynamic>{
+      'progress': sliderVal.toInt(),
+      if (notesCtrl.text.trim().isNotEmpty) 'notes': notesCtrl.text.trim(),
+      if (imageLines.isNotEmpty) 'imageUrls': json.encode(imageLines),
+      if (linkLines.isNotEmpty) 'linkUrls': json.encode(linkLines),
+    };
+
+    final r = await _api.updateTaskProgress(taskId, data);
     if (!mounted) return;
     if (r['isSuccess'] == true) {
       _loadTasks();
       _loadStats();
       if (_detailTask?.id == taskId) _loadDetail(taskId);
+      _snack(context, 'Đã cập nhật tiến độ ${sliderVal.toInt()}%', const Color(0xFF1E3A5F));
     } else {
       _snack(context, r['message'] ?? 'Lỗi', Colors.red);
     }
@@ -2792,7 +3213,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   Future<void> _addComment() async {
     final content = _commentCtrl.text.trim();
     if (content.isEmpty || _detailTask == null) return;
-    final r = await _api.addTaskComment(_detailTask!.id, content);
+    final data = <String, dynamic>{
+      'content': content,
+      'commentType': 0,
+    };
+    final r = await _api.addTaskComment(_detailTask!.id, data);
     if (!mounted) return;
     if (r['isSuccess'] == true) {
       _commentCtrl.clear();
@@ -3044,5 +3469,140 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 ),
               ],
             ));
+  }
+
+  String _formatDuration(Duration d) {
+    final days = d.inDays;
+    final hours = d.inHours % 24;
+    final mins = d.inMinutes % 60;
+    final parts = <String>[];
+    if (days > 0) parts.add('$days ngày');
+    if (hours > 0) parts.add('$hours giờ');
+    if (mins > 0) parts.add('$mins phút');
+    return parts.isEmpty ? '0 phút' : parts.join(' ');
+  }
+}
+
+/// Multi-assignee picker dialog
+class _MultiAssigneePicker extends StatefulWidget {
+  final List<dynamic> employees;
+  final List<String> selected;
+  const _MultiAssigneePicker({required this.employees, required this.selected});
+  @override
+  State<_MultiAssigneePicker> createState() => _MultiAssigneePickerState();
+}
+
+class _MultiAssigneePickerState extends State<_MultiAssigneePicker> {
+  late List<String> _selected;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.employees.where((e) {
+      final name = (e.fullName as String).toLowerCase();
+      return name.contains(_search.toLowerCase());
+    }).toList();
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.people, color: Color(0xFF1E3A5F)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Chọn người thực hiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+          Text('${_selected.length} đã chọn', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              onChanged: (v) => setState(() => _search = v),
+              decoration: InputDecoration(
+                hintText: 'Tìm nhân viên...',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            if (_selected.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: _selected.map((id) {
+                    final emp = widget.employees.firstWhere(
+                      (e) => e.id == id,
+                      orElse: () => widget.employees.first,
+                    );
+                    return Chip(
+                      label: Text(emp.fullName, style: const TextStyle(fontSize: 11)),
+                      deleteIcon: const Icon(Icons.close, size: 12),
+                      onDeleted: () => setState(() => _selected.remove(id)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: const Color(0xFFEFF6FF),
+                    );
+                  }).toList(),
+                ),
+              ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final emp = filtered[i];
+                  final isSelected = _selected.contains(emp.id);
+                  return CheckboxListTile(
+                    value: isSelected,
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selected.add(emp.id);
+                        } else {
+                          _selected.remove(emp.id);
+                        }
+                      });
+                    },
+                    title: Text(emp.fullName, style: const TextStyle(fontSize: 13)),
+                    subtitle: emp.departmentName != null
+                        ? Text(emp.departmentName!, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))
+                        : null,
+                    secondary: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: const Color(0xFF1E3A5F),
+                      child: Text(
+                        emp.fullName.isNotEmpty ? emp.fullName[0].toUpperCase() : '?',
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.trailing,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+          child: Text('Xác nhận (${_selected.length})'),
+        ),
+      ],
+    );
   }
 }

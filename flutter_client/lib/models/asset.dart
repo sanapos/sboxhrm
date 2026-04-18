@@ -162,11 +162,14 @@ class AssetCategory {
 class Asset {
   final String id;
   final String assetCode;
+  final String? qrCode;
   final String name;
   final String? description;
   final String? serialNumber;
   final String? model;
   final String? brand;
+  final String? size;
+  final String? color;
   final AssetType assetType;
   final String assetTypeName;
   final String? categoryId;
@@ -201,11 +204,14 @@ class Asset {
   Asset({
     required this.id,
     required this.assetCode,
+    this.qrCode,
     required this.name,
     this.description,
     this.serialNumber,
     this.model,
     this.brand,
+    this.size,
+    this.color,
     required this.assetType,
     this.assetTypeName = '',
     this.categoryId,
@@ -242,11 +248,14 @@ class Asset {
     return Asset(
       id: json['id'] ?? '',
       assetCode: json['assetCode'] ?? '',
+      qrCode: json['qrCode'],
       name: json['name'] ?? '',
       description: json['description'],
       serialNumber: json['serialNumber'],
       model: json['model'],
       brand: json['brand'],
+      size: json['size'],
+      color: json['color'],
       assetType: parseAssetType(json['assetType']),
       assetTypeName: json['assetTypeName'] ?? '',
       categoryId: json['categoryId'],

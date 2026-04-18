@@ -69,6 +69,10 @@ public class TaskCommentDto
     public string? UserAvatar { get; set; }
     public string Content { get; set; } = string.Empty;
     public Guid? ParentCommentId { get; set; }
+    public int CommentType { get; set; }
+    public string? ImageUrls { get; set; }
+    public string? LinkUrls { get; set; }
+    public int? ProgressSnapshot { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<TaskCommentDto>? Replies { get; set; }
 }
@@ -158,6 +162,8 @@ public class UpdateTaskProgressDto
 {
     public int Progress { get; set; }
     public string? Notes { get; set; }
+    public string? ImageUrls { get; set; }
+    public string? LinkUrls { get; set; }
 }
 
 public class AssignTaskDto
@@ -170,6 +176,10 @@ public class CreateCommentDto
 {
     public string Content { get; set; } = string.Empty;
     public Guid? ParentCommentId { get; set; }
+    public int CommentType { get; set; }
+    public string? ImageUrls { get; set; }
+    public string? LinkUrls { get; set; }
+    public int? ProgressPercent { get; set; }
 }
 
 // =========== Query DTOs ===========

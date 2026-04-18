@@ -151,6 +151,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
 
     // Feedback / Ý kiến
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<FeedbackReply> FeedbackReplies => Set<FeedbackReply>();
 
     // Mobile Attendance
     public DbSet<MobileAttendanceSetting> MobileAttendanceSettings => Set<MobileAttendanceSetting>();

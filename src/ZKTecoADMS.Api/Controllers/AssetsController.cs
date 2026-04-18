@@ -277,11 +277,14 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         {
             Id = a.Id,
             AssetCode = a.AssetCode,
+            QrCode = a.QrCode ?? a.AssetCode,
             Name = a.Name,
             Description = a.Description,
             SerialNumber = a.SerialNumber,
             Model = a.Model,
             Brand = a.Brand,
+            Size = a.Size,
+            Color = a.Color,
             AssetType = a.AssetType,
             AssetTypeName = GetAssetTypeName(a.AssetType),
             CategoryId = a.CategoryId,
@@ -335,11 +338,14 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         {
             Id = asset.Id,
             AssetCode = asset.AssetCode,
+            QrCode = asset.QrCode ?? asset.AssetCode,
             Name = asset.Name,
             Description = asset.Description,
             SerialNumber = asset.SerialNumber,
             Model = asset.Model,
             Brand = asset.Brand,
+            Size = asset.Size,
+            Color = asset.Color,
             AssetType = asset.AssetType,
             AssetTypeName = GetAssetTypeName(asset.AssetType),
             CategoryId = asset.CategoryId,
@@ -415,6 +421,8 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             SerialNumber = request.SerialNumber,
             Model = request.Model,
             Brand = request.Brand,
+            Size = request.Size,
+            Color = request.Color,
             AssetType = request.AssetType,
             CategoryId = request.CategoryId,
             Status = AssetStatus.InStock,
@@ -438,6 +446,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             CreatedBy = CurrentUserId.ToString()
         };
 
+        // QrCode defaults to AssetCode if not provided
+        asset.QrCode = !string.IsNullOrWhiteSpace(request.QrCode) ? request.QrCode : asset.AssetCode;
+
         _context.Assets.Add(asset);
         await _context.SaveChangesAsync();
 
@@ -445,6 +456,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         {
             Id = asset.Id,
             AssetCode = asset.AssetCode,
+            QrCode = asset.QrCode,
             Name = asset.Name,
             AssetType = asset.AssetType,
             AssetTypeName = GetAssetTypeName(asset.AssetType),
@@ -464,8 +476,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         asset.Name = request.Name;
         asset.Description = request.Description;
         asset.SerialNumber = request.SerialNumber;
+        if (request.QrCode != null) asset.QrCode = request.QrCode;
         asset.Model = request.Model;
         asset.Brand = request.Brand;
+        asset.Size = request.Size;
+        asset.Color = request.Color;
         asset.AssetType = request.AssetType;
         asset.CategoryId = request.CategoryId;
         asset.Status = request.Status;
@@ -765,6 +780,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         {
             Id = a.Id,
             AssetCode = a.AssetCode,
+            QrCode = a.QrCode ?? a.AssetCode,
             Name = a.Name,
             SerialNumber = a.SerialNumber,
             Model = a.Model,
@@ -779,6 +795,109 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         }).ToList();
 
         return Ok(AppResponse<List<AssetDto>>.Success(dtos));
+    }
+    #endregion
+
+    #region QR / Lookup
+    [HttpGet("lookup")]
+    public async Task<IActionResult> LookupAsset([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest(AppResponse<object>.Error("Mã không hợp lệ"));
+
+        var asset = await _context.Assets
+            .Where(a => a.StoreId == RequiredStoreId && a.IsActive &&
+                (a.QrCode == code || a.AssetCode == code))
+            .Include(a => a.Category)
+            .Include(a => a.CurrentAssignee)
+            .Include(a => a.Images)
+            .FirstOrDefaultAsync();
+
+        if (asset == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản với mã: " + code));
+
+        var dto = new AssetDetailDto
+        {
+            Id = asset.Id,
+            AssetCode = asset.AssetCode,
+            QrCode = asset.QrCode ?? asset.AssetCode,
+            Name = asset.Name,
+            Description = asset.Description,
+            SerialNumber = asset.SerialNumber,
+            Model = asset.Model,
+            Brand = asset.Brand,
+            Size = asset.Size,
+            Color = asset.Color,
+            AssetType = asset.AssetType,
+            AssetTypeName = GetAssetTypeName(asset.AssetType),
+            CategoryId = asset.CategoryId,
+            CategoryName = asset.Category?.Name,
+            Status = asset.Status,
+            StatusName = GetAssetStatusName(asset.Status),
+            PurchaseDate = asset.PurchaseDate,
+            PurchasePrice = asset.PurchasePrice,
+            CurrentValue = asset.CurrentValue,
+            WarrantyExpiry = asset.WarrantyExpiry,
+            Location = asset.Location,
+            Quantity = asset.Quantity,
+            Supplier = asset.Supplier,
+            CurrentAssigneeId = asset.CurrentAssigneeId?.ToString(),
+            CurrentAssigneeName = asset.CurrentAssignee?.FullName,
+            AssignedDate = asset.AssignedDate,
+            Notes = asset.Notes,
+            PrimaryImageUrl = asset.Images.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+            Images = asset.Images.OrderByDescending(i => i.IsPrimary).Select(i => new AssetImageDto
+            {
+                Id = i.Id,
+                ImageUrl = i.ImageUrl,
+                IsPrimary = i.IsPrimary,
+                Description = i.Description
+            }).ToList()
+        };
+
+        return Ok(AppResponse<AssetDetailDto>.Success(dto));
+    }
+
+    [HttpPost("inventories/{id}/scan")]
+    public async Task<IActionResult> ScanInventoryItem(Guid id, [FromBody] ScanInventoryItemDto request)
+    {
+        var inventory = await _context.AssetInventories
+            .Include(i => i.Items).ThenInclude(item => item.Asset)
+            .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
+
+        if (inventory == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+
+        if (inventory.Status != 0)
+            return BadRequest(AppResponse<object>.Error("Đợt kiểm kê đã kết thúc"));
+
+        var item = inventory.Items.FirstOrDefault(i =>
+            i.Asset != null && (i.Asset.QrCode == request.Code || i.Asset.AssetCode == request.Code));
+
+        if (item == null)
+            return NotFound(AppResponse<object>.Error("Tài sản với mã " + request.Code + " không nằm trong đợt kiểm kê này"));
+
+        item.IsChecked = true;
+        item.CheckedAt = DateTime.UtcNow;
+        item.CheckedById = CurrentUserId;
+        item.Condition = request.Condition;
+        item.ActualQuantity = request.ActualQuantity;
+        item.ActualLocation = request.ActualLocation;
+        item.HasIssue = request.HasIssue;
+        item.IssueDescription = request.IssueDescription;
+        item.Notes = request.Notes;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            assetId = item.AssetId,
+            assetCode = item.Asset?.AssetCode,
+            assetName = item.Asset?.Name,
+            isChecked = true,
+            checkedAt = item.CheckedAt,
+            message = "Kiểm kê tài sản thành công: " + (item.Asset?.Name ?? request.Code)
+        }));
     }
     #endregion
 

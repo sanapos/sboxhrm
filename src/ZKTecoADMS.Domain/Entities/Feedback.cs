@@ -31,6 +31,10 @@ public class Feedback : AuditableEntity<Guid>
     [MaxLength(5000)]
     public string Content { get; set; } = string.Empty;
 
+    /// <summary>Danh sách URL hình ảnh đính kèm (JSON)</summary>
+    [MaxLength(2000)]
+    public string? ImageUrls { get; set; }
+
     /// <summary>Phân loại: General, Complaint, Suggestion, Other</summary>
     [Required]
     [MaxLength(50)]
@@ -54,4 +58,7 @@ public class Feedback : AuditableEntity<Guid>
 
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
+
+    /// <summary>Danh sách phản hồi qua lại</summary>
+    public virtual ICollection<FeedbackReply> Replies { get; set; } = new List<FeedbackReply>();
 }

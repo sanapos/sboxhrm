@@ -158,6 +158,28 @@ public class TaskComment : Entity<Guid>
     /// </summary>
     public Guid? ParentCommentId { get; set; }
 
+    /// <summary>
+    /// Loại bình luận: 0=Comment, 1=ProgressUpdate
+    /// </summary>
+    public int CommentType { get; set; }
+
+    /// <summary>
+    /// URLs hình ảnh đính kèm (JSON array)
+    /// </summary>
+    [MaxLength(4000)]
+    public string? ImageUrls { get; set; }
+
+    /// <summary>
+    /// URLs liên kết đính kèm (JSON array)
+    /// </summary>
+    [MaxLength(4000)]
+    public string? LinkUrls { get; set; }
+
+    /// <summary>
+    /// Tiến độ tại thời điểm cập nhật (nếu CommentType=1)
+    /// </summary>
+    public int? ProgressSnapshot { get; set; }
+
     // Navigation Properties
     public virtual WorkTask? Task { get; set; }
     public virtual ApplicationUser? User { get; set; }

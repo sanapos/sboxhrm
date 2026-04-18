@@ -654,7 +654,38 @@ public class TasksController(
 
         _dbContext.TaskHistories.Add(CreateHistory(task.Id, "ProgressUpdated", oldProgress.ToString(), task.Progress.ToString()));
 
+        // Auto-create progress update comment
+        if (!string.IsNullOrEmpty(request.Notes) || !string.IsNullOrEmpty(request.ImageUrls) || !string.IsNullOrEmpty(request.LinkUrls))
+        {
+            _dbContext.TaskComments.Add(new TaskComment
+            {
+                Id = Guid.NewGuid(),
+                TaskId = id,
+                UserId = CurrentUserId,
+                Content = request.Notes ?? $"Cập nhật tiến độ: {oldProgress}% → {task.Progress}%",
+                CommentType = 1,
+                ImageUrls = request.ImageUrls,
+                LinkUrls = request.LinkUrls,
+                ProgressSnapshot = task.Progress
+            });
+        }
+
         await _dbContext.SaveChangesAsync();
+
+        // Notify task owner about progress
+        try
+        {
+            if (task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
+            {
+                await notificationService.CreateAndSendAsync(
+                    task.AssignedById, NotificationType.Info,
+                    "Cập nhật tiến độ",
+                    $"Công việc \"{task.Title}\" đã cập nhật tiến độ: {task.Progress}%",
+                    relatedEntityId: task.Id, relatedEntityType: "WorkTask",
+                    fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
+            }
+        }
+        catch { /* Notification failure should not affect main operation */ }
 
         var updatedTask = await _dbContext.WorkTasks
             .Include(t => t.Assignee)
@@ -913,10 +944,37 @@ public class TasksController(
             TaskId = taskId,
             UserId = CurrentUserId,
             Content = request.Content,
-            ParentCommentId = request.ParentCommentId
+            ParentCommentId = request.ParentCommentId,
+            CommentType = request.CommentType,
+            ImageUrls = request.ImageUrls,
+            LinkUrls = request.LinkUrls,
+            ProgressSnapshot = request.ProgressPercent
         };
 
         _dbContext.TaskComments.Add(comment);
+
+        // If this is a progress update comment, also update task progress
+        if (request.CommentType == 1 && request.ProgressPercent.HasValue)
+        {
+            var oldProgress = task.Progress;
+            task.Progress = Math.Clamp(request.ProgressPercent.Value, 0, 100);
+            
+            if (task.Progress == 100 && task.Status != WorkTaskStatus.Completed)
+            {
+                task.Status = WorkTaskStatus.Completed;
+                task.CompletedDate = DateTime.Now;
+            }
+            else if (task.Progress > 0 && task.Status == WorkTaskStatus.Todo)
+            {
+                task.Status = WorkTaskStatus.InProgress;
+                task.ActualStartDate ??= DateTime.Now;
+            }
+            
+            task.UpdatedAt = DateTime.Now;
+            task.UpdatedBy = CurrentUserEmail;
+            
+            _dbContext.TaskHistories.Add(CreateHistory(task.Id, "ProgressUpdated", oldProgress.ToString(), task.Progress.ToString()));
+        }
 
         _dbContext.TaskHistories.Add(new TaskHistory
         {
@@ -1580,6 +1638,10 @@ public class TasksController(
             UserName = comment.User?.UserName,
             Content = comment.Content,
             ParentCommentId = comment.ParentCommentId,
+            CommentType = comment.CommentType,
+            ImageUrls = comment.ImageUrls,
+            LinkUrls = comment.LinkUrls,
+            ProgressSnapshot = comment.ProgressSnapshot,
             CreatedAt = comment.CreatedAt,
             Replies = comment.Replies?.Select(MapCommentToDto).ToList()
         };

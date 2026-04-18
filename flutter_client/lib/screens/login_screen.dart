@@ -551,8 +551,8 @@ class _LoginScreenState extends State<LoginScreen>
                           ],
                         ),
                       ),
-                      // Spacing for footer (desktop only)
-                      if (isDesktop) const SizedBox(height: 80),
+                      // Spacing for footer
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),
@@ -594,30 +594,39 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ],
             )
-          : Column(
+          : Stack(
               children: [
-                Expanded(child: scrollContent),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                scrollContent,
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 20,
+                  child: IgnorePointer(
+                    ignoring: MediaQuery.of(context).viewInsets.bottom > 0,
+                    child: AnimatedOpacity(
+                      opacity: MediaQuery.of(context).viewInsets.bottom > 0 ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildFooterLink('TÌM HIỂU THÊM'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('LIÊN HỆ'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('HỖ TRỢ'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildFooterLink('TÌM HIỂU THÊM'),
+                              const SizedBox(width: 16),
+                              _buildFooterLink('LIÊN HỆ'),
+                              const SizedBox(width: 16),
+                              _buildFooterLink('HỖ TRỢ'),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],

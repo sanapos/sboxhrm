@@ -207,7 +207,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final statusLabel = periodStatus >= 0 ? _periodStatusLabel(periodStatus) : '';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF0F2340), Color(0xFF1E3A5F), Color(0xFF2A5298)],
@@ -223,10 +223,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           children: [
             Row(
               children: [
-                const Icon(Icons.trending_up_rounded, color: Colors.white, size: 22),
-                const SizedBox(width: 10),
+                const Icon(Icons.trending_up_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
                 const Expanded(
-                  child: Text('Quản lý KPI', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3), overflow: TextOverflow.ellipsis),
+                  child: Text('Quản lý KPI', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3), overflow: TextOverflow.ellipsis),
                 ),
                 if (statusLabel.isNotEmpty) ...[
                   Container(
@@ -262,9 +262,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               ],
             ),
             if (_periods.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -559,28 +559,49 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   Widget _buildDashboardTab(ThemeData theme) {
     final filteredTargets = _filteredTargets;
+    final isMobile = Responsive.isMobile(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Filter row + export button
-          Row(
-            children: [
-              if (!Responsive.isMobile(context) || _showMobileFilters)
-                Expanded(child: _buildFilterRow(theme))
-              else
-                const Spacer(),
-              const SizedBox(width: 12),
-              if (Provider.of<PermissionProvider>(context, listen: false).canExport('KPI'))
-              OutlinedButton.icon(
-                onPressed: _isExporting ? null : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
-                icon: const Icon(Icons.image, size: 18),
-                label: Text(_isExporting ? 'Đang xuất...' : 'Xuất PNG'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          // Filter + Export row - compact
+          if (!isMobile || _showMobileFilters)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildFilterRow(theme),
+            ),
+          if (isMobile) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (Provider.of<PermissionProvider>(context, listen: false).canExport('KPI'))
+                  OutlinedButton.icon(
+                    onPressed: _isExporting ? null : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
+                    icon: const Icon(Icons.image, size: 16),
+                    label: Text(_isExporting ? '...' : 'Xuất PNG', style: const TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (Provider.of<PermissionProvider>(context, listen: false).canExport('KPI'))
+                  OutlinedButton.icon(
+                    onPressed: _isExporting ? null : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
+                    icon: const Icon(Icons.image, size: 16),
+                    label: Text(_isExporting ? 'Đang xuất...' : 'Xuất PNG', style: const TextStyle(fontSize: 12)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           RepaintBoundary(
             key: _dashboardKey,
             child: Container(
@@ -588,12 +609,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Summary stat cards
                   LayoutBuilder(builder: (context, constraints) {
                     final avgPct = filteredTargets.isNotEmpty
                         ? filteredTargets.map((t) => ((t['completionRate'] ?? 0) as num).toDouble()).reduce((a, b) => a + b) / filteredTargets.length
                         : 0.0;
                     final totalBonus = _filteredSalaries.fold<double>(0, (sum, s) => sum + ((s['kpiBonusAmount'] ?? 0) as num).toDouble());
-                    final isMobile = constraints.maxWidth < 600;
+                    final isNarrow = constraints.maxWidth < 600;
                     final cards = [
                       _statCard('Nhân viên', '${filteredTargets.length}', Icons.people, _accent),
                       _statCard('Đạt mục tiêu', '${filteredTargets.where((t) => (t['completionRate'] ?? 0) >= 100).length}', Icons.check_circle, _green),
@@ -601,7 +623,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       _statCard('Tiến độ TB', '${avgPct.toStringAsFixed(1)}%', Icons.analytics, _blue),
                       _statCard('Tổng thưởng', _cur.format(totalBonus), Icons.monetization_on, const Color(0xFF0F2340)),
                     ];
-                    if (isMobile) {
+                    if (isNarrow) {
                       return Wrap(
                         spacing: 10,
                         runSpacing: 10,
@@ -610,15 +632,32 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     }
                     return Row(children: [
                       for (int i = 0; i < cards.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 14),
+                        if (i > 0) const SizedBox(width: 12),
                         Expanded(child: cards[i]),
                       ],
                     ]);
                   }),
-                  const SizedBox(height: 24),
-                  _buildProgressOverview(theme),
-                  const SizedBox(height: 24),
-                  _buildTopPerformers(theme),
+                  const SizedBox(height: 12),
+                  // Progress overview + Top performers side by side on desktop
+                  LayoutBuilder(builder: (context, constraints) {
+                    if (constraints.maxWidth >= 900) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 3, child: _buildProgressOverview(theme)),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 2, child: _buildTopPerformers(theme)),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        _buildProgressOverview(theme),
+                        const SizedBox(height: 16),
+                        _buildTopPerformers(theme),
+                      ],
+                    );
+                  }),
                 ],
               ),
             ),
@@ -1551,60 +1590,69 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Widget _buildTargetsTab(ThemeData theme) {
     if (_selPeriodId == null) return _emptyState('Chọn chu kỳ ở header', Icons.calendar_today);
     final filtered = _filteredTargets;
+    final isMobile = Responsive.isMobile(context);
+    final btnStyle = OutlinedButton.styleFrom(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 10),
+      textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
+    );
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.end, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
+        padding: EdgeInsets.fromLTRB(16, isMobile ? 10 : 16, 16, isMobile ? 6 : 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.track_changes_rounded, color: _accent, size: 20),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.track_changes_rounded, color: _accent, size: 18),
             ),
-            const SizedBox(width: 12),
-            Text('Chỉ tiêu & Tiến độ', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Chỉ tiêu & Tiến độ', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
           ]),
-          const SizedBox(width: 20),
-          OutlinedButton.icon(
-            onPressed: _showBatchUpdateDialog,
-            icon: const Icon(Icons.edit_note_rounded, size: 18),
-            label: const Text('Cập nhật doanh số'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          OutlinedButton.icon(
-            onPressed: _importExcelActuals,
-            icon: const Icon(Icons.upload_file_rounded, size: 18),
-            label: const Text('Import Excel'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          OutlinedButton.icon(
-            onPressed: _writeTargetsToGSheet,
-            icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-            label: const Text('Ghi chỉ tiêu → GSheet'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), foregroundColor: _green),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isExporting ? null : _exportTargetsExcel,
-            icon: const Icon(Icons.table_chart_rounded, size: 18),
-            label: const Text('Xuất Excel'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isExporting ? null : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
-            icon: const Icon(Icons.image_rounded, size: 18),
-            label: const Text('Xuất PNG'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          FilledButton.icon(
-            onPressed: Provider.of<PermissionProvider>(context, listen: false).canCreate('KPI') ? _showAddTargetDialog : null,
-            icon: const Icon(Icons.person_add_rounded, size: 18),
-            label: const Text('Giao chỉ tiêu'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _accent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            OutlinedButton.icon(
+              onPressed: _showBatchUpdateDialog,
+              icon: Icon(Icons.edit_note_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Cập nhật doanh số'),
+              style: btnStyle,
             ),
-          ),
+            OutlinedButton.icon(
+              onPressed: _importExcelActuals,
+              icon: Icon(Icons.upload_file_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Import Excel'),
+              style: btnStyle,
+            ),
+            OutlinedButton.icon(
+              onPressed: _writeTargetsToGSheet,
+              icon: Icon(Icons.cloud_upload_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Ghi chỉ tiêu → GSheet'),
+              style: btnStyle.copyWith(foregroundColor: WidgetStatePropertyAll(_green)),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isExporting ? null : _exportTargetsExcel,
+              icon: Icon(Icons.table_chart_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Xuất Excel'),
+              style: btnStyle,
+            ),
+            OutlinedButton.icon(
+              onPressed: _isExporting ? null : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+              icon: Icon(Icons.image_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Xuất PNG'),
+              style: btnStyle,
+            ),
+            FilledButton.icon(
+              onPressed: Provider.of<PermissionProvider>(context, listen: false).canCreate('KPI') ? _showAddTargetDialog : null,
+              icon: Icon(Icons.person_add_rounded, size: isMobile ? 16 : 18),
+              label: const Text('Giao chỉ tiêu'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _accent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: isMobile ? 6 : 10),
+                textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
+              ),
+            ),
+          ]),
         ]),
       ),
       // Filters
@@ -2799,65 +2847,65 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Flexible(
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, color.withValues(alpha: 0.04)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4)),
-            BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white, color.withValues(alpha: 0.04)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Column(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)]),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12, fontWeight: FontWeight.w500)),
-        ]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+        ],
       ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)]),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
+            ),
+            Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w500)),
+          ],
+        )),
+      ]),
     );
   }
 
   Widget _miniStat(String label, String value, Color color) {
-    return Flexible(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [color.withValues(alpha: 0.08), color.withValues(alpha: 0.02)]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
-        ),
-        child: Row(children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(child: Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color))),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-        ]),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color.withValues(alpha: 0.08), color.withValues(alpha: 0.02)]),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
+      child: Row(children: [
+        Container(
+          width: 30, height: 30,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color))),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+      ]),
     );
   }
 

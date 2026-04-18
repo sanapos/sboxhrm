@@ -38,11 +38,14 @@ public record AssetDto
 {
     public Guid Id { get; init; }
     public string AssetCode { get; init; } = string.Empty;
+    public string? QrCode { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
     public string? SerialNumber { get; init; }
     public string? Model { get; init; }
     public string? Brand { get; init; }
+    public string? Size { get; init; }
+    public string? Color { get; init; }
     public AssetType AssetType { get; init; }
     public string AssetTypeName { get; init; } = string.Empty;
     public Guid? CategoryId { get; init; }
@@ -84,9 +87,12 @@ public record CreateAssetDto
 {
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
+    public string? QrCode { get; init; }
     public string? SerialNumber { get; init; }
     public string? Model { get; init; }
     public string? Brand { get; init; }
+    public string? Size { get; init; }
+    public string? Color { get; init; }
     public AssetType AssetType { get; init; } = AssetType.Electronics;
     public Guid? CategoryId { get; init; }
     public int Quantity { get; init; } = 1;
@@ -106,9 +112,12 @@ public record UpdateAssetDto
 {
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
+    public string? QrCode { get; init; }
     public string? SerialNumber { get; init; }
     public string? Model { get; init; }
     public string? Brand { get; init; }
+    public string? Size { get; init; }
+    public string? Color { get; init; }
     public AssetType AssetType { get; init; }
     public Guid? CategoryId { get; init; }
     public AssetStatus Status { get; init; }
@@ -346,5 +355,21 @@ public record AssetByStatusDto
     public AssetStatus Status { get; init; }
     public string StatusName { get; init; } = string.Empty;
     public int Count { get; init; }
+}
+#endregion
+
+#region QR / Scan DTOs
+/// <summary>
+/// DTO cho việc quét QR kiểm kê - tìm item theo mã QR/AssetCode trong đợt kiểm kê
+/// </summary>
+public record ScanInventoryItemDto
+{
+    public string Code { get; init; } = string.Empty;
+    public InventoryCondition Condition { get; init; } = InventoryCondition.Good;
+    public int ActualQuantity { get; init; } = 1;
+    public string? ActualLocation { get; init; }
+    public bool HasIssue { get; init; }
+    public string? IssueDescription { get; init; }
+    public string? Notes { get; init; }
 }
 #endregion

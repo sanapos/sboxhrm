@@ -5,6 +5,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import 'feedback_detail_screen.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -347,8 +348,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     final respondedAt = fb['respondedAt'] != null
         ? DateTime.tryParse(fb['respondedAt'])
         : null;
+    final replyCount = fb['replyCount'] ?? 0;
 
-    return Container(
+    return GestureDetector(
+      onTap: () => _openDetail(fb, isMine: isMine),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -474,22 +478,28 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (!isMine && status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canApprove('Feedback'))
-                  TextButton.icon(
-                    onPressed: () => _showRespondDialog(fb),
-                    icon: const Icon(Icons.reply, size: 16),
-                    label: const Text('Phản hồi'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F)),
+                // Reply count badge
+                if (replyCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 4),
+                        Text('$replyCount phản hồi',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w500)),
+                      ],
+                    ),
                   ),
-                if (!isMine && (status == 'Pending' || status == 'InProgress') && Provider.of<PermissionProvider>(context, listen: false).canApprove('Feedback'))
-                  TextButton.icon(
-                    onPressed: () => _showRespondDialog(fb),
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Cập nhật'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF3B82F6)),
-                  ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _openDetail(fb, isMine: isMine),
+                  icon: const Icon(Icons.chat_outlined, size: 16),
+                  label: const Text('Xem / Trả lời'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF1E3A5F)),
+                ),
                 if (isMine && status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canDelete('Feedback'))
                   TextButton.icon(
                     onPressed: () => _confirmDelete(fb),
@@ -503,7 +513,22 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ],
         ),
       ),
+    ),  // close GestureDetector
     );
+  }
+
+  void _openDetail(Map<String, dynamic> fb, {required bool isMine}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FeedbackDetailScreen(
+          feedbackId: fb['id']?.toString() ?? '',
+          isMine: isMine,
+        ),
+      ),
+    );
+    // Reload after returning from detail
+    _reloadCurrentTab();
   }
 
   Widget _metaChip(IconData icon, String label, {Color? color}) {

@@ -40,6 +40,9 @@ public class Asset : AuditableEntity<Guid>
     /// <summary>Mã tài sản (tự động tạo: TS-YYYYMMDD-XXXX)</summary>
     public string AssetCode { get; set; } = string.Empty;
     
+    /// <summary>Mã QR (mặc định = AssetCode, có thể tùy chỉnh)</summary>
+    public string? QrCode { get; set; }
+    
     /// <summary>Tên tài sản</summary>
     public string Name { get; set; } = string.Empty;
     
@@ -54,6 +57,12 @@ public class Asset : AuditableEntity<Guid>
     
     /// <summary>Thương hiệu/Nhà sản xuất</summary>
     public string? Brand { get; set; }
+    
+    /// <summary>Kích thước/Size</summary>
+    public string? Size { get; set; }
+    
+    /// <summary>Màu sắc</summary>
+    public string? Color { get; set; }
     
     /// <summary>Loại tài sản</summary>
     public AssetType AssetType { get; set; } = AssetType.Electronics;

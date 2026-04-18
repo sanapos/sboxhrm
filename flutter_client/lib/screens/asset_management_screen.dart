@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../models/asset.dart';
@@ -179,6 +180,74 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   bool get _hasActiveFilters => _statusFilter != null || _typeFilter != null || _categoryFilter != null;
 
+  // ==================== QR SCAN ====================
+  void _showQrScanDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _AssetQrScanDialog(
+        onAssetScanned: (code) async {
+          Navigator.pop(ctx);
+          await _lookupAssetByCode(code);
+        },
+      ),
+    );
+  }
+
+  Future<void> _lookupAssetByCode(String code) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final result = await _apiService.lookupAssetByCode(code);
+    if (mounted) Navigator.pop(context);
+
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final asset = Asset.fromJson(result['data']);
+      if (mounted) _showAssetDetail(asset);
+    } else {
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Không tìm thấy',
+          message: result['message'] ?? 'Không tìm thấy tài sản',
+        );
+      }
+    }
+  }
+
+  void _showInventoryDetailDialog(AssetInventory inventory) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final result = await _apiService.getInventoryDetail(inventory.id);
+    if (mounted) Navigator.pop(context);
+
+    if (result['isSuccess'] == true && result['data'] != null) {
+      final detail = AssetInventory.fromJson(result['data']);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => _InventoryDetailDialog(
+            inventory: detail,
+            apiService: _apiService,
+            onRefresh: () {
+              _loadInventories();
+            },
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: result['message'] ?? 'Không thể tải chi tiết kiểm kê',
+        );
+      }
+    }
+  }
+
   // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
@@ -279,6 +348,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           if (isMobile) ...[
             IconButton(
+              onPressed: _showQrScanDialog,
+              icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF1E3A5F)),
+              tooltip: 'Quét QR tài sản',
+            ),
+            IconButton(
               onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
               icon: Stack(
                 children: [
@@ -323,6 +397,19 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             if (_showInventories && _inventories.isEmpty) _loadInventories();
           }),
           const SizedBox(width: 16),
+          // QR Scan button
+          ElevatedButton.icon(
+            onPressed: _showQrScanDialog,
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: const Text('Quét QR'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(width: 8),
           if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
           ElevatedButton.icon(
             onPressed: () => _showAssetDialog(),
@@ -1219,7 +1306,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   Widget _buildInventoryItem(AssetInventory inventory) {
     final statusColor = inventory.isInProgress ? const Color(0xFF1E3A5F) : inventory.isCompleted ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA);
-    return Container(
+    return InkWell(
+      onTap: () => _showInventoryDetailDialog(inventory),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1274,6 +1364,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             ),
         ],
       ),
+      ),
     );
   }
 
@@ -1318,6 +1409,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final serialCtrl = TextEditingController(text: asset?.serialNumber ?? '');
     final modelCtrl = TextEditingController(text: asset?.model ?? '');
     final brandCtrl = TextEditingController(text: asset?.brand ?? '');
+    final sizeCtrl = TextEditingController(text: asset?.size ?? '');
+    final colorCtrl = TextEditingController(text: asset?.color ?? '');
     final priceCtrl = TextEditingController(text: formatNumber(asset?.purchasePrice));
     final qtyCtrl = TextEditingController(text: asset?.quantity.toString() ?? '1');
     final unitCtrl = TextEditingController(text: asset?.unit ?? 'Cái');
@@ -1332,11 +1425,42 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     String? selectedCategory = asset?.categoryId;
     DateTime? purchaseDate = asset?.purchaseDate;
 
+    void scanQrForField(TextEditingController ctrl, StateSetter setDialogState) {
+      showDialog(
+        context: context,
+        builder: (_) => _AssetQrScanDialog(
+          onAssetScanned: (code) {
+            Navigator.pop(context);
+            setDialogState(() => ctrl.text = code);
+          },
+        ),
+      );
+    }
+
     final isMobile = Responsive.isMobile(context);
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          Widget qrField(String label, TextEditingController ctrl) {
+            return Row(children: [
+              Expanded(child: _dialogField(label, ctrl)),
+              const SizedBox(width: 6),
+              Material(
+                color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () => scanQrForField(ctrl, setDialogState),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 44, height: 44,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1E3A5F), size: 22),
+                  ),
+                ),
+              ),
+            ]);
+          }
           final formContent = SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -1346,9 +1470,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const Text('Thông tin cơ bản', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
                         const SizedBox(height: 12),
                         Row(children: [
-                          Expanded(child: _dialogField('Mã tài sản *', codeCtrl)),
+                          Expanded(child: qrField('Mã tài sản *', codeCtrl)),
                           const SizedBox(width: 16),
-                          Expanded(child: _dialogField('Số Serial', serialCtrl)),
+                          Expanded(child: qrField('Số Serial', serialCtrl)),
                         ]),
                         const SizedBox(height: 12),
                         _dialogField('Tên tài sản *', nameCtrl),
@@ -1363,6 +1487,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           Expanded(child: _dialogField('Model', modelCtrl)),
                           const SizedBox(width: 16),
                           Expanded(child: _dialogField('Thương hiệu', brandCtrl)),
+                        ]),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: _dialogField('Size / Kích thước', sizeCtrl)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _dialogField('Màu sắc', colorCtrl)),
                         ]),
                         const SizedBox(height: 12),
                         Row(children: [
@@ -1453,6 +1583,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           context, isEdit: isEdit, assetId: asset?.id,
                           code: codeCtrl.text, name: nameCtrl.text, description: descCtrl.text,
                           serial: serialCtrl.text, model: modelCtrl.text, brand: brandCtrl.text,
+                          size: sizeCtrl.text, color: colorCtrl.text,
                           price: priceCtrl.text, quantity: qtyCtrl.text, unit: unitCtrl.text,
                           supplier: supplierCtrl.text, invoice: invoiceCtrl.text,
                           warranty: warrantyCtrl.text, location: locationCtrl.text, notes: notesCtrl.text,
@@ -1545,6 +1676,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     required bool isEdit, String? assetId,
     required String code, required String name, String? description,
     String? serial, String? model, String? brand,
+    String? size, String? color,
     required String price, required String quantity, required String unit,
     String? supplier, String? invoice, String? warranty, String? location, String? notes,
     required AssetType type, required AssetStatus status, String? categoryId,
@@ -1564,6 +1696,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         serialNumber: serial?.isNotEmpty == true ? serial : null,
         model: model?.isNotEmpty == true ? model : null,
         brand: brand?.isNotEmpty == true ? brand : null,
+        size: size?.isNotEmpty == true ? size : null,
+        color: color?.isNotEmpty == true ? color : null,
         assetType: type.index, categoryId: categoryId, status: status.index,
         quantity: int.tryParse(quantity) ?? 1, unit: unit,
         purchasePrice: parseFormattedNumber(price)?.toDouble() ?? 0, purchaseDate: purchaseDate,
@@ -1580,6 +1714,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         serialNumber: serial?.isNotEmpty == true ? serial : null,
         model: model?.isNotEmpty == true ? model : null,
         brand: brand?.isNotEmpty == true ? brand : null,
+        size: size?.isNotEmpty == true ? size : null,
+        color: color?.isNotEmpty == true ? color : null,
         assetType: type.index, categoryId: categoryId,
         quantity: int.tryParse(quantity) ?? 1, unit: unit,
         purchasePrice: parseFormattedNumber(price)?.toDouble() ?? 0, purchaseDate: purchaseDate,
@@ -1613,11 +1749,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _detailSection('Thông tin chung', [
+                        if (asset.qrCode != null && asset.qrCode != asset.assetCode) _detailRow('Mã QR', asset.qrCode!),
                         _detailRow('Loại', getAssetTypeLabel(asset.assetType)),
                         if (asset.categoryName != null) _detailRow('Danh mục', asset.categoryName!),
                         if (asset.serialNumber != null) _detailRow('Số Serial', asset.serialNumber!),
                         if (asset.model != null) _detailRow('Model', asset.model!),
                         if (asset.brand != null) _detailRow('Thương hiệu', asset.brand!),
+                        if (asset.size != null) _detailRow('Size / Kích thước', asset.size!),
+                        if (asset.color != null) _detailRow('Màu sắc', asset.color!),
                         _detailRow('Số lượng', '${asset.quantity} ${asset.unit}'),
                         if (asset.location != null) _detailRow('Vị trí', asset.location!),
                       ]),
@@ -2485,6 +2624,573 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       items: items,
       onChanged: onChanged,
       style: const TextStyle(fontSize: 14, color: Color(0xFF18181B)),
+    );
+  }
+}
+
+// ==================== QR SCAN DIALOG ====================
+class _AssetQrScanDialog extends StatefulWidget {
+  final Function(String code) onAssetScanned;
+  const _AssetQrScanDialog({required this.onAssetScanned});
+
+  @override
+  State<_AssetQrScanDialog> createState() => _AssetQrScanDialogState();
+}
+
+class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
+  MobileScannerController? _scannerController;
+  bool _hasScanned = false;
+  String? _cameraError;
+  bool _showManualInput = false;
+  final _manualController = TextEditingController();
+  bool _torchOn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initScanner();
+  }
+
+  void _initScanner() {
+    try {
+      _scannerController = MobileScannerController(
+        detectionSpeed: DetectionSpeed.noDuplicates,
+        facing: CameraFacing.back,
+        formats: [BarcodeFormat.qrCode, BarcodeFormat.code128, BarcodeFormat.code39, BarcodeFormat.ean13],
+      );
+    } catch (e) {
+      setState(() => _cameraError = 'Không thể khởi tạo camera: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _scannerController?.dispose();
+    _manualController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: SizedBox(
+        width: isMobile ? double.infinity : 420,
+        height: _showManualInput ? 280 : 480,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E3A5F),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Quét QR / Barcode tài sản', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _showManualInput
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _manualController,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              labelText: 'Nhập mã tài sản',
+                              hintText: 'VD: TS-20240101-0001',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              prefixIcon: const Icon(Icons.search),
+                            ),
+                            onSubmitted: (v) {
+                              if (v.trim().isNotEmpty) widget.onAssetScanned(v.trim());
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final v = _manualController.text.trim();
+                                if (v.isNotEmpty) widget.onAssetScanned(v);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text('Tìm kiếm'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Stack(
+                      children: [
+                        if (_scannerController != null)
+                          ClipRRect(
+                            child: MobileScanner(
+                              controller: _scannerController!,
+                              errorBuilder: (context, error) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
+                                      const SizedBox(height: 8),
+                                      Text(error.errorDetails?.message ?? 'Không thể truy cập camera', style: const TextStyle(color: Color(0xFFA1A1AA))),
+                                    ],
+                                  ),
+                                );
+                              },
+                              onDetect: (capture) {
+                                if (_hasScanned) return;
+                                final barcodes = capture.barcodes;
+                                if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                                  final code = barcodes.first.rawValue!;
+                                  setState(() => _hasScanned = true);
+                                  widget.onAssetScanned(code);
+                                }
+                              },
+                            ),
+                          )
+                        else
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
+                                const SizedBox(height: 8),
+                                Text(_cameraError ?? 'Camera không khả dụng', style: const TextStyle(color: Color(0xFFA1A1AA))),
+                              ],
+                            ),
+                          ),
+                        if (_cameraError == null && _scannerController != null)
+                          Center(
+                            child: Container(
+                              width: 220, height: 220,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: _hasScanned ? const Color(0xFF059669) : Colors.white.withValues(alpha: 0.6), width: 2),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: _hasScanned ? const Center(child: Icon(Icons.check_circle, color: Color(0xFF059669), size: 48)) : null,
+                            ),
+                          ),
+                        if (_cameraError == null && _scannerController != null && !_hasScanned)
+                          Positioned(
+                            bottom: 12,
+                            left: 0, right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  onPressed: () { _scannerController!.toggleTorch(); setState(() => _torchOn = !_torchOn); },
+                                  icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, color: Colors.white),
+                                  style: IconButton.styleFrom(backgroundColor: Colors.black38),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+            // Bottom bar
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => setState(() => _showManualInput = !_showManualInput),
+                    icon: Icon(_showManualInput ? Icons.camera_alt : Icons.keyboard, size: 18),
+                    label: Text(_showManualInput ? 'Quét mã' : 'Nhập thủ công'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== INVENTORY DETAIL DIALOG ====================
+class _InventoryDetailDialog extends StatefulWidget {
+  final AssetInventory inventory;
+  final ApiService apiService;
+  final VoidCallback onRefresh;
+
+  const _InventoryDetailDialog({required this.inventory, required this.apiService, required this.onRefresh});
+
+  @override
+  State<_InventoryDetailDialog> createState() => _InventoryDetailDialogState();
+}
+
+class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
+  late AssetInventory _inventory;
+  bool _isScanning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _inventory = widget.inventory;
+  }
+
+  Future<void> _refreshInventory() async {
+    final result = await widget.apiService.getInventoryDetail(_inventory.id);
+    if (result['isSuccess'] == true && result['data'] != null) {
+      setState(() => _inventory = AssetInventory.fromJson(result['data']));
+    }
+  }
+
+  void _startQrScan() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _AssetQrScanDialog(
+        onAssetScanned: (code) async {
+          Navigator.pop(ctx);
+          await _scanAndCheckItem(code);
+        },
+      ),
+    );
+  }
+
+  Future<void> _scanAndCheckItem(String code) async {
+    setState(() => _isScanning = true);
+    // Auto-check with default condition (Good)
+    final result = await widget.apiService.scanInventoryItem(
+      inventoryId: _inventory.id,
+      code: code,
+    );
+    setState(() => _isScanning = false);
+
+    if (result['isSuccess'] == true) {
+      final data = result['data'];
+      final assetName = data?['assetName'] ?? code;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('✓ Đã kiểm kê: $assetName'),
+        backgroundColor: const Color(0xFF059669),
+        duration: const Duration(seconds: 2),
+      ));
+      await _refreshInventory();
+      widget.onRefresh();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result['message'] ?? 'Không tìm thấy tài sản'),
+          backgroundColor: const Color(0xFFEF4444),
+        ));
+      }
+    }
+  }
+
+  Future<void> _checkItemManually(AssetInventoryItem item) async {
+    int condition = 0;
+    int? actualQty;
+    String? actualLocation;
+    bool hasIssue = false;
+    String? issueDesc;
+    String? notes;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Kiểm kê: ${item.assetName ?? item.assetCode ?? ''}', style: const TextStyle(fontSize: 16)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int>(
+                  value: condition,
+                  decoration: const InputDecoration(labelText: 'Tình trạng', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Tốt')),
+                    DropdownMenuItem(value: 1, child: Text('Bình thường')),
+                    DropdownMenuItem(value: 2, child: Text('Kém')),
+                    DropdownMenuItem(value: 3, child: Text('Hỏng')),
+                    DropdownMenuItem(value: 4, child: Text('Không tìm thấy')),
+                  ],
+                  onChanged: (v) => setDialogState(() => condition = v ?? 0),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Số lượng thực tế', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.number,
+                  initialValue: item.expectedQuantity.toString(),
+                  onChanged: (v) => actualQty = int.tryParse(v),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Vị trí thực tế', border: OutlineInputBorder()),
+                  onChanged: (v) => actualLocation = v.isEmpty ? null : v,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Có vấn đề?', style: TextStyle(fontSize: 14)),
+                  value: hasIssue,
+                  onChanged: (v) => setDialogState(() => hasIssue = v),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (hasIssue) ...[
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Mô tả vấn đề', border: OutlineInputBorder()),
+                    maxLines: 2,
+                    onChanged: (v) => issueDesc = v.isEmpty ? null : v,
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
+                  onChanged: (v) => notes = v.isEmpty ? null : v,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+              child: const Text('Xác nhận'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    final result = await widget.apiService.checkInventoryItem(
+      inventoryItemId: item.id,
+      condition: condition,
+      actualQuantity: actualQty,
+      actualLocation: actualLocation,
+      hasIssue: hasIssue,
+      issueDescription: issueDesc,
+      notes: notes,
+    );
+    if (result['isSuccess'] == true) {
+      await _refreshInventory();
+      widget.onRefresh();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result['message'] ?? 'Lỗi'),
+          backgroundColor: const Color(0xFFEF4444),
+        ));
+      }
+    }
+  }
+
+  Future<void> _completeInventory() async {
+    final unchecked = _inventory.totalAssets - _inventory.checkedCount;
+    if (unchecked > 0) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Hoàn thành kiểm kê?'),
+          content: Text('Còn $unchecked tài sản chưa kiểm. Bạn có chắc muốn hoàn thành?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+              child: const Text('Hoàn thành'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
+    final result = await widget.apiService.completeInventory(_inventory.id);
+    if (result['isSuccess'] == true) {
+      widget.onRefresh();
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final items = _inventory.items ?? [];
+    final checkedItems = items.where((i) => i.isChecked).toList();
+    final uncheckedItems = items.where((i) => !i.isChecked).toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: SizedBox(
+        width: isMobile ? double.infinity : 600,
+        height: MediaQuery.of(context).size.height * 0.85,
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E3A5F),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.checklist, color: Colors.white, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(_inventory.name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+                      IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Progress
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _inventory.totalAssets > 0 ? _inventory.checkedCount / _inventory.totalAssets : 0,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFF059669)),
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text('${_inventory.checkedCount}/${_inventory.totalAssets} đã kiểm', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      const Spacer(),
+                      Text('${_inventory.progressPercent.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Action bar
+            if (_inventory.isInProgress)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isScanning ? null : _startQrScan,
+                        icon: const Icon(Icons.qr_code_scanner, size: 18),
+                        label: const Text('Quét QR kiểm kê'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: _completeInventory,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E3A5F),
+                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Hoàn thành'),
+                    ),
+                  ],
+                ),
+              ),
+            if (_isScanning) const LinearProgressIndicator(),
+            // Items list
+            Expanded(
+              child: items.isEmpty
+                  ? const Center(child: Text('Không có tài sản trong đợt kiểm kê', style: TextStyle(color: Color(0xFFA1A1AA))))
+                  : ListView(
+                      padding: const EdgeInsets.all(12),
+                      children: [
+                        if (uncheckedItems.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text('Chưa kiểm (${uncheckedItems.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                          ),
+                          ...uncheckedItems.map((item) => _buildInventoryItemCard(item, checked: false)),
+                          const SizedBox(height: 16),
+                        ],
+                        if (checkedItems.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text('Đã kiểm (${checkedItems.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                          ),
+                          ...checkedItems.map((item) => _buildInventoryItemCard(item, checked: true)),
+                        ],
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInventoryItemCard(AssetInventoryItem item, {required bool checked}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: checked ? const Color(0xFFF0FDF4) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: checked ? const Color(0xFFBBF7D0) : const Color(0xFFE4E4E7)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            checked ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: checked ? const Color(0xFF059669) : const Color(0xFFA1A1AA),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.assetName ?? 'Tài sản', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                if (item.assetCode != null)
+                  Text(item.assetCode!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                if (checked && item.conditionName != null)
+                  Text('Tình trạng: ${item.conditionName}', style: const TextStyle(fontSize: 11, color: Color(0xFF059669))),
+                if (item.hasIssue)
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber, size: 12, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(item.issueDescription ?? 'Có vấn đề', style: const TextStyle(fontSize: 11, color: Color(0xFFF59E0B)))),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          if (!checked && _inventory.isInProgress)
+            IconButton(
+              onPressed: () => _checkItemManually(item),
+              icon: const Icon(Icons.edit_note, size: 20, color: Color(0xFF1E3A5F)),
+              tooltip: 'Kiểm kê thủ công',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
     );
   }
 }
