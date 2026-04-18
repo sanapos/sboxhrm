@@ -4,6 +4,7 @@ class MealSession {
   final String? startTime;
   final String? endTime;
   final String? description;
+  final double pricePerMeal;
   final bool isActive;
   final String? storeId;
   final DateTime? createdAt;
@@ -15,6 +16,7 @@ class MealSession {
     this.startTime,
     this.endTime,
     this.description,
+    this.pricePerMeal = 0,
     this.isActive = true,
     this.storeId,
     this.createdAt,
@@ -28,6 +30,7 @@ class MealSession {
       startTime: json['startTime']?.toString(),
       endTime: json['endTime']?.toString(),
       description: json['description'],
+      pricePerMeal: (json['pricePerMeal'] ?? 0).toDouble(),
       isActive: json['isActive'] ?? true,
       storeId: json['storeId']?.toString(),
       createdAt: json['createdAt'] != null
@@ -121,8 +124,10 @@ class MealEstimate {
   final String mealSessionName;
   final String? startTime;
   final String? endTime;
+  final double pricePerMeal;
   final int estimatedCount;
   final int actualCount;
+  final int registeredCount;
   final int remaining;
 
   MealEstimate({
@@ -130,8 +135,10 @@ class MealEstimate {
     required this.mealSessionName,
     this.startTime,
     this.endTime,
+    this.pricePerMeal = 0,
     this.estimatedCount = 0,
     this.actualCount = 0,
+    this.registeredCount = 0,
     this.remaining = 0,
   });
 
@@ -141,8 +148,10 @@ class MealEstimate {
       mealSessionName: json['mealSessionName'] ?? '',
       startTime: json['startTime']?.toString(),
       endTime: json['endTime']?.toString(),
+      pricePerMeal: (json['pricePerMeal'] ?? 0).toDouble(),
       estimatedCount: json['estimatedCount'] ?? 0,
       actualCount: json['actualCount'] ?? 0,
+      registeredCount: json['registeredCount'] ?? 0,
       remaining: json['remaining'] ?? 0,
     );
   }
@@ -179,6 +188,9 @@ class EmployeeMealSummary {
   final String employeeName;
   final String? employeeCode;
   final int totalMeals;
+  final double totalCost;
+  final double totalPaid;
+  final double balance;
   final List<MealDetail> details;
 
   EmployeeMealSummary({
@@ -186,6 +198,9 @@ class EmployeeMealSummary {
     required this.employeeName,
     this.employeeCode,
     this.totalMeals = 0,
+    this.totalCost = 0,
+    this.totalPaid = 0,
+    this.balance = 0,
     this.details = const [],
   });
 
@@ -195,6 +210,9 @@ class EmployeeMealSummary {
       employeeName: json['employeeName'] ?? '',
       employeeCode: json['employeeCode'],
       totalMeals: json['totalMeals'] ?? 0,
+      totalCost: (json['totalCost'] ?? 0).toDouble(),
+      totalPaid: (json['totalPaid'] ?? 0).toDouble(),
+      balance: (json['balance'] ?? 0).toDouble(),
       details: (json['details'] as List?)
               ?.map((e) => MealDetail.fromJson(e))
               .toList() ??
@@ -373,6 +391,87 @@ class SessionRegistrationSummary {
       mealSessionName: json['mealSessionName'] ?? '',
       registeredCount: json['registeredCount'] ?? 0,
       cancelledCount: json['cancelledCount'] ?? 0,
+    );
+  }
+}
+
+class MealDebt {
+  final String id;
+  final String employeeUserId;
+  final String employeeName;
+  final int type; // 0=Charge, 1=Payment
+  final double amount;
+  final DateTime date;
+  final String? mealSessionId;
+  final String? mealSessionName;
+  final String? period;
+  final String? note;
+  final String? recordedByName;
+  final DateTime? createdAt;
+
+  MealDebt({
+    required this.id,
+    required this.employeeUserId,
+    required this.employeeName,
+    required this.type,
+    required this.amount,
+    required this.date,
+    this.mealSessionId,
+    this.mealSessionName,
+    this.period,
+    this.note,
+    this.recordedByName,
+    this.createdAt,
+  });
+
+  factory MealDebt.fromJson(Map<String, dynamic> json) {
+    return MealDebt(
+      id: json['id']?.toString() ?? '',
+      employeeUserId: json['employeeUserId']?.toString() ?? '',
+      employeeName: json['employeeName'] ?? '',
+      type: json['type'] ?? 0,
+      amount: (json['amount'] ?? 0).toDouble(),
+      date: DateTime.parse(json['date'].toString()),
+      mealSessionId: json['mealSessionId']?.toString(),
+      mealSessionName: json['mealSessionName'],
+      period: json['period'],
+      note: json['note'],
+      recordedByName: json['recordedByName'],
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
+    );
+  }
+}
+
+class MealDebtSummary {
+  final String employeeUserId;
+  final String employeeName;
+  final String? employeeCode;
+  final int totalMeals;
+  final double totalCharged;
+  final double totalPaid;
+  final double balance;
+
+  MealDebtSummary({
+    required this.employeeUserId,
+    required this.employeeName,
+    this.employeeCode,
+    this.totalMeals = 0,
+    this.totalCharged = 0,
+    this.totalPaid = 0,
+    this.balance = 0,
+  });
+
+  factory MealDebtSummary.fromJson(Map<String, dynamic> json) {
+    return MealDebtSummary(
+      employeeUserId: json['employeeUserId']?.toString() ?? '',
+      employeeName: json['employeeName'] ?? '',
+      employeeCode: json['employeeCode'],
+      totalMeals: json['totalMeals'] ?? 0,
+      totalCharged: (json['totalCharged'] ?? 0).toDouble(),
+      totalPaid: (json['totalPaid'] ?? 0).toDouble(),
+      balance: (json['balance'] ?? 0).toDouble(),
     );
   }
 }

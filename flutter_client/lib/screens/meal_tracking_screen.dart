@@ -50,6 +50,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ignore: unused_field
   bool _isManager = false;
 
+  // Debt
+  List<MealDebtSummary> _debtSummaries = [];
+  List<MealDebt> _debtHistory = [];
+  String _debtPeriod = DateFormat('yyyy-MM').format(DateTime.now());
+  String? _selectedDebtEmployeeId;
+  bool _isLoadingDebt = false;
+
   // Common
   bool _isLoading = true;
 
@@ -73,7 +80,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.currentUser;
     _isManager = user?.role == 'Admin' || user?.role == 'Manager' || user?.role == 'Director';
-    _tabCtl = TabController(length: 5, vsync: this);
+    _tabCtl = TabController(length: 6, vsync: this);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) _loadCurrentTab();
     });
@@ -103,6 +110,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       case 4:
         _loadWeeklyMenu();
         break;
+      case 5:
+        _loadDebtSummary();
+        break;
     }
   }
 
@@ -127,6 +137,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       if (res['isSuccess'] == true && res['data'] != null) {
         _mealSummary =
             MealSummary.fromJson(res['data'] as Map<String, dynamic>);
+      }
+      // Also load today's menu for inline display
+      final weekStart = _getMonday(_selectedDate);
+      final menuRes = await _apiService.getWeeklyMealMenu(
+        weekStartDate: DateFormat('yyyy-MM-dd').format(weekStart),
+      );
+      if (menuRes['isSuccess'] == true && menuRes['data'] != null) {
+        final list = menuRes['data'] as List? ?? [];
+        _weeklyMenus = list.map((e) => MealMenu.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('Load estimate error: $e');
@@ -216,7 +235,130 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     if (mounted) setState(() => _isLoadingReg = false);
   }
 
-  Future<void> _toggleRegistration(String mealSessionId, DateTime date, bool register) async {
+  Future<void> _loadDebtSummary() async {
+    setState(() => _isLoadingDebt = true);
+    try {
+      final res = await _apiService.getMealDebtSummary(period: _debtPeriod);
+      if (res['isSuccess'] == true && res['data'] != null) {
+        final list = res['data'] as List? ?? [];
+        _debtSummaries = list.map((e) => MealDebtSummary.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('Load debt summary error: $e');
+    }
+    if (mounted) setState(() => _isLoadingDebt = false);
+  }
+
+  Future<void> _loadDebtHistory(String employeeUserId) async {
+    setState(() => _isLoadingDebt = true);
+    try {
+      final res = await _apiService.getMealDebtHistory(
+        employeeUserId: employeeUserId,
+        period: _debtPeriod,
+      );
+      if (res['isSuccess'] == true && res['data'] != null) {
+        final list = res['data'] as List? ?? [];
+        _debtHistory = list.map((e) => MealDebt.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('Load debt history error: $e');
+    }
+    if (mounted) setState(() => _isLoadingDebt = false);
+  }
+
+  Future<void> _doBatchCharge() async {
+    try {
+      final res = await _apiService.batchChargeMeals(_debtPeriod);
+      if (res['isSuccess'] == true) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Tính tiền cơm',
+          message: 'Đã tính tiền cơm tháng $_debtPeriod thành công',
+        );
+        _loadDebtSummary();
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message'] ?? 'Tính tiền thất bại',
+        );
+      }
+    } catch (e) {
+      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+    }
+  }
+
+  void _showRecordPaymentDialog(MealDebtSummary debt) {
+    final amountCtl = TextEditingController();
+    final noteCtl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Thu tiền - ${debt.employeeName}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Công nợ hiện tại: ${_formatCurrency(debt.balance)}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountCtl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Số tiền thu *',
+                border: OutlineInputBorder(),
+                prefixText: '₫ ',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteCtl,
+              decoration: const InputDecoration(
+                labelText: 'Ghi chú',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountCtl.text.trim());
+              if (amount == null || amount <= 0) return;
+              Navigator.pop(ctx);
+              try {
+                final res = await _apiService.createMealDebt({
+                  'employeeUserId': debt.employeeUserId,
+                  'type': 1,
+                  'amount': amount,
+                  'date': DateTime.now().toIso8601String(),
+                  'period': _debtPeriod,
+                  'note': noteCtl.text.trim(),
+                });
+                if (res['isSuccess'] == true) {
+                  NotificationOverlayManager().showSuccess(
+                    title: 'Thu tiền', message: 'Đã ghi nhận thu ${_formatCurrency(amount)}');
+                  _loadDebtSummary();
+                } else {
+                  NotificationOverlayManager().showError(
+                    title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                }
+              } catch (e) {
+                NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+              }
+            },
+            child: const Text('Thu tiền'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCurrency(double amount) {
+    final fmt = NumberFormat('#,###', 'vi');
+    return '${fmt.format(amount)}đ';
+  }
+
+  void _toggleRegistration(String mealSessionId, DateTime date, bool register) async {
     try {
       final res = await _apiService.registerMeal({
         'mealSessionId': mealSessionId,
@@ -341,6 +483,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   void _showCreateSessionDialog() {
     final nameCtl = TextEditingController();
     final descCtl = TextEditingController();
+    final priceCtl = TextEditingController();
     TimeOfDay startTime = const TimeOfDay(hour: 11, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 13, minute: 0);
     final isMobile = Responsive.isMobile(context);
@@ -358,6 +501,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00',
               'endTime':
                   '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00',
+              'pricePerMeal': double.tryParse(priceCtl.text.trim()) ?? 0,
               'shiftTemplateIds': <String>[],
             };
             final res = await _apiService.createMealSession(data);
@@ -385,6 +529,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               TextField(
                 controller: descCtl,
                 decoration: const InputDecoration(labelText: 'Mô tả'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceCtl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Giá mỗi suất (đ)',
+                  prefixText: '₫ ',
+                ),
               ),
               const SizedBox(height: 12),
               ListTile(
@@ -703,6 +856,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             Tab(icon: Icon(Icons.how_to_reg), text: 'Đăng ký'),
             Tab(icon: Icon(Icons.people), text: 'Tổng hợp'),
             Tab(icon: Icon(Icons.menu_book), text: 'Thực đơn'),
+            Tab(icon: Icon(Icons.account_balance_wallet), text: 'Công nợ'),
           ],
         ),
         actions: [
@@ -736,6 +890,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           _buildRegistrationTab(),
           _buildSummaryTab(),
           _buildMenuTab(),
+          _buildDebtTab(),
         ],
       ),
       floatingActionButton: _tabCtl.index == 0
@@ -855,6 +1010,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final percent = est.estimatedCount > 0
         ? (est.actualCount / est.estimatedCount).clamp(0.0, 1.0)
         : 0.0;
+    // Find today's menu for this session
+    final todayMenus = _weeklyMenus.where((m) =>
+        m.mealSessionId == est.mealSessionId &&
+        m.date.year == _selectedDate.year &&
+        m.date.month == _selectedDate.month &&
+        m.date.day == _selectedDate.day).toList();
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -874,6 +1036,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 ),
               ],
             ),
+            if (est.pricePerMeal > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Giá: ${_formatCurrency(est.pricePerMeal)}/suất',
+                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13)),
+              ),
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -887,18 +1055,52 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ),
             const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Ước tính: ${est.estimatedCount}'),
-                Text('Thực tế: ${est.actualCount}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('Còn: ${est.remaining}',
-                    style:
-                        TextStyle(color: est.remaining > 0 ? const Color(0xFFF59E0B) : Colors.grey)),
+                _miniStat('Đăng ký', est.registeredCount.toString(), const Color(0xFF8B5CF6)),
+                const SizedBox(width: 12),
+                _miniStat('Ước tính', est.estimatedCount.toString(), const Color(0xFF3B82F6)),
+                const SizedBox(width: 12),
+                _miniStat('Thực tế', est.actualCount.toString(), const Color(0xFF10B981)),
+                const SizedBox(width: 12),
+                _miniStat('Còn', est.remaining.toString(), const Color(0xFFF59E0B)),
               ],
             ),
+            // Today's menu inline
+            if (todayMenus.isNotEmpty) ...[
+              const Divider(height: 20),
+              const Text('🍽️ Thực đơn hôm nay',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+              const SizedBox(height: 4),
+              ...todayMenus.expand((menu) => menu.items.map((item) => Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 5, color: Color(0xFF10B981)),
+                        const SizedBox(width: 6),
+                        Text(item.dishName, style: const TextStyle(fontSize: 13)),
+                        if (item.category != null && item.category!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Text('(${item.category})',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          ),
+                      ],
+                    ),
+                  ))),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _miniStat(String label, String value, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 15)),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
       ),
     );
   }
@@ -1069,7 +1271,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             DataColumn(label: Text('STT')),
                             DataColumn(label: Text('Mã NV')),
                             DataColumn(label: Text('Họ tên')),
-                            DataColumn(label: Text('Tổng suất ăn'), numeric: true),
+                            DataColumn(label: Text('Tổng suất'), numeric: true),
+                            DataColumn(label: Text('Tiền cơm'), numeric: true),
+                            DataColumn(label: Text('Đã trả'), numeric: true),
+                            DataColumn(label: Text('Còn nợ'), numeric: true),
                           ],
                           rows: _employeeSummaries
                               .asMap()
@@ -1085,6 +1290,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                 DataCell(Text(s.totalMeals.toString(),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold))),
+                                DataCell(Text(_formatCurrency(s.totalCost))),
+                                DataCell(Text(_formatCurrency(s.totalPaid),
+                                    style: const TextStyle(color: Color(0xFF10B981)))),
+                                DataCell(Text(_formatCurrency(s.balance),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: s.balance > 0 ? Colors.red : const Color(0xFF10B981)))),
                               ],
                               onSelectChanged: (_) =>
                                   _showEmployeeDetail(s),
@@ -1102,13 +1314,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Tổng: ${_employeeSummaries.length} nhân viên',
+                Text('${_employeeSummaries.length} NV',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  'Tổng suất ăn: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0284C7)),
+                  'Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                ),
+                Text(
+                  'Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
@@ -1558,6 +1772,255 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
+  // ==================== TAB 6: DEBT ====================
+
+  Widget _buildDebtTab() {
+    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    return Column(
+      children: [
+        // Period selector
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () {
+                  final parts = _debtPeriod.split('-');
+                  var y = int.parse(parts[0]);
+                  var m = int.parse(parts[1]) - 1;
+                  if (m < 1) { m = 12; y--; }
+                  setState(() => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
+                  _loadDebtSummary();
+                },
+              ),
+              Expanded(
+                child: Text(
+                  'Tháng $_debtPeriod',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () {
+                  final parts = _debtPeriod.split('-');
+                  var y = int.parse(parts[0]);
+                  var m = int.parse(parts[1]) + 1;
+                  if (m > 12) { m = 1; y++; }
+                  setState(() => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
+                  _loadDebtSummary();
+                },
+              ),
+            ],
+          ),
+        ),
+        // Batch charge button
+        if (canManage)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Tính tiền cơm'),
+                          content: Text('Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                            FilledButton(
+                              onPressed: () { Navigator.pop(ctx); _doBatchCharge(); },
+                              child: const Text('Xác nhận'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.calculate),
+                    label: const Text('Tính tiền cơm tháng'),
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadDebtSummary,
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
+        // Debt summary table
+        Expanded(
+          child: _isLoadingDebt
+              ? const Center(child: CircularProgressIndicator())
+              : _debtSummaries.isEmpty
+                  ? const Center(child: Text('Chưa có dữ liệu công nợ', style: TextStyle(color: Colors.grey)))
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('STT')),
+                            DataColumn(label: Text('Mã NV')),
+                            DataColumn(label: Text('Họ tên')),
+                            DataColumn(label: Text('Số suất'), numeric: true),
+                            DataColumn(label: Text('Tiền cơm'), numeric: true),
+                            DataColumn(label: Text('Đã trả'), numeric: true),
+                            DataColumn(label: Text('Còn nợ'), numeric: true),
+                            DataColumn(label: Text('')),
+                          ],
+                          rows: _debtSummaries.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final d = entry.value;
+                            return DataRow(
+                              cells: [
+                                DataCell(Text('${i + 1}')),
+                                DataCell(Text(d.employeeCode ?? '')),
+                                DataCell(Text(d.employeeName)),
+                                DataCell(Text(d.totalMeals.toString())),
+                                DataCell(Text(_formatCurrency(d.totalCharged))),
+                                DataCell(Text(_formatCurrency(d.totalPaid),
+                                    style: const TextStyle(color: Color(0xFF10B981)))),
+                                DataCell(Text(_formatCurrency(d.balance),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: d.balance > 0 ? Colors.red : const Color(0xFF10B981)))),
+                                DataCell(Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (canManage && d.balance > 0)
+                                      IconButton(
+                                        icon: const Icon(Icons.payment, color: Color(0xFF10B981), size: 20),
+                                        tooltip: 'Thu tiền',
+                                        onPressed: () => _showRecordPaymentDialog(d),
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(Icons.history, color: Color(0xFF3B82F6), size: 20),
+                                      tooltip: 'Lịch sử',
+                                      onPressed: () => _showDebtHistoryDialog(d),
+                                    ),
+                                  ],
+                                )),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+        ),
+        // Total bar
+        if (_debtSummaries.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: const Color(0xFFFEF3C7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('${_debtSummaries.length} NV',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  'Tổng nợ: ${_formatCurrency(_debtSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showDebtHistoryDialog(MealDebtSummary debt) async {
+    await _loadDebtHistory(debt.employeeUserId);
+    if (!mounted) return;
+    final isMobile = Responsive.isMobile(context);
+
+    Widget buildList() {
+      if (_debtHistory.isEmpty) {
+        return const Center(child: Text('Chưa có giao dịch'));
+      }
+      return ListView.builder(
+        shrinkWrap: !isMobile,
+        physics: isMobile ? null : const NeverScrollableScrollPhysics(),
+        itemCount: _debtHistory.length,
+        itemBuilder: (_, i) {
+          final d = _debtHistory[i];
+          final isPayment = d.type == 1;
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              child: Icon(isPayment ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: Colors.white, size: 18),
+            ),
+            title: Text(
+              '${isPayment ? "Thu tiền" : "Tính cơm"}: ${_formatCurrency(d.amount)}',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+            ),
+            subtitle: Text(
+              '${DateFormat('dd/MM/yyyy').format(d.date)}${d.note != null && d.note!.isNotEmpty ? ' - ${d.note}' : ''}',
+            ),
+            trailing: Text(d.recordedByName ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          );
+        },
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        if (isMobile) {
+          return Dialog.fullscreen(
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text('Công nợ - ${debt.employeeName}'),
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ),
+              body: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: const Color(0xFFFEF3C7),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(children: [
+                          Text(_formatCurrency(debt.totalCharged), style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const Text('Tiền cơm', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ]),
+                        Column(children: [
+                          Text(_formatCurrency(debt.totalPaid), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                          const Text('Đã trả', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ]),
+                        Column(children: [
+                          Text(_formatCurrency(debt.balance), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                          const Text('Còn nợ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  Expanded(child: buildList()),
+                ],
+              ),
+            ),
+          );
+        }
+        return AlertDialog(
+          title: Text('Công nợ - ${debt.employeeName}'),
+          content: SizedBox(width: 400, height: 400, child: buildList()),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          ],
+        );
+      },
+    );
+  }
+
   // ==================== SESSION DIALOG ====================
 
   void _showSessionsDialog() {
@@ -1576,7 +2039,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return ListTile(
             title: Text(s.name),
             subtitle: Text(
-                '${s.startTime ?? ''} - ${s.endTime ?? ''}'),
+                '${s.startTime ?? ''} - ${s.endTime ?? ''}${s.pricePerMeal > 0 ? ' | ${_formatCurrency(s.pricePerMeal)}/suất' : ''}'),
             trailing: Provider.of<PermissionProvider>(context, listen: false).canDelete('Meal') ? IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () {

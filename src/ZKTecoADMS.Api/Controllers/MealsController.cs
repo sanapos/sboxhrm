@@ -31,6 +31,7 @@ public class MealsController(
     IRepository<MealRegistration> registrationRepository,
     IRepository<MealSession> mealSessionRepository,
     IRepository<MealRecord> mealRecordRepository,
+    IRepository<MealDebt> mealDebtRepository,
     ISystemNotificationService notificationService
 ) : AuthenticatedControllerBase
 {
@@ -55,6 +56,7 @@ public class MealsController(
             request.StartTime,
             request.EndTime,
             request.Description,
+            request.PricePerMeal,
             request.ShiftTemplateIds);
         var result = await mediator.Send(command);
         return Ok(result);
@@ -71,6 +73,7 @@ public class MealsController(
             request.StartTime,
             request.EndTime,
             request.Description,
+            request.PricePerMeal,
             request.ShiftTemplateIds);
         var result = await mediator.Send(command);
         return Ok(result);
@@ -471,6 +474,223 @@ public class MealsController(
                 record.MealTime,
                 message = $"Chấm cơm thành công - {session.Name}"
             }));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<object>.Error(ex.Message));
+        }
+    }
+
+    // ══════════ MEAL DEBT MANAGEMENT (công nợ suất ăn) ══════════
+
+    /// <summary>
+    /// Tổng hợp công nợ suất ăn theo kỳ
+    /// </summary>
+    [HttpGet("debt/summary")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<List<MealDebtSummaryDto>>>> GetDebtSummary(
+        [FromQuery] string? period,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var targetPeriod = period ?? DateTime.UtcNow.ToString("yyyy-MM");
+            var fromDate = from ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var toDate = to ?? fromDate.AddMonths(1).AddDays(-1);
+
+            // Get all meal records in period
+            var records = await mealRecordRepository.GetAllAsync(
+                r => r.StoreId == storeId && r.Date >= fromDate && r.Date <= toDate,
+                includeProperties: new[] { "MealSession", "EmployeeUser" });
+
+            // Get sessions for pricing
+            var sessions = await mealSessionRepository.GetAllAsync(s => s.StoreId == storeId && s.IsActive);
+            var sessionPrices = sessions.ToDictionary(s => s.Id, s => s.PricePerMeal);
+
+            // Get debt records
+            var debts = await mealDebtRepository.GetAllAsync(
+                d => d.StoreId == storeId && d.Period == targetPeriod);
+
+            // Group by employee
+            var grouped = records.GroupBy(r => r.EmployeeUserId).Select(g =>
+            {
+                var totalMeals = g.Count();
+                var totalCharged = g.Sum(r => sessionPrices.GetValueOrDefault(r.MealSessionId, 0));
+                var empDebts = debts.Where(d => d.EmployeeUserId == g.Key);
+                var totalPaid = empDebts.Where(d => d.Type == 1).Sum(d => d.Amount);
+                var first = g.First();
+
+                return new MealDebtSummaryDto
+                {
+                    EmployeeUserId = g.Key,
+                    EmployeeName = first.EmployeeUser?.FullName ?? first.PIN ?? "",
+                    EmployeeCode = first.PIN,
+                    TotalMeals = totalMeals,
+                    TotalCharged = totalCharged,
+                    TotalPaid = totalPaid,
+                    Balance = totalCharged - totalPaid,
+                };
+            }).OrderBy(s => s.EmployeeName).ToList();
+
+            return Ok(AppResponse<List<MealDebtSummaryDto>>.Success(grouped));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<List<MealDebtSummaryDto>>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Lịch sử giao dịch công nợ (charge/payment) của 1 nhân viên
+    /// </summary>
+    [HttpGet("debt/history")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public async Task<ActionResult<AppResponse<List<MealDebtDto>>>> GetDebtHistory(
+        [FromQuery] Guid? employeeUserId,
+        [FromQuery] string? period)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var targetUserId = employeeUserId ?? CurrentUserId;
+            var targetPeriod = period ?? DateTime.UtcNow.ToString("yyyy-MM");
+
+            var debts = await mealDebtRepository.GetAllAsync(
+                d => d.StoreId == storeId && d.EmployeeUserId == targetUserId &&
+                     (period == null || d.Period == targetPeriod),
+                includeProperties: new[] { "MealSession" });
+
+            var result = debts.OrderByDescending(d => d.Date).Select(d => new MealDebtDto
+            {
+                Id = d.Id,
+                EmployeeUserId = d.EmployeeUserId,
+                EmployeeName = d.EmployeeName,
+                Type = d.Type,
+                Amount = d.Amount,
+                Date = d.Date,
+                MealSessionId = d.MealSessionId,
+                MealSessionName = d.MealSession?.Name,
+                Period = d.Period,
+                Note = d.Note,
+                RecordedByName = d.RecordedByName,
+                CreatedAt = d.CreatedAt,
+            }).ToList();
+
+            return Ok(AppResponse<List<MealDebtDto>>.Success(result));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<List<MealDebtDto>>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Ghi nhận thanh toán / trừ công nợ
+    /// </summary>
+    [HttpPost("debt")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealDebtDto>>> CreateDebt([FromBody] CreateMealDebtRequest request)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var recorderName = User.FindFirst("FullName")?.Value ?? "";
+
+            var debt = new MealDebt
+            {
+                EmployeeUserId = request.EmployeeUserId,
+                EmployeeName = "", // will be resolved
+                Type = request.Type,
+                Amount = request.Amount,
+                Date = DateTime.UtcNow,
+                Period = request.Period ?? DateTime.UtcNow.ToString("yyyy-MM"),
+                Note = request.Note,
+                RecordedByUserId = CurrentUserId,
+                RecordedByName = recorderName,
+                StoreId = storeId,
+            };
+
+            await mealDebtRepository.AddAsync(debt);
+
+            return Ok(AppResponse<MealDebtDto>.Success(new MealDebtDto
+            {
+                Id = debt.Id,
+                EmployeeUserId = debt.EmployeeUserId,
+                EmployeeName = debt.EmployeeName,
+                Type = debt.Type,
+                Amount = debt.Amount,
+                Date = debt.Date,
+                Period = debt.Period,
+                Note = debt.Note,
+                RecordedByName = debt.RecordedByName,
+                CreatedAt = debt.CreatedAt,
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<MealDebtDto>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Tự động tính công nợ cho cả tháng dựa trên meal records
+    /// </summary>
+    [HttpPost("debt/batch-charge")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<object>>> BatchChargeMeals([FromBody] BatchChargeRequest request)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var period = request.Period;
+            var year = int.Parse(period.Split('-')[0]);
+            var month = int.Parse(period.Split('-')[1]);
+            var fromDate = new DateTime(year, month, 1);
+            var toDate = fromDate.AddMonths(1).AddDays(-1);
+            var recorderName = User.FindFirst("FullName")?.Value ?? "";
+
+            // Get all records in period
+            var records = await mealRecordRepository.GetAllAsync(
+                r => r.StoreId == storeId && r.Date >= fromDate && r.Date <= toDate,
+                includeProperties: new[] { "MealSession", "EmployeeUser" });
+
+            var sessions = await mealSessionRepository.GetAllAsync(s => s.StoreId == storeId);
+            var sessionPrices = sessions.ToDictionary(s => s.Id, s => s.PricePerMeal);
+
+            // Delete existing charges for this period (re-calculate)
+            var existingCharges = await mealDebtRepository.GetAllAsync(
+                d => d.StoreId == storeId && d.Period == period && d.Type == 0);
+            foreach (var c in existingCharges)
+                await mealDebtRepository.DeleteAsync(c);
+
+            // Create charges per employee
+            var grouped = records.GroupBy(r => r.EmployeeUserId);
+            var count = 0;
+            foreach (var g in grouped)
+            {
+                var total = g.Sum(r => sessionPrices.GetValueOrDefault(r.MealSessionId, 0));
+                if (total <= 0) continue;
+
+                var first = g.First();
+                await mealDebtRepository.AddAsync(new MealDebt
+                {
+                    EmployeeUserId = g.Key,
+                    EmployeeName = first.EmployeeUser?.FullName ?? "",
+                    Type = 0, // Charge
+                    Amount = total,
+                    Date = DateTime.UtcNow,
+                    Period = period,
+                    Note = $"Tiền ăn tháng {month}/{year}: {g.Count()} suất",
+                    RecordedByUserId = CurrentUserId,
+                    RecordedByName = recorderName,
+                    StoreId = storeId,
+                });
+                count++;
+            }
+
+            return Ok(AppResponse<object>.Success(new { count, message = $"Đã tính công nợ cho {count} nhân viên" }));
         }
         catch (Exception ex)
         {

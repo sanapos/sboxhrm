@@ -28,6 +28,7 @@ public class UpdateMealSessionHandler(
             session.StartTime = request.StartTime;
             session.EndTime = request.EndTime;
             session.Description = request.Description;
+            session.PricePerMeal = request.PricePerMeal;
 
             await mealSessionRepository.UpdateAsync(session, cancellationToken);
 

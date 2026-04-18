@@ -9829,6 +9829,59 @@ class ApiService {
     }
   }
 
+  // --- Meal Debt (Công nợ suất ăn) ---
+
+  Future<Map<String, dynamic>> getMealDebtSummary({String? period, DateTime? from, DateTime? to}) async {
+    try {
+      final params = <String, String>{};
+      if (period != null) params['period'] = period;
+      if (from != null) params['from'] = from.toIso8601String();
+      if (to != null) params['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/meals/debt/summary').replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMealDebtHistory({String? employeeUserId, String? period}) async {
+    try {
+      final params = <String, String>{};
+      if (employeeUserId != null) params['employeeUserId'] = employeeUserId;
+      if (period != null) params['period'] = period;
+      final uri = Uri.parse('$baseUrl/api/meals/debt/history').replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createMealDebt(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/meals/debt'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> batchChargeMeals(String period) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/meals/debt/batch-charge'),
+          headers: _headers,
+          body: jsonEncode({'period': period}));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ==================== FIELD CHECK-IN / CHECK-IN ĐIỂM BÁN ====================
 
   // --- Field Locations (Điểm bán khách hàng) ---

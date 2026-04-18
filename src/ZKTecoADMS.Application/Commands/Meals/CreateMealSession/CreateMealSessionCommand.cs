@@ -8,5 +8,6 @@ public record CreateMealSessionCommand(
     TimeSpan StartTime,
     TimeSpan EndTime,
     string? Description,
+    decimal PricePerMeal,
     List<Guid> ShiftTemplateIds
 ) : ICommand<AppResponse<MealSessionDto>>;

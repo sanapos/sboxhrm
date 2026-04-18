@@ -23,6 +23,7 @@ public class CreateMealSessionHandler(
                 StartTime = request.StartTime,
                 EndTime = request.EndTime,
                 Description = request.Description,
+                PricePerMeal = request.PricePerMeal,
                 StoreId = request.StoreId,
                 IsActive = true
             };

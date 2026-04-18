@@ -9,5 +9,6 @@ public record UpdateMealSessionCommand(
     TimeSpan StartTime,
     TimeSpan EndTime,
     string? Description,
+    decimal PricePerMeal,
     List<Guid> ShiftTemplateIds
 ) : ICommand<AppResponse<MealSessionDto>>;

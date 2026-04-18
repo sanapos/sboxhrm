@@ -21,6 +21,9 @@ public class MealSession : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? Description { get; set; }
 
+    /// <summary>Giá mỗi suất ăn (VND)</summary>
+    public decimal PricePerMeal { get; set; }
+
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 

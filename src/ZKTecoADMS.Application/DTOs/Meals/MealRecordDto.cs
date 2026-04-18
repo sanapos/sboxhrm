@@ -23,8 +23,10 @@ public class MealEstimateDto
     public string MealSessionName { get; set; } = string.Empty;
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
+    public decimal PricePerMeal { get; set; }
     public int EstimatedCount { get; set; }
     public int ActualCount { get; set; }
+    public int RegisteredCount { get; set; }
     public int Remaining => EstimatedCount - ActualCount;
 }
 
@@ -42,6 +44,9 @@ public class EmployeeMealSummaryDto
     public string EmployeeName { get; set; } = string.Empty;
     public string? EmployeeCode { get; set; }
     public int TotalMeals { get; set; }
+    public decimal TotalCost { get; set; }
+    public decimal TotalPaid { get; set; }
+    public decimal Balance { get; set; }
     public List<MealDetailDto> Details { get; set; } = [];
 }
 

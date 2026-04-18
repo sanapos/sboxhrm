@@ -7,6 +7,7 @@ public class MealSessionDto
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
     public string? Description { get; set; }
+    public decimal PricePerMeal { get; set; }
     public bool IsActive { get; set; }
     public Guid? StoreId { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -27,6 +28,7 @@ public class CreateMealSessionRequest
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
     public string? Description { get; set; }
+    public decimal PricePerMeal { get; set; }
     public List<Guid> ShiftTemplateIds { get; set; } = [];
 }
 
@@ -36,5 +38,6 @@ public class UpdateMealSessionRequest
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
     public string? Description { get; set; }
+    public decimal PricePerMeal { get; set; }
     public List<Guid> ShiftTemplateIds { get; set; } = [];
 }

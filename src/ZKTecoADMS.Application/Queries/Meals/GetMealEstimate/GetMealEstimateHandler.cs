@@ -9,7 +9,8 @@ namespace ZKTecoADMS.Application.Queries.Meals.GetMealEstimate;
 public class GetMealEstimateHandler(
     IRepository<MealSession> mealSessionRepository,
     IRepository<Shift> shiftRepository,
-    IRepository<MealRecord> mealRecordRepository
+    IRepository<MealRecord> mealRecordRepository,
+    IRepository<MealRegistration> registrationRepository
 ) : IQueryHandler<GetMealEstimateQuery, AppResponse<MealSummaryDto>>
 {
     public async Task<AppResponse<MealSummaryDto>> Handle(GetMealEstimateQuery request, CancellationToken cancellationToken)
@@ -58,14 +59,24 @@ public class GetMealEstimateHandler(
                      r.Date == date,
                 cancellationToken);
 
+            // Count registrations for this session today
+            var registeredCount = await registrationRepository.CountAsync(
+                r => r.StoreId == request.StoreId &&
+                     r.MealSessionId == session.Id &&
+                     r.Date == date &&
+                     r.IsRegistered,
+                cancellationToken);
+
             estimates.Add(new MealEstimateDto
             {
                 MealSessionId = session.Id,
                 MealSessionName = session.Name,
                 StartTime = session.StartTime,
                 EndTime = session.EndTime,
+                PricePerMeal = session.PricePerMeal,
                 EstimatedCount = estimatedCount,
-                ActualCount = actualCount
+                ActualCount = actualCount,
+                RegisteredCount = registeredCount,
             });
         }
 
