@@ -696,6 +696,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   void _showDishManagementDialog() {
     final isMobile = Responsive.isMobile(context);
+    String? filterCategory;
 
     showDialog(
       context: context,
@@ -708,6 +709,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             grouped.putIfAbsent(cat, () => []).add(d);
           }
           final categories = _getDistinctCategories();
+
+          // Filter if a category is selected
+          final filteredGrouped = filterCategory != null
+              ? {filterCategory!: grouped[filterCategory] ?? []}
+              : grouped;
 
           Widget buildContent() {
             return Column(
@@ -735,19 +741,32 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     ],
                   ),
                 ),
-                // Category chips
+                // Category filter chips
                 if (categories.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: categories.map((c) => Chip(
-                        label: Text(c, style: const TextStyle(fontSize: 11)),
-                        backgroundColor: const Color(0xFFE0F2FE),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      )).toList(),
+                      children: [
+                        FilterChip(
+                          label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                          selected: filterCategory == null,
+                          onSelected: (_) => setDlgState(() => filterCategory = null),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        ...categories.map((c) {
+                          final count = grouped[c]?.length ?? 0;
+                          return FilterChip(
+                            label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                            selected: filterCategory == c,
+                            onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 8),
@@ -755,7 +774,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   child: _masterDishes.isEmpty
                       ? const Center(child: Text('Chưa có món ăn nào', style: TextStyle(color: Colors.grey)))
                       : ListView(
-                          children: grouped.entries.map((catEntry) {
+                          children: filteredGrouped.entries.map((catEntry) {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

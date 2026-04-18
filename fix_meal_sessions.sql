@@ -1,0 +1,1 @@
+ALTER TABLE "MealSessions" ADD COLUMN IF NOT EXISTS "PricePerMeal" numeric NOT NULL DEFAULT 0;
