@@ -9882,6 +9882,54 @@ class ApiService {
     }
   }
 
+  // ==================== MEAL DISHES (Master list) ====================
+
+  Future<Map<String, dynamic>> getMealDishes() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/meals/dishes'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createMealDish(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/meals/dishes'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateMealDish(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/meals/dishes/$id'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMealDish(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/meals/dishes/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ==================== FIELD CHECK-IN / CHECK-IN ĐIỂM BÁN ====================
 
   // --- Field Locations (Điểm bán khách hàng) ---

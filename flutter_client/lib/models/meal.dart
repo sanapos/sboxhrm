@@ -475,3 +475,29 @@ class MealDebtSummary {
     );
   }
 }
+
+class MealDish {
+  final String id;
+  final String name;
+  final String? category;
+  final int sortOrder;
+  final bool isActive;
+
+  MealDish({
+    required this.id,
+    required this.name,
+    this.category,
+    this.sortOrder = 0,
+    this.isActive = true,
+  });
+
+  factory MealDish.fromJson(Map<String, dynamic> json) {
+    return MealDish(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] ?? '',
+      category: json['category'],
+      sortOrder: json['sortOrder'] ?? 0,
+      isActive: json['isActive'] ?? true,
+    );
+  }
+}

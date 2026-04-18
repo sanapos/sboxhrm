@@ -32,9 +32,89 @@ public class MealsController(
     IRepository<MealSession> mealSessionRepository,
     IRepository<MealRecord> mealRecordRepository,
     IRepository<MealDebt> mealDebtRepository,
+    IRepository<MealDish> mealDishRepository,
     ISystemNotificationService notificationService
 ) : AuthenticatedControllerBase
 {
+    // ══════════ MEAL DISHES (Master list) ══════════
+
+    [HttpGet("dishes")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public async Task<ActionResult<AppResponse<List<MealDishDto>>>> GetMealDishes()
+    {
+        var storeId = RequiredStoreId;
+        var dishes = await mealDishRepository.GetAllAsync(
+            filter: d => d.StoreId == storeId && d.IsActive,
+            orderBy: q => q.OrderBy(d => d.Category).ThenBy(d => d.SortOrder).ThenBy(d => d.Name));
+        var dtos = dishes.Select(d => new MealDishDto
+        {
+            Id = d.Id,
+            Name = d.Name,
+            Category = d.Category,
+            SortOrder = d.SortOrder,
+            IsActive = d.IsActive,
+        }).ToList();
+        return Ok(AppResponse<List<MealDishDto>>.Success(dtos));
+    }
+
+    [HttpPost("dishes")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealDishDto>>> CreateMealDish([FromBody] CreateMealDishRequest request)
+    {
+        var dish = new MealDish
+        {
+            Name = request.Name.Trim(),
+            Category = request.Category?.Trim(),
+            SortOrder = request.SortOrder,
+            IsActive = true,
+            StoreId = RequiredStoreId,
+        };
+        await mealDishRepository.AddAsync(dish);
+        var dto = new MealDishDto
+        {
+            Id = dish.Id,
+            Name = dish.Name,
+            Category = dish.Category,
+            SortOrder = dish.SortOrder,
+            IsActive = dish.IsActive,
+        };
+        return Ok(AppResponse<MealDishDto>.Success(dto));
+    }
+
+    [HttpPut("dishes/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealDishDto>>> UpdateMealDish(Guid id, [FromBody] UpdateMealDishRequest request)
+    {
+        var dish = await mealDishRepository.GetByIdAsync(id);
+        if (dish == null || dish.StoreId != RequiredStoreId)
+            return NotFound(AppResponse<MealDishDto>.Fail("Không tìm thấy món ăn"));
+        dish.Name = request.Name.Trim();
+        dish.Category = request.Category?.Trim();
+        dish.SortOrder = request.SortOrder;
+        await mealDishRepository.UpdateAsync(dish);
+        var dto = new MealDishDto
+        {
+            Id = dish.Id,
+            Name = dish.Name,
+            Category = dish.Category,
+            SortOrder = dish.SortOrder,
+            IsActive = dish.IsActive,
+        };
+        return Ok(AppResponse<MealDishDto>.Success(dto));
+    }
+
+    [HttpDelete("dishes/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteMealDish(Guid id)
+    {
+        var dish = await mealDishRepository.GetByIdAsync(id);
+        if (dish == null || dish.StoreId != RequiredStoreId)
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy món ăn"));
+        dish.IsActive = false;
+        await mealDishRepository.UpdateAsync(dish);
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
     // ══════════ MEAL SESSIONS ══════════
 
     [HttpGet("sessions")]

@@ -175,6 +175,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<MealRecord> MealRecords => Set<MealRecord>();
     public DbSet<MealRegistration> MealRegistrations => Set<MealRegistration>();
     public DbSet<MealDebt> MealDebts => Set<MealDebt>();
+    public DbSet<MealDish> MealDishes => Set<MealDish>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

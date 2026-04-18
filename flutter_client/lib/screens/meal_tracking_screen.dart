@@ -6,7 +6,6 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
-import '../providers/auth_provider.dart';
 
 class MealTrackingScreen extends StatefulWidget {
   const MealTrackingScreen({super.key});
@@ -41,20 +40,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   List<MealMenu> _weeklyMenus = [];
   DateTime _menuWeekStart = _getMonday(DateTime.now());
 
-  // Registration
-  List<MealRegistration> _myRegistrations = [];
-  DateTime _regWeekStart = _getMonday(DateTime.now());
-  bool _isLoadingReg = false;
-  // ignore: unused_field
-  RegistrationSummary? _regSummary;
-  // ignore: unused_field
-  bool _isManager = false;
+  // Master dish list
+  List<MealDish> _masterDishes = [];
 
   // Debt
   List<MealDebtSummary> _debtSummaries = [];
   List<MealDebt> _debtHistory = [];
   String _debtPeriod = DateFormat('yyyy-MM').format(DateTime.now());
-  String? _selectedDebtEmployeeId;
   bool _isLoadingDebt = false;
 
   // Common
@@ -77,14 +69,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   @override
   void initState() {
     super.initState();
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final user = auth.currentUser;
-    _isManager = user?.role == 'Admin' || user?.role == 'Manager' || user?.role == 'Director';
-    _tabCtl = TabController(length: 6, vsync: this);
+    _tabCtl = TabController(length: 5, vsync: this);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) _loadCurrentTab();
     });
-    _loadSessions().then((_) => _loadCurrentTab());
+    _loadSessions().then((_) {
+      _loadMasterDishes();
+      _loadCurrentTab();
+    });
   }
 
   @override
@@ -102,15 +94,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         _loadRecords();
         break;
       case 2:
-        _loadRegistrations();
-        break;
-      case 3:
         _loadEmployeeSummary();
         break;
-      case 4:
+      case 3:
         _loadWeeklyMenu();
         break;
-      case 5:
+      case 4:
         _loadDebtSummary();
         break;
     }
@@ -126,6 +115,18 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       }
     } catch (e) {
       debugPrint('Load sessions error: $e');
+    }
+  }
+
+  Future<void> _loadMasterDishes() async {
+    try {
+      final res = await _apiService.getMealDishes();
+      if (res['isSuccess'] == true) {
+        final list = res['data'] as List? ?? [];
+        _masterDishes = list.map((e) => MealDish.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('Load dishes error: $e');
     }
   }
 
@@ -212,27 +213,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       debugPrint('Load weekly menu error: $e');
     }
     if (mounted) setState(() => _isLoading = false);
-  }
-
-  Future<void> _loadRegistrations() async {
-    setState(() => _isLoadingReg = true);
-    try {
-      final from = _regWeekStart;
-      final to = _regWeekStart.add(const Duration(days: 6));
-      final res = await _apiService.getMyMealRegistrations(
-        fromDate: from,
-        toDate: to,
-      );
-      if (res['isSuccess'] == true && res['data'] != null) {
-        final list = res['data'] as List? ?? [];
-        _myRegistrations = list
-            .map((e) => MealRegistration.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Load registrations error: $e');
-    }
-    if (mounted) setState(() => _isLoadingReg = false);
   }
 
   Future<void> _loadDebtSummary() async {
@@ -356,126 +336,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   String _formatCurrency(double amount) {
     final fmt = NumberFormat('#,###', 'vi');
     return '${fmt.format(amount)}đ';
-  }
-
-  void _toggleRegistration(String mealSessionId, DateTime date, bool register) async {
-    try {
-      final res = await _apiService.registerMeal({
-        'mealSessionId': mealSessionId,
-        'date': DateFormat('yyyy-MM-dd').format(date),
-        'isRegistered': register,
-      });
-      if (res['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đăng ký cơm',
-          message: register ? 'Đã đăng ký cơm' : 'Đã hủy đăng ký',
-        );
-        _loadRegistrations();
-      } else {
-        NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message'] ?? 'Thao tác thất bại',
-        );
-      }
-    } catch (e) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
-    }
-  }
-
-  Future<void> _batchRegisterWeek(bool register) async {
-    if (_sessions.isEmpty) return;
-    final registrations = <Map<String, dynamic>>[];
-    for (int i = 0; i < 7; i++) {
-      final day = _regWeekStart.add(Duration(days: i));
-      if (day.weekday == DateTime.saturday || day.weekday == DateTime.sunday) continue;
-      for (final s in _sessions) {
-        registrations.add({
-          'mealSessionId': s.id,
-          'date': DateFormat('yyyy-MM-dd').format(day),
-          'isRegistered': register,
-        });
-      }
-    }
-    try {
-      final res = await _apiService.batchRegisterMeal(registrations);
-      if (res['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đăng ký cơm',
-          message: register ? 'Đăng ký cả tuần thành công' : 'Hủy đăng ký cả tuần',
-        );
-        _loadRegistrations();
-      } else {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
-      }
-    } catch (e) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
-    }
-  }
-
-  void _showQrCheckInDialog() {
-    String? selectedSessionId;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('Chấm cơm bằng QR'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.qr_code_scanner, size: 64, color: Colors.orange),
-              const SizedBox(height: 16),
-              const Text('Chọn buổi ăn và xác nhận chấm cơm'),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: selectedSessionId,
-                decoration: const InputDecoration(
-                  labelText: 'Buổi ăn',
-                  border: OutlineInputBorder(),
-                ),
-                items: _sessions
-                    .map((s) => DropdownMenuItem(
-                          value: s.id,
-                          child: Text('${s.name} (${s.startTime} - ${s.endTime})'),
-                        ))
-                    .toList(),
-                onChanged: (v) => setDlgState(() => selectedSessionId = v),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy'),
-            ),
-            FilledButton.icon(
-              onPressed: selectedSessionId == null
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      try {
-                        final res = await _apiService.qrMealCheckIn(
-                          mealSessionId: selectedSessionId!,
-                          qrCode: 'MOBILE_CHECKIN',
-                        );
-                        if (res['isSuccess'] == true) {
-                          NotificationOverlayManager().showSuccess(
-                              title: 'Chấm cơm', message: 'Chấm cơm thành công!');
-                          _loadEstimate();
-                        } else {
-                          NotificationOverlayManager().showError(
-                              title: 'Lỗi', message: res['message'] ?? 'Chấm cơm thất bại');
-                        }
-                      } catch (e) {
-                        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
-                      }
-                    },
-              icon: const Icon(Icons.check),
-              label: const Text('Xác nhận chấm cơm'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // ==================== SESSION MANAGEMENT ====================
@@ -632,13 +492,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     String? selectedSessionId =
         _sessions.isNotEmpty ? _sessions.first.id : null;
     DateTime menuDate = DateTime.now();
-    final List<Map<String, TextEditingController>> dishControllers = [
-      {
-        'name': TextEditingController(),
-        'desc': TextEditingController(),
-        'category': TextEditingController(),
-      }
-    ];
+    final Set<String> selectedDishIds = {};
     final isMobile = Responsive.isMobile(context);
 
     showDialog(
@@ -647,18 +501,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         builder: (ctx, setDlgState) {
           Future<void> onSave() async {
             if (selectedSessionId == null) return;
-            final items = dishControllers
-                .where((c) => c['name']!.text.trim().isNotEmpty)
-                .toList()
-                .asMap()
-                .entries
-                .map((entry) => {
-                      'dishName': entry.value['name']!.text.trim(),
-                      'description': entry.value['desc']!.text.trim(),
-                      'category': entry.value['category']!.text.trim(),
-                      'sortOrder': entry.key,
-                    })
-                .toList();
+            if (selectedDishIds.isEmpty) {
+              NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+              return;
+            }
+            final items = selectedDishIds.toList().asMap().entries.map((entry) {
+              final dish = _masterDishes.firstWhere((d) => d.id == entry.value);
+              return {
+                'dishName': dish.name,
+                'category': dish.category ?? '',
+                'description': '',
+                'sortOrder': entry.key,
+              };
+            }).toList();
             final data = {
               'date': menuDate.toIso8601String(),
               'mealSessionId': selectedSessionId,
@@ -678,96 +533,79 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             }
           }
 
+          // Group dishes by category
+          final grouped = <String, List<MealDish>>{};
+          for (final d in _masterDishes) {
+            final cat = d.category?.isNotEmpty == true ? d.category! : 'Khác';
+            grouped.putIfAbsent(cat, () => []).add(d);
+          }
+
           final formBody = Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                initialValue: selectedSessionId,
-                decoration:
-                    const InputDecoration(labelText: 'Buổi ăn *'),
-                items: _sessions
-                    .map((s) => DropdownMenuItem(
-                        value: s.id, child: Text(s.name)))
-                    .toList(),
-                onChanged: (v) =>
-                    setDlgState(() => selectedSessionId = v),
+                value: selectedSessionId,
+                decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
+                items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
+                onChanged: (v) => setDlgState(() => selectedSessionId = v),
               ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Ngày'),
-                trailing: Text(
-                    DateFormat('dd/MM/yyyy').format(menuDate)),
+                trailing: Text(DateFormat('dd/MM/yyyy').format(menuDate)),
                 onTap: () async {
                   final d = await showDatePicker(
-                    context: ctx,
-                    initialDate: menuDate,
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime(2030),
+                    context: ctx, initialDate: menuDate,
+                    firstDate: DateTime(2024), lastDate: DateTime(2030),
                   );
                   if (d != null) setDlgState(() => menuDate = d);
                 },
               ),
               TextField(
                 controller: noteCtl,
-                decoration: const InputDecoration(labelText: 'Ghi chú'),
+                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 16),
-              const Text('Món ăn',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              ...dishControllers.asMap().entries.map((entry) {
-                final i = entry.key;
-                final ctrls = entry.value;
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: ctrls['name'],
-                                decoration: InputDecoration(
-                                    labelText: 'Tên món ${i + 1} *'),
-                              ),
-                            ),
-                            if (dishControllers.length > 1)
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle,
-                                    color: Colors.red),
-                                onPressed: () => setDlgState(
-                                    () => dishControllers.removeAt(i)),
-                              ),
-                          ],
-                        ),
-                        TextField(
-                          controller: ctrls['desc'],
-                          decoration:
-                              const InputDecoration(labelText: 'Mô tả'),
-                        ),
-                        TextField(
-                          controller: ctrls['category'],
-                          decoration: const InputDecoration(
-                              labelText: 'Loại (Cơm, Canh, ...)'),
-                        ),
-                      ],
+              Text('Chọn món (${selectedDishIds.length} đã chọn)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
+              if (_masterDishes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".',
+                      style: TextStyle(color: Colors.grey)),
+                ),
+              ...grouped.entries.map((catEntry) {
+                final cat = catEntry.key;
+                final dishes = catEntry.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: Text(cat, style: const TextStyle(
+                          fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
                     ),
-                  ),
+                    ...dishes.map((dish) => CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(dish.name, style: const TextStyle(fontSize: 14)),
+                      value: selectedDishIds.contains(dish.id),
+                      onChanged: (v) {
+                        setDlgState(() {
+                          if (v == true) {
+                            selectedDishIds.add(dish.id);
+                          } else {
+                            selectedDishIds.remove(dish.id);
+                          }
+                        });
+                      },
+                    )),
+                  ],
                 );
               }),
-              TextButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Thêm món'),
-                onPressed: () => setDlgState(() =>
-                    dishControllers.add({
-                      'name': TextEditingController(),
-                      'desc': TextEditingController(),
-                      'category': TextEditingController(),
-                    })),
-              ),
             ],
           );
 
@@ -796,13 +634,203 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: SingleChildScrollView(child: formBody),
             ),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
               FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
         },
+      ),
+    );
+  }
+
+  // ==================== DISH MANAGEMENT ====================
+
+  void _showDishManagementDialog() {
+    final isMobile = Responsive.isMobile(context);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          // Group by category
+          final grouped = <String, List<MealDish>>{};
+          for (final d in _masterDishes) {
+            final cat = d.category?.isNotEmpty == true ? d.category! : 'Khác';
+            grouped.putIfAbsent(cat, () => []).add(d);
+          }
+
+          Widget buildContent() {
+            return Column(
+              children: [
+                // Add button
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: FilledButton.icon(
+                    onPressed: () => _showAddDishDialog(ctx, setDlgState),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Thêm món mới'),
+                  ),
+                ),
+                Expanded(
+                  child: _masterDishes.isEmpty
+                      ? const Center(child: Text('Chưa có món ăn nào', style: TextStyle(color: Colors.grey)))
+                      : ListView(
+                          children: grouped.entries.map((catEntry) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  color: const Color(0xFFF0F9FF),
+                                  child: Text(catEntry.key,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                                ),
+                                ...catEntry.value.map((dish) => ListTile(
+                                  title: Text(dish.name),
+                                  subtitle: dish.category != null ? Text(dish.category!, style: const TextStyle(fontSize: 12)) : null,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 20, color: Color(0xFF3B82F6)),
+                                        onPressed: () => _showEditDishDialog(ctx, setDlgState, dish),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                                        onPressed: () async {
+                                          final res = await _apiService.deleteMealDish(dish.id);
+                                          if (res['isSuccess'] == true) {
+                                            await _loadMasterDishes();
+                                            if (ctx.mounted) setDlgState(() {});
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                ),
+              ],
+            );
+          }
+
+          if (isMobile) {
+            return Dialog.fullscreen(
+              child: Scaffold(
+                appBar: AppBar(
+                  title: const Text('Quản lý danh sách món'),
+                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ),
+                body: buildContent(),
+              ),
+            );
+          }
+          return AlertDialog(
+            title: const Text('Quản lý danh sách món'),
+            content: SizedBox(width: 450, height: 500, child: buildContent()),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddDishDialog(BuildContext parentCtx, StateSetter parentSetState) {
+    final nameCtl = TextEditingController();
+    final categoryCtl = TextEditingController();
+    showDialog(
+      context: parentCtx,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thêm món mới'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtl,
+              decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: categoryCtl,
+              decoration: const InputDecoration(
+                labelText: 'Nhóm (Cơm, Canh, Món mặn, ...)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtl.text.trim().isEmpty) return;
+              final res = await _apiService.createMealDish({
+                'name': nameCtl.text.trim(),
+                'category': categoryCtl.text.trim(),
+                'sortOrder': 0,
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (res['isSuccess'] == true) {
+                await _loadMasterDishes();
+                if (parentCtx.mounted) parentSetState(() {});
+              } else {
+                NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+              }
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDishDialog(BuildContext parentCtx, StateSetter parentSetState, MealDish dish) {
+    final nameCtl = TextEditingController(text: dish.name);
+    final categoryCtl = TextEditingController(text: dish.category ?? '');
+    showDialog(
+      context: parentCtx,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sửa món'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtl,
+              decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: categoryCtl,
+              decoration: const InputDecoration(labelText: 'Nhóm', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtl.text.trim().isEmpty) return;
+              final res = await _apiService.updateMealDish(dish.id, {
+                'name': nameCtl.text.trim(),
+                'category': categoryCtl.text.trim(),
+                'sortOrder': dish.sortOrder,
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (res['isSuccess'] == true) {
+                await _loadMasterDishes();
+                if (parentCtx.mounted) parentSetState(() {});
+              } else {
+                NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+              }
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
       ),
     );
   }
@@ -853,7 +881,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           tabs: const [
             Tab(icon: Icon(Icons.restaurant), text: 'Tổng quan'),
             Tab(icon: Icon(Icons.list_alt), text: 'Lịch sử'),
-            Tab(icon: Icon(Icons.how_to_reg), text: 'Đăng ký'),
             Tab(icon: Icon(Icons.people), text: 'Tổng hợp'),
             Tab(icon: Icon(Icons.menu_book), text: 'Thực đơn'),
             Tab(icon: Icon(Icons.account_balance_wallet), text: 'Công nợ'),
@@ -870,11 +897,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {
               if (v == 'sessions') _showSessionsDialog();
+              if (v == 'dishes') _showDishManagementDialog();
               if (v == 'createMenu') _showCreateMenuDialog();
             },
             itemBuilder: (_) => [
               const PopupMenuItem(
                   value: 'sessions', child: Text('Quản lý buổi ăn')),
+              if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
+              const PopupMenuItem(
+                  value: 'dishes', child: Text('Quản lý danh sách món')),
               if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
               const PopupMenuItem(
                   value: 'createMenu', child: Text('Tạo thực đơn')),
@@ -887,20 +918,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         children: [
           _buildDashboardTab(),
           _buildRecordsTab(),
-          _buildRegistrationTab(),
           _buildSummaryTab(),
           _buildMenuTab(),
           _buildDebtTab(),
         ],
       ),
-      floatingActionButton: _tabCtl.index == 0
-          ? FloatingActionButton.extended(
-              onPressed: _showQrCheckInDialog,
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Chấm cơm'),
-              backgroundColor: Colors.orange,
-            )
-          : null,
     );
   }
 
@@ -1595,184 +1617,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
-  // ==================== TAB 3: REGISTRATION ====================
-
-  Widget _buildRegistrationTab() {
-    final days = List.generate(7, (i) => _regWeekStart.add(Duration(days: i)));
-    final dayFmt = DateFormat('EEE dd/MM', 'vi');
-
-    return Column(
-      children: [
-        // Week navigation + batch actions
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() => _regWeekStart =
-                      _regWeekStart.subtract(const Duration(days: 7)));
-                  _loadRegistrations();
-                },
-              ),
-              Expanded(
-                child: Text(
-                  '${DateFormat('dd/MM').format(_regWeekStart)} - ${DateFormat('dd/MM').format(_regWeekStart.add(const Duration(days: 6)))}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() => _regWeekStart =
-                      _regWeekStart.add(const Duration(days: 7)));
-                  _loadRegistrations();
-                },
-              ),
-            ],
-          ),
-        ),
-        // Batch buttons
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _batchRegisterWeek(true),
-                  icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Đăng ký cả tuần'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _batchRegisterWeek(false),
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  label: const Text('Hủy cả tuần'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Registration grid
-        Expanded(
-          child: _isLoadingReg
-              ? const Center(child: CircularProgressIndicator())
-              : _sessions.isEmpty
-                  ? const Center(child: Text('Chưa có buổi ăn nào'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: days.length,
-                      itemBuilder: (context, dayIndex) {
-                        final day = days[dayIndex];
-                        final isWeekend = day.weekday == DateTime.saturday ||
-                            day.weekday == DateTime.sunday;
-                        final isToday = DateFormat('yyyy-MM-dd').format(day) ==
-                            DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-                        return Card(
-                          color: isWeekend
-                              ? Colors.grey.shade100
-                              : isToday
-                                  ? Colors.orange.shade50
-                                  : null,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isToday
-                                          ? Icons.today
-                                          : Icons.calendar_today,
-                                      size: 18,
-                                      color: isToday
-                                          ? Colors.orange
-                                          : Colors.grey,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      dayFmt.format(day),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: isWeekend
-                                            ? Colors.grey
-                                            : isToday
-                                                ? Colors.orange.shade800
-                                                : null,
-                                      ),
-                                    ),
-                                    if (isToday)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 8),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: const Text('Hôm nay',
-                                            style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10)),
-                                      ),
-                                  ],
-                                ),
-                                if (!isWeekend) ...[
-                                  const SizedBox(height: 8),
-                                  ..._sessions.map((session) {
-                                    final reg = _myRegistrations.where((r) =>
-                                        r.mealSessionId == session.id &&
-                                        r.date.year == day.year &&
-                                        r.date.month == day.month &&
-                                        r.date.day == day.day);
-                                    final isRegistered = reg.isNotEmpty &&
-                                        reg.first.isRegistered;
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              '${session.name} (${session.startTime} - ${session.endTime})',
-                                              style:
-                                                  const TextStyle(fontSize: 13),
-                                            ),
-                                          ),
-                                          Switch(
-                                            value: isRegistered,
-                                            activeTrackColor: Colors.green.shade200,
-                                            onChanged: (val) =>
-                                                _toggleRegistration(
-                                                    session.id, day, val),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-        ),
-      ],
-    );
-  }
-
-  // ==================== TAB 6: DEBT ====================
+  // ==================== TAB 5: DEBT ====================
 
   Widget _buildDebtTab() {
     final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
