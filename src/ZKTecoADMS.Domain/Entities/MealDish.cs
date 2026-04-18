@@ -17,8 +17,6 @@ public class MealDish : AuditableEntity<Guid>
 
     public int SortOrder { get; set; }
 
-    public bool IsActive { get; set; } = true;
-
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 }

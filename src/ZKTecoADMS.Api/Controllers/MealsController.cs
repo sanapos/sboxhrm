@@ -777,6 +777,238 @@ public class MealsController(
             return Ok(AppResponse<object>.Error(ex.Message));
         }
     }
+
+    // ══════════ MEAL RECORDS – MANUAL CRUD (quản lý chấm cơm) ══════════
+
+    /// <summary>
+    /// Manager: thêm chấm cơm thủ công cho nhân viên
+    /// </summary>
+    [HttpPost("records")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealRecordDto>>> CreateMealRecord([FromBody] CreateMealRecordRequest request)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var session = await mealSessionRepository.GetSingleAsync(
+                s => s.Id == request.MealSessionId && s.StoreId == storeId && s.IsActive);
+            if (session == null)
+                return Ok(AppResponse<MealRecordDto>.Error("Buổi ăn không tồn tại"));
+
+            var record = new MealRecord
+            {
+                EmployeeUserId = request.EmployeeUserId,
+                MealSessionId = request.MealSessionId,
+                MealTime = request.MealTime ?? DateTime.UtcNow,
+                Date = request.Date.Date,
+                StoreId = storeId,
+                PIN = request.PIN,
+            };
+            await mealRecordRepository.AddAsync(record);
+
+            return Ok(AppResponse<MealRecordDto>.Success(new MealRecordDto
+            {
+                Id = record.Id,
+                EmployeeUserId = record.EmployeeUserId,
+                MealSessionId = record.MealSessionId,
+                MealSessionName = session.Name,
+                MealTime = record.MealTime,
+                Date = record.Date,
+                StoreId = storeId,
+                CreatedAt = record.CreatedAt,
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<MealRecordDto>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Manager: sửa bản ghi chấm cơm
+    /// </summary>
+    [HttpPut("records/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealRecordDto>>> UpdateMealRecord(Guid id, [FromBody] UpdateMealRecordRequest request)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var record = await mealRecordRepository.GetByIdAsync(id);
+            if (record == null || record.StoreId != storeId)
+                return NotFound(AppResponse<MealRecordDto>.Fail("Không tìm thấy bản ghi"));
+
+            if (request.MealSessionId.HasValue)
+                record.MealSessionId = request.MealSessionId.Value;
+            if (request.MealTime.HasValue)
+                record.MealTime = request.MealTime.Value;
+            if (request.Date.HasValue)
+                record.Date = request.Date.Value.Date;
+
+            await mealRecordRepository.UpdateAsync(record);
+
+            var session = await mealSessionRepository.GetByIdAsync(record.MealSessionId);
+            return Ok(AppResponse<MealRecordDto>.Success(new MealRecordDto
+            {
+                Id = record.Id,
+                EmployeeUserId = record.EmployeeUserId,
+                MealSessionId = record.MealSessionId,
+                MealSessionName = session?.Name,
+                MealTime = record.MealTime,
+                Date = record.Date,
+                StoreId = storeId,
+                CreatedAt = record.CreatedAt,
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<MealRecordDto>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Manager: xóa bản ghi chấm cơm
+    /// </summary>
+    [HttpDelete("records/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteMealRecord(Guid id)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var record = await mealRecordRepository.GetByIdAsync(id);
+            if (record == null || record.StoreId != storeId)
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy bản ghi"));
+            await mealRecordRepository.DeleteAsync(record);
+            return Ok(AppResponse<bool>.Success(true));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<bool>.Error(ex.Message));
+        }
+    }
+
+    // ══════════ REGISTRATION MANAGEMENT (quản lý đăng ký ăn) ══════════
+
+    /// <summary>
+    /// Manager: lấy danh sách đăng ký ăn chi tiết theo ngày (toàn bộ nhân viên)
+    /// </summary>
+    [HttpGet("registrations")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<List<MealRegistrationDto>>>> GetRegistrations(
+        [FromQuery] DateTime? date,
+        [FromQuery] Guid? mealSessionId)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var targetDate = date?.Date ?? DateTime.UtcNow.Date;
+
+            var regs = await registrationRepository.GetAllAsync(
+                r => r.StoreId == storeId && r.Date == targetDate &&
+                     r.IsRegistered &&
+                     (mealSessionId == null || r.MealSessionId == mealSessionId));
+
+            var result = regs.OrderBy(r => r.EmployeeName).Select(r => new MealRegistrationDto
+            {
+                Id = r.Id,
+                EmployeeUserId = r.EmployeeUserId,
+                EmployeeName = r.EmployeeName,
+                MealSessionId = r.MealSessionId,
+                Date = r.Date,
+                IsRegistered = r.IsRegistered,
+                RegisteredAt = r.RegisteredAt,
+                CancelledAt = r.CancelledAt,
+                Note = r.Note,
+            }).ToList();
+
+            return Ok(AppResponse<List<MealRegistrationDto>>.Success(result));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<List<MealRegistrationDto>>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Manager: đăng ký ăn cho nhân viên
+    /// </summary>
+    [HttpPost("registrations")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<MealRegistrationDto>>> CreateRegistration([FromBody] ManagerMealRegistrationRequest request)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var date = request.Date.Date;
+
+            // Upsert
+            var existing = await registrationRepository.GetSingleAsync(
+                r => r.EmployeeUserId == request.EmployeeUserId && r.MealSessionId == request.MealSessionId && r.Date == date);
+
+            if (existing != null)
+            {
+                existing.IsRegistered = true;
+                existing.RegisteredAt = DateTime.UtcNow;
+                existing.CancelledAt = null;
+                existing.Note = request.Note;
+                await registrationRepository.UpdateAsync(existing);
+                return Ok(AppResponse<MealRegistrationDto>.Success(new MealRegistrationDto
+                {
+                    Id = existing.Id, EmployeeUserId = existing.EmployeeUserId,
+                    EmployeeName = existing.EmployeeName, MealSessionId = existing.MealSessionId,
+                    Date = existing.Date, IsRegistered = true, RegisteredAt = existing.RegisteredAt,
+                    Note = existing.Note,
+                }));
+            }
+
+            var reg = new MealRegistration
+            {
+                EmployeeUserId = request.EmployeeUserId,
+                EmployeeName = request.EmployeeName ?? "",
+                MealSessionId = request.MealSessionId,
+                Date = date,
+                IsRegistered = true,
+                RegisteredAt = DateTime.UtcNow,
+                Note = request.Note,
+                StoreId = storeId,
+            };
+            await registrationRepository.AddAsync(reg);
+            return Ok(AppResponse<MealRegistrationDto>.Success(new MealRegistrationDto
+            {
+                Id = reg.Id, EmployeeUserId = reg.EmployeeUserId,
+                EmployeeName = reg.EmployeeName, MealSessionId = reg.MealSessionId,
+                Date = reg.Date, IsRegistered = true, RegisteredAt = reg.RegisteredAt,
+                Note = reg.Note,
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<MealRegistrationDto>.Error(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Manager: hủy đăng ký ăn
+    /// </summary>
+    [HttpDelete("registrations/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteRegistration(Guid id)
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var reg = await registrationRepository.GetByIdAsync(id);
+            if (reg == null || reg.StoreId != storeId)
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy đăng ký"));
+            await registrationRepository.DeleteAsync(reg);
+            return Ok(AppResponse<bool>.Success(true));
+        }
+        catch (Exception ex)
+        {
+            return Ok(AppResponse<bool>.Error(ex.Message));
+        }
+    }
 }
 
 // ══════════ REQUEST DTOs ══════════
@@ -798,4 +1030,29 @@ public class QrMealCheckInRequest
 {
     public Guid? MealSessionId { get; set; }
     public string? QrCode { get; set; }
+}
+
+public class CreateMealRecordRequest
+{
+    public Guid EmployeeUserId { get; set; }
+    public Guid MealSessionId { get; set; }
+    public DateTime Date { get; set; }
+    public DateTime? MealTime { get; set; }
+    public string? PIN { get; set; }
+}
+
+public class UpdateMealRecordRequest
+{
+    public Guid? MealSessionId { get; set; }
+    public DateTime? MealTime { get; set; }
+    public DateTime? Date { get; set; }
+}
+
+public class ManagerMealRegistrationRequest
+{
+    public Guid EmployeeUserId { get; set; }
+    public string? EmployeeName { get; set; }
+    public Guid MealSessionId { get; set; }
+    public DateTime Date { get; set; }
+    public string? Note { get; set; }
 }

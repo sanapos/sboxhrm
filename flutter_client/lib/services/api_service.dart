@@ -9930,6 +9930,85 @@ class ApiService {
     }
   }
 
+  // ==================== MEAL RECORDS CRUD ====================
+
+  Future<Map<String, dynamic>> createMealRecord(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/meals/records'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateMealRecord(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/meals/records/$id'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMealRecord(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/meals/records/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ==================== MEAL REGISTRATIONS MANAGEMENT ====================
+
+  Future<Map<String, dynamic>> getMealRegistrations({String? date, String? mealSessionId}) async {
+    try {
+      final params = <String, String>{};
+      if (date != null) params['date'] = date;
+      if (mealSessionId != null) params['mealSessionId'] = mealSessionId;
+      final query = params.isNotEmpty
+          ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
+          : '';
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/meals/registrations$query'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createMealRegistration(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/meals/registrations'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMealRegistration(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/meals/registrations/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ==================== FIELD CHECK-IN / CHECK-IN ĐIỂM BÁN ====================
 
   // --- Field Locations (Điểm bán khách hàng) ---

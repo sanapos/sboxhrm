@@ -1,0 +1,1 @@
+SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name LIKE '%ser%' OR table_name LIKE '%eal%' OR table_name LIKE '%tore%' OR table_name LIKE '%ession%') ORDER BY table_name;

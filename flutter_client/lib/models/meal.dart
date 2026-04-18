@@ -501,3 +501,41 @@ class MealDish {
     );
   }
 }
+
+class MealRegistrationDetail {
+  final String id;
+  final String employeeUserId;
+  final String employeeName;
+  final String mealSessionId;
+  final DateTime date;
+  final bool isRegistered;
+  final DateTime? registeredAt;
+  final DateTime? cancelledAt;
+  final String? note;
+
+  MealRegistrationDetail({
+    required this.id,
+    required this.employeeUserId,
+    required this.employeeName,
+    required this.mealSessionId,
+    required this.date,
+    this.isRegistered = true,
+    this.registeredAt,
+    this.cancelledAt,
+    this.note,
+  });
+
+  factory MealRegistrationDetail.fromJson(Map<String, dynamic> json) {
+    return MealRegistrationDetail(
+      id: json['id']?.toString() ?? '',
+      employeeUserId: json['employeeUserId']?.toString() ?? '',
+      employeeName: json['employeeName'] ?? '',
+      mealSessionId: json['mealSessionId']?.toString() ?? '',
+      date: DateTime.parse(json['date'].toString()),
+      isRegistered: json['isRegistered'] ?? true,
+      registeredAt: json['registeredAt'] != null ? DateTime.tryParse(json['registeredAt'].toString()) : null,
+      cancelledAt: json['cancelledAt'] != null ? DateTime.tryParse(json['cancelledAt'].toString()) : null,
+      note: json['note'],
+    );
+  }
+}
