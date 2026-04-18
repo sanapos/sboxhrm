@@ -683,6 +683,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // ==================== DISH MANAGEMENT ====================
 
+  List<String> _getDistinctCategories() {
+    final cats = <String>{};
+    for (final d in _masterDishes) {
+      if (d.category != null && d.category!.isNotEmpty) {
+        cats.add(d.category!);
+      }
+    }
+    final sorted = cats.toList()..sort();
+    return sorted;
+  }
+
   void _showDishManagementDialog() {
     final isMobile = Responsive.isMobile(context);
 
@@ -696,19 +707,50 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             final cat = d.category?.isNotEmpty == true ? d.category! : 'Khác';
             grouped.putIfAbsent(cat, () => []).add(d);
           }
+          final categories = _getDistinctCategories();
 
           Widget buildContent() {
             return Column(
               children: [
-                // Add button
+                // Action buttons
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: FilledButton.icon(
-                    onPressed: () => _showAddDishDialog(ctx, setDlgState),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Thêm món mới'),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _showAddDishDialog(ctx, setDlgState),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Thêm món'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showCategoryManagementDialog(ctx, setDlgState),
+                          icon: const Icon(Icons.category, size: 18),
+                          label: const Text('Nhóm món'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                // Category chips
+                if (categories.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: categories.map((c) => Chip(
+                        label: Text(c, style: const TextStyle(fontSize: 11)),
+                        backgroundColor: const Color(0xFFE0F2FE),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      )).toList(),
+                    ),
+                  ),
+                const SizedBox(height: 8),
                 Expanded(
                   child: _masterDishes.isEmpty
                       ? const Center(child: Text('Chưa có món ăn nào', style: TextStyle(color: Colors.grey)))
@@ -721,12 +763,18 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   color: const Color(0xFFF0F9FF),
-                                  child: Text(catEntry.key,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                                  child: Row(
+                                    children: [
+                                      Text(catEntry.key,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                                      const SizedBox(width: 8),
+                                      Text('(${catEntry.value.length})',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    ],
+                                  ),
                                 ),
                                 ...catEntry.value.map((dish) => ListTile(
                                   title: Text(dish.name),
-                                  subtitle: dish.category != null ? Text(dish.category!, style: const TextStyle(fontSize: 12)) : null,
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -777,98 +825,192 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
-  void _showAddDishDialog(BuildContext parentCtx, StateSetter parentSetState) {
-    final nameCtl = TextEditingController();
-    final categoryCtl = TextEditingController();
+  void _showCategoryManagementDialog(BuildContext parentCtx, StateSetter parentSetState) {
     showDialog(
       context: parentCtx,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm món mới'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtl,
-              decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
-              autofocus: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final categories = _getDistinctCategories();
+          return AlertDialog(
+            title: const Text('Nhóm món hiện có'),
+            content: SizedBox(
+              width: 350,
+              height: 350,
+              child: categories.isEmpty
+                  ? const Center(child: Text('Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      itemCount: categories.length,
+                      itemBuilder: (_, i) {
+                        final cat = categories[i];
+                        final dishCount = _masterDishes.where((d) =>
+                            d.category?.toLowerCase() == cat.toLowerCase()).length;
+                        return ListTile(
+                          leading: const Icon(Icons.folder_outlined, color: Color(0xFF0284C7)),
+                          title: Text(cat),
+                          subtitle: Text('$dishCount món', style: const TextStyle(fontSize: 12)),
+                        );
+                      },
+                    ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: categoryCtl,
-              decoration: const InputDecoration(
-                labelText: 'Nhóm (Cơm, Canh, Món mặn, ...)',
-                border: OutlineInputBorder(),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddDishDialog(BuildContext parentCtx, StateSetter parentSetState) {
+    final nameCtl = TextEditingController();
+    final newCatCtl = TextEditingController();
+    String? selectedCategory;
+    bool addingNewCat = false;
+    final categories = _getDistinctCategories();
+    showDialog(
+      context: parentCtx,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Thêm món mới'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtl,
+                decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+                autofocus: true,
               ),
+              const SizedBox(height: 12),
+              if (!addingNewCat)
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhóm món *',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    ...categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                    const DropdownMenuItem(value: '__new__', child: Text('+ Thêm nhóm mới...', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w500))),
+                  ],
+                  onChanged: (v) {
+                    if (v == '__new__') {
+                      setDlgState(() { addingNewCat = true; selectedCategory = null; });
+                    } else {
+                      setDlgState(() => selectedCategory = v);
+                    }
+                  },
+                  hint: const Text('Chọn nhóm'),
+                ),
+              if (addingNewCat)
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: newCatCtl,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Tên nhóm mới *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setDlgState(() { addingNewCat = false; }),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtl.text.trim().isEmpty) return;
+                final category = addingNewCat ? newCatCtl.text.trim() : selectedCategory;
+                if (category == null || category.isEmpty) {
+                  NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn hoặc tạo nhóm món');
+                  return;
+                }
+                final res = await _apiService.createMealDish({
+                  'name': nameCtl.text.trim(),
+                  'category': category,
+                  'sortOrder': 0,
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (res['isSuccess'] == true) {
+                  await _loadMasterDishes();
+                  if (parentCtx.mounted) parentSetState(() {});
+                } else {
+                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                }
+              },
+              child: const Text('Thêm'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtl.text.trim().isEmpty) return;
-              final res = await _apiService.createMealDish({
-                'name': nameCtl.text.trim(),
-                'category': categoryCtl.text.trim(),
-                'sortOrder': 0,
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (res['isSuccess'] == true) {
-                await _loadMasterDishes();
-                if (parentCtx.mounted) parentSetState(() {});
-              } else {
-                NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
-              }
-            },
-            child: const Text('Thêm'),
-          ),
-        ],
       ),
     );
   }
 
   void _showEditDishDialog(BuildContext parentCtx, StateSetter parentSetState, MealDish dish) {
     final nameCtl = TextEditingController(text: dish.name);
-    final categoryCtl = TextEditingController(text: dish.category ?? '');
+    String? selectedCategory = dish.category;
+    final categories = _getDistinctCategories();
+    // Ensure current category is in the list
+    if (selectedCategory != null && selectedCategory!.isNotEmpty && !categories.contains(selectedCategory)) {
+      categories.add(selectedCategory!);
+      categories.sort();
+    }
     showDialog(
       context: parentCtx,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sửa món'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtl,
-              decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: categoryCtl,
-              decoration: const InputDecoration(labelText: 'Nhóm', border: OutlineInputBorder()),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Sửa món'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtl,
+                decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Nhóm món',
+                  border: OutlineInputBorder(),
+                ),
+                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (v) => setDlgState(() => selectedCategory = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtl.text.trim().isEmpty) return;
+                final res = await _apiService.updateMealDish(dish.id, {
+                  'name': nameCtl.text.trim(),
+                  'category': selectedCategory ?? '',
+                  'sortOrder': dish.sortOrder,
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (res['isSuccess'] == true) {
+                  await _loadMasterDishes();
+                  if (parentCtx.mounted) parentSetState(() {});
+                } else {
+                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                }
+              },
+              child: const Text('Lưu'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtl.text.trim().isEmpty) return;
-              final res = await _apiService.updateMealDish(dish.id, {
-                'name': nameCtl.text.trim(),
-                'category': categoryCtl.text.trim(),
-                'sortOrder': dish.sortOrder,
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (res['isSuccess'] == true) {
-                await _loadMasterDishes();
-                if (parentCtx.mounted) parentSetState(() {});
-              } else {
-                NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
-              }
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
       ),
     );
   }
