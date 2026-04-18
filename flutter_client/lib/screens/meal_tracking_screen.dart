@@ -532,6 +532,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     DateTime menuDate = DateTime.now();
     final Set<String> selectedDishIds = {};
     final isMobile = Responsive.isMobile(context);
+    String? filterCategory;
 
     showDialog(
       context: context,
@@ -577,6 +578,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             final cat = d.category?.isNotEmpty == true ? d.category! : 'Khác';
             grouped.putIfAbsent(cat, () => []).add(d);
           }
+          final categories = _getDistinctCategories();
+
+          // Filtered groups
+          final filteredGrouped = filterCategory != null
+              ? {filterCategory!: grouped[filterCategory] ?? []}
+              : grouped;
+
+          // Selected dishes list
+          final selectedDishes = _masterDishes.where((d) => selectedDishIds.contains(d.id)).toList();
 
           final formBody = Column(
             mainAxisSize: MainAxisSize.min,
@@ -605,9 +615,80 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 controller: noteCtl,
                 decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              // Selected menu preview
+              if (selectedDishes.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.restaurant_menu, size: 16, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 6),
+                          Text('Thực đơn (${selectedDishes.length} món)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
+                          const Spacer(),
+                          if (selectedDishes.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setDlgState(() => selectedDishIds.clear()),
+                              child: const Text('Bỏ hết', style: TextStyle(fontSize: 12, color: Colors.red)),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: selectedDishes.map((d) => Chip(
+                          label: Text(d.name, style: const TextStyle(fontSize: 11)),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () => setDlgState(() => selectedDishIds.remove(d.id)),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: const Color(0xFFDCFCE7),
+                        )).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              // Category filter
               Text('Chọn món (${selectedDishIds.length} đã chọn)',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
+              if (categories.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    FilterChip(
+                      label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                      selected: filterCategory == null,
+                      onSelected: (_) => setDlgState(() => filterCategory = null),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    ...categories.map((c) {
+                      final count = grouped[c]?.length ?? 0;
+                      return FilterChip(
+                        label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                        selected: filterCategory == c,
+                        onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }),
+                  ],
+                ),
               const SizedBox(height: 8),
               if (_masterDishes.isEmpty)
                 const Padding(
@@ -615,7 +696,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   child: Text('Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".',
                       style: TextStyle(color: Colors.grey)),
                 ),
-              ...grouped.entries.map((catEntry) {
+              ...filteredGrouped.entries.map((catEntry) {
                 final cat = catEntry.key;
                 final dishes = catEntry.value;
                 return Column(
@@ -623,8 +704,29 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
-                      child: Text(cat, style: const TextStyle(
-                          fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
+                      child: Row(
+                        children: [
+                          Text(cat, style: const TextStyle(
+                              fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () {
+                              final allSelected = dishes.every((d) => selectedDishIds.contains(d.id));
+                              setDlgState(() {
+                                if (allSelected) {
+                                  for (final d in dishes) selectedDishIds.remove(d.id);
+                                } else {
+                                  for (final d in dishes) selectedDishIds.add(d.id);
+                                }
+                              });
+                            },
+                            child: Text(
+                              dishes.every((d) => selectedDishIds.contains(d.id)) ? 'Bỏ chọn' : 'Chọn hết',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     ...dishes.map((dish) => CheckboxListTile(
                       dense: true,
