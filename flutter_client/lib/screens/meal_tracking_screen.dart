@@ -1,5 +1,12 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
+import 'package:excel/excel.dart' hide Border, BorderStyle;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../models/meal.dart';
 import '../utils/responsive_helper.dart';
@@ -39,6 +46,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // Menu
   List<MealMenu> _weeklyMenus = [];
   DateTime _menuWeekStart = _getMonday(DateTime.now());
+  final GlobalKey _menuRepaintKey = GlobalKey();
 
   // Master dish list
   List<MealDish> _masterDishes = [];
@@ -75,7 +83,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtl = TabController(length: 6, vsync: this);
+    _tabCtl = TabController(length: 5, vsync: this);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) _loadCurrentTab();
     });
@@ -101,15 +109,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         _loadRecords();
         break;
       case 2:
-        _loadRegistrations();
-        break;
-      case 3:
         _loadEmployeeSummary();
         break;
-      case 4:
+      case 3:
         _loadWeeklyMenu();
         break;
-      case 5:
+      case 4:
         _loadDebtSummary();
         break;
     }
@@ -593,7 +598,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                value: selectedSessionId,
+                initialValue: selectedSessionId,
                 decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
                 items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
@@ -714,9 +719,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               final allSelected = dishes.every((d) => selectedDishIds.contains(d.id));
                               setDlgState(() {
                                 if (allSelected) {
-                                  for (final d in dishes) selectedDishIds.remove(d.id);
+                                  for (final d in dishes) {
+                                    selectedDishIds.remove(d.id);
+                                  }
                                 } else {
-                                  for (final d in dishes) selectedDishIds.add(d.id);
+                                  for (final d in dishes) {
+                                    selectedDishIds.add(d.id);
+                                  }
                                 }
                               });
                             },
@@ -781,6 +790,350 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         },
       ),
     );
+  }
+
+  // ==================== EDIT/DELETE MENU ====================
+
+  void _showEditMenuDialog(MealMenu menu) {
+    final noteCtl = TextEditingController(text: menu.note ?? '');
+    final Set<String> selectedDishIds = {};
+    // Pre-select dishes that match master list by name
+    for (final item in menu.items) {
+      final match = _masterDishes.where((d) => d.name == item.dishName).firstOrNull;
+      if (match != null) selectedDishIds.add(match.id);
+    }
+    final isMobile = Responsive.isMobile(context);
+    String? filterCategory;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          Future<void> onSave() async {
+            if (selectedDishIds.isEmpty) {
+              NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+              return;
+            }
+            final items = selectedDishIds.toList().asMap().entries.map((entry) {
+              final dish = _masterDishes.firstWhere((d) => d.id == entry.value);
+              return {
+                'dishName': dish.name,
+                'category': dish.category ?? '',
+                'description': '',
+                'sortOrder': entry.key,
+              };
+            }).toList();
+            final data = {
+              'note': noteCtl.text.trim(),
+              'items': items,
+            };
+            final res = await _apiService.updateMealMenu(menu.id, data);
+            if (ctx.mounted) Navigator.pop(ctx);
+            if (res['isSuccess'] == true) {
+              NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cập nhật thực đơn');
+              _loadWeeklyMenu();
+            } else {
+              NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi cập nhật');
+            }
+          }
+
+          final grouped = <String, List<MealDish>>{};
+          for (final d in _masterDishes) {
+            final cat = d.category?.isNotEmpty == true ? d.category! : 'Khác';
+            grouped.putIfAbsent(cat, () => []).add(d);
+          }
+          final categories = _getDistinctCategories();
+          final filteredGrouped = filterCategory != null
+              ? {filterCategory!: grouped[filterCategory] ?? []}
+              : grouped;
+          final selectedDishes = _masterDishes.where((d) => selectedDishIds.contains(d.id)).toList();
+
+          final formBody = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF3B82F6)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      '${menu.mealSessionName ?? ''} - ${DateFormat('dd/MM/yyyy').format(menu.date)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E40AF)),
+                    )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtl,
+                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              if (selectedDishes.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.restaurant_menu, size: 16, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 6),
+                        Text('Thực đơn (${selectedDishes.length} món)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setDlgState(() => selectedDishIds.clear()),
+                          child: const Text('Bỏ hết', style: TextStyle(fontSize: 12, color: Colors.red)),
+                        ),
+                      ]),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6, runSpacing: 4,
+                        children: selectedDishes.map((d) => Chip(
+                          label: Text(d.name, style: const TextStyle(fontSize: 11)),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () => setDlgState(() => selectedDishIds.remove(d.id)),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: const Color(0xFFDCFCE7),
+                        )).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text('Chọn món (${selectedDishIds.length} đã chọn)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
+              if (categories.isNotEmpty)
+                Wrap(
+                  spacing: 6, runSpacing: 4,
+                  children: [
+                    FilterChip(
+                      label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                      selected: filterCategory == null,
+                      onSelected: (_) => setDlgState(() => filterCategory = null),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    ...categories.map((c) {
+                      final count = grouped[c]?.length ?? 0;
+                      return FilterChip(
+                        label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                        selected: filterCategory == c,
+                        onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              ...filteredGrouped.entries.map((catEntry) {
+                final cat = catEntry.key;
+                final dishes = catEntry.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: Row(children: [
+                        Text(cat, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            final allSelected = dishes.every((d) => selectedDishIds.contains(d.id));
+                            setDlgState(() {
+                              if (allSelected) { for (final d in dishes) {
+                                selectedDishIds.remove(d.id);
+                              } }
+                              else { for (final d in dishes) {
+                                selectedDishIds.add(d.id);
+                              } }
+                            });
+                          },
+                          child: Text(
+                            dishes.every((d) => selectedDishIds.contains(d.id)) ? 'Bỏ chọn' : 'Chọn hết',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+                          ),
+                        ),
+                      ]),
+                    ),
+                    ...dishes.map((dish) => CheckboxListTile(
+                      dense: true, contentPadding: EdgeInsets.zero,
+                      title: Text(dish.name, style: const TextStyle(fontSize: 14)),
+                      value: selectedDishIds.contains(dish.id),
+                      onChanged: (v) {
+                        setDlgState(() {
+                          if (v == true) {
+                            selectedDishIds.add(dish.id);
+                          } else {
+                            selectedDishIds.remove(dish.id);
+                          }
+                        });
+                      },
+                    )),
+                  ],
+                );
+              }),
+            ],
+          );
+
+          if (isMobile) {
+            return Dialog.fullscreen(
+              child: Scaffold(
+                appBar: AppBar(
+                  title: const Text('Sửa thực đơn'),
+                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  actions: [
+                    Padding(padding: const EdgeInsets.only(right: 8),
+                      child: FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                    ),
+                  ],
+                ),
+                body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
+              ),
+            );
+          }
+          return AlertDialog(
+            title: const Text('Sửa thực đơn'),
+            content: SizedBox(width: 400, child: SingleChildScrollView(child: formBody)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              FilledButton(onPressed: onSave, child: const Text('Lưu')),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteMenu(MealMenu menu) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xoá thực đơn'),
+        content: Text('Bạn có chắc muốn xoá thực đơn ${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xoá'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final res = await _apiService.deleteMealMenu(menu.id);
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xoá thực đơn');
+      _loadWeeklyMenu();
+    } else {
+      NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi xoá thực đơn');
+    }
+  }
+
+  // ==================== EXPORT MENU ====================
+
+  Future<void> _exportMenuAsExcel() async {
+    try {
+      final excelLib = Excel.createExcel();
+      final weekEnd = _menuWeekStart.add(const Duration(days: 6));
+      final sheetName = 'Menu ${DateFormat('dd-MM').format(_menuWeekStart)}';
+      final sheet = excelLib[sheetName];
+      // Remove default sheet
+      if (excelLib.sheets.containsKey('Sheet1')) {
+        excelLib.delete('Sheet1');
+      }
+
+      // Header
+      sheet.appendRow([
+        TextCellValue('THỰC ĐƠN TUẦN ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}'),
+      ]);
+      sheet.appendRow([]);
+      sheet.appendRow([
+        TextCellValue('Ngày'),
+        TextCellValue('Thứ'),
+        TextCellValue('Buổi ăn'),
+        TextCellValue('Món ăn'),
+        TextCellValue('Nhóm'),
+        TextCellValue('Ghi chú'),
+      ]);
+
+      for (int i = 0; i < 7; i++) {
+        final dayDate = _menuWeekStart.add(Duration(days: i));
+        final dayMenus = _weeklyMenus.where((m) =>
+            m.date.year == dayDate.year && m.date.month == dayDate.month && m.date.day == dayDate.day).toList();
+        if (dayMenus.isEmpty) {
+          sheet.appendRow([
+            TextCellValue(DateFormat('dd/MM/yyyy').format(dayDate)),
+            TextCellValue(_dayNames[i]),
+            TextCellValue(''),
+            TextCellValue('Chưa có thực đơn'),
+            TextCellValue(''),
+            TextCellValue(''),
+          ]);
+        } else {
+          for (final menu in dayMenus) {
+            for (final item in menu.items) {
+              sheet.appendRow([
+                TextCellValue(DateFormat('dd/MM/yyyy').format(dayDate)),
+                TextCellValue(_dayNames[i]),
+                TextCellValue(menu.mealSessionName ?? ''),
+                TextCellValue(item.dishName),
+                TextCellValue(item.category ?? ''),
+                TextCellValue(menu.note ?? ''),
+              ]);
+            }
+          }
+        }
+      }
+
+      final bytes = excelLib.encode();
+      if (bytes == null) return;
+      final dir = await getTemporaryDirectory();
+      final filePath = '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.xlsx';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(filePath)], text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+    } catch (e) {
+      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+    }
+  }
+
+  Future<void> _exportMenuAsPng() async {
+    try {
+      final boundary = _menuRepaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể chụp ảnh menu');
+        return;
+      }
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final bytes = byteData.buffer.asUint8List();
+      final dir = await getTemporaryDirectory();
+      final filePath = '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.png';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(filePath)], text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+    } catch (e) {
+      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+    }
   }
 
   // ==================== DISH MANAGEMENT ====================
@@ -1006,7 +1359,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               const SizedBox(height: 12),
               if (!addingNewCat)
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: const InputDecoration(
                     labelText: 'Nhóm món *',
                     border: OutlineInputBorder(),
@@ -1082,8 +1435,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     String? selectedCategory = dish.category;
     final categories = _getDistinctCategories();
     // Ensure current category is in the list
-    if (selectedCategory != null && selectedCategory!.isNotEmpty && !categories.contains(selectedCategory)) {
-      categories.add(selectedCategory!);
+    if (selectedCategory != null && selectedCategory.isNotEmpty && !categories.contains(selectedCategory)) {
+      categories.add(selectedCategory);
       categories.sort();
     }
     showDialog(
@@ -1100,7 +1453,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Nhóm món',
                   border: OutlineInputBorder(),
@@ -1182,14 +1535,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           tabs: const [
             Tab(icon: Icon(Icons.restaurant), text: 'Tổng quan'),
             Tab(icon: Icon(Icons.list_alt), text: 'Lịch sử'),
-            Tab(icon: Icon(Icons.how_to_reg), text: 'Đăng ký'),
             Tab(icon: Icon(Icons.people), text: 'Tổng hợp'),
             Tab(icon: Icon(Icons.menu_book), text: 'Thực đơn'),
             Tab(icon: Icon(Icons.account_balance_wallet), text: 'Công nợ'),
           ],
         ),
         actions: [
-          if (_tabCtl.index == 0 || _tabCtl.index == 1 || _tabCtl.index == 2)
+          if (_tabCtl.index == 0 || _tabCtl.index == 1)
             IconButton(
               icon: const Icon(Icons.calendar_today),
               tooltip: 'Chọn ngày',
@@ -1201,6 +1553,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               if (v == 'sessions') _showSessionsDialog();
               if (v == 'dishes') _showDishManagementDialog();
               if (v == 'createMenu') _showCreateMenuDialog();
+              if (v == 'exportPng') _exportMenuAsPng();
+              if (v == 'exportExcel') _exportMenuAsExcel();
             },
             itemBuilder: (_) => [
               const PopupMenuItem(
@@ -1211,6 +1565,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
               const PopupMenuItem(
                   value: 'createMenu', child: Text('Tạo thực đơn')),
+              if (_weeklyMenus.isNotEmpty) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                    value: 'exportPng', child: Text('Xuất ảnh PNG')),
+                const PopupMenuItem(
+                    value: 'exportExcel', child: Text('Xuất Excel')),
+              ],
             ],
           ),
         ],
@@ -1220,7 +1581,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         children: [
           _buildDashboardTab(),
           _buildRecordsTab(),
-          _buildRegistrationsTab(),
           _buildSummaryTab(),
           _buildMenuTab(),
           _buildDebtTab(),
@@ -1304,6 +1664,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ],
           ),
           const SizedBox(height: 24),
+          // Today's menu section
+          _buildTodayMenuSection(),
+          const SizedBox(height: 24),
           const Text('Chi tiết theo buổi',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
@@ -1327,6 +1690,115 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             Text(label, style: const TextStyle(color: Colors.grey)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTodayMenuSection() {
+    final todayMenus = _weeklyMenus.where((m) =>
+        m.date.year == _selectedDate.year &&
+        m.date.month == _selectedDate.month &&
+        m.date.day == _selectedDate.day).toList();
+
+    if (todayMenus.isEmpty) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.menu_book, size: 36, color: Colors.grey[300]),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text('Chưa có thực đơn cho ngày này',
+                    style: TextStyle(color: Colors.grey, fontSize: 14)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Group items by session
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFF0284C7), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0284C7),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.restaurant_menu, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Thực đơn ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ],
+            ),
+          ),
+          ...todayMenus.map((menu) => Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            menu.mealSessionName ?? 'Buổi ăn',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13),
+                          ),
+                        ),
+                        if (menu.note != null && menu.note!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(menu.note!, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...menu.items.map((item) => Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 5),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 6, height: 6,
+                                decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(item.dishName, style: const TextStyle(fontSize: 14))),
+                              if (item.category != null && item.category!.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(item.category!, style: const TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w500)),
+                                ),
+                            ],
+                          ),
+                        )),
+                    if (todayMenus.last != menu) const Divider(height: 8),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }
@@ -1620,7 +2092,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  value: _regFilterSessionId,
+                  initialValue: _regFilterSessionId,
                   decoration: const InputDecoration(
                       labelText: 'Buổi ăn', border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
@@ -1897,35 +2369,65 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== TAB 4: MENU ====================
 
   Widget _buildMenuTab() {
+    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    final weekEnd = _menuWeekStart.add(const Duration(days: 6));
+    bool isToday(d) => d.year == DateTime.now().year && d.month == DateTime.now().month && d.day == DateTime.now().day;
+
     return Column(
       children: [
-        // Week navigation
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Week navigation + export bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+          child: Column(
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() => _menuWeekStart =
-                      _menuWeekStart.subtract(const Duration(days: 7)));
-                  _loadWeeklyMenu();
-                },
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () {
+                      setState(() => _menuWeekStart = _menuWeekStart.subtract(const Duration(days: 7)));
+                      _loadWeeklyMenu();
+                    },
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Tuần ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () {
+                      setState(() => _menuWeekStart = _menuWeekStart.add(const Duration(days: 7)));
+                      _loadWeeklyMenu();
+                    },
+                  ),
+                ],
               ),
-              Text(
-                'Tuần ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(_menuWeekStart.add(const Duration(days: 6)))}',
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() => _menuWeekStart =
-                      _menuWeekStart.add(const Duration(days: 7)));
-                  _loadWeeklyMenu();
-                },
-              ),
+              if (_weeklyMenus.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.image, size: 16),
+                        label: const Text('Xuất ảnh'),
+                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        onPressed: _exportMenuAsPng,
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.table_chart, size: 16),
+                        label: const Text('Xuất Excel'),
+                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        onPressed: _exportMenuAsExcel,
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -1937,166 +2439,194 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.menu_book,
-                              size: 64, color: Colors.grey),
+                          Icon(Icons.restaurant_menu, size: 72, color: Colors.grey[300]),
                           const SizedBox(height: 16),
-                          const Text('Chưa có thực đơn cho tuần này',
-                              style: TextStyle(color: Colors.grey)),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text('Tạo thực đơn'),
-                            onPressed: _showCreateMenuDialog,
-                          ),
+                          const Text('Chưa có thực đơn cho tuần này', style: TextStyle(color: Colors.grey, fontSize: 15)),
+                          if (canManage) ...[
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text('Tạo thực đơn'),
+                              onPressed: _showCreateMenuDialog,
+                            ),
+                          ],
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: 7,
-                      itemBuilder: (_, dayIndex) {
-                        final dayDate = _menuWeekStart
-                            .add(Duration(days: dayIndex));
-                        final dayMenus = _weeklyMenus
-                            .where((m) =>
-                                m.date.year == dayDate.year &&
-                                m.date.month == dayDate.month &&
-                                m.date.day == dayDate.day)
-                            .toList();
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ExpansionTile(
-                            leading: CircleAvatar(
-                              backgroundColor: dayDate.day ==
-                                          DateTime.now().day &&
-                                      dayDate.month ==
-                                          DateTime.now().month
-                                  ? const Color(0xFF0284C7)
-                                  : Colors.grey[300],
-                              child: Text(
-                                '${dayDate.day}',
-                                style: TextStyle(
-                                  color: dayDate.day ==
-                                              DateTime.now().day &&
-                                          dayDate.month ==
-                                              DateTime.now().month
-                                      ? Colors.white
-                                      : Colors.black,
+                  : RepaintBoundary(
+                      key: _menuRepaintKey,
+                      child: Container(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
+                          itemCount: 7,
+                          itemBuilder: (_, dayIndex) {
+                            final dayDate = _menuWeekStart.add(Duration(days: dayIndex));
+                            final dayMenus = _weeklyMenus
+                                .where((m) => m.date.year == dayDate.year && m.date.month == dayDate.month && m.date.day == dayDate.day)
+                                .toList();
+                            final today = isToday(dayDate);
+
+                            if (dayMenus.isEmpty) {
+                              return Opacity(
+                                opacity: 0.5,
+                                child: Card(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: _buildDayBadge(dayDate, today),
+                                    title: Text(_dayNames[dayIndex], style: const TextStyle(fontWeight: FontWeight.w500)),
+                                    subtitle: const Text('Chưa có thực đơn', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: today ? 3 : 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: today ? const BorderSide(color: Color(0xFF0284C7), width: 1.5) : BorderSide.none,
+                              ),
+                              child: Theme(
+                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                child: ExpansionTile(
+                                  initiallyExpanded: today,
+                                  tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                                  leading: _buildDayBadge(dayDate, today),
+                                  title: Row(
+                                    children: [
+                                      Text(_dayNames[dayIndex], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text('${dayMenus.length} buổi', style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w500)),
+                                      ),
+                                    ],
+                                  ),
+                                  children: dayMenus.map((menu) => _buildMenuSessionCard(menu, canManage)).toList(),
                                 ),
                               ),
-                            ),
-                            title: Text(
-                              _dayNames[dayIndex],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              dayMenus.isEmpty
-                                  ? 'Chưa có thực đơn'
-                                  : '${dayMenus.length} buổi',
-                            ),
-                            children: dayMenus.isEmpty
-                                ? [
-                                    const Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Text(
-                                          'Chưa có thực đơn cho ngày này',
-                                          style: TextStyle(
-                                              color: Colors.grey)),
-                                    )
-                                  ]
-                                : dayMenus
-                                    .map((menu) => Padding(
-                                          padding:
-                                              const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 8),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                menu.mealSessionName ??
-                                                    'Buổi ăn',
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    color:
-                                                        Color(0xFF0284C7)),
-                                              ),
-                                              if (menu.note != null &&
-                                                  menu.note!.isNotEmpty)
-                                                Text(menu.note!,
-                                                    style: const TextStyle(
-                                                        fontStyle: FontStyle
-                                                            .italic,
-                                                        color:
-                                                            Colors.grey)),
-                                              const SizedBox(height: 4),
-                                              ...menu.items.map(
-                                                (item) => Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          left: 8,
-                                                          bottom: 2),
-                                                  child: Row(
-                                                    children: [
-                                                      const Icon(
-                                                          Icons
-                                                              .circle,
-                                                          size: 6,
-                                                          color: Color(
-                                                              0xFF10B981)),
-                                                      const SizedBox(
-                                                          width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                            item.dishName),
-                                                      ),
-                                                      if (item.category !=
-                                                              null &&
-                                                          item.category!
-                                                              .isNotEmpty)
-                                                        Container(
-                                                          padding: const EdgeInsets
-                                                              .symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 2),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: const Color(
-                                                                    0xFF10B981)
-                                                                .withValues(
-                                                                    alpha: 0.1),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        4),
-                                                          ),
-                                                          child: Text(
-                                                            item.category!,
-                                                            style: const TextStyle(
-                                                                fontSize:
-                                                                    12,
-                                                                color: Color(
-                                                                    0xFF10B981)),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              const Divider(),
-                                            ],
-                                          ),
-                                        ))
-                                    .toList(),
-                          ),
-                        );
-                      },
+                            );
+                          },
+                        ),
+                      ),
                     ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDayBadge(DateTime date, bool isToday) {
+    return Container(
+      width: 40, height: 40,
+      decoration: BoxDecoration(
+        color: isToday ? const Color(0xFF0284C7) : Colors.grey[200],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Center(
+        child: Text(
+          '${date.day}',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: isToday ? Colors.white : Colors.grey[700],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuSessionCard(MealMenu menu, bool canManage) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Session header with actions
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.06),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.restaurant, size: 18, color: Color(0xFF0284C7)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      menu.mealSessionName ?? 'Buổi ăn',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 14),
+                    ),
+                  ),
+                  if (canManage) ...[
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Sửa thực đơn',
+                      onPressed: () => _showEditMenuDialog(menu),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Xoá thực đơn',
+                      onPressed: () => _deleteMenu(menu),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (menu.note != null && menu.note!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: Text(menu.note!, style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey[600], fontSize: 12)),
+              ),
+            // Dish list
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              child: Column(
+                children: menu.items.asMap().entries.map((entry) {
+                  final item = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6, height: 6,
+                          decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(item.dishName, style: const TextStyle(fontSize: 13.5))),
+                        if (item.category != null && item.category!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(item.category!, style: const TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w500)),
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2390,7 +2920,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(height: 12),
                 // Session dropdown
                 DropdownButtonFormField<String>(
-                  value: selectedSessionId,
+                  initialValue: selectedSessionId,
                   decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
                   items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
                   onChanged: (v) => setDlgState(() => selectedSessionId = v),
@@ -2455,7 +2985,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: selectedSessionId,
+                initialValue: selectedSessionId,
                 decoration: const InputDecoration(labelText: 'Buổi ăn', border: OutlineInputBorder()),
                 items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
@@ -2568,7 +3098,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedSessionId,
+                  initialValue: selectedSessionId,
                   decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
                   items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
                   onChanged: (v) => setDlgState(() => selectedSessionId = v),

@@ -1,4 +1,5 @@
 /// Models cho chức năng Check-in điểm bán (Field Check-in) + Journey Tracking
+library;
 
 import 'dart:convert';
 

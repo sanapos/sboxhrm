@@ -297,7 +297,7 @@ class _NotificationSettingsScreenState
                 Switch(
                   value: isEnabled,
                   onChanged: onToggle,
-                  activeColor: color,
+                  activeThumbColor: color,
                 ),
               ],
             ),
@@ -352,7 +352,7 @@ class _NotificationSettingsScreenState
             onChanged: (val) {
               setState(() => item.isEnabled = val);
             },
-            activeColor: color,
+            activeThumbColor: color,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],

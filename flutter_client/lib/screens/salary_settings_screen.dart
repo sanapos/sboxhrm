@@ -2942,7 +2942,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             return AlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.add_circle_outline, color: const Color(0xFF1E3A5F), size: 24),
+                  const Icon(Icons.add_circle_outline, color: Color(0xFF1E3A5F), size: 24),
                   const SizedBox(width: 8),
                   Text(
                     allowanceType != null
@@ -2959,7 +2959,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   children: [
                     if (allowanceType == null) ...[
                       DropdownButtonFormField<int>(
-                        value: selectedType,
+                        initialValue: selectedType,
                         decoration: InputDecoration(
                           labelText: 'Loại phụ cấp *',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

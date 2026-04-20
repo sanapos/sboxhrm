@@ -433,7 +433,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   Widget _buildStatusFilterDropdown() {
     return DropdownButtonFormField<String>(
       key: ValueKey('status_filter_${_selectedStatusFilter ?? 'all'}'),
-      value: _selectedStatusFilter,
+      initialValue: _selectedStatusFilter,
       isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -643,10 +643,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEF3C7),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
           ),
           child: Row(children: [
             Container(
@@ -1197,9 +1197,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         // Header
         Container(
           padding: EdgeInsets.all(isMobile ? 12 : 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEF2F2),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             Container(
@@ -1561,8 +1561,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             final barRatio = maxBar > 0 ? s.scheduledShifts / maxBar : 0.0;
 
             Color barColor = const Color(0xFF22C55E);
-            if (isZero) barColor = const Color(0xFFEF4444);
-            else if (isUnder) barColor = const Color(0xFFF59E0B);
+            if (isZero) {
+              barColor = const Color(0xFFEF4444);
+            } else if (isUnder) barColor = const Color(0xFFF59E0B);
             else if (isOver) barColor = const Color(0xFF3B82F6);
 
             String statusText = '✅ Bình thường';

@@ -665,3 +665,124 @@ class AssetByStatus {
     );
   }
 }
+
+// ==================== STOCK TRANSACTION ====================
+
+enum StockTransactionType {
+  stockIn,    // Nhập kho
+  stockOut,   // Xuất kho
+  adjustment, // Điều chỉnh
+}
+
+class StockTransaction {
+  final String id;
+  final String assetId;
+  final String? assetCode;
+  final String? assetName;
+  final StockTransactionType transactionType;
+  final String transactionTypeName;
+  final int quantity;
+  final int balanceAfter;
+  final String? reason;
+  final String? referenceCode;
+  final String? relatedInventoryId;
+  final String? performedById;
+  final String? performedByName;
+  final String? notes;
+  final DateTime transactionDate;
+
+  StockTransaction({
+    required this.id,
+    required this.assetId,
+    this.assetCode,
+    this.assetName,
+    required this.transactionType,
+    this.transactionTypeName = '',
+    required this.quantity,
+    required this.balanceAfter,
+    this.reason,
+    this.referenceCode,
+    this.relatedInventoryId,
+    this.performedById,
+    this.performedByName,
+    this.notes,
+    required this.transactionDate,
+  });
+
+  bool get isStockIn => transactionType == StockTransactionType.stockIn;
+  bool get isStockOut => transactionType == StockTransactionType.stockOut;
+  bool get isAdjustment => transactionType == StockTransactionType.adjustment;
+
+  factory StockTransaction.fromJson(Map<String, dynamic> json) {
+    final typeIndex = json['transactionType'] ?? 0;
+    return StockTransaction(
+      id: json['id'] ?? '',
+      assetId: json['assetId'] ?? '',
+      assetCode: json['assetCode'],
+      assetName: json['assetName'],
+      transactionType: StockTransactionType.values[typeIndex.clamp(0, 2)],
+      transactionTypeName: json['transactionTypeName'] ?? '',
+      quantity: json['quantity'] ?? 0,
+      balanceAfter: json['balanceAfter'] ?? 0,
+      reason: json['reason'],
+      referenceCode: json['referenceCode'],
+      relatedInventoryId: json['relatedInventoryId'],
+      performedById: json['performedById'],
+      performedByName: json['performedByName'],
+      notes: json['notes'],
+      transactionDate: DateTime.tryParse(json['transactionDate'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+class StockSummary {
+  final int totalProducts;
+  final int totalStockQuantity;
+  final int totalStockIn;
+  final int totalStockOut;
+  final int totalAdjustments;
+  final double totalStockValue;
+  final List<LowStockItem> lowStockItems;
+
+  StockSummary({
+    required this.totalProducts,
+    required this.totalStockQuantity,
+    required this.totalStockIn,
+    required this.totalStockOut,
+    required this.totalAdjustments,
+    required this.totalStockValue,
+    required this.lowStockItems,
+  });
+
+  factory StockSummary.fromJson(Map<String, dynamic> json) {
+    return StockSummary(
+      totalProducts: json['totalProducts'] ?? 0,
+      totalStockQuantity: json['totalStockQuantity'] ?? 0,
+      totalStockIn: json['totalStockIn'] ?? 0,
+      totalStockOut: json['totalStockOut'] ?? 0,
+      totalAdjustments: json['totalAdjustments'] ?? 0,
+      totalStockValue: (json['totalStockValue'] ?? 0).toDouble(),
+      lowStockItems: (json['lowStockItems'] as List?)?.map((e) => LowStockItem.fromJson(e)).toList() ?? [],
+    );
+  }
+}
+
+class LowStockItem {
+  final String assetId;
+  final String? assetCode;
+  final String? assetName;
+  final int quantity;
+  final String? unit;
+
+  LowStockItem({required this.assetId, this.assetCode, this.assetName, required this.quantity, this.unit});
+
+  factory LowStockItem.fromJson(Map<String, dynamic> json) {
+    return LowStockItem(
+      assetId: json['assetId'] ?? '',
+      assetCode: json['assetCode'],
+      assetName: json['assetName'],
+      quantity: json['quantity'] ?? 0,
+      unit: json['unit'],
+    );
+  }
+}

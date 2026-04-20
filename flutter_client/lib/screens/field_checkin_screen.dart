@@ -1240,10 +1240,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(children: [
-                            const Icon(Icons.place, size: 16, color: Colors.orange),
-                            const SizedBox(width: 6),
-                            const Text('Các điểm dừng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange)),
+                          const Row(children: [
+                            Icon(Icons.place, size: 16, color: Colors.orange),
+                            SizedBox(width: 6),
+                            Text('Các điểm dừng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange)),
                           ]),
                           const SizedBox(height: 8),
                           ..._todayJourney!.routePoints.where((p) => p.isDwell).map((p) => Padding(
@@ -1486,7 +1486,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     } else if (completedVisit != null) {
       accentColor = const Color(0xFF22C55E);
       statusIcon = Icons.check_circle;
-      statusLabel = '${completedVisit.timeSpentFormatted}';
+      statusLabel = completedVisit.timeSpentFormatted;
     } else {
       accentColor = const Color(0xFF71717A);
       statusIcon = Icons.radio_button_unchecked;
@@ -1714,7 +1714,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
                     // Category
                     DropdownButtonFormField<String>(
-                      value: selectedCategory,
+                      initialValue: selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'Loại cửa hàng',
                         prefixIcon: Icon(Icons.category),
@@ -2599,7 +2599,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         const SizedBox(width: 6),
         _buildStatCard('Giờ', '${(totalMinutes / 60).toStringAsFixed(1)}h', Icons.timer, Colors.orange),
         const SizedBox(width: 6),
-        _buildStatCard('Km', '${journeyKm.toStringAsFixed(1)}', Icons.route, const Color(0xFF1E3A5F)),
+        _buildStatCard('Km', journeyKm.toStringAsFixed(1), Icons.route, const Color(0xFF1E3A5F)),
       ].map((w) => Expanded(child: w)).toList(),
     );
   }
@@ -2690,9 +2690,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             // Header
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E3A5F),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(children: [
                 const Icon(Icons.route, color: Colors.white, size: 22),

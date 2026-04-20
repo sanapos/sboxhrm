@@ -17,24 +17,53 @@ public class CreateMealMenuHandler(
     {
         try
         {
-            var menu = new MealMenu
+            // Check for existing menu with same date + session + store (upsert)
+            var existing = await menuRepository.GetSingleAsync(
+                m => m.Date == request.Date.Date
+                     && m.MealSessionId == request.MealSessionId
+                     && m.StoreId == request.StoreId,
+                includeProperties: ["Items"],
+                cancellationToken: cancellationToken);
+
+            MealMenu menu;
+            if (existing != null)
             {
-                Date = request.Date.Date,
-                DayOfWeek = request.Date.DayOfWeek,
-                MealSessionId = request.MealSessionId,
-                Note = request.Note,
-                StoreId = request.StoreId,
-                IsActive = true,
-                Items = request.Items.Select((item, index) => new MealMenuItem
+                // Update existing menu instead of creating duplicate
+                existing.Note = request.Note;
+                existing.IsActive = true;
+                // Remove old items
+                existing.Items.Clear();
+                existing.Items = request.Items.Select((item, index) => new MealMenuItem
                 {
+                    MealMenuId = existing.Id,
                     DishName = item.DishName,
                     Description = item.Description,
                     Category = item.Category,
                     SortOrder = item.SortOrder > 0 ? item.SortOrder : index
-                }).ToList()
-            };
-
-            await menuRepository.AddAsync(menu, cancellationToken);
+                }).ToList();
+                await menuRepository.UpdateAsync(existing, cancellationToken);
+                menu = existing;
+            }
+            else
+            {
+                menu = new MealMenu
+                {
+                    Date = request.Date.Date,
+                    DayOfWeek = request.Date.DayOfWeek,
+                    MealSessionId = request.MealSessionId,
+                    Note = request.Note,
+                    StoreId = request.StoreId,
+                    IsActive = true,
+                    Items = request.Items.Select((item, index) => new MealMenuItem
+                    {
+                        DishName = item.DishName,
+                        Description = item.Description,
+                        Category = item.Category,
+                        SortOrder = item.SortOrder > 0 ? item.SortOrder : index
+                    }).ToList()
+                };
+                await menuRepository.AddAsync(menu, cancellationToken);
+            }
 
             var result = menu.Adapt<MealMenuDto>();
 

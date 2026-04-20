@@ -4220,6 +4220,8 @@ class ApiService {
     DateTime? endDate,
     String? responsibleUserId,
     String? notes,
+    List<String>? assetIds,
+    List<Map<String, dynamic>>? items,
   }) async {
     try {
       final body = <String, dynamic>{'name': name};
@@ -4230,6 +4232,11 @@ class ApiService {
         body['responsibleUserId'] = responsibleUserId;
       }
       if (notes != null) body['notes'] = notes;
+      if (items != null && items.isNotEmpty) {
+        body['items'] = items;
+      } else if (assetIds != null && assetIds.isNotEmpty) {
+        body['assetIds'] = assetIds;
+      }
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/Assets/inventories'),
@@ -4239,6 +4246,19 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating asset inventory: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetInventoryHistory(String assetId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/Assets/$assetId/inventory-history'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting asset inventory history: $e');
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
@@ -4290,6 +4310,7 @@ class ApiService {
     bool hasIssue = false,
     String? issueDescription,
     String? notes,
+    String? imageUrl,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -4300,6 +4321,9 @@ class ApiService {
       if (actualQuantity != null) body['actualQuantity'] = actualQuantity;
       if (actualLocation != null) body['actualLocation'] = actualLocation;
       if (issueDescription != null) body['issueDescription'] = issueDescription;
+      if (imageUrl != null) {
+        notes = '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
+      }
       if (notes != null) body['notes'] = notes;
 
       final response = await http.post(
@@ -4323,6 +4347,7 @@ class ApiService {
     bool hasIssue = false,
     String? issueDescription,
     String? notes,
+    String? imageUrl,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -4333,6 +4358,9 @@ class ApiService {
       if (actualQuantity != null) body['actualQuantity'] = actualQuantity;
       if (actualLocation != null) body['actualLocation'] = actualLocation;
       if (issueDescription != null) body['issueDescription'] = issueDescription;
+      if (imageUrl != null) {
+        notes = '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
+      }
       if (notes != null) body['notes'] = notes;
 
       final response = await http.post(
@@ -4357,6 +4385,184 @@ class ApiService {
     } catch (e) {
       debugPrint('Error completing inventory: $e');
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelInventory(String inventoryId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId/cancel'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error cancelling inventory: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteInventory(String inventoryId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error deleting inventory: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFile(List<int> fileBytes, String fileName, {String folder = 'uploads'}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/Upload/file?folder=${Uri.encodeComponent(folder)}');
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+
+      final ext = fileName.toLowerCase().split('.').last;
+      final mimeTypes = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'gif': 'image/gif', 'webp': 'image/webp',
+      };
+      final contentType = mimeTypes[ext] ?? 'image/jpeg';
+      final mediaParts = contentType.split('/');
+
+      request.files.add(http.MultipartFile.fromBytes(
+        'file', fileBytes, filename: fileName,
+        contentType: MediaType(mediaParts[0], mediaParts[1]),
+      ));
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error uploading file: $e');
+      return {'isSuccess': false, 'message': 'Lỗi tải ảnh: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> addAssetImage({
+    required String assetId,
+    required String imageUrl,
+    String? fileName,
+    String? description,
+    bool isPrimary = false,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'imageUrl': imageUrl,
+        'isPrimary': isPrimary,
+      };
+      if (fileName != null) body['fileName'] = fileName;
+      if (description != null) body['description'] = description;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/Assets/$assetId/images'),
+        headers: _headers,
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error adding asset image: $e');
+      return {'isSuccess': false, 'message': 'Lỗi thêm ảnh: $e'};
+    }
+  }
+
+  // ==================== STOCK TRANSACTIONS ====================
+
+  Future<Map<String, dynamic>> stockIn({
+    required String assetId,
+    required int quantity,
+    String? reason,
+    String? referenceCode,
+    String? notes,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'assetId': assetId,
+        'transactionType': 0,
+        'quantity': quantity,
+      };
+      if (reason != null) body['reason'] = reason;
+      if (referenceCode != null) body['referenceCode'] = referenceCode;
+      if (notes != null) body['notes'] = notes;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/Assets/stock/in'),
+        headers: _headers,
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi nhập kho: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> stockOut({
+    required String assetId,
+    required int quantity,
+    String? reason,
+    String? referenceCode,
+    String? notes,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'assetId': assetId,
+        'transactionType': 1,
+        'quantity': quantity,
+      };
+      if (reason != null) body['reason'] = reason;
+      if (referenceCode != null) body['referenceCode'] = referenceCode;
+      if (notes != null) body['notes'] = notes;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/Assets/stock/out'),
+        headers: _headers,
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi xuất kho: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getStockTransactions({
+    int page = 1,
+    int pageSize = 50,
+    String? assetId,
+    int? transactionType,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? search,
+  }) async {
+    try {
+      final params = <String, String>{
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (assetId != null) params['assetId'] = assetId;
+      if (transactionType != null) params['transactionType'] = transactionType.toString();
+      if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
+      if (toDate != null) params['toDate'] = toDate.toIso8601String();
+      if (search != null) params['search'] = search;
+
+      final uri = Uri.parse('$baseUrl/api/Assets/stock/transactions').replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi lấy lịch sử: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getStockSummary() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/Assets/stock/summary'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi lấy tổng quan kho: $e'};
     }
   }
 
@@ -9752,6 +9958,17 @@ class ApiService {
           Uri.parse('$baseUrl/api/meals/menu/$id'),
           headers: _headers,
           body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMealMenu(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/meals/menu/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};

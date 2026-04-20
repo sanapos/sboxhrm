@@ -1044,7 +1044,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
     // Employees in same department (exclude self)
     final myDept = _employees.cast<Employee?>().firstWhere(
-      (e) => e!.id == authProvider.user?.id || _effectiveUserId(e!) == authProvider.user?.id,
+      (e) => e!.id == authProvider.user?.id || _effectiveUserId(e) == authProvider.user?.id,
       orElse: () => null,
     )?.department;
     final availableEmployees = _employees.where((e) {
@@ -1081,7 +1081,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 const SizedBox(height: 14),
                 // Target employee
                 DropdownButtonFormField<String>(
-                  value: targetEmployeeId,
+                  initialValue: targetEmployeeId,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: 'Nhân viên muốn đổi',
@@ -1098,7 +1098,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 const SizedBox(height: 12),
                 // Target shift (optional - can swap for a different shift)
                 DropdownButtonFormField<String>(
-                  value: targetShiftId,
+                  initialValue: targetShiftId,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: 'Ca muốn nhận (tùy chọn)',
@@ -1447,7 +1447,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
 
     final deptDropdown = DropdownButtonFormField<String>(
-      value: _selectedDepartment,
+      initialValue: _selectedDepartment,
       isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1474,7 +1474,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       },
     );
     final empDropdown = DropdownButtonFormField<String>(
-      value: _selectedEmployeeId,
+      initialValue: _selectedEmployeeId,
       isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -5357,7 +5357,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         appNotification.showError(title: 'Lỗi', message: 'Không tìm thấy bảng dữ liệu để chụp');
         return;
       }
-      final pixelRatio = kIsWeb ? 2.0 : 3.0;
+      const pixelRatio = kIsWeb ? 2.0 : 3.0;
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
@@ -5405,7 +5405,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
     overlayState.insert(entry);
     // Wait for layout — web (CanvasKit) needs more time
-    await Future.delayed(Duration(milliseconds: kIsWeb ? 500 : 200));
+    await Future.delayed(const Duration(milliseconds: kIsWeb ? 500 : 200));
 
     try {
       final boundary = exportKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
@@ -5414,7 +5414,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         entry.remove();
         return;
       }
-      final pixelRatio = kIsWeb ? 2.0 : 3.0;
+      const pixelRatio = kIsWeb ? 2.0 : 3.0;
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
@@ -5470,9 +5470,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
                 final uniqueRegs = submittedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).toList();
                 final names = <String>[];
-                for (final ws in schedules) names.add(_employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty()).fullName);
-                for (final r in uniqueRegs) names.add(_employees.firstWhere((e) => _effectiveUserId(e) == r.employeeUserId, orElse: () => Employee.empty()).fullName);
-                for (final p in pendingLocal) names.add(_employees.firstWhere((e) => _effectiveUserId(e) == p['employeeId'], orElse: () => Employee.empty()).fullName);
+                for (final ws in schedules) {
+                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty()).fullName);
+                }
+                for (final r in uniqueRegs) {
+                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == r.employeeUserId, orElse: () => Employee.empty()).fullName);
+                }
+                for (final p in pendingLocal) {
+                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == p['employeeId'], orElse: () => Employee.empty()).fullName);
+                }
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -6215,7 +6221,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String?>(
-                  value: selectedDept,
+                  initialValue: selectedDept,
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6296,7 +6302,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   const Text('Ca làm việc:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<Shift>(
-                    value: selectedShift,
+                    initialValue: selectedShift,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6338,7 +6344,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String?>(
-                    value: selectedDept,
+                    initialValue: selectedDept,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6503,7 +6509,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   const Text('Ca làm việc:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<Shift>(
-                    value: selectedShift,
+                    initialValue: selectedShift,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6519,7 +6525,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String?>(
-                    value: selectedDept,
+                    initialValue: selectedDept,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

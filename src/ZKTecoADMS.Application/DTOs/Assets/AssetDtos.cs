@@ -271,6 +271,15 @@ public record CreateAssetInventoryDto
     public string? ResponsibleUserId { get; init; }
     public string? Notes { get; init; }
     public List<Guid>? AssetIds { get; init; } // If empty, include all assets
+    public List<InventoryItemInput>? Items { get; init; } // Items with expected qty
+}
+
+public record InventoryItemInput
+{
+    public Guid AssetId { get; init; }
+    public int ExpectedQuantity { get; init; }
+    public int? ActualQuantity { get; init; }
+    public string? Notes { get; init; }
 }
 
 public record AssetInventoryItemDto
@@ -371,5 +380,58 @@ public record ScanInventoryItemDto
     public bool HasIssue { get; init; }
     public string? IssueDescription { get; init; }
     public string? Notes { get; init; }
+}
+#endregion
+
+#region Stock Transaction DTOs
+public record StockTransactionDto
+{
+    public Guid Id { get; init; }
+    public Guid AssetId { get; init; }
+    public string? AssetCode { get; init; }
+    public string? AssetName { get; init; }
+    public int TransactionType { get; init; }
+    public string TransactionTypeName { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public int BalanceAfter { get; init; }
+    public string? Reason { get; init; }
+    public string? ReferenceCode { get; init; }
+    public Guid? RelatedInventoryId { get; init; }
+    public string? PerformedById { get; init; }
+    public string? PerformedByName { get; init; }
+    public string? Notes { get; init; }
+    public DateTime TransactionDate { get; init; }
+}
+
+public record CreateStockTransactionDto
+{
+    public Guid AssetId { get; init; }
+    /// <summary>0=StockIn, 1=StockOut</summary>
+    public int TransactionType { get; init; }
+    /// <summary>Số lượng (luôn dương)</summary>
+    public int Quantity { get; init; }
+    public string? Reason { get; init; }
+    public string? ReferenceCode { get; init; }
+    public string? Notes { get; init; }
+}
+
+public record StockSummaryDto
+{
+    public int TotalProducts { get; init; }
+    public int TotalStockQuantity { get; init; }
+    public int TotalStockIn { get; init; }
+    public int TotalStockOut { get; init; }
+    public int TotalAdjustments { get; init; }
+    public decimal TotalStockValue { get; init; }
+    public List<LowStockItemDto>? LowStockItems { get; init; }
+}
+
+public record LowStockItemDto
+{
+    public Guid AssetId { get; init; }
+    public string? AssetCode { get; init; }
+    public string? AssetName { get; init; }
+    public int Quantity { get; init; }
+    public string? Unit { get; init; }
 }
 #endregion

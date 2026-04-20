@@ -1456,10 +1456,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   List<Widget> _buildActionButtons(Map<String, dynamic> leave, int status, bool isMyLeaves, bool showApprovalActions, bool isAllTab) {
     final isPending = status == 0;
     final buttons = <Widget>[];
-    final _permProv = Provider.of<PermissionProvider>(context, listen: false);
+    final permProv = Provider.of<PermissionProvider>(context, listen: false);
 
     // Only allow edit when status is Pending (0)
-    if (isPending && (isMyLeaves || isAllTab) && _permProv.canEdit('Leave')) {
+    if (isPending && (isMyLeaves || isAllTab) && permProv.canEdit('Leave')) {
       buttons.add(_ActionBtn(icon: Icons.edit_rounded, label: 'Sửa', color: Colors.blue, onTap: () => _showLeaveFormDialog(leave: leave)));
       buttons.add(const SizedBox(width: 6));
     }
@@ -1474,7 +1474,7 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
 
     // Approve/Reject: manager on pending tab or all tab, but NOT own leave
     final leaveOwnerId = leave['employeeUserId']?.toString() ?? leave['userId']?.toString() ?? '';
-    if (isPending && (showApprovalActions || isAllTab) && _permProv.canApprove('Leave') && leaveOwnerId != _currentUserId) {
+    if (isPending && (showApprovalActions || isAllTab) && permProv.canApprove('Leave') && leaveOwnerId != _currentUserId) {
       buttons.add(_ActionBtn(icon: Icons.check_circle_outline, label: 'Duyệt', color: Colors.green, onTap: () => _approveLeave(leave['id'])));
       buttons.add(const SizedBox(width: 6));
       buttons.add(_ActionBtn(icon: Icons.highlight_off, label: 'Từ chối', color: Colors.red, onTap: () => _rejectLeave(leave['id'])));
@@ -1488,7 +1488,7 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     }
 
     // Delete: pending in myLeaves, any status in allTab/pendingTab for manager
-    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && _permProv.canDelete('Leave')) {
+    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && permProv.canDelete('Leave')) {
       buttons.add(_ActionBtn(icon: Icons.delete_forever_outlined, label: 'Xóa', color: Colors.red.shade700, onTap: () => _forceDeleteLeave(leave['id'])));
     }
 
@@ -1517,9 +1517,9 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     // Build action buttons that close dialog first
     final dialogActions = <Widget>[];
     final isPending = status == 0;
-    final _dlgPerm = Provider.of<PermissionProvider>(context, listen: false);
+    final dlgPerm = Provider.of<PermissionProvider>(context, listen: false);
 
-    if (isPending && (isMyLeaves || isAllTab) && _dlgPerm.canEdit('Leave')) {
+    if (isPending && (isMyLeaves || isAllTab) && dlgPerm.canEdit('Leave')) {
       dialogActions.add(_ActionBtn(icon: Icons.edit_rounded, label: 'Sửa', color: Colors.blue, onTap: () { Navigator.pop(context); _showLeaveFormDialog(leave: leave); }));
       dialogActions.add(const SizedBox(width: 6));
     }
@@ -1532,7 +1532,7 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     }
     // Approve/Reject — NOT own leave
     final dlgLeaveOwnerId = leave['employeeUserId']?.toString() ?? leave['userId']?.toString() ?? '';
-    if (isPending && (showApprovalActions || isAllTab) && _dlgPerm.canApprove('Leave') && dlgLeaveOwnerId != _currentUserId) {
+    if (isPending && (showApprovalActions || isAllTab) && dlgPerm.canApprove('Leave') && dlgLeaveOwnerId != _currentUserId) {
       dialogActions.add(_ActionBtn(icon: Icons.check_circle_outline, label: 'Duyệt', color: Colors.green, onTap: () { Navigator.pop(context); _approveLeave(leave['id']); }));
       dialogActions.add(const SizedBox(width: 6));
       dialogActions.add(_ActionBtn(icon: Icons.highlight_off, label: 'Từ chối', color: Colors.red, onTap: () { Navigator.pop(context); _rejectLeave(leave['id']); }));
@@ -1544,7 +1544,7 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       dialogActions.add(const SizedBox(width: 6));
     }
     // Delete
-    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && _dlgPerm.canDelete('Leave')) {
+    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && dlgPerm.canDelete('Leave')) {
       dialogActions.add(_ActionBtn(icon: Icons.delete_forever_outlined, label: 'Xóa', color: Colors.red.shade700, onTap: () { Navigator.pop(context); _forceDeleteLeave(leave['id']); }));
     }
 

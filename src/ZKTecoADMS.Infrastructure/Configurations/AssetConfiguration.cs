@@ -223,7 +223,7 @@ public class AssetInventoryConfiguration : IEntityTypeConfiguration<AssetInvento
         builder.Property(x => x.Notes)
             .HasMaxLength(2000);
         
-        builder.HasOne(x => x.ResponsibleUser)
+        builder.HasOne<Employee>(x => x.ResponsibleUser)
             .WithMany()
             .HasForeignKey(x => x.ResponsibleUserId)
             .OnDelete(DeleteBehavior.SetNull);

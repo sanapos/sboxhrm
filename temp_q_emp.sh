@@ -1,0 +1,1 @@
+docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -A -t -c "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conname LIKE 'FK_Asset%' AND contype='f' ORDER BY conname;"

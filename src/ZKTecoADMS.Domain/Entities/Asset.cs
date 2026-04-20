@@ -113,9 +113,9 @@ public class Asset : AuditableEntity<Guid>
     /// <summary>Giá trị hiện tại (sau khấu hao)</summary>
     public decimal? CurrentValue { get; set; }
     
-    /// <summary>Người đang giữ (nếu đã cấp)</summary>
+    /// <summary>Người đang giữ (nếu đã cấp) - EmployeeId</summary>
     public Guid? CurrentAssigneeId { get; set; }
-    public ApplicationUser? CurrentAssignee { get; set; }
+    public Employee? CurrentAssignee { get; set; }
     
     /// <summary>Ngày cấp cho người hiện tại</summary>
     public DateTime? AssignedDate { get; set; }
@@ -128,9 +128,10 @@ public class Asset : AuditableEntity<Guid>
     public ICollection<AssetImage> Images { get; set; } = new List<AssetImage>();
     public ICollection<AssetTransfer> Transfers { get; set; } = new List<AssetTransfer>();
     public ICollection<AssetInventoryItem> InventoryItems { get; set; } = new List<AssetInventoryItem>();
+    public ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
     
     // Computed properties
-    public string? CurrentAssigneeName => CurrentAssignee?.FullName;
+    public string? CurrentAssigneeName => CurrentAssignee != null ? $"{CurrentAssignee.FirstName} {CurrentAssignee.LastName}" : null;
     public string? CategoryName => Category?.Name;
     public bool IsWarrantyExpired => WarrantyExpiry.HasValue && WarrantyExpiry.Value < DateTime.UtcNow;
     public int DaysUntilWarrantyExpiry => WarrantyExpiry.HasValue ? (int)(WarrantyExpiry.Value - DateTime.UtcNow).TotalDays : 0;
@@ -171,13 +172,13 @@ public class AssetTransfer : Entity<Guid>
     /// <summary>Loại chuyển giao</summary>
     public AssetTransferType TransferType { get; set; }
     
-    /// <summary>Người giao</summary>
+    /// <summary>Người giao (EmployeeId)</summary>
     public Guid? FromUserId { get; set; }
-    public ApplicationUser? FromUser { get; set; }
+    public Employee? FromUser { get; set; }
     
-    /// <summary>Người nhận</summary>
+    /// <summary>Người nhận (EmployeeId)</summary>
     public Guid? ToUserId { get; set; }
-    public ApplicationUser? ToUser { get; set; }
+    public Employee? ToUser { get; set; }
     
     /// <summary>Số lượng chuyển giao</summary>
     public int Quantity { get; set; } = 1;
@@ -202,8 +203,8 @@ public class AssetTransfer : Entity<Guid>
     public DateTime? ConfirmedAt { get; set; }
     
     // Computed
-    public string? FromUserName => FromUser?.FullName;
-    public string? ToUserName => ToUser?.FullName;
+    public string? FromUserName => FromUser != null ? $"{FromUser.FirstName} {FromUser.LastName}" : null;
+    public string? ToUserName => ToUser != null ? $"{ToUser.FirstName} {ToUser.LastName}" : null;
     public string? PerformedByName => PerformedBy?.FullName;
     public string? AssetName => Asset?.Name;
     public string? AssetCode => Asset?.AssetCode;
@@ -234,7 +235,7 @@ public class AssetInventory : AuditableEntity<Guid>
     
     /// <summary>Người phụ trách</summary>
     public Guid? ResponsibleUserId { get; set; }
-    public ApplicationUser? ResponsibleUser { get; set; }
+    public Employee? ResponsibleUser { get; set; }
     
     /// <summary>Ghi chú</summary>
     public string? Notes { get; set; }
@@ -279,6 +280,9 @@ public class AssetInventoryItem : Entity<Guid>
     /// <summary>Số lượng thực tế</summary>
     public int? ActualQuantity { get; set; }
     
+    /// <summary>Số lượng tồn kho (kỳ vọng)</summary>
+    public int StoredExpectedQuantity { get; set; }
+    
     /// <summary>Vị trí thực tế</summary>
     public string? ActualLocation { get; set; }
     
@@ -294,6 +298,53 @@ public class AssetInventoryItem : Entity<Guid>
     // Computed
     public string? AssetCode => Asset?.AssetCode;
     public string? AssetName => Asset?.Name;
-    public int ExpectedQuantity => Asset?.Quantity ?? 0;
+    public int ExpectedQuantity => StoredExpectedQuantity > 0 ? StoredExpectedQuantity : (Asset?.Quantity ?? 0);
     public bool QuantityMismatch => ActualQuantity.HasValue && ActualQuantity.Value != ExpectedQuantity;
+}
+
+/// <summary>
+/// Giao dịch kho (nhập/xuất/điều chỉnh)
+/// </summary>
+public class StockTransaction : Entity<Guid>
+{
+    public Guid AssetId { get; set; }
+    public Asset? Asset { get; set; }
+    
+    /// <summary>Loại giao dịch</summary>
+    public StockTransactionType TransactionType { get; set; }
+    
+    /// <summary>Số lượng (dương = nhập, âm = xuất)</summary>
+    public int Quantity { get; set; }
+    
+    /// <summary>Tồn kho sau giao dịch</summary>
+    public int BalanceAfter { get; set; }
+    
+    /// <summary>Lý do</summary>
+    public string? Reason { get; set; }
+    
+    /// <summary>Mã phiếu tham chiếu</summary>
+    public string? ReferenceCode { get; set; }
+    
+    /// <summary>Đợt kiểm kê liên quan (nếu từ kiểm kê)</summary>
+    public Guid? RelatedInventoryId { get; set; }
+    public AssetInventory? RelatedInventory { get; set; }
+    
+    /// <summary>Người thực hiện</summary>
+    public Guid? PerformedById { get; set; }
+    public ApplicationUser? PerformedBy { get; set; }
+    
+    /// <summary>Ghi chú</summary>
+    public string? Notes { get; set; }
+    
+    /// <summary>Store</summary>
+    public Guid StoreId { get; set; }
+    public Store? Store { get; set; }
+    
+    /// <summary>Ngày giao dịch</summary>
+    public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
+    
+    // Computed
+    public string? AssetCode => Asset?.AssetCode;
+    public string? AssetName => Asset?.Name;
+    public string? PerformedByName => PerformedBy?.FullName;
 }

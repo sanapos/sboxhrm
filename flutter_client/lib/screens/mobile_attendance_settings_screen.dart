@@ -2656,7 +2656,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     children: [
                       const Icon(Icons.broken_image, color: Colors.white54, size: 48),
                       const SizedBox(height: 8),
-                      Text('Không tải được ảnh', style: const TextStyle(color: Colors.white54)),
+                      const Text('Không tải được ảnh', style: TextStyle(color: Colors.white54)),
                       const SizedBox(height: 4),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),

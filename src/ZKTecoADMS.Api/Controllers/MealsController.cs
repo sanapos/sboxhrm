@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Meals.CreateMealMenu;
 using ZKTecoADMS.Application.Commands.Meals.CreateMealSession;
+using ZKTecoADMS.Application.Commands.Meals.DeleteMealMenu;
 using ZKTecoADMS.Application.Commands.Meals.DeleteMealSession;
 using ZKTecoADMS.Application.Commands.Meals.UpdateMealMenu;
 using ZKTecoADMS.Application.Commands.Meals.UpdateMealSession;
@@ -253,6 +254,15 @@ public class MealsController(
             id,
             request.Note,
             request.Items);
+        var result = await mediator.Send(command);
+        return Ok(result);
+    }
+
+    [HttpDelete("menu/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteMealMenu(Guid id)
+    {
+        var command = new DeleteMealMenuCommand(RequiredStoreId, id);
         var result = await mediator.Send(command);
         return Ok(result);
     }

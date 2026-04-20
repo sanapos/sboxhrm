@@ -266,11 +266,20 @@ class MealMenu {
     this.items = const [],
   });
 
+  static int _parseDayOfWeek(dynamic value) {
+    if (value is int) return value;
+    if (value is String) {
+      const days = {'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6};
+      return days[value.toLowerCase()] ?? 0;
+    }
+    return 0;
+  }
+
   factory MealMenu.fromJson(Map<String, dynamic> json) {
     return MealMenu(
       id: json['id']?.toString() ?? '',
       date: DateTime.parse(json['date'].toString()),
-      dayOfWeek: json['dayOfWeek'] ?? 0,
+      dayOfWeek: _parseDayOfWeek(json['dayOfWeek']),
       mealSessionId: json['mealSessionId']?.toString() ?? '',
       mealSessionName: json['mealSessionName'],
       note: json['note'],

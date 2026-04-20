@@ -2078,21 +2078,21 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   Widget _buildRowActions(AdvanceRequest r) {
-    final _p = Provider.of<PermissionProvider>(context, listen: false);
+    final p = Provider.of<PermissionProvider>(context, listen: false);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (r.status == AdvanceRequestStatus.pending && _p.canApprove('AdvanceRequests')) ...[
+        if (r.status == AdvanceRequestStatus.pending && p.canApprove('AdvanceRequests')) ...[
           _miniBtn(Icons.check, const Color(0xFF1E3A5F), _l10n.approveLabel, () => _approveRequest(r, true)),
           const SizedBox(width: 4),
           _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject, () => _showRejectDialog(r)),
         ],
-        if (r.status == AdvanceRequestStatus.approved && !r.isPaid && _p.canApprove('AdvanceRequests')) ...[
+        if (r.status == AdvanceRequestStatus.approved && !r.isPaid && p.canApprove('AdvanceRequests')) ...[
           _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval, () => _undoApprove(r)),
           const SizedBox(width: 4),
           _miniBtn(Icons.payment, const Color(0xFF1E3A5F), _l10n.payment, () => _payRequest(r)),
         ],
-        if (_p.canDelete('AdvanceRequests')) ...[
+        if (p.canDelete('AdvanceRequests')) ...[
         const SizedBox(width: 4),
         _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete, () => _deleteRequest(r)),
         ],

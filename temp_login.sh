@@ -1,0 +1,2 @@
+#!/bin/bash
+curl -s http://localhost:7070/api/auth/login -X POST -H 'Content-Type: application/json' -d '{"storeCode":"S001","userName":"admin","password":"Admin@123"}'

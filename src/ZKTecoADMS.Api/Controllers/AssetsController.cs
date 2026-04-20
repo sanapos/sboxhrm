@@ -307,7 +307,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             DepreciationRate = a.DepreciationRate,
             CurrentValue = a.CurrentValue,
             CurrentAssigneeId = a.CurrentAssigneeId?.ToString(),
-            CurrentAssigneeName = a.CurrentAssignee?.FullName,
+            CurrentAssigneeName = a.CurrentAssignee != null ? $"{a.CurrentAssignee.FirstName} {a.CurrentAssignee.LastName}" : null,
             AssignedDate = a.AssignedDate,
             IsActive = a.IsActive,
             CreatedAt = a.CreatedAt,
@@ -368,7 +368,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             DepreciationRate = asset.DepreciationRate,
             CurrentValue = asset.CurrentValue,
             CurrentAssigneeId = asset.CurrentAssigneeId?.ToString(),
-            CurrentAssigneeName = asset.CurrentAssignee?.FullName,
+            CurrentAssigneeName = asset.CurrentAssignee != null ? $"{asset.CurrentAssignee.FirstName} {asset.CurrentAssignee.LastName}" : null,
             AssignedDate = asset.AssignedDate,
             IsActive = asset.IsActive,
             CreatedAt = asset.CreatedAt,
@@ -392,9 +392,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 TransferType = t.TransferType,
                 TransferTypeName = GetTransferTypeName(t.TransferType),
                 FromUserId = t.FromUserId?.ToString(),
-                FromUserName = t.FromUser?.FullName,
+                FromUserName = t.FromUser != null ? $"{t.FromUser.FirstName} {t.FromUser.LastName}" : null,
                 ToUserId = t.ToUserId?.ToString(),
-                ToUserName = t.ToUser?.FullName,
+                ToUserName = t.ToUser != null ? $"{t.ToUser.FirstName} {t.ToUser.LastName}" : null,
                 Quantity = t.Quantity,
                 TransferDate = t.TransferDate,
                 Reason = t.Reason,
@@ -588,6 +588,20 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     #endregion
 
     #region Asset Transfer & Assignment
+    /// <summary>
+    /// Validate EmployeeId: checks that the given ID is a valid Employee.
+    /// </summary>
+    private async Task<Guid?> ValidateEmployeeIdAsync(string? employeeIdStr)
+    {
+        if (string.IsNullOrWhiteSpace(employeeIdStr)) return null;
+        if (!Guid.TryParse(employeeIdStr, out var parsedId)) return null;
+
+        var exists = await _context.Employees.AnyAsync(e => e.Id == parsedId);
+        if (exists) return parsedId;
+
+        return null;
+    }
+
     [HttpPost("assign")]
     public async Task<IActionResult> AssignAsset([FromBody] AssignAssetDto request)
     {
@@ -601,12 +615,16 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         if (request.Quantity > asset.Quantity)
             return BadRequest(AppResponse<object>.Error("Số lượng cấp vượt quá số lượng có"));
 
+        var employeeId = await ValidateEmployeeIdAsync(request.ToUserId);
+        if (employeeId == null)
+            return BadRequest(AppResponse<object>.Error("Không tìm thấy nhân viên"));
+
         var transfer = new AssetTransfer
         {
             Id = Guid.NewGuid(),
             AssetId = request.AssetId,
             TransferType = AssetTransferType.Assignment,
-            ToUserId = Guid.TryParse(request.ToUserId, out var toGuid) ? toGuid : null,
+            ToUserId = employeeId,
             Quantity = request.Quantity,
             TransferDate = DateTime.UtcNow,
             Reason = request.Reason,
@@ -616,7 +634,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             CreatedAt = DateTime.UtcNow
         };
 
-        asset.CurrentAssigneeId = Guid.TryParse(request.ToUserId, out var toUserGuid) ? toUserGuid : null;
+        asset.CurrentAssigneeId = employeeId;
         asset.AssignedDate = DateTime.UtcNow;
         asset.Status = AssetStatus.Active;
 
@@ -633,16 +651,21 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         if (asset == null)
             return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
 
-        if (asset.CurrentAssigneeId?.ToString() != request.FromUserId)
+        // Validate FromUserId as EmployeeId
+        if (!Guid.TryParse(request.FromUserId, out var fromEmployeeId) || asset.CurrentAssigneeId != fromEmployeeId)
             return BadRequest(AppResponse<object>.Error("Tài sản không thuộc người chuyển giao"));
+
+        var toEmployeeId = await ValidateEmployeeIdAsync(request.ToUserId);
+        if (toEmployeeId == null)
+            return BadRequest(AppResponse<object>.Error("Không tìm thấy nhân viên nhận"));
 
         var transfer = new AssetTransfer
         {
             Id = Guid.NewGuid(),
             AssetId = request.AssetId,
             TransferType = AssetTransferType.Transfer,
-            FromUserId = Guid.TryParse(request.FromUserId, out var fromGuid) ? fromGuid : null,
-            ToUserId = Guid.TryParse(request.ToUserId, out var toGuid) ? toGuid : null,
+            FromUserId = fromEmployeeId,
+            ToUserId = toEmployeeId,
             Quantity = request.Quantity,
             TransferDate = DateTime.UtcNow,
             Reason = request.Reason,
@@ -652,7 +675,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             CreatedAt = DateTime.UtcNow
         };
 
-        asset.CurrentAssigneeId = Guid.TryParse(request.ToUserId, out var toTransferGuid) ? toTransferGuid : null;
+        asset.CurrentAssigneeId = toEmployeeId;
         asset.AssignedDate = DateTime.UtcNow;
 
         _context.AssetTransfers.Add(transfer);
@@ -668,7 +691,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         if (asset == null)
             return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
 
-        if (asset.CurrentAssigneeId?.ToString() != request.FromUserId)
+        if (!Guid.TryParse(request.FromUserId, out var fromEmployeeId) || asset.CurrentAssigneeId != fromEmployeeId)
             return BadRequest(AppResponse<object>.Error("Tài sản không thuộc người này"));
 
         var transfer = new AssetTransfer
@@ -676,7 +699,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Id = Guid.NewGuid(),
             AssetId = request.AssetId,
             TransferType = AssetTransferType.Return,
-            FromUserId = Guid.TryParse(request.FromUserId, out var fromGuid) ? fromGuid : null,
+            FromUserId = fromEmployeeId,
             Quantity = request.Quantity,
             TransferDate = DateTime.UtcNow,
             Reason = request.Reason,
@@ -708,7 +731,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         if (transfer == null)
             return NotFound(AppResponse<object>.Error("Không tìm thấy chuyển giao"));
 
-        if (transfer.ToUserId != CurrentUserId)
+        // ToUserId is now EmployeeId, resolve current user's EmployeeId for comparison
+        var currentEmployee = await _context.Employees.FirstOrDefaultAsync(e => e.ApplicationUserId == CurrentUserId);
+        if (currentEmployee == null || transfer.ToUserId != currentEmployee.Id)
             return BadRequest(AppResponse<object>.Error("Bạn không phải người nhận tài sản này"));
 
         transfer.IsConfirmed = true;
@@ -749,9 +774,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             TransferType = t.TransferType,
             TransferTypeName = GetTransferTypeName(t.TransferType),
             FromUserId = t.FromUserId?.ToString(),
-            FromUserName = t.FromUser?.FullName,
+            FromUserName = t.FromUser != null ? $"{t.FromUser.FirstName} {t.FromUser.LastName}" : null,
             ToUserId = t.ToUserId?.ToString(),
-            ToUserName = t.ToUser?.FullName,
+            ToUserName = t.ToUser != null ? $"{t.ToUser.FirstName} {t.ToUser.LastName}" : null,
             Quantity = t.Quantity,
             TransferDate = t.TransferDate,
             Reason = t.Reason,
@@ -842,7 +867,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Quantity = asset.Quantity,
             Supplier = asset.Supplier,
             CurrentAssigneeId = asset.CurrentAssigneeId?.ToString(),
-            CurrentAssigneeName = asset.CurrentAssignee?.FullName,
+            CurrentAssigneeName = asset.CurrentAssignee != null ? $"{asset.CurrentAssignee.FirstName} {asset.CurrentAssignee.LastName}" : null,
             AssignedDate = asset.AssignedDate,
             Notes = asset.Notes,
             PrimaryImageUrl = asset.Images.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
@@ -899,6 +924,41 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             message = "Kiểm kê tài sản thành công: " + (item.Asset?.Name ?? request.Code)
         }));
     }
+
+    [HttpGet("{assetId}/inventory-history")]
+    public async Task<IActionResult> GetAssetInventoryHistory(Guid assetId)
+    {
+        var items = await _context.AssetInventoryItems
+            .Where(i => i.AssetId == assetId && i.Inventory!.StoreId == RequiredStoreId)
+            .Include(i => i.Inventory)
+            .Include(i => i.CheckedBy)
+            .OrderByDescending(i => i.Inventory!.StartDate)
+            .ToListAsync();
+
+        var dtos = items.Select(i => new
+        {
+            i.Id,
+            InventoryId = i.InventoryId,
+            InventoryName = i.Inventory?.Name,
+            InventoryCode = i.Inventory?.InventoryCode,
+            InventoryDate = i.Inventory?.StartDate,
+            InventoryStatus = i.Inventory?.Status,
+            InventoryStatusName = GetInventoryStatusName(i.Inventory?.Status ?? 0),
+            i.IsChecked,
+            i.CheckedAt,
+            CheckedByName = i.CheckedBy?.FullName,
+            ExpectedQuantity = i.ExpectedQuantity,
+            i.ActualQuantity,
+            Diff = i.ActualQuantity.HasValue ? i.ActualQuantity.Value - i.ExpectedQuantity : (int?)null,
+            i.Condition,
+            ConditionName = GetConditionName(i.Condition),
+            i.HasIssue,
+            i.IssueDescription,
+            i.Notes,
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(dtos));
+    }
     #endregion
 
     #region Asset Inventory
@@ -928,7 +988,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Status = i.Status,
             StatusName = GetInventoryStatusName(i.Status),
             ResponsibleUserId = i.ResponsibleUserId?.ToString(),
-            ResponsibleUserName = i.ResponsibleUser?.FullName,
+            ResponsibleUserName = i.ResponsibleUser != null ? $"{i.ResponsibleUser.FirstName} {i.ResponsibleUser.LastName}" : null,
             Notes = i.Notes,
             TotalAssets = i.Items.Count,
             CheckedCount = i.Items.Count(x => x.IsChecked),
@@ -966,7 +1026,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Status = inventory.Status,
             StatusName = GetInventoryStatusName(inventory.Status),
             ResponsibleUserId = inventory.ResponsibleUserId?.ToString(),
-            ResponsibleUserName = inventory.ResponsibleUser?.FullName,
+            ResponsibleUserName = inventory.ResponsibleUser != null ? $"{inventory.ResponsibleUser.FirstName} {inventory.ResponsibleUser.LastName}" : null,
             Notes = inventory.Notes,
             TotalAssets = inventory.Items.Count,
             CheckedCount = inventory.Items.Count(x => x.IsChecked),
@@ -986,9 +1046,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 CheckedByName = item.CheckedBy?.FullName,
                 Condition = item.Condition,
                 ConditionName = GetConditionName(item.Condition),
-                ExpectedQuantity = item.Asset?.Quantity ?? 0,
+                ExpectedQuantity = item.ExpectedQuantity,
                 ActualQuantity = item.ActualQuantity,
-                QuantityMismatch = item.ActualQuantity.HasValue && item.ActualQuantity.Value != (item.Asset?.Quantity ?? 0),
+                QuantityMismatch = item.ActualQuantity.HasValue && item.ActualQuantity.Value != item.ExpectedQuantity,
                 ActualLocation = item.ActualLocation,
                 HasIssue = item.HasIssue,
                 IssueDescription = item.IssueDescription,
@@ -1018,25 +1078,58 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             ResponsibleUserId = responsibleId,
             Notes = request.Notes,
             StoreId = RequiredStoreId,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = CurrentUserId.ToString()
         };
 
-        // Add items
-        var assetIds = request.AssetIds != null && request.AssetIds.Any()
-            ? request.AssetIds
-            : await _context.Assets.Where(a => a.StoreId == RequiredStoreId && a.IsActive).Select(a => a.Id).ToListAsync();
-
-        foreach (var assetId in assetIds)
+        // Add items: prefer Items[] with expected qty, fallback to AssetIds, fallback to all assets
+        if (request.Items != null && request.Items.Any())
         {
-            inventory.Items.Add(new AssetInventoryItem
+            foreach (var itemInput in request.Items)
             {
-                Id = Guid.NewGuid(),
-                InventoryId = inventory.Id,
-                AssetId = assetId,
-                IsChecked = false,
-                CreatedAt = DateTime.UtcNow
-            });
+                var invItem = new AssetInventoryItem
+                {
+                    Id = Guid.NewGuid(),
+                    InventoryId = inventory.Id,
+                    AssetId = itemInput.AssetId,
+                    StoredExpectedQuantity = itemInput.ExpectedQuantity,
+                    IsChecked = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                if (itemInput.ActualQuantity.HasValue)
+                {
+                    invItem.IsChecked = true;
+                    invItem.CheckedAt = DateTime.UtcNow;
+                    invItem.CheckedById = CurrentUserId;
+                    invItem.ActualQuantity = itemInput.ActualQuantity.Value;
+                    invItem.HasIssue = itemInput.ActualQuantity.Value < itemInput.ExpectedQuantity;
+                    invItem.Notes = itemInput.Notes;
+                }
+                inventory.Items.Add(invItem);
+            }
+        }
+        else
+        {
+            var assetIds = request.AssetIds != null && request.AssetIds.Any()
+                ? request.AssetIds
+                : await _context.Assets.Where(a => a.StoreId == RequiredStoreId && a.IsActive).Select(a => a.Id).ToListAsync();
+
+            // Lookup quantities for all assets
+            var assetQtys = await _context.Assets.Where(a => assetIds.Contains(a.Id)).Select(a => new { a.Id, a.Quantity }).ToDictionaryAsync(a => a.Id, a => a.Quantity);
+
+            foreach (var assetId in assetIds)
+            {
+                inventory.Items.Add(new AssetInventoryItem
+                {
+                    Id = Guid.NewGuid(),
+                    InventoryId = inventory.Id,
+                    AssetId = assetId,
+                    StoredExpectedQuantity = assetQtys.GetValueOrDefault(assetId, 0),
+                    IsChecked = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
         }
 
         _context.AssetInventories.Add(inventory);
@@ -1076,9 +1169,47 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     [HttpPatch("inventories/{id}/complete")]
     public async Task<IActionResult> CompleteInventory(Guid id)
     {
-        var inventory = await _context.AssetInventories.AsTracking().FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
+        var inventory = await _context.AssetInventories
+            .AsTracking()
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
         if (inventory == null)
             return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+
+        if (inventory.Status != 0)
+            return BadRequest(AppResponse<object>.Error("Đợt kiểm kê không ở trạng thái đang tiến hành"));
+
+        // Auto-adjust stock for items with quantity mismatch
+        var checkedItems = inventory.Items.Where(i => i.IsChecked && i.ActualQuantity.HasValue).ToList();
+        var assetIds = checkedItems.Select(i => i.AssetId).ToList();
+        var assets = await _context.Assets.AsTracking().Where(a => assetIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id);
+        
+        int adjustedCount = 0;
+        foreach (var item in checkedItems)
+        {
+            if (!assets.TryGetValue(item.AssetId, out var asset)) continue;
+            var diff = item.ActualQuantity!.Value - item.ExpectedQuantity;
+            if (diff == 0) continue;
+
+            asset.Quantity = item.ActualQuantity.Value;
+            adjustedCount++;
+
+            _context.StockTransactions.Add(new StockTransaction
+            {
+                Id = Guid.NewGuid(),
+                AssetId = asset.Id,
+                TransactionType = StockTransactionType.Adjustment,
+                Quantity = diff,
+                BalanceAfter = asset.Quantity,
+                Reason = $"Điều chỉnh từ kiểm kê {inventory.InventoryCode}",
+                ReferenceCode = $"DC-{inventory.InventoryCode}",
+                RelatedInventoryId = inventory.Id,
+                PerformedById = CurrentUserId,
+                Notes = $"Tồn kho: {item.ExpectedQuantity} → Thực tế: {item.ActualQuantity.Value} (chênh lệch: {(diff > 0 ? "+" : "")}{diff})",
+                StoreId = RequiredStoreId,
+                TransactionDate = DateTime.UtcNow
+            });
+        }
 
         inventory.Status = 1;
         inventory.EndDate = DateTime.UtcNow;
@@ -1086,8 +1217,231 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         inventory.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Hoàn thành kiểm kê"));
+        return Ok(AppResponse<object>.Success(new { message = "Hoàn thành kiểm kê", adjustedItems = adjustedCount }));
     }
+
+    [HttpPatch("inventories/{id}/cancel")]
+    public async Task<IActionResult> CancelInventory(Guid id)
+    {
+        var inventory = await _context.AssetInventories.AsTracking().FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
+        if (inventory == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+
+        if (inventory.Status == 1)
+            return BadRequest(AppResponse<object>.Error("Không thể hủy đợt kiểm kê đã hoàn thành"));
+
+        inventory.Status = 2;
+        inventory.EndDate = DateTime.UtcNow;
+        inventory.UpdatedAt = DateTime.UtcNow;
+        inventory.UpdatedBy = CurrentUserId.ToString();
+
+        await _context.SaveChangesAsync();
+        return Ok(AppResponse<string>.Success("Đã hủy đợt kiểm kê"));
+    }
+
+    [HttpDelete("inventories/{id}")]
+    public async Task<IActionResult> DeleteInventory(Guid id)
+    {
+        var inventory = await _context.AssetInventories
+            .AsTracking()
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
+        if (inventory == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+
+        _context.AssetInventoryItems.RemoveRange(inventory.Items);
+        _context.AssetInventories.Remove(inventory);
+        await _context.SaveChangesAsync();
+        return Ok(AppResponse<string>.Success("Đã xóa đợt kiểm kê"));
+    }
+    #endregion
+
+    #region Stock Transactions
+    
+    private string GetTransactionTypeName(StockTransactionType type) => type switch
+    {
+        StockTransactionType.StockIn => "Nhập kho",
+        StockTransactionType.StockOut => "Xuất kho",
+        StockTransactionType.Adjustment => "Điều chỉnh",
+        _ => "Khác"
+    };
+
+    private string GenerateTransactionCode(StockTransactionType type)
+    {
+        var prefix = type switch
+        {
+            StockTransactionType.StockIn => "NK",
+            StockTransactionType.StockOut => "XK",
+            StockTransactionType.Adjustment => "DC",
+            _ => "GD"
+        };
+        return $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
+    }
+
+    [HttpPost("stock/in")]
+    public async Task<IActionResult> StockIn([FromBody] CreateStockTransactionDto request)
+    {
+        if (request.Quantity <= 0)
+            return BadRequest(AppResponse<object>.Error("Số lượng phải lớn hơn 0"));
+
+        var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId && a.IsActive);
+        if (asset == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy sản phẩm"));
+
+        asset.Quantity += request.Quantity;
+
+        var transaction = new StockTransaction
+        {
+            Id = Guid.NewGuid(),
+            AssetId = asset.Id,
+            TransactionType = StockTransactionType.StockIn,
+            Quantity = request.Quantity,
+            BalanceAfter = asset.Quantity,
+            Reason = request.Reason,
+            ReferenceCode = request.ReferenceCode ?? GenerateTransactionCode(StockTransactionType.StockIn),
+            PerformedById = CurrentUserId,
+            Notes = request.Notes,
+            StoreId = RequiredStoreId,
+            TransactionDate = DateTime.UtcNow
+        };
+
+        _context.StockTransactions.Add(transaction);
+        await _context.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new { 
+            transactionId = transaction.Id, 
+            referenceCode = transaction.ReferenceCode,
+            newBalance = asset.Quantity 
+        }));
+    }
+
+    [HttpPost("stock/out")]
+    public async Task<IActionResult> StockOut([FromBody] CreateStockTransactionDto request)
+    {
+        if (request.Quantity <= 0)
+            return BadRequest(AppResponse<object>.Error("Số lượng phải lớn hơn 0"));
+
+        var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId && a.IsActive);
+        if (asset == null)
+            return NotFound(AppResponse<object>.Error("Không tìm thấy sản phẩm"));
+
+        if (asset.Quantity < request.Quantity)
+            return BadRequest(AppResponse<object>.Error($"Tồn kho không đủ. Hiện có: {asset.Quantity}, yêu cầu: {request.Quantity}"));
+
+        asset.Quantity -= request.Quantity;
+
+        var transaction = new StockTransaction
+        {
+            Id = Guid.NewGuid(),
+            AssetId = asset.Id,
+            TransactionType = StockTransactionType.StockOut,
+            Quantity = -request.Quantity,
+            BalanceAfter = asset.Quantity,
+            Reason = request.Reason,
+            ReferenceCode = request.ReferenceCode ?? GenerateTransactionCode(StockTransactionType.StockOut),
+            PerformedById = CurrentUserId,
+            Notes = request.Notes,
+            StoreId = RequiredStoreId,
+            TransactionDate = DateTime.UtcNow
+        };
+
+        _context.StockTransactions.Add(transaction);
+        await _context.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new { 
+            transactionId = transaction.Id,
+            referenceCode = transaction.ReferenceCode,
+            newBalance = asset.Quantity 
+        }));
+    }
+
+    [HttpGet("stock/transactions")]
+    public async Task<IActionResult> GetStockTransactions(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] Guid? assetId = null,
+        [FromQuery] int? transactionType = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] string? search = null)
+    {
+        var query = _context.StockTransactions
+            .Where(t => t.StoreId == RequiredStoreId)
+            .Include(t => t.Asset)
+            .Include(t => t.PerformedBy)
+            .AsQueryable();
+
+        if (assetId.HasValue)
+            query = query.Where(t => t.AssetId == assetId.Value);
+        if (transactionType.HasValue)
+            query = query.Where(t => (int)t.TransactionType == transactionType.Value);
+        if (fromDate.HasValue)
+            query = query.Where(t => t.TransactionDate >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(t => t.TransactionDate <= toDate.Value);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(t => t.Asset!.Name.Contains(search) || t.Asset.AssetCode.Contains(search) || (t.ReferenceCode != null && t.ReferenceCode.Contains(search)));
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(t => t.TransactionDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(t => new StockTransactionDto
+            {
+                Id = t.Id,
+                AssetId = t.AssetId,
+                AssetCode = t.Asset!.AssetCode,
+                AssetName = t.Asset.Name,
+                TransactionType = (int)t.TransactionType,
+                TransactionTypeName = t.TransactionType == StockTransactionType.StockIn ? "Nhập kho" : t.TransactionType == StockTransactionType.StockOut ? "Xuất kho" : "Điều chỉnh",
+                Quantity = t.Quantity,
+                BalanceAfter = t.BalanceAfter,
+                Reason = t.Reason,
+                ReferenceCode = t.ReferenceCode,
+                RelatedInventoryId = t.RelatedInventoryId,
+                PerformedById = t.PerformedById.HasValue ? t.PerformedById.Value.ToString() : null,
+                PerformedByName = t.PerformedBy != null ? t.PerformedBy.FullName : null,
+                Notes = t.Notes,
+                TransactionDate = t.TransactionDate
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<object>.Success(new { items, total, page, pageSize }));
+    }
+
+    [HttpGet("stock/summary")]
+    public async Task<IActionResult> GetStockSummary()
+    {
+        var assets = await _context.Assets
+            .Where(a => a.StoreId == RequiredStoreId && a.IsActive)
+            .ToListAsync();
+
+        var transactions = await _context.StockTransactions
+            .Where(t => t.StoreId == RequiredStoreId)
+            .ToListAsync();
+
+        var summary = new StockSummaryDto
+        {
+            TotalProducts = assets.Count,
+            TotalStockQuantity = assets.Sum(a => a.Quantity),
+            TotalStockIn = transactions.Where(t => t.TransactionType == StockTransactionType.StockIn).Sum(t => t.Quantity),
+            TotalStockOut = transactions.Where(t => t.TransactionType == StockTransactionType.StockOut).Sum(t => Math.Abs(t.Quantity)),
+            TotalAdjustments = transactions.Count(t => t.TransactionType == StockTransactionType.Adjustment),
+            TotalStockValue = assets.Sum(a => a.PurchasePrice * a.Quantity),
+            LowStockItems = assets.Where(a => a.Quantity <= 5).OrderBy(a => a.Quantity).Take(10).Select(a => new LowStockItemDto
+            {
+                AssetId = a.Id,
+                AssetCode = a.AssetCode,
+                AssetName = a.Name,
+                Quantity = a.Quantity,
+                Unit = a.Unit
+            }).ToList()
+        };
+
+        return Ok(AppResponse<StockSummaryDto>.Success(summary));
+    }
+
     #endregion
 
     #region Statistics
@@ -1129,10 +1483,10 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 Count = g.Count(),
                 TotalValue = g.Sum(a => a.PurchasePrice * a.Quantity)
             }).OrderByDescending(x => x.Count).ToList(),
-            ByAssignee = assets.Where(a => a.CurrentAssigneeId != null).GroupBy(a => new { a.CurrentAssigneeId, Name = a.CurrentAssignee!.FullName }).Select(g => new AssetByAssigneeDto
+            ByAssignee = assets.Where(a => a.CurrentAssigneeId != null).GroupBy(a => new { a.CurrentAssigneeId, a.CurrentAssignee!.FirstName, a.CurrentAssignee.LastName }).Select(g => new AssetByAssigneeDto
             {
                 AssigneeId = g.Key.CurrentAssigneeId?.ToString(),
-                AssigneeName = g.Key.Name ?? "Unknown",
+                AssigneeName = $"{g.Key.FirstName} {g.Key.LastName}",
                 Count = g.Count(),
                 TotalValue = g.Sum(a => a.PurchasePrice * a.Quantity)
             }).OrderByDescending(x => x.Count).ToList(),

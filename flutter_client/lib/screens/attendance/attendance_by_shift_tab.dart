@@ -2321,7 +2321,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         }
       } else {
         // Mobile fallback: use async renderer with same draw callback
-        final drawFn = (dynamic ctx) {
+        void drawFn(dynamic ctx) {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, totalWidth, totalHeight);
           ctx.fillStyle = '#1a1a1a';
@@ -2383,7 +2383,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           ctx.strokeStyle = '#CBD5E1';
           ctx.lineWidth = 1;
           ctx.strokeRect(1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
-        };
+        }
         final pngBytes = await web_canvas.renderToPngBytes(
           width: totalWidth.toInt(),
           height: totalHeight.toInt(),

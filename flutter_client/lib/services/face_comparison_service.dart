@@ -299,7 +299,9 @@ class FaceComparisonService {
 
         // L2 normalize
         double norm = 0;
-        for (int i = 0; i < block.length; i++) norm += block[i] * block[i];
+        for (int i = 0; i < block.length; i++) {
+          norm += block[i] * block[i];
+        }
         norm = math.sqrt(norm) + 1e-6;
 
         for (int i = 0; i < block.length; i++) {
@@ -322,7 +324,7 @@ class FaceComparisonService {
   static Float64List _computeLBP(_PreprocessedImage image) {
     final w = image.width;
     final h = image.height;
-    final gridSize = _lbpGridSize; // 8x8 spatial grid for fine-grained position
+    const gridSize = _lbpGridSize; // 8x8 spatial grid for fine-grained position
     const bins = 59; // 58 uniform patterns + 1 non-uniform bin
     final regionW = w ~/ gridSize;
     final regionH = h ~/ gridSize;
@@ -348,7 +350,7 @@ class FaceComparisonService {
       }
     }
 
-    final totalBins = gridSize * gridSize * bins;
+    const totalBins = gridSize * gridSize * bins;
     final histogram = Float64List(totalBins);
 
     for (int gy = 0; gy < gridSize; gy++) {
@@ -455,7 +457,9 @@ class FaceComparisonService {
       histogram[bin]++;
     }
 
-    for (int i = 0; i < 32; i++) histogram[i] /= total;
+    for (int i = 0; i < 32; i++) {
+      histogram[i] /= total;
+    }
     return histogram;
   }
 

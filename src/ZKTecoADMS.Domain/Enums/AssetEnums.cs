@@ -73,3 +73,16 @@ public enum AssetType
     /// <summary>Khác</summary>
     Other = 6
 }
+
+/// <summary>
+/// Loại giao dịch kho
+/// </summary>
+public enum StockTransactionType
+{
+    /// <summary>Nhập kho</summary>
+    StockIn = 0,
+    /// <summary>Xuất kho</summary>
+    StockOut = 1,
+    /// <summary>Điều chỉnh (từ kiểm kê)</summary>
+    Adjustment = 2
+}

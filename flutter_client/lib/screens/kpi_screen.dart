@@ -1627,7 +1627,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               onPressed: _writeTargetsToGSheet,
               icon: Icon(Icons.cloud_upload_rounded, size: isMobile ? 16 : 18),
               label: const Text('Ghi chỉ tiêu → GSheet'),
-              style: btnStyle.copyWith(foregroundColor: WidgetStatePropertyAll(_green)),
+              style: btnStyle.copyWith(foregroundColor: const WidgetStatePropertyAll(_green)),
             ),
             OutlinedButton.icon(
               onPressed: _isExporting ? null : _exportTargetsExcel,

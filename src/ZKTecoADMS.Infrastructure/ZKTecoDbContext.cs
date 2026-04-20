@@ -106,6 +106,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<AssetInventory> AssetInventories => Set<AssetInventory>();
     public DbSet<AssetInventoryItem> AssetInventoryItems => Set<AssetInventoryItem>();
     public DbSet<AssetTransfer> AssetTransfers => Set<AssetTransfer>();
+    public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
     
     // Organization & HR
     public DbSet<Branch> Branches => Set<Branch>();
