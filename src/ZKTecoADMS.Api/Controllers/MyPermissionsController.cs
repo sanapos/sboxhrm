@@ -45,7 +45,14 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
             return Ok(AppResponse<List<ModulePermissionDto>>.Success(allModules));
         }
 
-        // 1. Lấy quyền theo Role
+        // 1. Đồng bộ role permissions: tự thêm module mới còn thiếu cho role hiện tại
+        var allPermissionModules = await context.Permissions
+            .OrderBy(p => p.DisplayOrder)
+            .ToListAsync();
+
+        await EnsureRolePermissionsCompleteAsync(roleClaim, storeId, allPermissionModules);
+
+        // 2. Lấy quyền theo Role
         var rolePermissions = await context.RolePermissions
             .Include(rp => rp.Permission)
             .Where(rp => rp.RoleName == roleClaim &&
@@ -53,7 +60,7 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
                          rp.IsActive)
             .ToListAsync();
 
-        // 2. Lấy quyền theo Department (override)
+        // 3. Lấy quyền theo Department (override)
         var userId = CurrentUserId;
         var deptPermissions = await context.DepartmentPermissions
             .Include(dp => dp.Permission)
@@ -62,10 +69,7 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
                          dp.IsActive)
             .ToListAsync();
 
-        // 3. Merge: role permissions + department permissions (OR logic)
-        var allPermissionModules = await context.Permissions
-            .OrderBy(p => p.DisplayOrder)
-            .ToListAsync();
+        // 4. Merge: role permissions + department permissions (OR logic)
 
         var result = allPermissionModules.Select(module =>
         {
@@ -89,4 +93,114 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
 
         return Ok(AppResponse<List<ModulePermissionDto>>.Success(result));
     }
+
+    private async Task EnsureRolePermissionsCompleteAsync(string roleName, Guid? storeId, List<Infrastructure.Entities.Permission> allModules)
+    {
+        if (string.IsNullOrWhiteSpace(roleName) || allModules.Count == 0)
+            return;
+
+        var existingPermissionIds = await context.RolePermissions
+            .Where(rp => rp.RoleName == roleName && (rp.StoreId == storeId || rp.StoreId == null) && rp.IsActive)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync();
+
+        var existingSet = existingPermissionIds.ToHashSet();
+        var missingModules = allModules.Where(m => !existingSet.Contains(m.Id)).ToList();
+        if (missingModules.Count == 0)
+            return;
+
+        foreach (var module in missingModules)
+        {
+            var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+            context.RolePermissions.Add(new Infrastructure.Entities.RolePermission
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                RoleName = roleName,
+                RoleDisplayName = GetRoleDisplayName(roleName),
+                PermissionId = module.Id,
+                CanView = canView,
+                CanCreate = canCreate,
+                CanEdit = canEdit,
+                CanDelete = canDelete,
+                CanExport = canExport,
+                CanApprove = canApprove,
+                IsActive = true
+            });
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove)
+        GetDefaultPermissions(string roleName, string module)
+    {
+        return roleName.ToLower() switch
+        {
+            "admin" => (true, true, true, true, true, true),
+            "director" => module.ToLower() switch
+            {
+                "settings" or "device" or "geofence" or "deviceuser" => (true, false, false, false, false, false),
+                "store" or "role" or "usermanagement" or "departmentpermission" => (true, false, false, false, true, false),
+                _ => (true, true, true, true, true, true)
+            },
+            "accountant" => module.ToLower() switch
+            {
+                "salary" or "payslip" or "allowance" or "insurance" or "tax" or "advance"
+                    or "transaction" or "cashtransaction" or "bankaccount" or "benefit"
+                    => (true, true, true, true, true, false),
+                "report" or "employee" or "attendance" => (true, false, false, false, true, false),
+                "dashboard" or "leave" or "shift" or "holiday" or "overtime" or "notification"
+                    => (true, false, false, false, false, false),
+                _ => (false, false, false, false, false, false)
+            },
+            "departmenthead" => module.ToLower() switch
+            {
+                "employee" or "attendance" or "leave" or "shift" or "overtime"
+                    or "attendancecorrection" or "workshedule" or "shiftswap"
+                    or "task" or "kpi" or "hrdocument"
+                    => (true, true, true, false, true, true),
+                "notification" or "communication" => (true, true, false, false, false, false),
+                "report" or "salary" or "payslip" => (true, false, false, false, true, false),
+                "dashboard" or "allowance" or "holiday" or "insurance" or "advance"
+                    or "shifttemplate" or "shiftsalarylevel" or "benefit" or "asset"
+                    or "orgchart" or "department"
+                    => (true, false, false, false, false, false),
+                _ => (false, false, false, false, false, false)
+            },
+            "manager" => module.ToLower() switch
+            {
+                "settings" or "store" or "role" => (true, false, false, false, false, false),
+                _ => (true, true, true, false, true, true)
+            },
+            "employee" => module.ToLower() switch
+            {
+                "dashboard" or "attendance" or "payslip" or "shift" or "notification"
+                    => (true, false, false, false, false, false),
+                "leave" or "shiftswap" or "attendancecorrection" or "overtime"
+                    => (true, true, false, false, false, false),
+                "task" => (true, false, true, false, false, false),
+                "fieldcheckin" => (true, true, true, false, false, false),
+                _ => (false, false, false, false, false, false)
+            },
+            "user" => module.ToLower() switch
+            {
+                "dashboard" => (true, false, false, false, false, false),
+                _ => (false, false, false, false, false, false)
+            },
+            _ => (false, false, false, false, false, false)
+        };
+    }
+
+    private static string GetRoleDisplayName(string roleName) => roleName.ToLower() switch
+    {
+        "admin" => "Quản trị viên",
+        "director" => "Giám đốc",
+        "accountant" => "Kế toán",
+        "departmenthead" => "Trưởng phòng",
+        "manager" => "Quản lý",
+        "employee" => "Nhân viên",
+        "user" => "Người dùng",
+        _ => roleName
+    };
 }
