@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -28,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Data
   Map<String, dynamic> _dailyReport = {};
   List<dynamic> _dailyReportItems = [];
+  DateTime? _selectedDate; // null => today
   List<dynamic> _todayLeaves = [];
   List<dynamic> _trends = [];
   List<dynamic> _devices = [];
@@ -100,8 +103,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
     try {
-      final today = DateTime.now();
-      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final target = _selectedDate ?? DateTime.now();
+      final todayStr = '${target.year}-${target.month.toString().padLeft(2, '0')}-${target.day.toString().padLeft(2, '0')}';
 
       // Phase 1: Critical data (show dashboard ASAP)
       final criticalResults = await Future.wait([
@@ -130,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _api.getKpiResults(),                                     // 2
         _api.getAllLeaves(status: 'Approved', fromDate: todayStr, toDate: todayStr, pageSize: 100), // 3
         _api.getKpiDashboard(),                                   // 4
-        _api.getWorkSchedules(fromDate: today, toDate: today, pageSize: 500), // 5
+        _api.getWorkSchedules(fromDate: target, toDate: target, pageSize: 500), // 5
       ]);
 
       if (mounted) {
@@ -313,8 +316,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            const SizedBox(height: 20),
-            _buildLiveStatsRow(),
+            const SizedBox(height: 16),
+            _buildHeroOverview(),
             const SizedBox(height: 20),
             _buildMainGrid(),
           ],
@@ -376,7 +379,291 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ===================== HERO OVERVIEW (donut + KPI + date filter) =====================
+  Widget _buildHeroOverview() {
+    final scheduled = math.max(_totalEmployees - _absentCount - _presentCount, 0);
+    final rate = _attendanceRate.clamp(0, 100).toDouble();
+
+    final isSelectedToday = _selectedDate == null ||
+        (_selectedDate!.year == DateTime.now().year &&
+            _selectedDate!.month == DateTime.now().month &&
+            _selectedDate!.day == DateTime.now().day);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF8FAFC), Color(0xFFEFF3F8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E9F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filter row
+          Row(
+            children: [
+              const Icon(Icons.analytics_outlined, size: 18, color: Color(0xFF1E3A5F)),
+              const SizedBox(width: 6),
+              const Text(
+                'Tổng quan chấm công',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)),
+              ),
+              const Spacer(),
+              _buildDateChip('Hôm nay', isSelectedToday, () {
+                setState(() => _selectedDate = null);
+                _loadAllData();
+              }),
+              const SizedBox(width: 6),
+              _buildDateChip('Hôm qua',
+                  _selectedDate != null && _daysAgo(_selectedDate!) == 1, () {
+                setState(() => _selectedDate = DateTime.now().subtract(const Duration(days: 1)));
+                _loadAllData();
+              }),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: _pickCustomDate,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFFE4E9F0)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_month, size: 14, color: Color(0xFF475569)),
+                      const SizedBox(width: 4),
+                      Text(
+                        _selectedDate == null
+                            ? 'Chọn ngày'
+                            : '${_selectedDate!.day}/${_selectedDate!.month}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 720;
+              final donut = _buildAttendanceDonut(rate);
+              final tiles = _buildHeroKpiTiles();
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: 220, child: donut),
+                    const SizedBox(width: 18),
+                    Expanded(child: tiles),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  SizedBox(height: 180, child: donut),
+                  const SizedBox(height: 12),
+                  tiles,
+                ],
+              );
+            },
+          ),
+          if (scheduled > 0) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Đã ghi nhận: $_checkIns vào / $_checkOuts ra  •  Lịch phân công: $scheduled NV',
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int _daysAgo(DateTime d) {
+    final now = DateTime.now();
+    final a = DateTime(now.year, now.month, now.day);
+    final b = DateTime(d.year, d.month, d.day);
+    return a.difference(b).inDays;
+  }
+
+  Future<void> _pickCustomDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+      _loadAllData();
+    }
+  }
+
+  Widget _buildDateChip(String label, bool selected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1E3A5F) : Colors.white,
+          border: Border.all(color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFE4E9F0)),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceDonut(double rate) {
+    // Color bands: green >= 85, orange 70-85, red < 70
+    final Color arcColor = rate >= 85
+        ? const Color(0xFF22C55E)
+        : rate >= 70
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFEF4444);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox.expand(
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 52,
+              startDegreeOffset: -90,
+              sections: [
+                PieChartSectionData(
+                  value: rate,
+                  color: arcColor,
+                  radius: 22,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  value: (100 - rate).clamp(0.0001, 100),
+                  color: const Color(0xFFE2E8F0),
+                  radius: 22,
+                  showTitle: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${rate.toStringAsFixed(1)}%',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: arcColor),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Tỉ lệ chấm công',
+              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroKpiTiles() {
+    final tiles = <_HeroKpi>[
+      _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded, const Color(0xFF1E3A5F)),
+      _HeroKpi('Có mặt', '$_presentCount', Icons.how_to_reg_rounded, const Color(0xFF22C55E)),
+      _HeroKpi('Đi muộn', '$_lateCount', Icons.schedule_rounded, const Color(0xFFF59E0B)),
+      _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded, const Color(0xFFEF4444)),
+      _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded, const Color(0xFF2D5F8B)),
+      _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices', Icons.router_rounded, const Color(0xFF0F2340)),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = constraints.maxWidth < 380
+            ? 2
+            : constraints.maxWidth < 620
+                ? 3
+                : 3;
+        final ratio = constraints.maxWidth < 380 ? 1.7 : 2.0;
+        return GridView.count(
+          crossAxisCount: cols,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: ratio,
+          children: tiles.map(_buildHeroKpiTile).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeroKpiTile(_HeroKpi k) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: k.color.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(color: k.color.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: k.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(k.icon, size: 18, color: k.color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  k.label,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  k.value,
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: k.color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ===================== LIVE STATS ROW =====================
+  // ignore: unused_element
   Widget _buildLiveStatsRow() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2468,4 +2755,12 @@ class _LiveStat {
   final IconData icon;
   final Color color;
   _LiveStat(this.label, this.value, this.icon, this.color);
+}
+
+class _HeroKpi {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  _HeroKpi(this.label, this.value, this.icon, this.color);
 }

@@ -63,7 +63,27 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var today = DateTime.UtcNow.Date;
+            // Use Vietnam local time (UTC+7) so "today" aligns with user's wall clock.
+            var utcNow = DateTime.UtcNow;
+            DateTime vnNow;
+            try
+            {
+                var vnTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+                vnNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, vnTz);
+            }
+            catch
+            {
+                try
+                {
+                    var vnTz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+                    vnNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, vnTz);
+                }
+                catch
+                {
+                    vnNow = utcNow.AddHours(7);
+                }
+            }
+            var today = vnNow.Date;
             var tomorrow = today.AddDays(1);
             var periodFrom = fromDate?.Date ?? today;
             var periodTo = (toDate?.Date ?? today).AddDays(1); // inclusive end
@@ -77,9 +97,10 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Thống kê users
             var totalUsers = await _userManager.Users.CountAsync();
 
-            // Thống kê devices
+            // Thống kê devices — online nếu có heartbeat trong 90s gần nhất (thay vì dựa vào cột DeviceStatus có thể stale)
+            var onlineThreshold = utcNow.AddSeconds(-90);
             var totalDevices = await _dbContext.Devices.CountAsync();
-            var onlineDevices = await _dbContext.Devices.CountAsync(d => d.DeviceStatus == "Online");
+            var onlineDevices = await _dbContext.Devices.CountAsync(d => d.LastOnline != null && d.LastOnline > onlineThreshold);
             var offlineDevices = totalDevices - onlineDevices;
 
             // Chấm công hôm nay (use range instead of .Date)

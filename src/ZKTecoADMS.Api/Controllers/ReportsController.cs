@@ -243,18 +243,24 @@ public class ReportsController(
             }
 
             var scheduledCount = employees.Count - totalNotScheduled;
+            // Present = nhân viên có check-in (đúng giờ + đi muộn). "Về sớm" là sub-flag,
+            // không cộng thêm vào Present để tránh đếm 2 lần người đi muộn-về sớm.
+            var totalPresent = totalOnTime + totalLate;
+            // Mẫu số của tỷ lệ chấm công bỏ qua người nghỉ phép hợp lệ để phản ánh
+            // đúng mức độ "vắng ngoài dự kiến".
+            var rateDenominator = scheduledCount - totalOnLeave;
             var report = new DailyAttendanceReportDto
             {
                 Date = targetDate,
                 TotalEmployees = employees.Count,
-                Present = totalOnTime + totalLate + totalEarlyLeave,
+                Present = totalPresent,
                 OnTime = totalOnTime,
                 Late = totalLate,
                 EarlyLeave = totalEarlyLeave,
                 Absent = totalAbsent,
                 OnLeave = totalOnLeave,
-                AttendanceRate = scheduledCount > 0 
-                    ? Math.Round((double)(totalOnTime + totalLate + totalEarlyLeave) / scheduledCount * 100, 2) 
+                AttendanceRate = rateDenominator > 0
+                    ? Math.Round((double)totalPresent / rateDenominator * 100, 2)
                     : 0,
                 Items = reportItems.OrderBy(i => i.DepartmentName).ThenBy(i => i.EmployeeCode).ToList()
             };
