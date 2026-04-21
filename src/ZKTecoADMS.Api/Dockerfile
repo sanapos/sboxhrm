@@ -31,9 +31,9 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Create wwwroot/uploads with proper permissions for file uploads
+# Create wwwroot directories with proper permissions for file uploads
 USER root
-RUN mkdir -p /app/wwwroot/uploads && chown -R $APP_UID:$APP_UID /app/wwwroot
+RUN mkdir -p /app/wwwroot/uploads /app/wwwroot/stores && chown -R $APP_UID:$APP_UID /app/wwwroot
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "ZKTecoADMS.Api.dll"]

@@ -16,6 +16,7 @@ public class GoogleDriveStorageService : IFileStorageService
     private DriveService? _driveService;
     private string? _rootFolderId;
     private bool _isInitialized;
+    private bool _isSharedDrive;
 
     public GoogleDriveStorageService(ILogger<GoogleDriveStorageService> logger)
     {
@@ -25,7 +26,7 @@ public class GoogleDriveStorageService : IFileStorageService
     /// <summary>
     /// Khởi tạo Google Drive service từ credentials JSON và folder ID
     /// </summary>
-    public async Task<bool> InitializeAsync(string credentialsJson, string? folderId = null)
+    public async Task<bool> InitializeAsync(string credentialsJson, string? folderId = null, string? impersonateEmail = null)
     {
         try
         {
@@ -39,7 +40,14 @@ public class GoogleDriveStorageService : IFileStorageService
             
             // Parse credentials JSON (Service Account)
             credential = GoogleCredential.FromJson(credentialsJson)
-                .CreateScoped(DriveService.Scope.DriveFile);
+                .CreateScoped(DriveService.Scope.Drive);
+
+            // Impersonate a real user if specified (requires domain-wide delegation)
+            if (!string.IsNullOrWhiteSpace(impersonateEmail))
+            {
+                credential = credential.CreateWithUser(impersonateEmail);
+                _logger.LogInformation("Google Drive: impersonating user {Email}", impersonateEmail);
+            }
 
             _driveService = new DriveService(new BaseClientService.Initializer
             {
@@ -52,14 +60,18 @@ public class GoogleDriveStorageService : IFileStorageService
             {
                 try
                 {
-                    var folder = await _driveService.Files.Get(folderId).ExecuteAsync();
+                    var getReq = _driveService.Files.Get(folderId);
+                    getReq.SupportsAllDrives = true;
+                    getReq.Fields = "id, name, driveId";
+                    var folder = await getReq.ExecuteAsync();
                     _rootFolderId = folderId;
-                    _logger.LogInformation("Google Drive initialized with folder: {FolderName} ({FolderId})", 
-                        folder.Name, folderId);
+                    _isSharedDrive = !string.IsNullOrEmpty(folder.DriveId);
+                    _logger.LogInformation("Google Drive initialized with folder: {FolderName} ({FolderId}), SharedDrive: {IsShared}", 
+                        folder.Name, folderId, _isSharedDrive);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    _logger.LogWarning("Folder ID {FolderId} not found, will create folders at root", folderId);
+                    _logger.LogWarning(ex, "Folder ID {FolderId} not accessible, will create folders at root", folderId);
                     _rootFolderId = null;
                 }
             }
@@ -104,6 +116,7 @@ public class GoogleDriveStorageService : IFileStorageService
             var mimeType = GetMimeType(extension);
             var request = _driveService.Files.Create(fileMetadata, fileStream, mimeType);
             request.Fields = "id, name, webViewLink, webContentLink";
+            request.SupportsAllDrives = true;
 
             var result = await request.UploadAsync();
             if (result.Status == UploadStatus.Failed)
@@ -143,7 +156,9 @@ public class GoogleDriveStorageService : IFileStorageService
             if (string.IsNullOrEmpty(fileId))
                 return false;
 
-            await _driveService.Files.Delete(fileId).ExecuteAsync();
+            var delReq = _driveService.Files.Delete(fileId);
+            delReq.SupportsAllDrives = true;
+            await delReq.ExecuteAsync();
             _logger.LogInformation("File deleted from Google Drive: {FileId}", fileId);
             return true;
         }
@@ -221,6 +236,8 @@ public class GoogleDriveStorageService : IFileStorageService
                 listReq.Q = $"'{_rootFolderId}' in parents and trashed = false";
                 listReq.Fields = "nextPageToken, files(id)";
                 listReq.PageSize = 1000;
+                listReq.SupportsAllDrives = true;
+                listReq.IncludeItemsFromAllDrives = true;
                 var files = await listReq.ExecuteAsync();
                 fileCount = files.Files?.Count ?? 0;
             }
@@ -266,6 +283,8 @@ public class GoogleDriveStorageService : IFileStorageService
         var request = _driveService!.Files.List();
         request.Q = $"name = '{name}' and '{parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
         request.Fields = "files(id, name)";
+        request.SupportsAllDrives = true;
+        request.IncludeItemsFromAllDrives = true;
         
         var result = await request.ExecuteAsync();
         return result.Files?.FirstOrDefault()?.Id;
@@ -282,6 +301,7 @@ public class GoogleDriveStorageService : IFileStorageService
 
         var request = _driveService!.Files.Create(folderMetadata);
         request.Fields = "id";
+        request.SupportsAllDrives = true;
         var folder = await request.ExecuteAsync();
 
         _logger.LogInformation("Created Google Drive folder: {Name} ({Id})", name, folder.Id);
@@ -297,7 +317,9 @@ public class GoogleDriveStorageService : IFileStorageService
                 Role = "reader",
                 Type = "anyone"
             };
-            await _driveService!.Permissions.Create(permission, fileId).ExecuteAsync();
+            var permReq = _driveService!.Permissions.Create(permission, fileId);
+            permReq.SupportsAllDrives = true;
+            await permReq.ExecuteAsync();
         }
         catch (Exception ex)
         {

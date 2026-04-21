@@ -3473,7 +3473,6 @@ class ApiService {
         'distanceFromLocation': distanceFromLocation,
         'faceMatchScore': faceMatchScore,
         'deviceId': deviceId,
-        'punchTime': DateTime.now().toIso8601String(),
       };
       if (wifiSsid != null) body['wifiSsid'] = wifiSsid;
       if (wifiBssid != null) body['wifiBssid'] = wifiBssid;
@@ -7434,7 +7433,7 @@ class ApiService {
         'displayOrder': displayOrder,
         'isPublic': isPublic,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/settings/app'),
+      final response = await http.post(Uri.parse('$baseUrl/api/system-admin/settings'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -10544,6 +10543,26 @@ class ApiService {
       final response = await http.get(
           Uri.parse('$baseUrl/api/field-checkin/employee-locations'),
           headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> reportLocation({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+  }) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/field-checkin/report-location'),
+          headers: _headers,
+          body: jsonEncode({
+            'latitude': latitude,
+            'longitude': longitude,
+            if (accuracy != null) 'accuracy': accuracy,
+          }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};

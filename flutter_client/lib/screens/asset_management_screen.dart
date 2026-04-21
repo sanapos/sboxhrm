@@ -39,6 +39,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   AssetStatistics? _statistics;
   List<StockTransaction> _stockTransactions = [];
   StockSummary? _stockSummary;
+  // ignore: unused_field
   int _stockTxTotal = 0;
 
   // Loading
@@ -364,8 +365,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Widget _buildBody() {
-    final isMobile = Responsive.isMobile(context);
-
     return Column(
       children: [
         _buildHeader(),
@@ -778,8 +777,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(asset.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            if (asset.assetCode != null)
-                                              Text(asset.assetCode!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                            Text(asset.assetCode, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                                           ],
                                         ),
                                       ),
@@ -1007,7 +1005,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _stockDetailRow('Mã SP', asset.assetCode ?? '-'),
+              _stockDetailRow('Mã SP', asset.assetCode),
               _stockDetailRow('Tồn kho', '${asset.quantity} ${asset.unit}'),
               _stockDetailRow('Giá', _currencyFormat.format(asset.purchasePrice)),
               _stockDetailRow('Giá trị tồn', _currencyFormat.format(asset.purchasePrice * asset.quantity)),
@@ -1060,7 +1058,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   // ==================== HISTORY TAB ====================
   Widget _buildHistoryTab() {
-    final isMobile = Responsive.isMobile(context);
     return Container(
       color: const Color(0xFFF8FAFC),
       child: Column(
@@ -1723,7 +1720,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       itemCount: _assets.length,
       itemBuilder: (context, index) {
         final asset = _assets[index];
-        final statusColor = _getStatusColor(asset.status);
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -3363,7 +3359,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             if (searchText.isNotEmpty) {
               final q = searchText.toLowerCase();
               return (a.name.toLowerCase().contains(q)) ||
-                  (a.assetCode.toLowerCase().contains(q) ?? false);
+                  a.assetCode.toLowerCase().contains(q);
             }
             return true;
           }).toList();
@@ -4682,7 +4678,6 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     String? notes;
     Uint8List? imageBytes;
     String? imageName;
-    bool isUploading = false;
 
     // Extract existing notes without image tag
     if (item.notes != null) {
@@ -4691,7 +4686,6 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     }
 
     final qtyCtrl = TextEditingController(text: item.isChecked ? actualQty.toString() : '');
-    final locationCtrl = TextEditingController(text: actualLocation ?? '');
     final issueCtrl = TextEditingController(text: issueDesc ?? '');
     final notesCtrl = TextEditingController(text: notes ?? '');
 
@@ -4880,11 +4874,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
               ElevatedButton(
-                onPressed: isUploading || !hasEnteredQty ? null : () => Navigator.pop(ctx, true),
+                onPressed: !hasEnteredQty ? null : () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
-                child: isUploading
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(hasEnteredQty ? 'Xác nhận' : 'Nhập số lượng'),
+                child: Text(hasEnteredQty ? 'Xác nhận' : 'Nhập số lượng'),
               ),
             ],
           );

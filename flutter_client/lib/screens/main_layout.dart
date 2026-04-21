@@ -525,7 +525,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (!mounted) return;
     debugPrint('📡 Communication event received: $data');
 
-    final eventType = data['eventType'] as String? ?? 'new';
     final title = data['title'] as String? ?? 'Tin nhắn mới';
     final message = data['message'] as String? ?? data['content'] as String? ?? '';
 

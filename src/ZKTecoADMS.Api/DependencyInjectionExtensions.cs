@@ -127,6 +127,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<KpiAutoSyncBackgroundService>();
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
+        services.AddHostedService<FieldDataCleanupBackgroundService>();
         
         services.AddSwaggerGen(config =>
         {

@@ -304,6 +304,10 @@ class VisitReport {
   final String? reviewNote;
   final String? journeyId;
   final bool outsideRadius;
+  final String? locationAddress;
+  final String? contactName;
+  final String? contactPhone;
+  final String? contactEmail;
 
   VisitReport({
     required this.id,
@@ -328,6 +332,10 @@ class VisitReport {
     this.reviewNote,
     this.journeyId,
     this.outsideRadius = false,
+    this.locationAddress,
+    this.contactName,
+    this.contactPhone,
+    this.contactEmail,
   });
 
   factory VisitReport.fromJson(Map<String, dynamic> json) {
@@ -368,6 +376,10 @@ class VisitReport {
       reviewNote: json['reviewNote'],
       journeyId: json['journeyId'],
       outsideRadius: json['outsideRadius'] ?? false,
+      locationAddress: json['locationAddress'],
+      contactName: json['contactName'],
+      contactPhone: json['contactPhone'],
+      contactEmail: json['contactEmail'],
     );
   }
 

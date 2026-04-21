@@ -88,4 +88,5 @@ public static class AppSettingKeys
     public const string GoogleDriveCredentialsJson = "google_drive_credentials_json";
     public const string GoogleDriveFolderId = "google_drive_folder_id";
     public const string GoogleDriveFolderName = "google_drive_folder_name";
+    public const string GoogleDriveImpersonateEmail = "google_drive_impersonate_email";
 }

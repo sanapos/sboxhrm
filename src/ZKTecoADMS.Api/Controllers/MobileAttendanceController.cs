@@ -1408,6 +1408,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             return BadRequest(AppResponse<object>.Fail("Thiếu thông tin nhân viên"));
         }
 
+        if (request.PunchType is not 0 and not 1)
+        {
+            _logger.LogWarning("❌ PUNCH REJECT: invalid PunchType={PunchType}", request.PunchType);
+            return BadRequest(AppResponse<object>.Fail("Loại chấm công không hợp lệ"));
+        }
+
         var storeId = RequiredStoreId;
         _logger.LogWarning("📌 PUNCH STEP 1: StoreId={StoreId}", storeId);
 
@@ -1448,8 +1454,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         var maxPunches = settings?.MaxPunchesPerDay ?? 4;
 
-        // Check max punches per day - FIX: use local time since DB stores local time
-        var today = DateTime.Now.Date;
+        // Use server UTC consistently to avoid client timezone skew.
+        var serverPunchTime = DateTime.UtcNow;
+        var today = serverPunchTime.Date;
         var todayCount = await _dbContext.MobileAttendanceRecords
             .CountAsync(r => r.OdooEmployeeId == request.EmployeeId
                 && r.StoreId == storeId
@@ -1480,9 +1487,16 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             if (lastPunch != default)
             {
-                var elapsed = DateTime.Now - lastPunch;
+                var elapsed = serverPunchTime - lastPunch;
                 _logger.LogWarning("📌 PUNCH STEP 4b: elapsed={Elapsed}min", elapsed.TotalMinutes);
-                if (elapsed.TotalMinutes < minInterval)
+
+                // If last punch is in the future (historical timezone skew), don't block current punch.
+                if (elapsed.TotalMinutes < 0)
+                {
+                    _logger.LogWarning("⚠️ PUNCH STEP 4c: lastPunch is in future. serverPunchTime={ServerPunchTime}, lastPunch={LastPunch}",
+                        serverPunchTime, lastPunch);
+                }
+                else if (elapsed.TotalMinutes < minInterval)
                 {
                     var remaining = minInterval - (int)elapsed.TotalMinutes;
                     _logger.LogWarning("❌ PUNCH REJECT: min interval not met elapsed={Elapsed}min < {Min}min", elapsed.TotalMinutes, minInterval);
@@ -1617,14 +1631,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 }
             }
 
-            // Server-side scoring: has registration + submitted photo → face comparison
-            // If client already did on-device comparison (like a face attendance machine),
-            // trust the client score to reduce server load. Otherwise, do server-side comparison.
-            var clientDidLocalComparison = request.FaceMatchScore.HasValue && request.FaceMatchScore.Value > 0;
-
-            if (hasRegistration && faceImageStoredPath != null && !clientDidLocalComparison)
+            // Server-side scoring: never trust client-submitted score for attendance approval.
+            if (hasRegistration && faceImageStoredPath != null)
             {
-                // Client did NOT do local comparison → server must verify
                 var regImages = JsonSerializer.Deserialize<List<string>>(faceReg!.FaceImagesJson ?? "[]") ?? new List<string>();
                 var (compScore, compDetails) = await _faceComparisonService.CompareAsync(faceImageStoredPath, regImages);
                 serverFaceScore = compScore;
@@ -1632,15 +1641,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 _logger.LogInformation(
                     "Server face comparison for employee {EmpId}: score={Score}, verified={Verified}, details={Details}",
                     request.EmployeeId, serverFaceScore, isFaceVerified, compDetails);
-            }
-            else if (hasRegistration && clientDidLocalComparison)
-            {
-                // Client did on-device comparison (like face attendance machine) → trust client score
-                serverFaceScore = request.FaceMatchScore!.Value;
-                isFaceVerified = serverFaceScore >= (settings?.MinFaceMatchScore ?? 55.0);
-                _logger.LogInformation(
-                    "On-device face comparison for employee {EmpId}: clientScore={Score}, verified={Verified} (trusted from device)",
-                    request.EmployeeId, serverFaceScore, isFaceVerified);
             }
             else if (hasRegistration)
             {
@@ -1720,18 +1720,19 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             StoreId = storeId,
             OdooEmployeeId = request.EmployeeId,
             EmployeeName = employeeName ?? "",
-            PunchTime = request.PunchTime ?? DateTime.Now,
+            // Always trust server time to prevent client/device timezone drift issues.
+            PunchTime = serverPunchTime,
             PunchType = request.PunchType,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
             LocationName = locationName,
             DistanceFromLocation = distance,
             FaceImageUrl = faceImageStoredPath ?? request.FaceImageUrl,
-            FaceMatchScore = serverFaceScore ?? request.FaceMatchScore,
+            FaceMatchScore = serverFaceScore,
             WifiSsid = matchedWifiSsid ?? request.WifiSsid,
             WifiBssid = isWifiVerified ? request.WifiBssid : null,
             WifiIpAddress = isWifiVerified ? (HttpContext.Connection.RemoteIpAddress?.ToString()) : null,
-            VerifyMethod = DetermineVerifyMethod(request),
+            VerifyMethod = DetermineVerifyMethod(isFaceVerified, isInRange, isWifiVerified),
             Status = status,
             DeviceId = request.DeviceId,
             IsActive = true,
@@ -2100,16 +2101,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         return R * c;
     }
 
-    private static string DetermineVerifyMethod(MobilePunchRequest request)
+    private static string DetermineVerifyMethod(bool isFaceVerified, bool isGpsVerified, bool isWifiVerified)
     {
-        var hasFace = request.FaceMatchScore.HasValue && request.FaceMatchScore > 0;
-        var hasGps = request.Latitude.HasValue && request.Longitude.HasValue;
-        var hasWifi = !string.IsNullOrEmpty(request.WifiSsid);
-
         var parts = new List<string>();
-        if (hasFace) parts.Add("face");
-        if (hasGps) parts.Add("gps");
-        if (hasWifi) parts.Add("wifi");
+        if (isFaceVerified) parts.Add("face");
+        if (isGpsVerified) parts.Add("gps");
+        if (isWifiVerified) parts.Add("wifi");
 
         return parts.Count > 0 ? string.Join("_", parts) : "manual";
     }

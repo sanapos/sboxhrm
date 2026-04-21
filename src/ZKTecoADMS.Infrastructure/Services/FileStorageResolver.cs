@@ -35,24 +35,35 @@ public class FileStorageResolver : IFileStorageService
             var dbContext = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
             
             // Check if Google Drive is enabled
+            // IgnoreQueryFilters: Google Drive settings may have NULL StoreId (global config)
+            // and multi-tenant query filters would exclude them
             var gdEnabled = await dbContext.Set<AppSettings>()
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveEnabled);
 
             if (gdEnabled?.Value?.ToLower() == "true")
             {
                 var gdCredentials = await dbContext.Set<AppSettings>()
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveCredentialsJson);
                 
                 var gdFolderId = await dbContext.Set<AppSettings>()
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveFolderId);
+
+                var gdImpersonateEmail = await dbContext.Set<AppSettings>()
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveImpersonateEmail);
 
                 if (!string.IsNullOrWhiteSpace(gdCredentials?.Value))
                 {
                     var gdService = scope.ServiceProvider.GetRequiredService<GoogleDriveStorageService>();
-                    var initialized = await gdService.InitializeAsync(gdCredentials.Value, gdFolderId?.Value);
+                    var initialized = await gdService.InitializeAsync(
+                        gdCredentials.Value, gdFolderId?.Value, gdImpersonateEmail?.Value);
                     
                     if (initialized)
                     {
@@ -88,7 +99,22 @@ public class FileStorageResolver : IFileStorageService
     public async Task<string> UploadAsync(Stream fileStream, string fileName, string folder = "uploads")
     {
         var service = await ResolveAsync();
-        return await service.UploadAsync(fileStream, fileName, folder);
+        try
+        {
+            return await service.UploadAsync(fileStream, fileName, folder);
+        }
+        catch (Exception ex) when (service is GoogleDriveStorageService)
+        {
+            // Google Drive upload failed (e.g. quota issue), fallback to local
+            _logger.LogWarning(ex, "Google Drive upload failed, falling back to local storage for: {FileName}", fileName);
+            
+            // Reset stream position before retry
+            if (fileStream.CanSeek)
+                fileStream.Position = 0;
+                
+            var localService = _serviceProvider.GetRequiredService<LocalFileStorageService>();
+            return await localService.UploadAsync(fileStream, fileName, folder);
+        }
     }
 
     public async Task<bool> DeleteAsync(string filePath)

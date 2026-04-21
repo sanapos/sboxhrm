@@ -74,40 +74,57 @@ class _ProductSalarySettingsScreenState
             children: [
               Row(
                 children: [
-                  const Icon(Icons.precision_manufacturing,
-                      color: Color(0xFF0F2340), size: 28),
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  Icon(Icons.precision_manufacturing,
+                      color: const Color(0xFF0F2340), size: isMobile ? 22 : 28),
+                  SizedBox(width: isMobile ? 8 : 12),
+                  Expanded(
                     child: Text('Lương sản phẩm',
                         style: TextStyle(
-                            fontSize: 20,
+                            fontSize: isMobile ? 17 : 20,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A))),
+                            color: const Color(0xFF0F172A))),
                   ),
-                  FilledButton.icon(
-                    onPressed: _showAddGroupDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm nhóm SP'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F2340),
+                  if (!isMobile) ...[
+                    FilledButton.icon(
+                      onPressed: _showAddGroupDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm nhóm SP'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F2340),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm sản phẩm'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm sản phẩm'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3A5F),
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    IconButton(
+                      onPressed: _showAddGroupDialog,
+                      icon: const Icon(Icons.create_new_folder_outlined, size: 22),
+                      color: const Color(0xFF0F2340),
+                      tooltip: 'Thêm nhóm SP',
+                    ),
+                    IconButton(
+                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                      icon: const Icon(Icons.add_box_outlined, size: 22),
+                      color: const Color(0xFF1E3A5F),
+                      tooltip: 'Thêm sản phẩm',
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc',
-                style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
-              ),
+              if (!isMobile) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc',
+                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                ),
+              ],
             ],
           ),
         ),
@@ -218,7 +235,8 @@ class _ProductSalarySettingsScreenState
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: Color(0xFF0F172A))),
+                          color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis),
                 ),
                 if (groupName.isNotEmpty)
                   Container(
@@ -232,16 +250,21 @@ class _ProductSalarySettingsScreenState
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
                   ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   color: const Color(0xFF64748B),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: () => _showEditItemDialog(item),
                   tooltip: 'Sửa',
                 ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 18),
                   color: const Color(0xFFEF4444),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: () => _confirmDeleteItem(item),
                   tooltip: 'Xóa',
                 ),
@@ -270,9 +293,9 @@ class _ProductSalarySettingsScreenState
                 ),
                 child: Table(
                   columnWidths: const {
-                    0: FlexColumnWidth(1),
-                    1: FlexColumnWidth(1.5),
-                    2: FlexColumnWidth(1.5),
+                    0: const FlexColumnWidth(1),
+                    1: const FlexColumnWidth(1.5),
+                    2: const FlexColumnWidth(1.5),
                   },
                   children: [
                     const TableRow(
@@ -519,6 +542,7 @@ class _ProductSalarySettingsScreenState
   }
 
   void _showItemDialog(Map<String, dynamic>? item) {
+    final isMobile = Responsive.isMobile(context);
     final isEdit = item != null;
     final codeCtl = TextEditingController(text: item?['code'] ?? '');
     final nameCtl = TextEditingController(text: item?['name'] ?? '');
@@ -549,231 +573,387 @@ class _ProductSalarySettingsScreenState
       priceCtls.add(TextEditingController(text: p is double ? '${p.toInt()}' : '${p ?? 0}'));
     }
 
+    Future<void> onSave() async {
+      if (codeCtl.text.trim().isEmpty ||
+          nameCtl.text.trim().isEmpty ||
+          selectedGroupId == null) {
+        return;
+      }
+      Navigator.pop(context);
+      // Sync controller values to tier data
+      for (int i = 0; i < tiers.length; i++) {
+        tiers[i]['minQuantity'] = int.tryParse(minCtls[i].text) ?? 0;
+        tiers[i]['maxQuantity'] = maxCtls[i].text.isEmpty ? null : int.tryParse(maxCtls[i].text);
+        tiers[i]['unitPrice'] = double.tryParse(priceCtls[i].text) ?? 0;
+      }
+      final data = {
+        'code': codeCtl.text.trim(),
+        'name': nameCtl.text.trim(),
+        'unit': unitCtl.text.trim(),
+        'description': descCtl.text.trim(),
+        'productGroupId': selectedGroupId,
+        'priceTiers': tiers
+            .asMap()
+            .entries
+            .map((e) => {
+                  'tierLevel': e.key + 1,
+                  'minQuantity': e.value['minQuantity'] ?? 0,
+                  'maxQuantity': e.value['maxQuantity'],
+                  'unitPrice': e.value['unitPrice'] ?? 0,
+                })
+            .toList(),
+      };
+      final res = isEdit
+          ? await _apiService.updateProductItem(
+              item['id'].toString(), data)
+          : await _apiService.createProductItem(data);
+      if (res['isSuccess'] == true) {
+        appNotification.showSuccess(title: 'Thành công',
+            message: isEdit ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm');
+        _loadData();
+      } else {
+        appNotification.showError(
+            title: 'Lỗi', message: res['message'] ?? 'Lỗi');
+      }
+    }
+
+    Widget buildFormContent(StateSetter setDlgState) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selectedGroupId,
+            decoration: const InputDecoration(
+                labelText: 'Nhóm sản phẩm *',
+                border: OutlineInputBorder()),
+            items: _groups
+                .map((g) => DropdownMenuItem(
+                    value: g['id']?.toString(),
+                    child: Text(g['name'] ?? '')))
+                .toList(),
+            onChanged: (v) =>
+                setDlgState(() => selectedGroupId = v),
+          ),
+          const SizedBox(height: 12),
+          if (isMobile) ...[
+            TextField(
+              controller: codeCtl,
+              decoration: const InputDecoration(
+                  labelText: 'Mã SP *',
+                  border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtl,
+              decoration: const InputDecoration(
+                  labelText: 'Tên sản phẩm *',
+                  border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: unitCtl,
+              decoration: const InputDecoration(
+                  labelText: 'Đơn vị (cái, kg...)',
+                  border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descCtl,
+              decoration: const InputDecoration(
+                  labelText: 'Mô tả',
+                  border: OutlineInputBorder()),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: codeCtl,
+                    decoration: const InputDecoration(
+                        labelText: 'Mã SP *',
+                        border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: nameCtl,
+                    decoration: const InputDecoration(
+                        labelText: 'Tên sản phẩm *',
+                        border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: unitCtl,
+                    decoration: const InputDecoration(
+                        labelText: 'Đơn vị (cái, kg...)',
+                        border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: descCtl,
+                    decoration: const InputDecoration(
+                        labelText: 'Mô tả',
+                        border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Text('Bảng đơn giá theo bậc',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () {
+                  setDlgState(() {
+                    tiers.add({
+                      'minQuantity': 0,
+                      'maxQuantity': null,
+                      'unitPrice': 0.0,
+                      'tierLevel': tiers.length + 1,
+                    });
+                    minCtls.add(TextEditingController(text: '0'));
+                    maxCtls.add(TextEditingController(text: ''));
+                    priceCtls.add(TextEditingController(text: '0'));
+                  });
+                },
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Thêm bậc'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...tiers.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final tier = entry.value;
+            if (isMobile) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('Bậc ${idx + 1}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
+                        const Spacer(),
+                        if (tiers.length > 1)
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline,
+                                size: 18, color: Colors.red),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setDlgState(() {
+                                tiers.removeAt(idx);
+                                minCtls.removeAt(idx);
+                                maxCtls.removeAt(idx);
+                                priceCtls.removeAt(idx);
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: minCtls[idx],
+                            decoration: const InputDecoration(
+                                labelText: 'Từ SL',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10)),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13),
+                            onChanged: (v) =>
+                                tier['minQuantity'] = int.tryParse(v) ?? 0,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: maxCtls[idx],
+                            decoration: const InputDecoration(
+                                labelText: 'Đến SL',
+                                hintText: '∞',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10)),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13),
+                            onChanged: (v) => tier['maxQuantity'] =
+                                v.isEmpty ? null : int.tryParse(v),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: priceCtls[idx],
+                            decoration: const InputDecoration(
+                                labelText: 'Đơn giá (đ)',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10)),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13),
+                            onChanged: (v) => tier['unitPrice'] =
+                                double.tryParse(v) ?? 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Text('Bậc ${idx + 1}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: minCtls[idx],
+                      decoration: const InputDecoration(
+                          labelText: 'Từ SL',
+                          border: OutlineInputBorder(),
+                          isDense: true),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) =>
+                          tier['minQuantity'] = int.tryParse(v) ?? 0,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: maxCtls[idx],
+                      decoration: const InputDecoration(
+                          labelText: 'Đến SL',
+                          hintText: '∞',
+                          border: OutlineInputBorder(),
+                          isDense: true),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => tier['maxQuantity'] =
+                          v.isEmpty ? null : int.tryParse(v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: priceCtls[idx],
+                      decoration: const InputDecoration(
+                          labelText: 'Đơn giá (đ)',
+                          border: OutlineInputBorder(),
+                          isDense: true),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => tier['unitPrice'] =
+                          double.tryParse(v) ?? 0,
+                    ),
+                  ),
+                  if (tiers.length > 1)
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 20, color: Colors.red),
+                      onPressed: () {
+                        setDlgState(() {
+                          tiers.removeAt(idx);
+                          minCtls.removeAt(idx);
+                          maxCtls.removeAt(idx);
+                          priceCtls.removeAt(idx);
+                        });
+                      },
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+      );
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedGroupId,
-                    decoration: const InputDecoration(
-                        labelText: 'Nhóm sản phẩm *',
-                        border: OutlineInputBorder()),
-                    items: _groups
-                        .map((g) => DropdownMenuItem(
-                            value: g['id']?.toString(),
-                            child: Text(g['name'] ?? '')))
-                        .toList(),
-                    onChanged: (v) =>
-                        setDlgState(() => selectedGroupId = v),
+        builder: (ctx, setDlgState) {
+          if (isMobile) {
+            return Dialog.fullscreen(
+              child: Scaffold(
+                appBar: AppBar(
+                  title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: codeCtl,
-                          decoration: const InputDecoration(
-                              labelText: 'Mã SP *',
-                              border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: nameCtl,
-                          decoration: const InputDecoration(
-                              labelText: 'Tên sản phẩm *',
-                              border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: unitCtl,
-                          decoration: const InputDecoration(
-                              labelText: 'Đơn vị (cái, kg...)',
-                              border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: descCtl,
-                          decoration: const InputDecoration(
-                              labelText: 'Mô tả',
-                              border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Text('Bảng đơn giá theo bậc',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14)),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: () {
-                          setDlgState(() {
-                            tiers.add({
-                              'minQuantity': 0,
-                              'maxQuantity': null,
-                              'unitPrice': 0.0,
-                              'tierLevel': tiers.length + 1,
-                            });
-                            minCtls.add(TextEditingController(text: '0'));
-                            maxCtls.add(TextEditingController(text: ''));
-                            priceCtls.add(TextEditingController(text: '0'));
-                          });
-                        },
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Thêm bậc'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ...tiers.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final tier = entry.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 40,
-                            child: Text('Bậc ${idx + 1}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 13)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: minCtls[idx],
-                              decoration: const InputDecoration(
-                                  labelText: 'Từ SL',
-                                  border: OutlineInputBorder(),
-                                  isDense: true),
-                              keyboardType: TextInputType.number,
-                              onChanged: (v) =>
-                                  tier['minQuantity'] = int.tryParse(v) ?? 0,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: maxCtls[idx],
-                              decoration: const InputDecoration(
-                                  labelText: 'Đến SL',
-                                  hintText: '∞',
-                                  border: OutlineInputBorder(),
-                                  isDense: true),
-                              keyboardType: TextInputType.number,
-                              onChanged: (v) => tier['maxQuantity'] =
-                                  v.isEmpty ? null : int.tryParse(v),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: priceCtls[idx],
-                              decoration: const InputDecoration(
-                                  labelText: 'Đơn giá (đ)',
-                                  border: OutlineInputBorder(),
-                                  isDense: true),
-                              keyboardType: TextInputType.number,
-                              onChanged: (v) => tier['unitPrice'] =
-                                  double.tryParse(v) ?? 0,
-                            ),
-                          ),
-                          if (tiers.length > 1)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline,
-                                  size: 20, color: Colors.red),
-                              onPressed: () {
-                                setDlgState(() {
-                                  tiers.removeAt(idx);
-                                  minCtls.removeAt(idx);
-                                  maxCtls.removeAt(idx);
-                                  priceCtls.removeAt(idx);
-                                });
-                              },
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
+                  backgroundColor: const Color(0xFF0F2340),
+                  foregroundColor: Colors.white,
+                  actions: [
+                    TextButton(
+                      onPressed: onSave,
+                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      child: Text(isEdit ? 'Lưu' : 'Thêm'),
+                    ),
+                  ],
+                ),
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: buildFormContent(setDlgState),
+                ),
+              ),
+            );
+          }
+          return AlertDialog(
+            title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: buildFormContent(setDlgState),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
-            FilledButton(
-              onPressed: () async {
-                if (codeCtl.text.trim().isEmpty ||
-                    nameCtl.text.trim().isEmpty ||
-                    selectedGroupId == null) {
-                  return;
-                }
-                Navigator.pop(ctx);
-                // Sync controller values to tier data
-                for (int i = 0; i < tiers.length; i++) {
-                  tiers[i]['minQuantity'] = int.tryParse(minCtls[i].text) ?? 0;
-                  tiers[i]['maxQuantity'] = maxCtls[i].text.isEmpty ? null : int.tryParse(maxCtls[i].text);
-                  tiers[i]['unitPrice'] = double.tryParse(priceCtls[i].text) ?? 0;
-                }
-                final data = {
-                  'code': codeCtl.text.trim(),
-                  'name': nameCtl.text.trim(),
-                  'unit': unitCtl.text.trim(),
-                  'description': descCtl.text.trim(),
-                  'productGroupId': selectedGroupId,
-                  'priceTiers': tiers
-                      .asMap()
-                      .entries
-                      .map((e) => {
-                            'tierLevel': e.key + 1,
-                            'minQuantity': e.value['minQuantity'] ?? 0,
-                            'maxQuantity': e.value['maxQuantity'],
-                            'unitPrice': e.value['unitPrice'] ?? 0,
-                          })
-                      .toList(),
-                };
-                final res = isEdit
-                    ? await _apiService.updateProductItem(
-                        item['id'].toString(), data)
-                    : await _apiService.createProductItem(data);
-                if (res['isSuccess'] == true) {
-                  appNotification.showSuccess(title: 'Thành công',
-                      message: isEdit ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm');
-                  _loadData();
-                } else {
-                  appNotification.showError(
-                      title: 'Lỗi', message: res['message'] ?? 'Lỗi');
-                }
-              },
-              child: Text(isEdit ? 'Lưu' : 'Thêm'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy')),
+              FilledButton(
+                onPressed: onSave,
+                child: Text(isEdit ? 'Lưu' : 'Thêm'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

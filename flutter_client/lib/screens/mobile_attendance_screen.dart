@@ -325,6 +325,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     // If face is enabled and not yet verified, open camera first
     final settings = _settings;
     if (settings != null && settings.enableFaceId && !_isFaceVerified && !_allowOutsideCheckIn) {
+      var serverFaceVerificationPending = false;
       // Block if employee has no face registration
       if (_cachedFacePaths.isEmpty) {
         _showError('Chưa đăng ký khuôn mặt. Vui lòng liên hệ quản lý để đăng ký Face ID.');
@@ -336,13 +337,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         minMatchScore: settings.minFaceMatchScore,
       );
       if (result == null) return; // User cancelled
+
+      // matchScore <= 0 means local compare failed/unsupported and server must verify.
+      serverFaceVerificationPending = (result.matchScore <= 0);
       setState(() {
-        _isFaceVerified = true;
+        _isFaceVerified = !serverFaceVerificationPending;
         _faceMatchScore = result.matchScore;
         _faceImageBase64 = result.faceImageBase64;
       });
       // Re-check conditions after face scan
-      if (!_conditionsMet) {
+      if (!_conditionsMet && !serverFaceVerificationPending) {
         _showError('Chưa đạt đủ điều kiện xác thực');
         return;
       }

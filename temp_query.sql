@@ -1,1 +1,1 @@
-SELECT "Id", "Email", "UserName", "Role", "StoreId" FROM "AspNetUsers" WHERE "Email" ILIKE '%sanapos%' OR "UserName" ILIKE '%sanapos%';
+﻿SELECT u."UserName", u."Email", r."Name" as role FROM "AspNetUsers" u JOIN "AspNetUserRoles" ur ON u."Id" = ur."UserId" JOIN "AspNetRoles" r ON ur."RoleId" = r."Id" WHERE r."Name" = 'SuperAdmin' LIMIT 5;

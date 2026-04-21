@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
@@ -42,6 +45,23 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return $"{slug}/{subfolder}";
     }
 
+    /// <summary>
+    /// Nén ảnh: resize max 1024px, JPEG quality 65%
+    /// </summary>
+    private static MemoryStream CompressImage(byte[] imageBytes, int maxWidth = 1024, int quality = 65)
+    {
+        using var image = SixLabors.ImageSharp.Image.Load(imageBytes);
+        if (image.Width > maxWidth || image.Height > maxWidth)
+        {
+            var ratio = Math.Min((double)maxWidth / image.Width, (double)maxWidth / image.Height);
+            image.Mutate(x => x.Resize((int)(image.Width * ratio), (int)(image.Height * ratio)));
+        }
+        var output = new MemoryStream();
+        image.Save(output, new JpegEncoder { Quality = quality });
+        output.Position = 0;
+        return output;
+    }
+
     // ==================== FIELD LOCATIONS (ÄIá»‚M BÃN KHÃCH HÃ€NG) ====================
 
     /// <summary>
@@ -57,7 +77,8 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
         if (!string.IsNullOrEmpty(search))
             query = query.Where(l => l.Name.Contains(search) || (l.Address != null && l.Address.Contains(search))
-                || (l.ContactName != null && l.ContactName.Contains(search)));
+                || (l.ContactName != null && l.ContactName.Contains(search))
+                || (l.ContactPhone != null && l.ContactPhone.Contains(search)));
 
         if (!string.IsNullOrEmpty(category))
             query = query.Where(l => l.Category == category);
@@ -121,8 +142,8 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 {
                     var imageBytes = Convert.FromBase64String(base64Data);
                     var fileName = $"fl_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.jpg";
-                    using var stream = new MemoryStream(imageBytes);
-                    var storedPath = await _fileStorageService.UploadAsync(stream, fileName, uploadFolder);
+                    using var compressed = CompressImage(imageBytes);
+                    var storedPath = await _fileStorageService.UploadAsync(compressed, fileName, uploadFolder);
                     photoUrls.Add(_fileStorageService.GetFileUrl(storedPath));
                 }
                 catch (Exception ex)
@@ -616,7 +637,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             }
         }
 
-        // Upload photos
+        // Upload photos (compressed)
         var photoUrls = new List<string>();
         if (request.Photos != null && request.Photos.Count > 0)
         {
@@ -633,12 +654,21 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 catch { continue; }
 
                 if (imageBytes.Length < 4) continue;
-                var ext = (imageBytes[0] == 0xFF) ? ".jpg" : ".png";
-                var fileName = $"visit_{visitId}_{Guid.NewGuid():N}{ext}";
+                var fileName = $"visit_{visitId}_{Guid.NewGuid():N}.jpg";
 
-                using var stream = new MemoryStream(imageBytes);
-                var storedPath = await _fileStorageService.UploadAsync(stream, fileName, uploadFolder);
-                photoUrls.Add(_fileStorageService.GetFileUrl(storedPath));
+                try
+                {
+                    using var compressed = CompressImage(imageBytes);
+                    var storedPath = await _fileStorageService.UploadAsync(compressed, fileName, uploadFolder);
+                    photoUrls.Add(_fileStorageService.GetFileUrl(storedPath));
+                }
+                catch
+                {
+                    // Fallback: save original if compression fails
+                    using var stream = new MemoryStream(imageBytes);
+                    var storedPath = await _fileStorageService.UploadAsync(stream, fileName, uploadFolder);
+                    photoUrls.Add(_fileStorageService.GetFileUrl(storedPath));
+                }
             }
         }
 
@@ -688,13 +718,16 @@ public class FieldCheckInController : AuthenticatedControllerBase
     public async Task<ActionResult> GetMyVisits(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
-        [FromQuery] string? status)
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var storeId = RequiredStoreId;
         var employeeId = CurrentUserId.ToString();
 
         var query = _dbContext.VisitReports
             .AsNoTracking()
+            .Include(v => v.Location)
             .Where(v => v.StoreId == storeId && v.EmployeeId == employeeId && v.Deleted == null);
 
         if (fromDate.HasValue)
@@ -704,25 +737,39 @@ public class FieldCheckInController : AuthenticatedControllerBase
         if (!string.IsNullOrEmpty(status))
             query = query.Where(v => v.Status == status);
 
+        pageSize = Math.Clamp(pageSize, 10, 200);
+        var totalCount = await query.CountAsync();
+
         var visits = await query
             .OrderByDescending(v => v.VisitDate)
-            .Take(100)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(v => new
             {
                 id = v.Id.ToString(),
+                employeeId = v.EmployeeId,
+                employeeName = v.EmployeeName,
                 locationId = v.LocationId.ToString(),
                 locationName = v.LocationName,
+                locationAddress = v.Location != null ? v.Location.Address : null,
+                contactName = v.Location != null ? v.Location.ContactName : null,
+                contactPhone = v.Location != null ? v.Location.ContactPhone : null,
+                contactEmail = v.Location != null ? v.Location.ContactEmail : null,
                 visitDate = v.VisitDate,
                 checkInTime = v.CheckInTime,
                 checkOutTime = v.CheckOutTime,
                 timeSpentMinutes = v.TimeSpentMinutes,
                 checkInDistance = v.CheckInDistance,
                 checkOutDistance = v.CheckOutDistance,
+                checkInLatitude = v.CheckInLatitude,
+                checkInLongitude = v.CheckInLongitude,
                 photos = v.PhotoUrlsJson,
                 reportNote = v.ReportNote,
+                reportData = v.ReportDataJson,
                 status = v.Status,
                 reviewedBy = v.ReviewedBy,
                 reviewNote = v.ReviewNote,
+                outsideRadius = v.OutsideRadius,
             })
             .ToListAsync();
 
@@ -730,22 +777,32 @@ public class FieldCheckInController : AuthenticatedControllerBase
         var result = visits.Select(v => new
         {
             v.id,
+            v.employeeId,
+            v.employeeName,
             v.locationId,
             v.locationName,
+            v.locationAddress,
+            v.contactName,
+            v.contactPhone,
+            v.contactEmail,
             v.visitDate,
             v.checkInTime,
             v.checkOutTime,
             v.timeSpentMinutes,
             v.checkInDistance,
             v.checkOutDistance,
+            v.checkInLatitude,
+            v.checkInLongitude,
             photos = SafeDeserializePhotos(v.photos),
             v.reportNote,
+            reportData = v.reportData != null ? JsonSerializer.Deserialize<object>(v.reportData) : null,
             v.status,
             v.reviewedBy,
             v.reviewNote,
+            v.outsideRadius,
         }).ToList();
 
-        return Ok(AppResponse<object>.Success(result));
+        return Ok(AppResponse<object>.Success(new { items = result, totalCount, page, pageSize }));
     }
 
     /// <summary>
@@ -809,11 +866,14 @@ public class FieldCheckInController : AuthenticatedControllerBase
         [FromQuery] Guid? locationId,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
-        [FromQuery] string? status)
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         var storeId = RequiredStoreId;
         var query = _dbContext.VisitReports
             .AsNoTracking()
+            .Include(v => v.Location)
             .Where(v => v.StoreId == storeId && v.Deleted == null);
 
         if (!string.IsNullOrEmpty(employeeId))
@@ -827,9 +887,13 @@ public class FieldCheckInController : AuthenticatedControllerBase
         if (!string.IsNullOrEmpty(status))
             query = query.Where(v => v.Status == status);
 
+        pageSize = Math.Clamp(pageSize, 10, 200);
+        var totalCount = await query.CountAsync();
+
         var visits = await query
             .OrderByDescending(v => v.VisitDate)
-            .Take(200)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(v => new
             {
                 id = v.Id.ToString(),
@@ -837,6 +901,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 employeeName = v.EmployeeName,
                 locationId = v.LocationId.ToString(),
                 locationName = v.LocationName,
+                locationAddress = v.Location != null ? v.Location.Address : null,
+                contactName = v.Location != null ? v.Location.ContactName : null,
+                contactPhone = v.Location != null ? v.Location.ContactPhone : null,
+                contactEmail = v.Location != null ? v.Location.ContactEmail : null,
                 visitDate = v.VisitDate,
                 checkInTime = v.CheckInTime,
                 checkOutTime = v.CheckOutTime,
@@ -852,6 +920,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 reviewedBy = v.ReviewedBy,
                 reviewedAt = v.ReviewedAt,
                 reviewNote = v.ReviewNote,
+                outsideRadius = v.OutsideRadius,
             })
             .ToListAsync();
 
@@ -862,6 +931,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
             v.employeeName,
             v.locationId,
             v.locationName,
+            v.locationAddress,
+            v.contactName,
+            v.contactPhone,
+            v.contactEmail,
             v.visitDate,
             v.checkInTime,
             v.checkOutTime,
@@ -877,9 +950,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
             v.reviewedBy,
             v.reviewedAt,
             v.reviewNote,
+            v.outsideRadius,
         }).ToList();
 
-        return Ok(AppResponse<object>.Success(result));
+        return Ok(AppResponse<object>.Success(new { items = result, totalCount, page, pageSize }));
     }
 
     /// <summary>
@@ -1083,11 +1157,18 @@ public class FieldCheckInController : AuthenticatedControllerBase
         if (request.Points == null || request.Points.Count == 0)
             return Ok(AppResponse<object>.Success(new { saved = 0 }));
 
-        // Append new points to existing route
+        // Append new points to existing route (dedup: skip if within 50m of last point)
         var existingPoints = JsonSerializer.Deserialize<List<RoutePoint>>(journey.RoutePointsJson ?? "[]") ?? new();
         
+        var addedCount = 0;
         foreach (var pt in request.Points)
         {
+            var lastPt = existingPoints.LastOrDefault();
+            if (lastPt != null)
+            {
+                var distFromLast = CalculateDistance(lastPt.Lat, lastPt.Lng, pt.Latitude, pt.Longitude);
+                if (distFromLast < 50) continue; // Skip GPS point within 50m radius
+            }
             existingPoints.Add(new RoutePoint
             {
                 Lat = pt.Latitude,
@@ -1095,6 +1176,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 Time = pt.Timestamp ?? DateTime.UtcNow,
                 Speed = pt.Speed,
             });
+            addedCount++;
         }
 
         // Recalculate total distance from points
@@ -1181,7 +1263,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
         return Ok(AppResponse<object>.Success(new
         {
-            saved = request.Points.Count,
+            saved = addedCount,
             totalDistanceKm = journey.TotalDistanceKm,
             totalTravelMinutes = journey.TotalTravelMinutes,
             totalOnSiteMinutes = journey.TotalOnSiteMinutes,
@@ -1386,6 +1468,56 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
         return Ok(AppResponse<object>.Success(result));
     }
+
+    /// <summary>
+    /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app)
+    /// </summary>
+    [HttpPost("report-location")]
+    public async Task<ActionResult> ReportLocation([FromBody] ReportLocationRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var empId = CurrentUserId.ToString();
+        if (string.IsNullOrEmpty(empId))
+            return BadRequest(AppResponse<object>.Error("Không xác định được nhân viên"));
+
+        if (request.Latitude == 0 && request.Longitude == 0)
+            return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
+
+        var existing = await _dbContext.EmployeeLiveLocations
+            .FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == empId);
+
+        if (existing != null)
+        {
+            existing.Latitude = request.Latitude;
+            existing.Longitude = request.Longitude;
+            existing.Accuracy = request.Accuracy;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            _dbContext.EmployeeLiveLocations.Add(new EmployeeLiveLocation
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                EmployeeId = empId,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                Accuracy = request.Accuracy,
+                UpdatedAt = DateTime.UtcNow,
+            });
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(null));
+    }
+
+    public class ReportLocationRequest
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double? Accuracy { get; set; }
+    }
+
     /// <summary>
     /// Manager xem vi tri tat ca nhan vien theo phong ban + lich su check-in hom nay
     /// </summary>
@@ -1395,6 +1527,26 @@ public class FieldCheckInController : AuthenticatedControllerBase
     {
         var storeId = RequiredStoreId;
         var today = DateTime.UtcNow.Date;
+
+        // Auto-link Employees.ApplicationUserId where missing
+        var unlinkedEmps = await _dbContext.Employees
+            .Where(e => e.StoreId == storeId && e.Deleted == null && e.ApplicationUserId == null)
+            .ToListAsync();
+        if (unlinkedEmps.Count > 0)
+        {
+            var empCodes = unlinkedEmps.Select(e => e.EmployeeCode).ToList();
+            var matchingUsers = await _dbContext.Users
+                .Where(u => u.StoreId == storeId && empCodes.Contains(u.UserName!))
+                .Select(u => new { u.Id, u.UserName })
+                .ToListAsync();
+            var userMap = matchingUsers.ToDictionary(u => u.UserName!, u => u.Id);
+            foreach (var emp in unlinkedEmps)
+            {
+                if (userMap.TryGetValue(emp.EmployeeCode, out var userId))
+                    emp.ApplicationUserId = userId;
+            }
+            await _dbContext.SaveChangesAsync();
+        }
 
         // 1. Get all active employees in this store
         var employees = await _dbContext.Employees
@@ -1411,6 +1563,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 e.DepartmentId,
                 e.Position,
                 e.PhotoUrl,
+                e.ApplicationUserId,
             })
             .ToListAsync();
 
@@ -1470,6 +1623,12 @@ public class FieldCheckInController : AuthenticatedControllerBase
             })
             .ToListAsync();
 
+        // 5b. Get live GPS locations reported by devices
+        var liveLocations = await _dbContext.EmployeeLiveLocations
+            .AsNoTracking()
+            .Where(l => l.StoreId == storeId && l.UpdatedAt >= today)
+            .ToListAsync();
+
         // 6. Build result per employee
         var deptColorIndex = 0;
         var deptColorMap = new Dictionary<string, int>();
@@ -1478,6 +1637,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         {
             var empIdStr = emp.Id.ToString();
             var empCode = emp.EmployeeCode;
+            var appUserIdStr = emp.ApplicationUserId?.ToString();
             var deptName = emp.Department ?? "Chua phan phong";
 
             // Assign consistent color index per department
@@ -1489,7 +1649,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             DateTime? lastUpdate = null;
             string? source = null;
 
-            var journey = todayJourneys.FirstOrDefault(j => j.EmployeeId == empCode || j.EmployeeId == empIdStr);
+            var journey = todayJourneys.FirstOrDefault(j => j.EmployeeId == empCode || j.EmployeeId == empIdStr || (appUserIdStr != null && j.EmployeeId == appUserIdStr));
             if (journey != null)
             {
                 try
@@ -1513,7 +1673,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             // Fallback: last check-in GPS
             if (lat == null)
             {
-                var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr);
+                var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr));
                 if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
                 {
                     lat = lastVisit.CheckInLatitude;
@@ -1526,7 +1686,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             // Fallback: last mobile punch GPS
             if (lat == null)
             {
-                var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr);
+                var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr || (appUserIdStr != null && p.OdooEmployeeId == appUserIdStr));
                 if (lastPunch?.Latitude != null && lastPunch.Latitude != 0)
                 {
                     lat = lastPunch.Latitude;
@@ -1536,9 +1696,22 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 }
             }
 
+            // Fallback: live GPS from device
+            if (lat == null)
+            {
+                var live = liveLocations.FirstOrDefault(l => l.EmployeeId == empCode || l.EmployeeId == empIdStr || (appUserIdStr != null && l.EmployeeId == appUserIdStr));
+                if (live != null && live.Latitude != 0)
+                {
+                    lat = live.Latitude;
+                    lng = live.Longitude;
+                    lastUpdate = live.UpdatedAt;
+                    source = "live";
+                }
+            }
+
             // Employee's today visits
             var empVisits = todayVisits
-                .Where(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr)
+                .Where(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr))
                 .Select(v => new
                 {
                     v.LocationName,
@@ -1573,7 +1746,110 @@ public class FieldCheckInController : AuthenticatedControllerBase
         .ThenBy(e => e.employeeName)
         .ToList();
 
-        return Ok(AppResponse<object>.Success(result));
+        // Include store users who have location data but no Employee record
+        var allMatchedIds = new HashSet<string>();
+        foreach (var emp in employees)
+        {
+            allMatchedIds.Add(emp.Id.ToString());
+            if (!string.IsNullOrEmpty(emp.EmployeeCode)) allMatchedIds.Add(emp.EmployeeCode);
+            if (emp.ApplicationUserId.HasValue) allMatchedIds.Add(emp.ApplicationUserId.Value.ToString());
+        }
+
+        var locationUserIds = new HashSet<string>();
+        foreach (var j in todayJourneys) if (!string.IsNullOrEmpty(j.EmployeeId)) locationUserIds.Add(j.EmployeeId);
+        foreach (var p in todayPunches) if (!string.IsNullOrEmpty(p.OdooEmployeeId)) locationUserIds.Add(p.OdooEmployeeId);
+        foreach (var l in liveLocations) if (!string.IsNullOrEmpty(l.EmployeeId)) locationUserIds.Add(l.EmployeeId);
+
+        var unmatchedIds = locationUserIds
+            .Where(id => !allMatchedIds.Contains(id) && Guid.TryParse(id, out _))
+            .Select(id => Guid.Parse(id))
+            .ToList();
+
+        var finalResult = new List<object>(result.Cast<object>());
+
+        if (unmatchedIds.Count > 0)
+        {
+            var unmatchedUsers = await _dbContext.Users
+                .AsNoTracking()
+                .Where(u => unmatchedIds.Contains(u.Id) && u.StoreId == storeId)
+                .Select(u => new { u.Id, u.UserName, u.FirstName, u.LastName })
+                .ToListAsync();
+
+            var unmatchedDept = "Chua phan phong";
+            if (!deptColorMap.ContainsKey(unmatchedDept))
+                deptColorMap[unmatchedDept] = deptColorIndex++;
+
+            foreach (var user in unmatchedUsers)
+            {
+                var userIdStr = user.Id.ToString();
+
+                double? uLat = null, uLng = null;
+                DateTime? uLastUpdate = null;
+                string? uSource = null;
+
+                var uJourney = todayJourneys.FirstOrDefault(j => j.EmployeeId == userIdStr);
+                if (uJourney != null)
+                {
+                    try
+                    {
+                        var points = JsonSerializer.Deserialize<List<RoutePoint>>(uJourney.RoutePointsJson ?? "[]") ?? new();
+                        if (points.Count > 0)
+                        {
+                            var last = points.Last();
+                            if (last.Lat != 0 && last.Lng != 0)
+                            { uLat = last.Lat; uLng = last.Lng; uLastUpdate = last.Time; uSource = "journey"; }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (uLat == null)
+                {
+                    var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == userIdStr);
+                    if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
+                    { uLat = lastVisit.CheckInLatitude; uLng = lastVisit.CheckInLongitude; uLastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime; uSource = "checkin"; }
+                }
+
+                if (uLat == null)
+                {
+                    var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == userIdStr);
+                    if (lastPunch?.Latitude != null && lastPunch.Latitude != 0)
+                    { uLat = lastPunch.Latitude; uLng = lastPunch.Longitude; uLastUpdate = lastPunch.PunchTime; uSource = "punch"; }
+                }
+
+                if (uLat == null)
+                {
+                    var live = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
+                    if (live != null && live.Latitude != 0)
+                    { uLat = live.Latitude; uLng = live.Longitude; uLastUpdate = live.UpdatedAt; uSource = "live"; }
+                }
+
+                var uVisits = todayVisits
+                    .Where(v => v.EmployeeId == userIdStr)
+                    .Select(v => new { v.LocationName, v.CheckInTime, v.CheckOutTime, v.TimeSpentMinutes, v.Status, v.CheckInLatitude, v.CheckInLongitude })
+                    .ToList();
+
+                finalResult.Add(new
+                {
+                    employeeId = userIdStr,
+                    employeeCode = user.UserName ?? "",
+                    employeeName = $"{user.LastName} {user.FirstName}".Trim(),
+                    department = unmatchedDept,
+                    departmentColorIndex = deptColorMap[unmatchedDept],
+                    position = "",
+                    photoUrl = "",
+                    latitude = uLat,
+                    longitude = uLng,
+                    lastUpdateTime = uLastUpdate,
+                    locationSource = uSource,
+                    journeyStatus = uJourney?.Status,
+                    todayCheckins = uVisits,
+                    checkinCount = uVisits.Count,
+                });
+            }
+        }
+
+        return Ok(AppResponse<object>.Success(finalResult));
     }
 
     /// <summary>

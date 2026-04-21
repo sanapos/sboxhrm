@@ -1374,7 +1374,6 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
     final duration = startDate != null && endDate != null ? endDate.difference(startDate).inDays + 1 : 0;
     final empName = leave['employeeName'] ?? 'N/A';
-    final isPending = status == 0;
 
     return InkWell(
       onTap: () => _showLeaveDetailDialog(leave, isMyLeaves: isMyLeaves, showApprovalActions: showApprovalActions, isAllTab: isAllTab),

@@ -173,8 +173,12 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     public async Task<ActionResult<AppResponse<AppSettingsDto>>> GetAppSetting(string key)
     {
-        var storeId = RequiredStoreId;
-        var setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.StoreId == storeId && s.Key == key);
+        var storeId = CurrentStoreId;
+        AppSettings? setting;
+        if (storeId.HasValue)
+            setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.StoreId == storeId.Value && s.Key == key);
+        else
+            setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
         if (setting == null)
             return NotFound(AppResponse<AppSettingsDto>.Fail("Setting không tồn tại"));
 
@@ -190,8 +194,12 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     public async Task<ActionResult<AppResponse<AppSettingsDto>>> UpsertAppSetting([FromBody] UpsertAppSettingRequest request)
     {
-        var storeId = RequiredStoreId;
-        var setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.StoreId == storeId && s.Key == request.Key);
+        var storeId = CurrentStoreId;
+        AppSettings? setting;
+        if (storeId.HasValue)
+            setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.StoreId == storeId.Value && s.Key == request.Key);
+        else
+            setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.Key == request.Key);
 
         if (setting == null)
         {

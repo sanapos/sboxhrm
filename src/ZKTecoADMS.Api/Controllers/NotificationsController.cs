@@ -31,7 +31,13 @@ public class NotificationsController(IMediator mediator) : AuthenticatedControll
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     public async Task<ActionResult<AppResponse<NotificationSummaryDto>>> GetNotificationSummary()
     {
-        var query = new GetNotificationSummaryQuery(RequiredStoreId, CurrentUserId);
+        var storeId = CurrentStoreId;
+        if (storeId == null)
+        {
+            // SuperAdmin/Agent has no store - return empty summary
+            return Ok(AppResponse<NotificationSummaryDto>.Success(new NotificationSummaryDto()));
+        }
+        var query = new GetNotificationSummaryQuery(storeId.Value, CurrentUserId);
         var result = await mediator.Send(query);
         return Ok(result);
     }

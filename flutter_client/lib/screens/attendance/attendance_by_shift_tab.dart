@@ -55,7 +55,6 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
-  final Set<int> _expandedCardIndices = {};
 
   // Cached lookup maps built from props
   Map<String, String> _employeeCodeToGuid = {};

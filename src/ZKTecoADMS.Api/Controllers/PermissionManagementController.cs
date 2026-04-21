@@ -34,11 +34,48 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
             .OrderBy(p => p.Permission.DisplayOrder)
             .ToListAsync();
 
+        var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
+
         if (permissions.Count == 0)
         {
             // Tạo permissions mặc định nếu chưa có
-            var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
             permissions = await CreateDefaultPermissionsForRole(roleName, allModules);
+        }
+        else
+        {
+            // Kiểm tra module mới được thêm sau khi role đã có permissions
+            var existingPermissionIds = permissions.Select(p => p.PermissionId).ToHashSet();
+            var missingModules = allModules.Where(m => !existingPermissionIds.Contains(m.Id)).ToList();
+            if (missingModules.Count > 0)
+            {
+                var newEntries = new List<RolePermission>();
+                foreach (var module in missingModules)
+                {
+                    var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+                    newEntries.Add(new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = RequiredStoreId,
+                        RoleName = roleName,
+                        RoleDisplayName = GetRoleDisplayName(roleName),
+                        PermissionId = module.Id,
+                        CanView = canView,
+                        CanCreate = canCreate,
+                        CanEdit = canEdit,
+                        CanDelete = canDelete,
+                        CanExport = canExport,
+                        CanApprove = canApprove
+                    });
+                }
+                context.RolePermissions.AddRange(newEntries);
+                await context.SaveChangesAsync();
+                // Reload để có đầy đủ navigation props
+                permissions = await context.RolePermissions
+                    .Include(p => p.Permission)
+                    .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
+                    .OrderBy(p => p.Permission.DisplayOrder)
+                    .ToListAsync();
+            }
         }
 
         var result = new RolePermissionGroupDto
@@ -89,6 +126,40 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
             if (!permissionsByRole.TryGetValue(roleName, out var permissions) || permissions.Count == 0)
             {
                 permissions = await CreateDefaultPermissionsForRole(roleName, allModules);
+            }
+            else
+            {
+                var existingPermissionIds = permissions.Select(p => p.PermissionId).ToHashSet();
+                var missingModules = allModules.Where(m => !existingPermissionIds.Contains(m.Id)).ToList();
+                if (missingModules.Count > 0)
+                {
+                    var newEntries = new List<RolePermission>();
+                    foreach (var module in missingModules)
+                    {
+                        var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+                        newEntries.Add(new RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            StoreId = RequiredStoreId,
+                            RoleName = roleName,
+                            RoleDisplayName = GetRoleDisplayName(roleName),
+                            PermissionId = module.Id,
+                            CanView = canView,
+                            CanCreate = canCreate,
+                            CanEdit = canEdit,
+                            CanDelete = canDelete,
+                            CanExport = canExport,
+                            CanApprove = canApprove
+                        });
+                    }
+                    context.RolePermissions.AddRange(newEntries);
+                    await context.SaveChangesAsync();
+                    permissions = (await context.RolePermissions
+                        .Include(p => p.Permission)
+                        .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
+                        .ToListAsync());
+                    permissionsByRole[roleName] = permissions;
+                }
             }
 
             result.Add(new RolePermissionGroupDto

@@ -63,12 +63,18 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   }
 
   Future<void> _loadMasterData() async {
+    // Load employees separately so failure doesn't block product loading
     try {
-      final empRes = await _apiService.getEmployees();
+      final empRes = await _apiService.getEmployees(pageSize: 9999);
       _employees = (empRes as List?)
           ?.map((e) => Map<String, dynamic>.from(e as Map))
           .toList() ?? [];
+    } catch (e) {
+      debugPrint('Load employees error: $e');
+    }
 
+    // Load product groups and items
+    try {
       final results = await Future.wait([
         _apiService.getProductGroups(),
         _apiService.getProductItems(),
@@ -79,9 +85,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       if (results[1]['isSuccess'] == true) {
         _items = List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
       }
+      debugPrint('Loaded ${_groups.length} groups, ${_items.length} items');
     } catch (e) {
-      debugPrint('Load base data error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải dữ liệu cơ bản');
+      debugPrint('Load product data error: $e');
+      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản phẩm');
     }
     _loadEntries();
   }
@@ -136,7 +143,16 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     return Scaffold(
       floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Production')
           ? FloatingActionButton.extended(
-              onPressed: _items.isEmpty ? null : _showAddEntryDialog,
+              onPressed: () {
+                if (_items.isEmpty) {
+                  NotificationOverlayManager().showError(
+                    title: 'Chưa có sản phẩm',
+                    message: 'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                  );
+                  return;
+                }
+                _showAddEntryDialog();
+              },
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Nhập SL'),
               backgroundColor: primary,
@@ -286,8 +302,16 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       const SizedBox(width: 4),
                       if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Production'))
                       ElevatedButton.icon(
-                        onPressed:
-                            _items.isEmpty ? null : _showAddEntryDialog,
+                        onPressed: () {
+                          if (_items.isEmpty) {
+                            NotificationOverlayManager().showError(
+                              title: 'Chưa có sản phẩm',
+                              message: 'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                            );
+                            return;
+                          }
+                          _showAddEntryDialog();
+                        },
                         icon: const Icon(Icons.add,
                             size: 18, color: Colors.white),
                         label: const Text('Nhập sản lượng',
@@ -957,7 +981,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           // Employee + Date row
           if (isMobile) ...[
             DropdownButtonFormField<String>(
-              initialValue: selEmployeeId,
+              value: selEmployeeId,
               decoration: const InputDecoration(
                   labelText: 'Nhân viên *',
                   border: OutlineInputBorder(),
@@ -997,7 +1021,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 Expanded(
                   flex: 3,
                   child: DropdownButtonFormField<String>(
-                    initialValue: selEmployeeId,
+                    value: selEmployeeId,
                     decoration: const InputDecoration(
                         labelText: 'Nhân viên *',
                         border: OutlineInputBorder(),
@@ -1080,7 +1104,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: line.productItemId,
+                            value: line.productItemId,
                             decoration: const InputDecoration(
                                 hintText: 'Chọn sản phẩm',
                                 border: OutlineInputBorder(),
@@ -1158,7 +1182,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   Expanded(
                     flex: 4,
                     child: DropdownButtonFormField<String>(
-                      initialValue: line.productItemId,
+                      value: line.productItemId,
                       decoration: const InputDecoration(
                           hintText: 'Chọn SP',
                           border: OutlineInputBorder(),
@@ -1356,7 +1380,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            initialValue: selEmployeeId,
+            value: selEmployeeId,
             decoration: const InputDecoration(
                 labelText: 'Nhân viên *', border: OutlineInputBorder()),
             items: _employees.map((e) {
@@ -1370,7 +1394,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: selItemId,
+            value: selItemId,
             decoration: const InputDecoration(
                 labelText: 'Sản phẩm *', border: OutlineInputBorder()),
             items: _items.map((item) {

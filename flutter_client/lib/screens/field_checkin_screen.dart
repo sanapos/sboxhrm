@@ -46,7 +46,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   bool _isGettingLocation = false;
   Timer? _trackingTimer;
   Timer? _managerRefreshTimer;
+  Timer? _locationReportTimer;
   final List<Map<String, dynamic>> _pendingTrackPoints = [];
+  double? _lastTrackedLat;
+  double? _lastTrackedLng;
   static const _kPendingPointsKey = 'field_checkin_pending_gps';
 
   // History tab
@@ -55,6 +58,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   DateTime _historyFrom = DateTime.now().subtract(const Duration(days: 7));
   DateTime _historyTo = DateTime.now();
   bool _isLoadingHistory = false;
+  String _historySearchQuery = '';
+  String? _historyEmployeeFilter;
+  final TextEditingController _historySearchCtl = TextEditingController();
 
   // Manager tab
   List<FieldLocationAssignment> _allAssignments = [];
@@ -67,10 +73,20 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   List<Map<String, dynamic>> _locations = [];
 
   // Manager map
+  final MapController _managerMapController = MapController();
+  // ignore: unused_field
   List<Map<String, dynamic>> _activeJourneys = [];
   List<Map<String, dynamic>> _employeeLocations = [];
   String? _selectedEmployeeId;
   bool _showManagerMap = true;
+  // Journey overlay on manager map
+  JourneyTracking? _selectedJourney;
+  bool _isLoadingJourney = false;
+
+  // Field location search
+  final TextEditingController _locationSearchCtl = TextEditingController();
+  List<FieldLocation> _searchResults = [];
+  bool _isSearching = false;
 
   // Bottom sheet
   final DraggableScrollableController _sheetCtl = DraggableScrollableController();
@@ -90,15 +106,20 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     });
     _loadMyData();
     _restorePendingPoints();
+    _startLocationReporting();
   }
 
   @override
   void dispose() {
     _trackingTimer?.cancel();
     _managerRefreshTimer?.cancel();
+    _locationReportTimer?.cancel();
+    _locationSearchCtl.dispose();
     _tabCtl.dispose();
     _sheetCtl.dispose();
     _mapController.dispose();
+    _managerMapController.dispose();
+    _historySearchCtl.dispose();
     super.dispose();
   }
 
@@ -207,6 +228,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         // If journey is active, start tracking
         if (_todayJourney?.isActive == true) {
           _startGpsTracking();
+        } else if (_todayJourney == null || _todayJourney!.isNotStarted) {
+          // Auto-start journey when opening screen
+          _autoStartJourney();
         }
         _initGps();
       }
@@ -215,17 +239,41 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     }
   }
 
+  /// Tự động bắt đầu hành trình khi mở màn hình (không cần bấm nút)
+  Future<void> _autoStartJourney() async {
+    try {
+      final resp = await _apiService.startJourney();
+      if (mounted && resp['isSuccess'] == true && resp['data'] != null) {
+        setState(() => _todayJourney = JourneyTracking.fromJson(resp['data'] as Map<String, dynamic>));
+        _startGpsTracking();
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadHistory() async {
     setState(() => _isLoadingHistory = true);
     try {
-      final results = await Future.wait([
-        _apiService.getMyFieldVisits(fromDate: _historyFrom, toDate: _historyTo),
-        _apiService.getJourneyReports(fromDate: _historyFrom, toDate: _historyTo),
-      ]);
+      final futures = <Future<Map<String, dynamic>>>[
+        _isManager
+            ? _apiService.getFieldReports(
+                fromDate: _historyFrom,
+                toDate: _historyTo,
+                employeeId: _historyEmployeeFilter,
+              )
+            : _apiService.getMyFieldVisits(fromDate: _historyFrom, toDate: _historyTo),
+        _apiService.getJourneyReports(
+          fromDate: _historyFrom,
+          toDate: _historyTo,
+          employeeId: _historyEmployeeFilter,
+        ),
+      ];
+      final results = await Future.wait(futures);
       if (mounted) {
         setState(() {
           if (results[0]['isSuccess'] == true && results[0]['data'] != null) {
-            _historyVisits = (results[0]['data'] as List)
+            final data = results[0]['data'];
+            final list = data is List ? data : (data['items'] as List?) ?? [];
+            _historyVisits = list
                 .map((e) => VisitReport.fromJson(e as Map<String, dynamic>))
                 .toList();
           }
@@ -257,7 +305,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       if (mounted) {
         setState(() {
           if (results[0]['isSuccess'] == true && results[0]['data'] != null) {
-            _reports = (results[0]['data'] as List)
+            final data = results[0]['data'];
+            final list = data is List ? data : (data['items'] as List?) ?? [];
+            _reports = list
                 .map((e) => VisitReport.fromJson(e as Map<String, dynamic>))
                 .toList();
           }
@@ -386,6 +436,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             _currentLat = pos.latitude;
             _currentLng = pos.longitude;
           });
+          // Skip if within 50m of last tracked point
+          if (_lastTrackedLat != null && _lastTrackedLng != null) {
+            final dist = _calculateDistance(_lastTrackedLat!, _lastTrackedLng!, pos.latitude, pos.longitude);
+            if (dist < 50) return;
+          }
+          _lastTrackedLat = pos.latitude;
+          _lastTrackedLng = pos.longitude;
           _pendingTrackPoints.add({
             'latitude': pos.latitude,
             'longitude': pos.longitude,
@@ -424,6 +481,34 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   void _stopGpsTracking() {
     _trackingTimer?.cancel();
+  }
+
+  /// Gửi vị trí GPS hiện tại lên server mỗi 60 giây (không phụ thuộc hành trình)
+  void _startLocationReporting() {
+    _locationReportTimer?.cancel();
+    // Report immediately on open
+    _reportCurrentLocation();
+    _locationReportTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) _reportCurrentLocation();
+    });
+  }
+
+  Future<void> _reportCurrentLocation() async {
+    try {
+      if (!kIsWeb) await ensureLocationPermission();
+      final pos = await getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _currentLat = pos.latitude;
+          _currentLng = pos.longitude;
+        });
+      }
+      await _apiService.reportLocation(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        accuracy: pos.accuracy,
+      );
+    } catch (_) {}
   }
 
   // ========== JOURNEY ACTIONS ==========
@@ -964,12 +1049,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
           options: MapOptions(
             initialCenter: _currentLat != null
                 ? LatLng(_currentLat!, _currentLng!)
-                : const LatLng(10.8231, 106.6297), // Default HCM
+                : const LatLng(16.0544, 108.2022), // Default Da Nang
             initialZoom: 14,
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.zktecoadms.app',
             ),
             // Route polyline
@@ -1330,7 +1416,58 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 ),
                 const SizedBox(height: 8),
 
-                if (_fieldLocations.isEmpty)
+                // Search bar for field locations
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _locationSearchCtl,
+                    decoration: InputDecoration(
+                      hintText: 'Tìm theo tên, địa chỉ, SĐT...',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _locationSearchCtl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _locationSearchCtl.clear();
+                                setState(() {
+                                  _isSearching = false;
+                                  _searchResults = [];
+                                });
+                              },
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                    onChanged: _onSearchFieldLocations,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                if (_isSearching && _searchResults.isEmpty && _locationSearchCtl.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(children: [
+                      Icon(Icons.search_off, size: 36, color: Colors.grey[300]),
+                      const SizedBox(height: 6),
+                      Text('Không tìm thấy điểm bán', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                    ]),
+                  )
+                else if (_fieldLocations.isEmpty && !_isSearching)
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(children: [
@@ -1346,7 +1483,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     ]),
                   )
                 else
-                  ..._fieldLocations.map((loc) => _buildFieldLocationCard(loc)),
+                  ...(_isSearching ? _searchResults : _fieldLocations).map((loc) => _buildFieldLocationCard(loc)),
 
                 const SizedBox(height: 20),
               ],
@@ -1355,6 +1492,26 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         ),
       ],
     );
+  }
+
+  void _onSearchFieldLocations(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+      return;
+    }
+    setState(() => _isSearching = true);
+    try {
+      final resp = await _apiService.getFieldLocations(search: query.trim());
+      if (_locationSearchCtl.text.trim() == query.trim() && resp['isSuccess'] == true && resp['data'] != null) {
+        final list = (resp['data'] as List)
+            .map((e) => FieldLocation.fromJson(e as Map<String, dynamic>))
+            .toList();
+        setState(() => _searchResults = list);
+      }
+    } catch (_) {}
   }
 
   void _fitAllMarkers() {
@@ -1388,81 +1545,62 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   Widget _buildJourneyButton() {
     if (_todayJourney == null || _todayJourney!.isNotStarted) {
-      return SizedBox(
+      // Auto-starting, show loading indicator
+      return Container(
         width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: _startJourney,
-          icon: const Icon(Icons.play_arrow),
-          label: const Text('Bắt đầu hành trình', style: TextStyle(fontWeight: FontWeight.bold)),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF22C55E),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF22C55E))),
+            SizedBox(width: 10),
+            Text('Đang kết nối theo dõi...', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF22C55E))),
+          ],
         ),
       );
     }
 
-    if (_todayJourney!.isActive) {
-      return SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: _endJourney,
-          icon: const Icon(Icons.stop),
-          label: Text('Kết thúc hành trình • ${_todayJourney!.durationFormatted}', style: const TextStyle(fontWeight: FontWeight.bold)),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      );
-    }
-
-    // Completed
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    // Active or completed — show tracking status (no end button)
+    final isActive = _todayJourney!.isActive;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFF0FDF4) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isActive ? const Color(0xFF22C55E).withValues(alpha: 0.3) : const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+      ),
+      child: Row(children: [
         Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          width: 10, height: 10,
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Hành trình đã hoàn thành', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
-                  Text(
-                    '${_todayJourney!.distanceFormatted} • ${_todayJourney!.durationFormatted} • ${_todayJourney!.checkedInCount}/${_todayJourney!.assignedCount} điểm',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ]),
-              ),
-            ],
+            color: isActive ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F),
+            shape: BoxShape.circle,
+            boxShadow: isActive ? [BoxShadow(color: const Color(0xFF22C55E).withValues(alpha: 0.4), blurRadius: 6, spreadRadius: 2)] : null,
           ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _startJourney,
-            icon: const Icon(Icons.replay, size: 18),
-            label: const Text('Bắt đầu lại hành trình'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A5F),
-              side: const BorderSide(color: Color(0xFF1E3A5F)),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isActive ? 'Đang theo dõi vị trí' : 'Hành trình đã hoàn thành',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isActive ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F)),
             ),
-          ),
-        ),
-      ],
+            Text(
+              '${_todayJourney!.distanceFormatted} • ${_todayJourney!.durationFormatted} • ${_todayJourney!.checkedInCount} điểm',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        )),
+        if (isActive)
+          const Icon(Icons.gps_fixed, color: Color(0xFF22C55E), size: 20),
+      ]),
     );
   }
 
@@ -1957,82 +2095,238 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   // ==================== TAB 2: HISTORY ====================
 
+  List<VisitReport> get _filteredHistoryVisits {
+    final q = _historySearchQuery.toLowerCase().trim();
+    if (q.isEmpty) return _historyVisits;
+    return _historyVisits.where((v) {
+      return (v.locationName ?? '').toLowerCase().contains(q) ||
+          (v.contactPhone ?? '').contains(q) ||
+          (v.locationAddress ?? '').toLowerCase().contains(q) ||
+          (v.contactName ?? '').toLowerCase().contains(q) ||
+          (v.employeeName ?? '').toLowerCase().contains(q) ||
+          (v.reportNote ?? '').toLowerCase().contains(q);
+    }).toList();
+  }
+
   Widget _buildHistoryTab() {
+    final filtered = _filteredHistoryVisits;
+    // Summary stats
+    final totalVisits = filtered.length;
+    final uniqueLocations = filtered.map((v) => v.locationId).toSet().length;
+    final checkedOut = filtered.where((v) => v.isCheckedOut || v.isReviewed).length;
+    final totalMinutes = filtered.where((v) => v.timeSpentMinutes != null).fold<int>(0, (s, v) => s + v.timeSpentMinutes!);
+    final uniqueEmployees = _isManager ? filtered.map((v) => v.employeeId).toSet().length : 0;
+
     return Column(
       children: [
-        // Date filter
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final picked = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime.now(),
-                    initialDateRange: DateTimeRange(start: _historyFrom, end: _historyTo),
-                  );
-                  if (picked != null) {
-                    setState(() { _historyFrom = picked.start; _historyTo = picked.end; });
-                    _loadHistory();
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
+        // === Filters section ===
+        Container(
+          color: Colors.grey.shade50,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Row 1: Date range + Employee filter (if manager)
+            Row(children: [
+              // Date range picker
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime.now().add(const Duration(days: 1)),
+                      initialDateRange: DateTimeRange(start: _historyFrom, end: _historyTo),
+                    );
+                    if (picked != null) {
+                      setState(() { _historyFrom = picked.start; _historyTo = picked.end; });
+                      _loadHistory();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.date_range, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 6),
+                      Text('${DateFormat('dd/MM').format(_historyFrom)} - ${DateFormat('dd/MM').format(_historyTo)}',
+                          style: const TextStyle(fontSize: 12)),
+                    ]),
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.date_range, size: 18),
-                    const SizedBox(width: 8),
-                    Text('${DateFormat('dd/MM').format(_historyFrom)} - ${DateFormat('dd/MM/yyyy').format(_historyTo)}',
-                        style: const TextStyle(fontSize: 13)),
-                  ]),
                 ),
               ),
-            ),
+              // Quick date buttons
+              const SizedBox(width: 6),
+              _buildQuickDateBtn('Hôm nay', 0),
+              const SizedBox(width: 4),
+              _buildQuickDateBtn('7 ngày', 7),
+              const SizedBox(width: 4),
+              _buildQuickDateBtn('30 ngày', 30),
+            ]),
+            const SizedBox(height: 6),
+            // Row 2: Employee filter (manager) + Search
+            Row(children: [
+              if (_isManager) ...[
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _historyEmployeeFilter,
+                        hint: Row(children: [
+                          Icon(Icons.person, size: 16, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          const Text('Tất cả NV', style: TextStyle(fontSize: 12)),
+                        ]),
+                        isExpanded: true,
+                        isDense: true,
+                        icon: Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey[500]),
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text('Tất cả NV', style: TextStyle(fontSize: 12))),
+                          ..._getUniqueEmployees().map((e) => DropdownMenuItem<String?>(
+                            value: e['id'],
+                            child: Text(e['name']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                          )),
+                        ],
+                        onChanged: (v) {
+                          setState(() => _historyEmployeeFilter = v);
+                          _loadHistory();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              // Search box
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    controller: _historySearchCtl,
+                    onChanged: (v) => setState(() => _historySearchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'SĐT, địa chỉ, tên điểm...',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                      prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+                      suffixIcon: _historySearchQuery.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () { _historySearchCtl.clear(); setState(() => _historySearchQuery = ''); },
+                              child: Icon(Icons.close, size: 16, color: Colors.grey[400]),
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            ]),
           ]),
         ),
-        // List
+        // === Summary stats ===
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              _buildHistoryStat(Icons.store, '$totalVisits', 'Lượt'),
+              _buildHistoryStat(Icons.place, '$uniqueLocations', 'Điểm'),
+              _buildHistoryStat(Icons.check_circle, '$checkedOut', 'Xong'),
+              _buildHistoryStat(Icons.timer, _formatMinutes(totalMinutes), 'Thời gian'),
+              if (_isManager) _buildHistoryStat(Icons.people, '$uniqueEmployees', 'NV'),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // === Visit list ===
         Expanded(
           child: _isLoadingHistory
               ? const Center(child: CircularProgressIndicator())
-              : (_journeyHistory.isEmpty && _historyVisits.isEmpty)
+              : filtered.isEmpty
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.history, size: 48, color: Colors.grey[300]),
                       const SizedBox(height: 12),
-                      Text('Chưa có lịch sử', style: TextStyle(color: Colors.grey[500])),
+                      Text(
+                        _historySearchQuery.isNotEmpty ? 'Không tìm thấy kết quả' : 'Chưa có lượt tiếp cận',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
                     ]))
                   : RefreshIndicator(
                       onRefresh: _loadHistory,
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        children: [
-                          // Journey cards
-                          if (_journeyHistory.isNotEmpty) ...[
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Text('Hành trình', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            ),
-                            ..._journeyHistory.map(_buildJourneyHistoryCard),
-                            const SizedBox(height: 12),
-                          ],
-                          // Visit cards
-                          if (_historyVisits.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text('Check-in (${_historyVisits.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            ),
-                            ..._historyVisits.map(_buildHistoryVisitCard),
-                          ],
-                        ],
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        itemCount: filtered.length,
+                        itemBuilder: (ctx, i) => _buildHistoryVisitCard(filtered[i]),
                       ),
                     ),
         ),
       ],
     );
+  }
+
+  Widget _buildQuickDateBtn(String label, int days) {
+    final now = DateTime.now();
+    final from = days == 0 ? DateTime(now.year, now.month, now.day) : now.subtract(Duration(days: days));
+    final isActive = _historyFrom.day == from.day && _historyFrom.month == from.month && _historyFrom.year == from.year
+        && _historyTo.day == now.day && _historyTo.month == now.month && _historyTo.year == now.year;
+    return GestureDetector(
+      onTap: () {
+        setState(() { _historyFrom = from; _historyTo = now; });
+        _loadHistory();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF1E3A5F) : Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isActive ? const Color(0xFF1E3A5F) : Colors.grey.shade300),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 10, color: isActive ? Colors.white : Colors.grey[600], fontWeight: FontWeight.w500)),
+      ),
+    );
+  }
+
+  Widget _buildHistoryStat(IconData icon, String value, String label) {
+    return Expanded(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: const Color(0xFF1E3A5F)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E3A5F))),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+      ]),
+    );
+  }
+
+  String _formatMinutes(int mins) {
+    if (mins < 60) return '${mins}p';
+    final h = mins ~/ 60;
+    final m = mins % 60;
+    return m > 0 ? '${h}h${m}p' : '${h}h';
+  }
+
+  List<Map<String, String>> _getUniqueEmployees() {
+    final seen = <String>{};
+    final result = <Map<String, String>>[];
+    for (final v in _historyVisits) {
+      if (v.employeeId != null && seen.add(v.employeeId!)) {
+        result.add({'id': v.employeeId!, 'name': v.employeeName ?? v.employeeId!});
+      }
+    }
+    result.sort((a, b) => a['name']!.compareTo(b['name']!));
+    return result;
   }
 
   Widget _buildJourneyHistoryCard(JourneyTracking j) {
@@ -2085,21 +2379,140 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   }
 
   Widget _buildHistoryVisitCard(VisitReport v) {
+    final hasContact = v.contactName != null || v.contactPhone != null;
     return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      child: ListTile(
-        leading: CircleAvatar(
-          radius: 18,
-          backgroundColor: v.isCheckedIn ? Colors.orange.shade50 : Colors.green.shade50,
-          child: Icon(v.isCheckedIn ? Icons.location_on : Icons.check, size: 18,
-              color: v.isCheckedIn ? Colors.orange : Colors.green),
-        ),
-        title: Text(v.locationName ?? '', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-        subtitle: Text(
-          '${DateFormat('dd/MM HH:mm').format(v.visitDate.toLocal())} • ${v.timeSpentFormatted}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: _buildStatusChip(v.status),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Header: location name + status
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: v.isCheckedOut || v.isReviewed ? Colors.green.shade50 : Colors.orange.shade50,
+              child: Icon(Icons.store, size: 18, color: v.isCheckedOut || v.isReviewed ? Colors.green : Colors.orange),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(v.locationName ?? 'Không tên', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              if (v.locationAddress != null && v.locationAddress!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(children: [
+                    Icon(Icons.place, size: 12, color: Colors.grey[400]),
+                    const SizedBox(width: 3),
+                    Expanded(child: Text(v.locationAddress!, style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  ]),
+                ),
+            ])),
+            const SizedBox(width: 6),
+            _buildStatusChip(v.status),
+          ]),
+          // Contact info
+          if (hasContact) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(children: [
+                Icon(Icons.person_outline, size: 14, color: Colors.blue[700]),
+                const SizedBox(width: 6),
+                if (v.contactName != null)
+                  Text(v.contactName!, style: TextStyle(fontSize: 12, color: Colors.blue[800], fontWeight: FontWeight.w500)),
+                if (v.contactPhone != null) ...[
+                  const SizedBox(width: 10),
+                  Icon(Icons.phone, size: 12, color: Colors.blue[700]),
+                  const SizedBox(width: 3),
+                  Text(v.contactPhone!, style: TextStyle(fontSize: 12, color: Colors.blue[800])),
+                ],
+                if (v.contactEmail != null) ...[
+                  const SizedBox(width: 10),
+                  Icon(Icons.email_outlined, size: 12, color: Colors.blue[700]),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(v.contactEmail!, style: TextStyle(fontSize: 11, color: Colors.blue[700]), overflow: TextOverflow.ellipsis)),
+                ],
+              ]),
+            ),
+          ],
+          const SizedBox(height: 8),
+          // Time + employee info row
+          Row(children: [
+            Icon(Icons.access_time, size: 13, color: Colors.grey[500]),
+            const SizedBox(width: 4),
+            Text(
+              v.checkInTime != null
+                  ? DateFormat('dd/MM/yyyy HH:mm').format(v.checkInTime!.toLocal())
+                  : DateFormat('dd/MM/yyyy').format(v.visitDate.toLocal()),
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+            if (v.checkOutTime != null) ...[
+              Text(' → ', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              Text(DateFormat('HH:mm').format(v.checkOutTime!.toLocal()), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+            ],
+            if (v.timeSpentMinutes != null && v.timeSpentMinutes! > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                child: Text(v.timeSpentFormatted, style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+              ),
+            ],
+            const Spacer(),
+            if (_isManager && v.employeeName != null) ...[
+              Icon(Icons.person, size: 13, color: Colors.grey[500]),
+              const SizedBox(width: 3),
+              Text(v.employeeName!, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+            ],
+          ]),
+          // Distance info
+          if (v.checkInDistance != null) ...[
+            const SizedBox(height: 4),
+            Row(children: [
+              Icon(Icons.straighten, size: 12, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text('Khoảng cách: ${v.checkInDistance!.toStringAsFixed(0)}m', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+              if (v.outsideRadius)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                  child: Text('Ngoài vùng', style: TextStyle(fontSize: 9, color: Colors.red[700], fontWeight: FontWeight.w500)),
+                ),
+            ]),
+          ],
+          // Report note
+          if (v.reportNote != null && v.reportNote!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.notes, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 6),
+                Expanded(child: Text(v.reportNote!, style: TextStyle(fontSize: 12, color: Colors.grey[700]), maxLines: 3, overflow: TextOverflow.ellipsis)),
+              ]),
+            ),
+          ],
+          // Photos count
+          if (v.photos.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(children: [
+              Icon(Icons.photo_camera, size: 12, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text('${v.photos.length} ảnh', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+            ]),
+          ],
+        ]),
       ),
     );
   }
@@ -2130,6 +2543,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     Color(0xFFD53F8C), Color(0xFF2C7A7B), Color(0xFFC05621), Color(0xFF6B46C1),
   ];
 
+  // ignore: unused_element
   Color _getEmployeeColor(int index) => _routeColors[index % _routeColors.length];
 
   // Department color palette
@@ -2320,7 +2734,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     }
 
     // Determine center
-    LatLng center = const LatLng(10.8231, 106.6297);
+    LatLng center = const LatLng(16.0544, 108.2022);
     double zoom = 12;
     final allPoints = _employeeLocations
         .where((e) => (e['latitude'] as num?)?.toDouble() != null && (e['latitude'] as num?)?.toDouble() != 0)
@@ -2371,15 +2785,25 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         child: Stack(
           children: [
             FlutterMap(
+              mapController: _managerMapController,
               options: MapOptions(
                 initialCenter: center,
                 initialZoom: zoom,
-                onTap: (_, __) => setState(() => _selectedEmployeeId = null),
+                onTap: (_, __) => setState(() {
+                  _selectedEmployeeId = null;
+                  _selectedJourney = null;
+                }),
               ),
               children: [
-                TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                TileLayer(
+                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.zktecoadms.app',
+                ),
                 if (circles.isNotEmpty) CircleLayer(circles: circles),
                 if (markers.isNotEmpty) MarkerLayer(markers: markers),
+                // Journey route overlay
+                if (_selectedJourney != null) ..._buildJourneyOverlayLayers(),
               ],
             ),
             // Info badge
@@ -2468,6 +2892,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       case 'journey': sourceLabel = 'Hành trình'; sourceIcon = Icons.directions_walk; break;
       case 'checkin': sourceLabel = 'Check-in'; sourceIcon = Icons.location_on; break;
       case 'punch': sourceLabel = 'Chấm công'; sourceIcon = Icons.fingerprint; break;
+      case 'live': sourceLabel = 'Trực tuyến'; sourceIcon = Icons.gps_fixed; break;
       default: sourceLabel = 'Chưa có vị trí'; sourceIcon = Icons.location_off;
     }
 
@@ -2480,7 +2905,18 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => setState(() => _selectedEmployeeId = isSelected ? null : emp['employeeId']),
+        onTap: () {
+          setState(() {
+            _selectedEmployeeId = isSelected ? null : emp['employeeId'];
+            if (!isSelected) _selectedJourney = null;
+          });
+          // Center map on employee location
+          if (!isSelected && hasLocation) {
+            final lat = (emp['latitude'] as num).toDouble();
+            final lng = (emp['longitude'] as num).toDouble();
+            try { _managerMapController.move(LatLng(lat, lng), 16); } catch (_) {}
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(children: [
@@ -2547,12 +2983,240 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   );
                 }),
               ],
+              // Journey action buttons when selected
+              if (isSelected) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoadingJourney ? null : () => _loadEmployeeJourney(emp['employeeId'], name),
+                      icon: _isLoadingJourney
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.route, size: 14),
+                      label: Text(
+                        _selectedJourney != null && _selectedJourney!.employeeId == emp['employeeId']
+                            ? 'Ẩn hành trình'
+                            : 'Xem hành trình hôm nay',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E3A5F),
+                        side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.8),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ]),
+              ],
             ])),
             Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
           ]),
         ),
       ),
     );
+  }
+
+  /// Load today's journey for a specific employee and show on map
+  Future<void> _loadEmployeeJourney(String employeeId, String employeeName) async {
+    // Toggle off if already showing this employee's journey
+    if (_selectedJourney != null && _selectedJourney!.employeeId == employeeId) {
+      setState(() => _selectedJourney = null);
+      return;
+    }
+
+    setState(() => _isLoadingJourney = true);
+    try {
+      final today = DateTime.now();
+      final result = await _apiService.getJourneyReports(
+        employeeId: employeeId,
+        fromDate: DateTime(today.year, today.month, today.day),
+        toDate: DateTime(today.year, today.month, today.day, 23, 59, 59),
+      );
+      if (!mounted) return;
+
+      if (result['isSuccess'] == true && result['data'] != null) {
+        final journeys = (result['data'] as List)
+            .map((j) => JourneyTracking.fromJson(j))
+            .toList();
+
+        if (journeys.isEmpty) {
+          setState(() { _selectedJourney = null; _isLoadingJourney = false; });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$employeeName chưa có hành trình hôm nay')),
+          );
+          return;
+        }
+
+        final journey = journeys.first;
+        setState(() {
+          _selectedJourney = journey;
+          _isLoadingJourney = false;
+        });
+
+        // Fit map to journey route
+        final points = journey.routePoints.where((p) => p.lat != 0 && p.lng != 0).toList();
+        if (points.isNotEmpty) {
+          if (points.length == 1) {
+            try { _managerMapController.move(LatLng(points.first.lat, points.first.lng), 15); } catch (_) {}
+          } else {
+            final lats = points.map((p) => p.lat);
+            final lngs = points.map((p) => p.lng);
+            try {
+              _managerMapController.fitCamera(CameraFit.bounds(
+                bounds: LatLngBounds(
+                  LatLng(lats.reduce(math.min), lngs.reduce(math.min)),
+                  LatLng(lats.reduce(math.max), lngs.reduce(math.max)),
+                ),
+                padding: const EdgeInsets.all(60),
+              ));
+            } catch (_) {}
+          }
+        }
+      } else {
+        setState(() { _selectedJourney = null; _isLoadingJourney = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$employeeName chưa có hành trình hôm nay')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _selectedJourney = null; _isLoadingJourney = false; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi tải hành trình: $e')),
+      );
+    }
+  }
+
+  /// Build journey overlay layers for the manager map
+  List<Widget> _buildJourneyOverlayLayers() {
+    final j = _selectedJourney;
+    if (j == null) return [];
+    final points = j.routePoints.where((p) => p.lat != 0 && p.lng != 0).toList();
+    if (points.isEmpty) return [];
+
+    final dwellPoints = points.where((p) => p.isDwell).toList();
+    final layers = <Widget>[];
+
+    // Route polyline
+    layers.add(PolylineLayer(polylines: [
+      Polyline(
+        points: points.map((p) => LatLng(p.lat, p.lng)).toList(),
+        color: const Color(0xFF1E3A5F),
+        strokeWidth: 3.5,
+      ),
+    ]));
+
+    // Dwell circles
+    if (dwellPoints.isNotEmpty) {
+      layers.add(CircleLayer(circles: dwellPoints.map((p) => CircleMarker(
+        point: LatLng(p.lat, p.lng),
+        radius: 22,
+        color: Colors.orange.withValues(alpha: 0.25),
+        borderColor: Colors.orange,
+        borderStrokeWidth: 2,
+      )).toList()));
+    }
+
+    // Route point markers with time labels
+    final routeMarkers = <Marker>[];
+
+    // Start marker
+    routeMarkers.add(Marker(
+      point: LatLng(points.first.lat, points.first.lng),
+      width: 80, height: 44,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: Colors.green.shade700,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            DateFormat('HH:mm').format(points.first.time.toLocal()),
+            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const Icon(Icons.play_circle_filled, color: Colors.green, size: 22),
+      ]),
+    ));
+
+    // End marker
+    if (points.length > 1) {
+      routeMarkers.add(Marker(
+        point: LatLng(points.last.lat, points.last.lng),
+        width: 80, height: 44,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: j.isCompleted ? Colors.red.shade700 : Colors.blue.shade700,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              DateFormat('HH:mm').format(points.last.time.toLocal()),
+              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Icon(
+            j.isCompleted ? Icons.flag_circle : Icons.my_location,
+            color: j.isCompleted ? Colors.red : Colors.blue,
+            size: 22,
+          ),
+        ]),
+      ));
+    }
+
+    // Dwell point markers with time & duration
+    for (final p in dwellPoints) {
+      routeMarkers.add(Marker(
+        point: LatLng(p.lat, p.lng),
+        width: 100, height: 38,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.orange, width: 0.5),
+          ),
+          child: Text(
+            '${DateFormat("HH:mm").format(p.time.toLocal())} • ${p.dwellMinutes}p${p.nearLocationName != null ? "\n${p.nearLocationName}" : ""}',
+            style: const TextStyle(fontSize: 9, color: Colors.deepOrange, fontWeight: FontWeight.w600),
+            maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+          ),
+        ),
+      ));
+    }
+
+    // Intermediate time markers (every ~10 points)
+    if (points.length > 5) {
+      final step = (points.length / 6).ceil().clamp(3, 20);
+      for (var i = step; i < points.length - step; i += step) {
+        final p = points[i];
+        if (p.isDwell) continue;
+        routeMarkers.add(Marker(
+          point: LatLng(p.lat, p.lng),
+          width: 50, height: 22,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: const Color(0xFF1E3A5F), width: 0.5),
+            ),
+            child: Text(
+              DateFormat('HH:mm').format(p.time.toLocal()),
+              style: const TextStyle(fontSize: 8, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ));
+      }
+    }
+
+    layers.add(MarkerLayer(markers: routeMarkers));
+    return layers;
   }
 
   Widget _buildManagerListView() {
@@ -2585,6 +3249,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildStatsRow() {
     final total = _reports.length;
     final checkedOut = _reports.where((r) => r.isCheckedOut || r.isReviewed).length;
@@ -2716,7 +3381,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               child: FlutterMap(
                 options: MapOptions(initialCenter: center, initialZoom: 14),
                 children: [
-                  TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                  TileLayer(
+                    urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                    subdomains: const ['a', 'b', 'c', 'd'],
+                    userAgentPackageName: 'com.zktecoadms.app',
+                  ),
                   PolylineLayer(polylines: [
                     Polyline(
                       points: points.map((p) => LatLng(p.lat, p.lng)).toList(),

@@ -33,7 +33,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   AppLocalizations get _l10n => AppLocalizations.of(context);
 
   // GlobalKeys for PNG export
-  final GlobalKey _shiftCentricTableKey = GlobalKey();
   final GlobalKey _scheduleTableKey = GlobalKey();
   final GlobalKey _approvedTableKey = GlobalKey();
   
@@ -3199,7 +3198,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   Widget _buildApprovedDayDetail(DateTime day, String dayLabel) {
     final dateStr = DateFormat('EEEE dd/MM/yyyy', 'vi').format(day);
-    final emps = _filteredEmployees;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -3298,6 +3296,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
+  // ignore: unused_element
   Widget _buildScheduleTable() {
     final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT'];
@@ -4900,6 +4899,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   // ══════════════════════════════════════════════
   //  APPROVED SCHEDULE TABLE (Lịch đã duyệt)
   // ══════════════════════════════════════════════
+  // ignore: unused_element
   Widget _buildApprovedScheduleTable() {
     final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT'];
@@ -5205,6 +5205,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
+  // ignore: unused_element
   Widget _buildLegend() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -5908,6 +5909,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
+  // ignore: unused_element
   Widget _buildMobileShiftCentricCards(List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
     if (_shifts.isEmpty) {
       return Padding(

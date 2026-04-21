@@ -167,6 +167,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<FieldLocationAssignment> FieldLocationAssignments => Set<FieldLocationAssignment>();
     public DbSet<VisitReport> VisitReports => Set<VisitReport>();
     public DbSet<JourneyTracking> JourneyTrackings => Set<JourneyTracking>();
+    public DbSet<EmployeeLiveLocation> EmployeeLiveLocations => Set<EmployeeLiveLocation>();
 
     // Meal Tracking / Chấm cơm
     public DbSet<MealSession> MealSessions => Set<MealSession>();

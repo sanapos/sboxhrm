@@ -179,7 +179,32 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
             return StatusCode(500, AppResponse<string>.Fail($"Lỗi hệ thống: {ex.Message}"));
         }
     }
+
+    /// <summary>
+    /// DEV ONLY: Reset password for any user by username. Remove after use.
+    /// </summary>
+    [HttpPost]
+    [AllowAnonymous]
+    public async Task<ActionResult<AppResponse<string>>> DevResetPassword([FromBody] DevResetRequest request)
+    {
+        var user = await _userManager.FindByNameAsync(request.UserName);
+        if (user == null)
+            return NotFound(AppResponse<string>.Error("User not found"));
+
+        // Unlock account
+        user.LockoutEnd = null;
+        user.AccessFailedCount = 0;
+        await _userManager.UpdateAsync(user);
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        if (!result.Succeeded)
+            return BadRequest(AppResponse<string>.Error(string.Join(", ", result.Errors.Select(e => e.Description))));
+
+        return Ok(AppResponse<string>.Success($"Password reset OK for {request.UserName}"));
+    }
 }
 
 public record SetupSuperAdminRequest(string Email, string Password, string? FullName);
+public record DevResetRequest(string UserName, string NewPassword);
 

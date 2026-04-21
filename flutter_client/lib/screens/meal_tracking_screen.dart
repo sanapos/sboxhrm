@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
@@ -2051,6 +2050,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // ==================== TAB 3: REGISTRATIONS (Đăng ký ăn) ====================
 
+  // ignore: unused_element
   Widget _buildRegistrationsTab() {
     final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
     // Group registrations by session
@@ -2949,7 +2949,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   return;
                 }
                 Navigator.pop(ctx);
-                final now = DateTime.now();
                 final mealDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, mealTime.hour, mealTime.minute);
                 final res = await _apiService.createMealRecord({
                   'employeeUserId': selectedEmployeeId,

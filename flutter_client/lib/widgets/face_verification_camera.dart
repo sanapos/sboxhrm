@@ -327,8 +327,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         } else if (fbScore <= 0) {
           // Feature comparison also failed → fall back to server
           debugPrint('Feature comparison failed ($fbScore), falling back to server');
-          _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
-          _successController.forward();
+          _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
 
           final result = FaceVerificationResult(
             matchScore: -1,
@@ -422,8 +421,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         // Score = 0 likely means embedding extraction failed (TFLite issue)
         // Return image for server-side verification instead of blocking
         debugPrint('On-device comparison returned 0, falling back to server verification');
-        _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
-        _successController.forward();
+        _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
 
         final result = FaceVerificationResult(
           matchScore: -1, // Signal: server should verify
@@ -460,8 +458,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
     } else if (capturedBytes != null && faceBase64 != null) {
       // No registered faces but captured image → send to server for verification
       debugPrint('No registered faces for local comparison, sending to server');
-      _updateStatus(_VerifyStatus.verified, 'Gửi ảnh để server xác thực...');
-      _successController.forward();
+      _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
 
       final result = FaceVerificationResult(
         matchScore: -1,

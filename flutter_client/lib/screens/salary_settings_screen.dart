@@ -2923,6 +2923,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showAddAllowanceDialog({
     int? allowanceType,
     required String employeeId,

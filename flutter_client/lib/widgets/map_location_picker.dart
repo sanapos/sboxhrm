@@ -142,8 +142,9 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.sbox.hrm',
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              userAgentPackageName: 'com.zktecoadms.app',
             ),
             // Radius circle (attendance radius)
             if (widget.radius != null && widget.radius! > 0)
