@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -65,6 +66,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   bool _isFaceVerified = false;
   double? _faceMatchScore;
   String? _faceImageBase64;
+  bool _livenessPassed = false;
   List<String> _cachedFacePaths = []; // On-device face registration images
 
   // Settings for verification requirements
@@ -149,10 +151,28 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _employeeId = user.id;
         _department = user.department ?? '';
       });
+      unawaited(_loadCachedFacesFromDevice());
+    }
+  }
+
+  Future<void> _loadCachedFacesFromDevice() async {
+    if (_employeeId.isEmpty) return;
+    try {
+      final storageService = FaceStorageService(baseUrl: ApiService.baseUrl);
+      final cachedPaths = await storageService.getCachedFacePaths(_employeeId);
+      if (!mounted || cachedPaths.isEmpty) return;
+
+      setState(() => _cachedFacePaths = cachedPaths);
+      debugPrint('Loaded cached faces from device: ${cachedPaths.length} files');
+      FaceEmbeddingService.clearCache();
+      await FaceEmbeddingService.initialize();
+    } catch (e) {
+      debugPrint('Error loading cached faces from device: $e');
     }
   }
 
   Future<void> _loadDeviceStatus() async {
+    final storageService = FaceStorageService(baseUrl: ApiService.baseUrl);
     try {
       final response = await _apiService.getMyDeviceStatus();
       if (response['isSuccess'] == true && response['data'] != null) {
@@ -166,23 +186,25 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           });
         }
 
-        // Download face registration images for on-device comparison
         final faceImages = data['faceImages'];
         if (faceImages != null && faceImages is List && faceImages.isNotEmpty && _employeeId.isNotEmpty) {
           final imageUrls = List<String>.from(faceImages);
-          final storageService = FaceStorageService(baseUrl: ApiService.baseUrl);
           final paths = await storageService.downloadAndCacheFaces(_employeeId, imageUrls);
           if (mounted && paths.isNotEmpty) {
             setState(() => _cachedFacePaths = paths);
-            debugPrint('Face images cached: ${paths.length} files for on-device comparison');
-            // Pre-load MobileFaceNet model and clear old cached embeddings
+            debugPrint('Face images refreshed from server: ${paths.length} files');
             FaceEmbeddingService.clearCache();
             await FaceEmbeddingService.initialize();
           }
+        } else {
+          await _loadCachedFacesFromDevice();
         }
+      } else {
+        await _loadCachedFacesFromDevice();
       }
     } catch (e) {
       debugPrint('Error loading device status: $e');
+      await _loadCachedFacesFromDevice();
     }
   }
 
@@ -325,12 +347,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     // If face is enabled and not yet verified, open camera first
     final settings = _settings;
     if (settings != null && settings.enableFaceId && !_isFaceVerified && !_allowOutsideCheckIn) {
-      var serverFaceVerificationPending = false;
       // Block if employee has no face registration
       if (_cachedFacePaths.isEmpty) {
-        _showError('Chưa đăng ký khuôn mặt. Vui lòng liên hệ quản lý để đăng ký Face ID.');
+        await _loadCachedFacesFromDevice();
+      }
+      if (_cachedFacePaths.isEmpty) {
+        _showError('Chưa có ảnh đăng ký Face ID trên máy. Vui lòng đồng bộ lại hoặc liên hệ quản lý.');
         return;
       }
+
       final result = await FaceVerificationCamera.show(
         context,
         registeredFacePaths: _cachedFacePaths,
@@ -338,15 +363,32 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       );
       if (result == null) return; // User cancelled
 
-      // matchScore <= 0 means local compare failed/unsupported and server must verify.
-      serverFaceVerificationPending = (result.matchScore <= 0);
+      // Backend expects faceImageUrl for audit and face verification checks.
+      if ((result.faceImageBase64 ?? '').trim().isEmpty) {
+        setState(() {
+          _isFaceVerified = false;
+          _faceMatchScore = null;
+          _faceImageBase64 = null;
+        });
+        _showError('Không chụp được ảnh khuôn mặt để gửi xác thực. Vui lòng thử lại.');
+        return;
+      }
+
+      final serverFaceVerificationPending = result.matchScore <= 0;
+
       setState(() {
-        _isFaceVerified = !serverFaceVerificationPending;
-        _faceMatchScore = result.matchScore;
+        _isFaceVerified = true;
+        _faceMatchScore = serverFaceVerificationPending ? -1 : result.matchScore;
         _faceImageBase64 = result.faceImageBase64;
+        _livenessPassed = result.livenessPassed;
       });
+
+      if (serverFaceVerificationPending) {
+        _showWarning('Đang dùng xác thực server', 'Thiết bị sẽ gửi ảnh lên server để xác thực khuôn mặt.');
+      }
+
       // Re-check conditions after face scan
-      if (!_conditionsMet && !serverFaceVerificationPending) {
+      if (!_conditionsMet) {
         _showError('Chưa đạt đủ điều kiện xác thực');
         return;
       }
@@ -368,6 +410,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         deviceId: _registeredDeviceId,
         wifiSsid: _connectedWifiSsid,
         wifiBssid: _detectedBssid,
+        livenessPassed: _livenessPassed,
       );
 
       if (!mounted) return;
@@ -393,7 +436,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _faceImageBase64 = null;
         });
       } else {
-        _showError(response['message'] ?? 'Không thể chấm công');
+        final message = (response['message'] ?? 'Không thể chấm công').toString();
+
+        // Any failed submit must clear face state so retry always re-opens camera.
+        setState(() {
+          _isFaceVerified = false;
+          _faceMatchScore = null;
+          _faceImageBase64 = null;
+        });
+
+        _showError(message);
       }
     } catch (e) {
       _showError('Lỗi: $e');
@@ -710,8 +762,43 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     NotificationOverlayManager().showSuccess(title: title, message: message);
   }
 
+  String _normalizeViText(String input) {
+    if (!(input.contains('Ã') || input.contains('Â') || input.contains('â'))) {
+      return input;
+    }
+    try {
+      const cp1252Extra = {
+        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84,
+        '\u2026': 0x85, '\u2020': 0x86, '\u2021': 0x87, '\u02c6': 0x88,
+        '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
+        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93,
+        '\u201d': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97,
+        '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
+        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f,
+      };
+      final bytes = <int>[];
+      for (final ch in input.runes) {
+        final c = String.fromCharCode(ch);
+        if (cp1252Extra.containsKey(c)) {
+          bytes.add(cp1252Extra[c]!);
+        } else if (ch <= 0xFF) {
+          bytes.add(ch);
+        } else {
+          return input;
+        }
+      }
+      return utf8.decode(bytes);
+    } catch (_) {
+      return input;
+    }
+  }
+
   void _showError(String message) {
-    NotificationOverlayManager().showError(title: 'Lỗi', message: message);
+    NotificationOverlayManager().showError(title: 'Lỗi', message: _normalizeViText(message));
+  }
+
+  void _showWarning(String title, String message) {
+    NotificationOverlayManager().showWarning(title: title, message: message);
   }
 
   @override
@@ -836,6 +923,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
         : [const Color(0xFFEF4444), const Color(0xFFDC2626)];
     final List<Color> disabledGradient = [const Color(0xFF334155), const Color(0xFF1E293B)];
+    final ctaLabel = isEnabled
+      ? (needsFaceScan ? 'QUÉT MẶT' : (isCheckIn ? 'CHẤM VÀO' : 'CHẤM RA'))
+      : 'TẠM KHÓA';
+    final ctaHint = isEnabled
+      ? (needsFaceScan
+        ? (isCheckIn ? 'Bước tiếp theo: Quét khuôn mặt để chấm vào' : 'Bước tiếp theo: Quét khuôn mặt để chấm ra')
+        : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra'))
+      : (!_isDeviceRegistered
+        ? 'Cần đăng ký thiết bị trước khi chấm công'
+        : (!_isDeviceApproved
+          ? 'Thiết bị đang chờ duyệt từ quản lý'
+          : 'Hệ thống đang kiểm tra điều kiện'));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -882,6 +981,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               '${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}',
               style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), letterSpacing: 0.5),
             ),
+            const SizedBox(height: 14),
+            _buildNextActionBar(isEnabled: isEnabled, hint: ctaHint, needsFaceScan: needsFaceScan),
             const SizedBox(height: 28),
             // Punch button with outer ring
             GestureDetector(
@@ -926,7 +1027,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              isEnabled ? (isCheckIn ? 'CHECK IN' : 'CHECK OUT') : 'LOCKED',
+                              ctaLabel,
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: isEnabled ? 0.95 : 0.3),
                                 fontWeight: FontWeight.w700,
@@ -955,14 +1056,50 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             else
               Text(
                 isEnabled
-                    ? needsFaceScan ? 'Nhấn để quét mặt & chấm công' : 'Nhấn để chấm công'
-                    : !_isDeviceRegistered ? 'Thiết bị chưa đăng ký'
-                    : !_isDeviceApproved ? 'Thiết bị chưa được duyệt'
-                    : 'Đang kiểm tra...',
+                    ? needsFaceScan
+                    ? (isCheckIn ? 'Nhấn để quét mặt và chấm vào' : 'Nhấn để quét mặt và chấm ra')
+                    : (isCheckIn ? 'Nhấn để chấm công vào' : 'Nhấn để chấm công ra')
+                    : !_isDeviceRegistered
+                    ? 'Thiết bị chưa đăng ký'
+                        : !_isDeviceApproved
+                      ? 'Thiết bị chưa được duyệt'
+                      : 'Đang kiểm tra...',
                 style: TextStyle(fontSize: 12, color: isEnabled ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNextActionBar({required bool isEnabled, required String hint, required bool needsFaceScan}) {
+    final barColor = isEnabled
+        ? (needsFaceScan ? const Color(0xFF0EA5E9) : const Color(0xFF22C55E))
+        : const Color(0xFFF59E0B);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: barColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: barColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isEnabled ? (needsFaceScan ? Icons.face_retouching_natural_rounded : Icons.verified_rounded) : Icons.info_outline_rounded,
+            size: 16,
+            color: barColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hint,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: barColor),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1018,6 +1155,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildStatusBar(bool faceRequired, bool gpsRequired, bool wifiRequired) {
     final mode = _settings?.verificationMode ?? 'all';
     final ready = _canTapPunch;
+    final bool deviceReady = _isDeviceRegistered && _isDeviceApproved;
+    final String modeText = mode == 'any' ? 'Cần 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -1043,14 +1183,33 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Wrap(
-                  spacing: 6, runSpacing: 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMiniChip('Thiết bị', _isDeviceRegistered && _isDeviceApproved),
-                    if (faceRequired && !_allowOutsideCheckIn) _buildMiniChip('Face', _isFaceVerified),
-                    if (gpsRequired && !_allowOutsideCheckIn) _buildMiniChip('GPS', _isLocationVerified),
-                    if (wifiRequired && !_allowOutsideCheckIn) _buildMiniChip('WiFi', _isWifiVerified),
-                    if (_allowOutsideCheckIn) _buildMiniChip('Ngoài CT', true),
+                    Text(
+                      modeText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _buildMiniChip('1. Thiết bị', deviceReady, pending: !deviceReady),
+                        if (faceRequired && !_allowOutsideCheckIn)
+                          _buildMiniChip('2. Khuôn mặt', _isFaceVerified, pending: !_isFaceVerified),
+                        if (gpsRequired && !_allowOutsideCheckIn)
+                          _buildMiniChip('3. GPS', _isLocationVerified, pending: _isGettingLocation && !_isLocationVerified),
+                        if (wifiRequired && !_allowOutsideCheckIn)
+                          _buildMiniChip('4. WiFi', _isWifiVerified, pending: _isCheckingWifi && !_isWifiVerified),
+                        if (_allowOutsideCheckIn)
+                          _buildMiniChip('Ngoài công ty', true),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1067,13 +1226,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
-  Widget _buildMiniChip(String label, bool ok) {
+  Widget _buildMiniChip(String label, bool ok, {bool pending = false}) {
+    final chipColor = ok
+        ? const Color(0xFF22C55E)
+        : (pending ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: ok ? const Color(0xFF22C55E).withValues(alpha: 0.12) : const Color(0xFFEF4444).withValues(alpha: 0.1),
+        color: chipColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ok ? const Color(0xFF22C55E).withValues(alpha: 0.2) : const Color(0xFFEF4444).withValues(alpha: 0.15)),
+        border: Border.all(color: chipColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1082,11 +1245,20 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             width: 5, height: 5,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+              color: chipColor,
             ),
           ),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ok ? const Color(0xFF4ADE80) : const Color(0xFFFCA5A5))),
+          Text(
+            pending ? '$label (đang chờ)' : label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: ok
+                  ? const Color(0xFF4ADE80)
+                  : (pending ? const Color(0xFFFCD34D) : const Color(0xFFFCA5A5)),
+            ),
+          ),
         ],
       ),
     );
@@ -1337,7 +1509,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 children: [
                   Text(
-                    isCheckIn ? 'Check in' : 'Check out',
+                    isCheckIn ? 'Chấm vào' : 'Chấm ra',
                     style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
                   ),
                   if (record.distanceFromLocation != null) ...[
@@ -1366,3 +1538,5 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 }
+
+

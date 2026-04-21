@@ -16,8 +16,13 @@ import '../services/face_embedding_service_stub.dart'
 class FaceVerificationResult {
   final double matchScore;
   final String? faceImageBase64;
+  final bool livenessPassed;
 
-  FaceVerificationResult({required this.matchScore, this.faceImageBase64});
+  FaceVerificationResult({
+    required this.matchScore,
+    this.faceImageBase64,
+    this.livenessPassed = false,
+  });
 }
 
 /// Face verification camera for mobile attendance check-in/out.
@@ -85,6 +90,16 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
   static const _requiredDetections = 8; // ~0.5s of stable face (was 15)
   double _progress = 0.0;
   bool _captured = false;
+
+  // Liveness (anti-spoof): require user to blink.
+  // Photos and most videos played from another phone cannot produce a blink
+  // on demand, so we require observing eyes-open → eyes-closed → eyes-open.
+  bool _eyesOpenSeen = false;      // observed open eyes (>= 0.7) at least once
+  bool _eyesClosedSeen = false;    // observed closed eyes (< 0.3) after open
+  bool _blinkConfirmed = false;    // open again after closed → real blink
+  int _frameCountSinceFace = 0;    // guard against infinite wait
+  static const _maxFramesForBlink = 180; // ~6s at ~30fps
+
 
   late AnimationController _pulseController;
   late AnimationController _successController;
@@ -192,9 +207,67 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         return;
       }
 
-      // Basic liveness: eyes should be open
+      // Minimum face size: reject small faces (e.g. a phone screen held far
+      // away showing someone else's photo often appears small in the frame).
+      final faceWidth = face.boundingBox.width;
+      final frameWidth = inputImage.metadata?.size.width ?? 0;
+      if (frameWidth > 0 && faceWidth < frameWidth * 0.25) {
+        _updateStatus(_VerifyStatus.waiting, 'Đưa mặt lại gần camera hơn');
+        _consecutiveDetections = 0;
+        return;
+      }
+
       final leftEyeOpen = face.leftEyeOpenProbability ?? 1.0;
       final rightEyeOpen = face.rightEyeOpenProbability ?? 1.0;
+
+      // Active liveness: blink challenge.
+      // 1) See eyes open, 2) see eyes closed, 3) see eyes open again.
+      if (!_blinkConfirmed) {
+        _frameCountSinceFace++;
+        if (_frameCountSinceFace > _maxFramesForBlink) {
+          // Reset and ask again
+          _frameCountSinceFace = 0;
+          _eyesOpenSeen = false;
+          _eyesClosedSeen = false;
+        }
+
+        final eyesOpen = leftEyeOpen > 0.7 && rightEyeOpen > 0.7;
+        final eyesClosed = leftEyeOpen < 0.3 && rightEyeOpen < 0.3;
+
+        if (!_eyesOpenSeen) {
+          if (eyesOpen) {
+            _eyesOpenSeen = true;
+            _updateStatus(_VerifyStatus.waiting, 'Chớp mắt để xác thực');
+          } else {
+            _updateStatus(_VerifyStatus.waiting, 'Mở mắt nhìn vào camera');
+          }
+          _consecutiveDetections = 0;
+          return;
+        }
+
+        if (!_eyesClosedSeen) {
+          if (eyesClosed) {
+            _eyesClosedSeen = true;
+            _updateStatus(_VerifyStatus.waiting, 'Mở mắt ra...');
+          } else {
+            _updateStatus(_VerifyStatus.waiting, 'Chớp mắt để xác thực');
+          }
+          _consecutiveDetections = 0;
+          return;
+        }
+
+        // Eyes closed was seen; now wait for open again to confirm blink
+        if (eyesOpen) {
+          _blinkConfirmed = true;
+          _updateStatus(_VerifyStatus.faceDetected, 'Đã xác thực sự sống. Giữ nguyên...');
+        } else {
+          _updateStatus(_VerifyStatus.waiting, 'Mở mắt ra...');
+          _consecutiveDetections = 0;
+          return;
+        }
+      }
+
+      // Blink confirmed → require eyes to stay open during stability count
       if (leftEyeOpen < 0.3 && rightEyeOpen < 0.3) {
         _updateStatus(_VerifyStatus.waiting, 'Vui lòng mở mắt');
         _consecutiveDetections = 0;
@@ -202,6 +275,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       }
 
       _consecutiveDetections++;
+
       final progress = (_consecutiveDetections / _requiredDetections).clamp(0.0, 1.0);
       setState(() => _progress = progress);
 
@@ -308,7 +382,35 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         );
         debugPrint('Fallback face comparison: score=$fbScore, details=$fbDetails');
 
-        if (fbScore >= widget.minMatchScore) {
+        // HOG/LBP feature-based compare produces 60-70 for any two aligned faces
+        // (even different people), so a soft threshold of 55 is insufficient.
+        // Use a stricter threshold on the feature-based path; the server will
+        // also apply the same strict floor when it re-compares.
+        final strictFallbackMin = math.max(widget.minMatchScore, 75.0);
+
+        if (fbScore >= strictFallbackMin) {
+          // iOS fallback can produce false positives with look-alike/spoof faces.
+          // Always ask server to do the final verification when fallback is used.
+          if (Platform.isIOS) {
+            _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
+
+            final result = FaceVerificationResult(
+              // Pass real local score so the server can log/cross-check it;
+              // server still runs its own strict comparison before accepting.
+              matchScore: fbScore,
+              faceImageBase64: faceBase64,
+              livenessPassed: true,
+            );
+
+            await Future.delayed(const Duration(milliseconds: 800));
+            if (mounted) {
+              widget.onVerifiedWithImage?.call(result);
+              widget.onVerified?.call(result.matchScore);
+              widget.onSuccess?.call();
+            }
+            return;
+          }
+
           // Match passed with feature-based comparison
           _updateStatus(_VerifyStatus.verified, 'Xác thực thành công! Điểm: ${fbScore.toStringAsFixed(0)}');
           _successController.forward();
@@ -316,6 +418,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           final result = FaceVerificationResult(
             matchScore: fbScore,
             faceImageBase64: faceBase64,
+            livenessPassed: true,
           );
 
           await Future.delayed(const Duration(milliseconds: 1200));
@@ -332,6 +435,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           final result = FaceVerificationResult(
             matchScore: -1,
             faceImageBase64: faceBase64,
+            livenessPassed: true,
           );
 
           await Future.delayed(const Duration(milliseconds: 800));
@@ -351,6 +455,10 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
               _captured = false;
               _consecutiveDetections = 0;
               _progress = 0.0;
+              _eyesOpenSeen = false;
+              _eyesClosedSeen = false;
+              _blinkConfirmed = false;
+              _frameCountSinceFace = 0;
               _status = _VerifyStatus.waiting;
               _statusMessage = 'Đưa khuôn mặt vào khung tròn';
             });
@@ -409,6 +517,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         final result = FaceVerificationResult(
           matchScore: score,
           faceImageBase64: faceBase64,
+          livenessPassed: true,
         );
 
         await Future.delayed(const Duration(milliseconds: 1200));
@@ -426,6 +535,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         final result = FaceVerificationResult(
           matchScore: -1, // Signal: server should verify
           faceImageBase64: faceBase64,
+          livenessPassed: true,
         );
 
         await Future.delayed(const Duration(milliseconds: 800));
@@ -446,6 +556,10 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
             _captured = false;
             _consecutiveDetections = 0;
             _progress = 0.0;
+            _eyesOpenSeen = false;
+            _eyesClosedSeen = false;
+            _blinkConfirmed = false;
+            _frameCountSinceFace = 0;
             _status = _VerifyStatus.waiting;
             _statusMessage = 'Đưa khuôn mặt vào khung tròn';
           });
@@ -463,6 +577,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       final result = FaceVerificationResult(
         matchScore: -1,
         faceImageBase64: faceBase64,
+        livenessPassed: true,
       );
 
       await Future.delayed(const Duration(milliseconds: 800));

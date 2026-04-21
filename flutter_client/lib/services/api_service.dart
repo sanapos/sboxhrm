@@ -3461,6 +3461,7 @@ class ApiService {
     String? deviceId,
     String? wifiSsid,
     String? wifiBssid,
+    bool livenessPassed = false,
   }) async {
     try {
       final body = {
@@ -3473,6 +3474,7 @@ class ApiService {
         'distanceFromLocation': distanceFromLocation,
         'faceMatchScore': faceMatchScore,
         'deviceId': deviceId,
+        'livenessPassed': livenessPassed,
       };
       if (wifiSsid != null) body['wifiSsid'] = wifiSsid;
       if (wifiBssid != null) body['wifiBssid'] = wifiBssid;
@@ -7791,6 +7793,17 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> testGoogleDriveUpload() async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/Storage/google-drive/test-upload'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ==================== AUTH (EXTENDED) ====================
   Future<Map<String, dynamic>> forgotPassword(
       String storeCode, String email) async {
@@ -9126,8 +9139,10 @@ class ApiService {
 
   Map<String, dynamic> _handleResponse(http.Response response) {
     try {
+      final rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
+
       // Handle empty body (e.g. 204 No Content)
-      if (response.body.isEmpty) {
+      if (rawBody.isEmpty) {
         if (response.statusCode >= 200 && response.statusCode < 300) {
           return {'isSuccess': true};
         }
@@ -9143,22 +9158,25 @@ class ApiService {
           'statusCode': response.statusCode
         };
       }
-      final data = json.decode(response.body);
+
+      final data = json.decode(rawBody);
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return data is Map<String, dynamic>
-            ? data
-            : {'isSuccess': true, 'data': data};
+        if (data is Map<String, dynamic>) {
+          return _normalizeResponseMap(data);
+        }
+        return {'isSuccess': true, 'data': data};
       } else {
         // Extract error message from various API response formats
         String errorMessage = 'Lỗi không xác định';
         if (data is Map<String, dynamic>) {
-          if (data['message'] != null) {
-            errorMessage = data['message'];
-          } else if (data['title'] != null) {
+          final normalized = _normalizeResponseMap(data);
+          if (normalized['message'] != null) {
+            errorMessage = normalized['message'].toString();
+          } else if (normalized['title'] != null) {
             // ASP.NET ProblemDetails format - prefer detail over title (title is often just exception type name)
-            errorMessage = data['detail'] ?? data['title'];
-            if (data['errors'] is Map) {
-              final errors = (data['errors'] as Map)
+            errorMessage = (normalized['detail'] ?? normalized['title']).toString();
+            if (normalized['errors'] is Map) {
+              final errors = (normalized['errors'] as Map)
                   .values
                   .expand((v) => v is List ? v : [v])
                   .join(', ');
@@ -9168,7 +9186,7 @@ class ApiService {
         }
         return {
           'isSuccess': false,
-          'message': errorMessage,
+          'message': _normalizeViText(errorMessage),
           'statusCode': response.statusCode,
         };
       }
@@ -9187,6 +9205,51 @@ class ApiService {
         'message': message,
         'statusCode': response.statusCode,
       };
+    }
+  }
+
+  Map<String, dynamic> _normalizeResponseMap(Map<String, dynamic> source) {
+    final result = Map<String, dynamic>.from(source);
+    for (final key in const ['message', 'title', 'detail']) {
+      final value = result[key];
+      if (value is String) {
+        result[key] = _normalizeViText(value);
+      }
+    }
+    return result;
+  }
+
+  String _normalizeViText(String input) {
+    if (!(input.contains('Ã') || input.contains('Â') || input.contains('â'))) {
+      return input;
+    }
+    try {
+      // Map Windows-1252 specific chars (U+0080–U+009F) to their byte values
+      // so latin1.encode (which only handles U+0000–U+00FF) won't throw
+      const cp1252Extra = {
+        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84,
+        '\u2026': 0x85, '\u2020': 0x86, '\u2021': 0x87, '\u02c6': 0x88,
+        '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
+        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93,
+        '\u201d': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97,
+        '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
+        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f,
+      };
+      final bytes = <int>[];
+      for (final ch in input.runes) {
+        final c = String.fromCharCode(ch);
+        if (cp1252Extra.containsKey(c)) {
+          bytes.add(cp1252Extra[c]!);
+        } else if (ch <= 0xFF) {
+          bytes.add(ch);
+        } else {
+          // Not a Latin-1/cp1252 char — not mojibake, return original
+          return input;
+        }
+      }
+      return utf8.decode(bytes);
+    } catch (_) {
+      return input;
     }
   }
 
