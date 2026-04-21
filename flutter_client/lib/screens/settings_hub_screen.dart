@@ -305,8 +305,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   List<_SidebarItem> _filterItems(List<_SidebarItem> items) {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-    final isSuperAdmin = authUser?.role == 'SuperAdmin';
-    final isDirector = authUser?.role == 'Director';
+    final role = (authUser?.role ?? '').toLowerCase();
+    final isSuperAdmin = role == 'superadmin';
+    final isDirector = role == 'director';
     if (isSuperAdmin) return items;
     final permProvider = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;

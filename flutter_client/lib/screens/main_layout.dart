@@ -1082,9 +1082,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _getScreenForIndex(int index) {
     if (index == 0) {
       final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-      final isSuperAdmin = authUser?.role == 'SuperAdmin';
-      final isAgent = authUser?.role == 'Agent';
-      final isDirector = authUser?.role == 'Director';
+      final role = (authUser?.role ?? '').toLowerCase();
+      final isSuperAdmin = role == 'superadmin';
+      final isAgent = role == 'agent';
+      final isDirector = role == 'director';
       return _HomeMenuScreen(
         navItems: _navItems,
         onItemTap: (idx) => _navigateToIndex(idx),
@@ -1440,9 +1441,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final userRole = authUser?.role ?? '';
-    final isSuperAdmin = userRole == 'SuperAdmin';
-    final isAgent = userRole == 'Agent';
-    final isDirector = userRole == 'Director';
+    final normalizedRole = userRole.toLowerCase();
+    final isSuperAdmin = normalizedRole == 'superadmin';
+    final isAgent = normalizedRole == 'agent';
+    final isDirector = normalizedRole == 'director';
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
@@ -1884,9 +1886,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final authUser = authProvider.user;
     final userRole = authUser?.role ?? '';
-    final isSuperAdmin = userRole == 'SuperAdmin';
-    final isAgent = userRole == 'Agent';
-    final isDirector = userRole == 'Director';
+    final normalizedRole = userRole.toLowerCase();
+    final isSuperAdmin = normalizedRole == 'superadmin';
+    final isAgent = normalizedRole == 'agent';
+    final isDirector = normalizedRole == 'director';
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
