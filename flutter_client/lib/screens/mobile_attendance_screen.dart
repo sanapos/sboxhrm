@@ -1,5 +1,5 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -497,8 +497,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
       // iOS cold-start GPS thường mất 10-30s; Android nhanh hơn nhiều.
       // Dùng timeout riêng cho từng platform để tránh fallback sớm về vị trí cũ.
-      final fastTimeout = Platform.isIOS ? 5000 : 2000;
-      final highAccTimeout = Platform.isIOS ? 12000 : 6000;
+      final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      final fastTimeout = isIOS ? 5000 : 2000;
+      final highAccTimeout = isIOS ? 12000 : 6000;
 
       // Fast low accuracy
       final fastPosition = await getCurrentPosition(
@@ -546,7 +547,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     try {
       final position = await getCurrentPosition(
         enableHighAccuracy: true,
-        timeout: Platform.isIOS ? 15000 : 8000,
+        timeout: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ? 15000 : 8000,
       );
       if (!mounted) return;
       setState(() {
