@@ -25,13 +25,14 @@ class PermissionProvider extends ChangeNotifier {
     if (_isLoading) return;
     _isLoading = true;
     _lastRole = role;
+    final normalizedRole = (role ?? '').trim().toLowerCase();
 
     // Bắt đầu auto-refresh mỗi 10 phút
     _startRefreshTimer();
 
     try {
       // SuperAdmin/Agent/Admin có toàn quyền - không cần gọi API
-      if (role == 'SuperAdmin' || role == 'Agent' || role == 'Admin') {
+      if (normalizedRole == 'superadmin' || normalizedRole == 'agent' || normalizedRole == 'admin') {
         _isSuperUser = true;
         _permissions = {};
         _loadError = false;
@@ -70,9 +71,15 @@ class PermissionProvider extends ChangeNotifier {
       debugPrint('✅ PermissionProvider: Loaded ${_permissions.length} modules, canView: $viewableModules');
     } catch (e) {
       debugPrint('⚠️ PermissionProvider: Error loading permissions: $e');
-      _isSuperUser = false;
-      _permissions = {};
-      _loadError = true;
+      // Keep last-known permissions to avoid intermittent menu disappearance
+      // when API errors temporarily (network/token refresh race).
+      if (!_isLoaded) {
+        _isSuperUser = false;
+        _permissions = {};
+        _loadError = true;
+      } else {
+        _loadError = false;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
