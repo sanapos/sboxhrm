@@ -94,7 +94,7 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
         return Ok(AppResponse<List<ModulePermissionDto>>.Success(result));
     }
 
-    private async Task EnsureRolePermissionsCompleteAsync(string roleName, Guid? storeId, List<Infrastructure.Entities.Permission> allModules)
+    private async Task EnsureRolePermissionsCompleteAsync(string roleName, Guid? storeId, List<ZKTecoADMS.Domain.Entities.Permission> allModules)
     {
         if (string.IsNullOrWhiteSpace(roleName) || allModules.Count == 0)
             return;
@@ -112,7 +112,7 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
         foreach (var module in missingModules)
         {
             var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
-            context.RolePermissions.Add(new Infrastructure.Entities.RolePermission
+            context.RolePermissions.Add(new ZKTecoADMS.Domain.Entities.RolePermission
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
