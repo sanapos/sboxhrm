@@ -306,12 +306,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   List<_SidebarItem> _filterItems(List<_SidebarItem> items) {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final isSuperAdmin = authUser?.role == 'SuperAdmin';
+    final isDirector = authUser?.role == 'Director';
     if (isSuperAdmin) return items;
     final permProvider = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
       // Lọc theo gói dịch vụ
-      if (allowedModules != null && allowedModules.isNotEmpty && !allowedModules.contains(item.moduleCode)) {
+      if (!isDirector && allowedModules != null && allowedModules.isNotEmpty && !allowedModules.contains(item.moduleCode)) {
         return false;
       }
       // Lọc theo quyền canView

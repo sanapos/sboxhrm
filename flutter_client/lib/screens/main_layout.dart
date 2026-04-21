@@ -1084,10 +1084,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final authUser = Provider.of<AuthProvider>(context, listen: false).user;
       final isSuperAdmin = authUser?.role == 'SuperAdmin';
       final isAgent = authUser?.role == 'Agent';
+      final isDirector = authUser?.role == 'Director';
       return _HomeMenuScreen(
         navItems: _navItems,
         onItemTap: (idx) => _navigateToIndex(idx),
-        allowedModules: (isSuperAdmin || isAgent) ? null : authUser?.allowedModules,
+        allowedModules: (isSuperAdmin || isAgent || isDirector) ? null : authUser?.allowedModules,
       );
     }
     return _navItems[index].screen;
@@ -1441,6 +1442,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final userRole = authUser?.role ?? '';
     final isSuperAdmin = userRole == 'SuperAdmin';
     final isAgent = userRole == 'Agent';
+    final isDirector = userRole == 'Director';
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
@@ -1453,7 +1455,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Agents only see items with requiredRole == 'Agent'
       if (isAgent && _navItems[i].requiredRole != 'Agent') continue;
       // Lọc theo gói dịch vụ - SuperAdmin/Agent không bị giới hạn
-      if (!isSuperAdmin && !isAgent && allowedModules != null && allowedModules.isNotEmpty
+      if (!isSuperAdmin && !isAgent && !isDirector && allowedModules != null && allowedModules.isNotEmpty
           && _navItems[i].moduleCode != null && !allowedModules.contains(_navItems[i].moduleCode)) {
         continue;
       }
@@ -1884,6 +1886,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final userRole = authUser?.role ?? '';
     final isSuperAdmin = userRole == 'SuperAdmin';
     final isAgent = userRole == 'Agent';
+    final isDirector = userRole == 'Director';
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
@@ -1894,7 +1897,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (item.adminOnly && !isSuperAdmin) continue;
       if (item.requiredRole != null && item.requiredRole != userRole) continue;
       if (isAgent && item.requiredRole != 'Agent') continue;
-      if (!isSuperAdmin && !isAgent && allowedModules != null && allowedModules.isNotEmpty
+      if (!isSuperAdmin && !isAgent && !isDirector && allowedModules != null && allowedModules.isNotEmpty
           && item.moduleCode != null && !allowedModules.contains(item.moduleCode)) {
         continue;
       }
