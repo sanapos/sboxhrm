@@ -350,106 +350,27 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       }
 
       if (!FaceEmbeddingService.isReady) {
-        // TFLite not available (common on iOS) → use feature-based fallback
-        debugPrint('TFLite not available, using HOG+LBP feature-based comparison');
-        _updateStatus(_VerifyStatus.verified, 'Đang nhận dạng khuôn mặt...');
+        // TFLite (MobileFaceNet) not available.
+        //
+        // Previously we fell back to HOG/LBP here, but that feature-based
+        // comparator produces 60-75 for any two aligned face crops — even of
+        // different people — which caused iOS devices to approve photo/video
+        // spoofs and even different people. The safe behaviour is:
+        //
+        //   * iOS: reject locally and ask user to retry. Do NOT send a made-up
+        //     score to the server.
+        //   * Android/other: if the TFLite model is missing we also cannot
+        //     verify identity locally — delegate to the server by sending
+        //     matchScore = -1 so the server runs a full comparison.
+        //
+        // This matches the user requirement: "only send up if iOS processed
+        // the image correctly on-device".
+        debugPrint('TFLite MobileFaceNet not available — cannot verify on-device');
 
-        // ML Kit face crop for captured image
-        Uint8List fallbackCaptured = capturedBytes;
-        if (capturedFilePath != null) {
-          final cropped = await _detectAndCropFace(capturedFilePath);
-          if (cropped != null) {
-            fallbackCaptured = cropped;
-            debugPrint('Fallback: ML Kit face crop OK (captured)');
-          }
-        }
-
-        // ML Kit face crop for registered images
-        final fallbackRegBytes = <Uint8List>[];
-        for (final path in regPaths) {
-          final cropped = await _detectAndCropFace(path);
-          if (cropped != null) {
-            fallbackRegBytes.add(cropped);
-          } else {
-            fallbackRegBytes.add(await File(path).readAsBytes());
-          }
-        }
-
-        _updateStatus(_VerifyStatus.verified, 'Đang so sánh khuôn mặt...');
-        final (fbScore, fbDetails) = await FaceComparisonService.compareAllBytes(
-          fallbackCaptured,
-          fallbackRegBytes,
-        );
-        debugPrint('Fallback face comparison: score=$fbScore, details=$fbDetails');
-
-        // HOG/LBP feature-based compare produces 60-70 for any two aligned faces
-        // (even different people), so a soft threshold of 55 is insufficient.
-        // Use a stricter threshold on the feature-based path; the server will
-        // also apply the same strict floor when it re-compares.
-        final strictFallbackMin = math.max(widget.minMatchScore, 75.0);
-
-        if (fbScore >= strictFallbackMin) {
-          // iOS fallback can produce false positives with look-alike/spoof faces.
-          // Always ask server to do the final verification when fallback is used.
-          if (Platform.isIOS) {
-            _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
-
-            final result = FaceVerificationResult(
-              // Pass real local score so the server can log/cross-check it;
-              // server still runs its own strict comparison before accepting.
-              matchScore: fbScore,
-              faceImageBase64: faceBase64,
-              livenessPassed: true,
-            );
-
-            await Future.delayed(const Duration(milliseconds: 800));
-            if (mounted) {
-              widget.onVerifiedWithImage?.call(result);
-              widget.onVerified?.call(result.matchScore);
-              widget.onSuccess?.call();
-            }
-            return;
-          }
-
-          // Match passed with feature-based comparison
-          _updateStatus(_VerifyStatus.verified, 'Xác thực thành công! Điểm: ${fbScore.toStringAsFixed(0)}');
-          _successController.forward();
-
-          final result = FaceVerificationResult(
-            matchScore: fbScore,
-            faceImageBase64: faceBase64,
-            livenessPassed: true,
-          );
-
-          await Future.delayed(const Duration(milliseconds: 1200));
-          if (mounted) {
-            widget.onVerifiedWithImage?.call(result);
-            widget.onVerified?.call(result.matchScore);
-            widget.onSuccess?.call();
-          }
-        } else if (fbScore <= 0) {
-          // Feature comparison also failed → fall back to server
-          debugPrint('Feature comparison failed ($fbScore), falling back to server');
-          _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
-
-          final result = FaceVerificationResult(
-            matchScore: -1,
-            faceImageBase64: faceBase64,
-            livenessPassed: true,
-          );
-
-          await Future.delayed(const Duration(milliseconds: 800));
-          if (mounted) {
-            widget.onVerifiedWithImage?.call(result);
-            widget.onVerified?.call(result.matchScore);
-            widget.onSuccess?.call();
-          }
-        } else {
-          // Score > 0 but below threshold = genuine mismatch → retry
+        if (Platform.isIOS) {
           _updateStatus(_VerifyStatus.error,
-              'Khuôn mặt không khớp (${fbScore.toStringAsFixed(0)} điểm). Thử lại...');
-
-          await Future.delayed(const Duration(seconds: 2));
+              'Không khởi tạo được mô hình nhận dạng khuôn mặt trên thiết bị. Vui lòng khởi động lại ứng dụng và thử lại.');
+          await Future.delayed(const Duration(seconds: 3));
           if (mounted) {
             setState(() {
               _captured = false;
@@ -467,6 +388,21 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
               await _cameraController?.startImageStream(_onCameraFrame);
             } catch (_) {}
           }
+          return;
+        }
+
+        // Non-iOS: delegate to server (server runs a stricter comparator).
+        _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
+        final result = FaceVerificationResult(
+          matchScore: -1,
+          faceImageBase64: faceBase64,
+          livenessPassed: true,
+        );
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) {
+          widget.onVerifiedWithImage?.call(result);
+          widget.onVerified?.call(result.matchScore);
+          widget.onSuccess?.call();
         }
         return;
       }
@@ -509,7 +445,16 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
 
       debugPrint('On-device face comparison: score=$score, details=$details');
 
-      if (score >= widget.minMatchScore) {
+      // On iOS require a stricter minimum because there is no second
+      // server-side path that can do embedding-based verification — the
+      // server comparator is feature-based and can also be spoofed. A real
+      // MobileFaceNet match for the same person is typically 70+ on this
+      // 0-100 scale, so anything below 65 is treated as a mismatch.
+      final effectiveMin = Platform.isIOS
+          ? math.max(widget.minMatchScore, 65.0)
+          : widget.minMatchScore;
+
+      if (score >= effectiveMin) {
         // Match passed - return result with local score
         _updateStatus(_VerifyStatus.verified, 'Xác thực thành công! Điểm: ${score.toStringAsFixed(0)}');
         _successController.forward();
@@ -527,22 +472,49 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           widget.onSuccess?.call();
         }
       } else if (score <= 0) {
-        // Score = 0 likely means embedding extraction failed (TFLite issue)
-        // Return image for server-side verification instead of blocking
-        debugPrint('On-device comparison returned 0, falling back to server verification');
-        _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
+        // Score = 0 likely means embedding extraction failed (TFLite issue).
+        // On iOS we do NOT delegate to the server because the server
+        // comparator is feature-based and can be spoofed — require the user
+        // to retry so we get a real MobileFaceNet score.
+        if (Platform.isIOS) {
+          debugPrint('On-device comparison returned 0 on iOS, requiring retry');
+          _updateStatus(_VerifyStatus.error,
+              'Không trích xuất được đặc trưng khuôn mặt. Vui lòng thử lại với ánh sáng tốt hơn.');
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            setState(() {
+              _captured = false;
+              _consecutiveDetections = 0;
+              _progress = 0.0;
+              _eyesOpenSeen = false;
+              _eyesClosedSeen = false;
+              _blinkConfirmed = false;
+              _frameCountSinceFace = 0;
+              _status = _VerifyStatus.waiting;
+              _statusMessage = 'Đưa khuôn mặt vào khung tròn';
+            });
+            _pulseController.repeat(reverse: true);
+            try {
+              await _cameraController?.startImageStream(_onCameraFrame);
+            } catch (_) {}
+          }
+        } else {
+          // Non-iOS: delegate to server
+          debugPrint('On-device comparison returned 0, falling back to server verification');
+          _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
 
-        final result = FaceVerificationResult(
-          matchScore: -1, // Signal: server should verify
-          faceImageBase64: faceBase64,
-          livenessPassed: true,
-        );
+          final result = FaceVerificationResult(
+            matchScore: -1,
+            faceImageBase64: faceBase64,
+            livenessPassed: true,
+          );
 
-        await Future.delayed(const Duration(milliseconds: 800));
-        if (mounted) {
-          widget.onVerifiedWithImage?.call(result);
-          widget.onVerified?.call(result.matchScore);
-          widget.onSuccess?.call();
+          await Future.delayed(const Duration(milliseconds: 800));
+          if (mounted) {
+            widget.onVerifiedWithImage?.call(result);
+            widget.onVerified?.call(result.matchScore);
+            widget.onSuccess?.call();
+          }
         }
       } else {
         // Score > 0 but below threshold = genuine mismatch

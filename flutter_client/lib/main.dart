@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,8 @@ import 'app/app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/face_embedding_service_stub.dart'
+    if (dart.library.io) 'services/face_embedding_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +32,17 @@ void main() {
     }
     originalOnError?.call(details);
   };
+
+  // Eagerly initialize the on-device face embedding model (MobileFaceNet via
+  // TFLite). Without this the very first face-verification attempt uses the
+  // weak HOG/LBP fallback which can false-positive — especially on iOS where
+  // the model was historically assumed to be unavailable.
+  // Fire-and-forget: any failure is logged; verification code will re-check.
+  FaceEmbeddingService.initialize().then((_) {
+    debugPrint('FaceEmbeddingService init: ready=${FaceEmbeddingService.isReady}');
+  }).catchError((e) {
+    debugPrint('FaceEmbeddingService init failed: $e');
+  });
 
   runApp(
     MultiProvider(
