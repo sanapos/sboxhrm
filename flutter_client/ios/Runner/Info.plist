@@ -76,6 +76,10 @@
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh đại diện</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Ứng dụng cần truy cập mạng nội bộ để kết nối WiFi chấm công</string>
 	<key>NSFaceIDUsageDescription</key>

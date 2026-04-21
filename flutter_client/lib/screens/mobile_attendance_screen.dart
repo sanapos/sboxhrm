@@ -495,10 +495,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         }
       }
 
-      // Fast low accuracy (2s timeout)
+      // iOS cold-start GPS thường mất 10-30s; Android nhanh hơn nhiều.
+      // Dùng timeout riêng cho từng platform để tránh fallback sớm về vị trí cũ.
+      final fastTimeout = Platform.isIOS ? 5000 : 2000;
+      final highAccTimeout = Platform.isIOS ? 12000 : 6000;
+
+      // Fast low accuracy
       final fastPosition = await getCurrentPosition(
         enableHighAccuracy: false,
-        timeout: 2000,
+        timeout: fastTimeout,
       );
       if (!mounted) return;
       setState(() {
@@ -515,10 +520,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         return;
       }
       
-      // Not in range → high accuracy (6s timeout, reduced from 10)
+      // Not in range → high accuracy
       final position = await getCurrentPosition(
         enableHighAccuracy: true,
-        timeout: 6000,
+        timeout: highAccTimeout,
       );
       if (!mounted) return;
       setState(() {
@@ -541,7 +546,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     try {
       final position = await getCurrentPosition(
         enableHighAccuracy: true,
-        timeout: 8000,
+        timeout: Platform.isIOS ? 15000 : 8000,
       );
       if (!mounted) return;
       setState(() {

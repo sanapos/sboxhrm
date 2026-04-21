@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/circle_face_capture_widget.dart';
@@ -55,34 +57,66 @@ class _MobileDeviceRegistrationScreenState
     _checkRegistrationStatus();
   }
 
+  /// Generate a stable, persistent device ID.
+  /// - Android: use androidInfo.id (already stable across reinstalls on most devices).
+  /// - iOS: identifierForVendor resets when the last app from the vendor is uninstalled,
+  ///   so we persist it via SharedPreferences so it survives app updates and future
+  ///   identifierForVendor regenerations. (Note: iOS still clears NSUserDefaults on
+  ///   full uninstall, so re-registration is expected in that case.)
+  Future<String> _getPersistentDeviceId(String rawId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const key = 'sbox_persistent_device_id';
+      final cached = prefs.getString(key);
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
+      // First launch (or cache cleared): derive a stable ID seeded from the
+      // platform raw ID plus a random suffix so two devices with the same raw
+      // ID (extremely rare but possible on rooted/cloned devices) won't collide.
+      final rand = math.Random.secure();
+      final suffix = List<int>.generate(6, (_) => rand.nextInt(256))
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      final generated = rawId.isNotEmpty ? '${rawId}_$suffix' : 'dev_$suffix';
+      await prefs.setString(key, generated);
+      return generated;
+    } catch (e) {
+      debugPrint('Persistent device ID error: $e');
+      return rawId.isNotEmpty ? rawId : 'dev_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
   Future<void> _loadDeviceInfo() async {
+    String rawId = '';
     try {
       final deviceInfo = DeviceInfoPlugin();
       if (kIsWeb) {
         final webInfo = await deviceInfo.webBrowserInfo;
-        _deviceId = 'web_${webInfo.userAgent?.hashCode ?? DateTime.now().millisecondsSinceEpoch}';
+        rawId = 'web_${webInfo.userAgent?.hashCode ?? DateTime.now().millisecondsSinceEpoch}';
         _deviceName = webInfo.browserName.name;
         _deviceModel = 'Web Browser';
         _osVersion = webInfo.platform ?? 'Unknown';
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        _deviceId = androidInfo.id;
+        rawId = androidInfo.id;
         _deviceName = '${androidInfo.brand} ${androidInfo.model}';
         _deviceModel = androidInfo.model;
         _osVersion = 'Android ${androidInfo.version.release}';
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
-        _deviceId = iosInfo.identifierForVendor ?? 'ios_unknown';
+        rawId = iosInfo.identifierForVendor ?? '';
         _deviceName = iosInfo.name;
         _deviceModel = iosInfo.model;
         _osVersion = '${iosInfo.systemName} ${iosInfo.systemVersion}';
       }
+      _deviceId = await _getPersistentDeviceId(rawId);
     } catch (e) {
       debugPrint('Error getting device info: $e');
-      _deviceId = 'unknown_${DateTime.now().millisecondsSinceEpoch}';
-      _deviceName = 'Unknown Device';
-      _deviceModel = 'Unknown';
-      _osVersion = 'Unknown';
+      _deviceId = await _getPersistentDeviceId(rawId);
+      if (_deviceName.isEmpty) _deviceName = 'Unknown Device';
+      if (_deviceModel.isEmpty) _deviceModel = 'Unknown';
+      if (_osVersion.isEmpty) _osVersion = 'Unknown';
     }
 
     // Detect WiFi BSSID
