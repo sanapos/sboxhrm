@@ -1470,7 +1470,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app)
+    /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app).
+    /// Để đảm bảo quyền riêng tư: chỉ ghi nhận vị trí khi nhân viên đang trong ca làm việc đã được duyệt
+    /// (với biên 30 phút trước giờ bắt đầu và 15 phút sau giờ kết thúc).
     /// </summary>
     [HttpPost("report-location")]
     public async Task<ActionResult> ReportLocation([FromBody] ReportLocationRequest request)
@@ -1482,6 +1484,23 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
         if (request.Latitude == 0 && request.Longitude == 0)
             return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
+
+        // Privacy guard: only record location if the employee is currently within an approved shift window.
+        // Window: [StartTime - 30m, EndTime + 15m]. Shift StartTime/EndTime are stored in server local time.
+        var nowLocal = DateTime.Now;
+        var onShift = await _dbContext.Shifts
+            .AsNoTracking()
+            .AnyAsync(s => s.StoreId == storeId
+                && s.EmployeeUserId == CurrentUserId
+                && s.Status == Domain.Enums.ShiftStatus.Approved
+                && s.StartTime.AddMinutes(-30) <= nowLocal
+                && s.EndTime.AddMinutes(15) >= nowLocal);
+
+        if (!onShift)
+        {
+            // Silently accept but don't store — respect employee privacy outside working hours.
+            return Ok(AppResponse<object>.Success(new { stored = false, reason = "off-shift" }));
+        }
 
         var existing = await _dbContext.EmployeeLiveLocations
             .FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == empId);
@@ -1508,7 +1527,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         }
 
         await _dbContext.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(null));
+        return Ok(AppResponse<object>.Success(new { stored = true }));
     }
 
     public class ReportLocationRequest
