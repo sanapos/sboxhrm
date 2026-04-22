@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/field_checkin.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -2885,6 +2886,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               Text('${v.photos.length} ảnh', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
             ]),
           ],
+          // Action buttons row
+          const SizedBox(height: 8),
+          _buildVisitActionRow(v),
           // View report footer
           const SizedBox(height: 8),
           Container(
@@ -2916,6 +2920,292 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         ]),
       ),
       ),
+    );
+  }
+
+  Widget _buildVisitActionRow(VisitReport v) {
+    final phone = (v.contactPhone ?? '').trim();
+    final hasPhone = phone.isNotEmpty;
+    double? lat;
+    double? lng;
+    try {
+      final loc = _fieldLocations.firstWhere((l) => l.id == v.locationId);
+      lat = loc.latitude;
+      lng = loc.longitude;
+    } catch (_) {
+      lat = v.checkInLatitude;
+      lng = v.checkInLongitude;
+    }
+    final hasMap = lat != null && lng != null && !(lat == 0 && lng == 0);
+
+    return Row(children: [
+      Expanded(
+        child: _buildVisitActionBtn(
+          icon: Icons.phone,
+          label: 'Gọi',
+          color: hasPhone ? Colors.green : Colors.grey,
+          enabled: hasPhone,
+          onTap: () => _callContact(phone),
+        ),
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: _buildVisitActionBtn(
+          icon: Icons.history,
+          label: 'Lịch sử',
+          color: const Color(0xFF1E3A5F),
+          enabled: true,
+          onTap: () => _showLocationHistory(v),
+        ),
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: _buildVisitActionBtn(
+          icon: Icons.map,
+          label: 'Bản đồ',
+          color: hasMap ? Colors.orange : Colors.grey,
+          enabled: hasMap,
+          onTap: () => _openLocationMap(v.locationName ?? 'Điểm bán', lat!, lng!),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildVisitActionBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: enabled ? 0.08 : 0.04),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: enabled ? 0.3 : 0.15)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 14, color: enabled ? color : Colors.grey[400]),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: enabled ? color : Colors.grey[400],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _callContact(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) return;
+    final uri = Uri.parse('tel:$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể gọi số: $phone')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể thực hiện cuộc gọi')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openLocationMap(String name, double lat, double lng) async {
+    final encodedName = Uri.encodeComponent(name);
+    final geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng($encodedName)');
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+    try {
+      if (await canLaunchUrl(geoUri)) {
+        await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể mở bản đồ')),
+        );
+      }
+    }
+  }
+
+  void _showLocationHistory(VisitReport current) {
+    final visits = _historyVisits
+        .where((x) => x.locationId == current.locationId)
+        .toList()
+      ..sort((a, b) {
+        final ad = a.checkInTime ?? a.visitDate;
+        final bd = b.checkInTime ?? b.visitDate;
+        return bd.compareTo(ad);
+      });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, scrollCtl) {
+            return Column(children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(children: [
+                  const Icon(Icons.history, size: 20, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          current.locationName ?? 'Điểm bán',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${visits.length} lượt check-in',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, size: 20),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: visits.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Chưa có lượt check-in nào',
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: scrollCtl,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: visits.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                        itemBuilder: (_, i) {
+                          final x = visits[i];
+                          final ci = x.checkInTime ?? x.visitDate;
+                          return ListTile(
+                            dense: true,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            leading: CircleAvatar(
+                              radius: 16,
+                              backgroundColor:
+                                  x.isCheckedOut || x.isReviewed
+                                      ? Colors.green.shade50
+                                      : Colors.orange.shade50,
+                              child: Icon(
+                                x.isCheckedOut || x.isReviewed
+                                    ? Icons.check_circle
+                                    : Icons.access_time,
+                                size: 16,
+                                color: x.isCheckedOut || x.isReviewed
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ),
+                            title: Text(
+                              DateFormat('EEE dd/MM/yyyy HH:mm', 'vi')
+                                  .format(ci.toLocal()),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (x.checkOutTime != null)
+                                  Text(
+                                    'Checkout: ${DateFormat('HH:mm').format(x.checkOutTime!.toLocal())}'
+                                    '${x.timeSpentMinutes != null ? ' • ${x.timeSpentFormatted}' : ''}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                if (_isManager && x.employeeName != null)
+                                  Text(
+                                    'NV: ${x.employeeName}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                if (x.reportNote != null &&
+                                    x.reportNote!.isNotEmpty)
+                                  Text(
+                                    x.reportNote!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[700],
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                            trailing: const Icon(Icons.chevron_right, size: 18),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              _showVisitDetailSheet(x);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ]);
+          },
+        );
+      },
     );
   }
 
