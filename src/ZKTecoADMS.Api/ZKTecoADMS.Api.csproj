@@ -19,6 +19,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.19.2" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
@@ -31,6 +32,16 @@
 
   <ItemGroup>
     <Folder Include="Models\Responses\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ship the ONNX face embedding model so iOS clients (which cannot run
+         TFLite on-device reliably) can be verified server-side using the same
+         MobileFaceNet architecture as the Android client. -->
+    <Content Include="wwwroot\models\mobilefacenet.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
@@ -359,8 +360,17 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         //
         // If that also fails to extract a signature (no face, bad lighting),
         // fall back to the server as last resort.
+        final initErr = FaceEmbeddingService.lastInitError ?? '(unknown)';
         debugPrint(
-            'TFLite MobileFaceNet not available — trying MLKit signature fallback. lastInitError=${FaceEmbeddingService.lastInitError}');
+            'TFLite MobileFaceNet not available — trying MLKit signature fallback. lastInitError=$initErr');
+
+        // Persist the error to a log file so the user can retrieve & share it
+        // for diagnostics. Also show a dialog (iOS only) so the user can read
+        // or screenshot the message before we silently fall through.
+        final savedLogPath = await _saveTfliteDiagLog(initErr);
+        if (Platform.isIOS && mounted) {
+          await _showTfliteDiagDialog(initErr, savedLogPath);
+        }
 
         if (capturedFilePath != null) {
           _updateStatus(_VerifyStatus.verified, 'Đang so sánh khuôn mặt (MLKit)...');
@@ -645,6 +655,85 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       _status = status;
       _statusMessage = msg;
     });
+  }
+
+  /// Persist the TFLite init error to a log file under ApplicationDocuments so
+  /// the user (or support) can retrieve it via Files app on iOS. Returns the
+  /// absolute path of the log file on success, or null on failure.
+  Future<String?> _saveTfliteDiagLog(String initErr) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final f = File('${dir.path}/tflite_init_error.log');
+      final ts = DateTime.now().toIso8601String();
+      final platform = Platform.isIOS ? 'iOS' : (Platform.isAndroid ? 'Android' : 'Other');
+      final content = '[$ts] platform=$platform\n$initErr\n\n';
+      await f.writeAsString(content, mode: FileMode.append);
+      debugPrint('TFLite diag log saved to: ${f.path}');
+      return f.path;
+    } catch (e) {
+      debugPrint('Failed to save TFLite diag log: $e');
+      return null;
+    }
+  }
+
+  /// Show a modal dialog with the TFLite init error. User must tap "OK" to
+  /// dismiss so they have time to screenshot or copy it. Includes a Copy
+  /// button to put the message on the clipboard.
+  Future<void> _showTfliteDiagDialog(String initErr, String? logPath) async {
+    if (!mounted) return;
+    final shortErr = initErr.length > 2000 ? '${initErr.substring(0, 2000)}…' : initErr;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Lỗi khởi tạo nhận diện trên máy (iOS)'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Không nạp được TFLite MobileFaceNet trên thiết bị. '
+                'Sẽ chuyển sang xác thực qua server. Vui lòng gửi log này cho kỹ thuật:',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                shortErr,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  color: Colors.redAccent,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (logPath != null)
+                Text(
+                  'Đã lưu log vào:\n$logPath',
+                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: initErr));
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Đã copy lỗi vào clipboard')),
+                );
+              }
+            },
+            child: const Text('Copy lỗi'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tiếp tục (dùng server)'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

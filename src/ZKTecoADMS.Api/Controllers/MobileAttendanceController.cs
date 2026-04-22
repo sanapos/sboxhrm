@@ -79,6 +79,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     private readonly FaceComparisonService _faceComparisonService;
 
 
+    private readonly OnnxFaceEmbeddingService _onnxFaceEmbedding;
+
+
     private readonly IAttendanceNotificationService _attendanceNotificationService;
 
 
@@ -139,7 +142,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         IAttendanceNotificationService attendanceNotificationService,
 
 
-        ISystemNotificationService systemNotificationService)
+        ISystemNotificationService systemNotificationService,
+
+
+        OnnxFaceEmbeddingService onnxFaceEmbedding)
 
 
     {
@@ -164,6 +170,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         _systemNotificationService = systemNotificationService;
+
+
+        _onnxFaceEmbedding = onnxFaceEmbedding;
 
 
     }
@@ -5191,61 +5200,214 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     var regImages = JsonSerializer.Deserialize<List<string>>(faceReg!.FaceImagesJson ?? "[]") ?? new List<string>();
 
 
-                    var (compScore, compDetails) = await _faceComparisonService.CompareAsync(faceImageStoredPath, regImages);
+                    // Try ONNX MobileFaceNet first — same model family as the Android
 
 
-                    serverFaceScore = compScore;
+                    // client-side TFLite, so scores are directly comparable and we can
 
 
-                    // The server-side comparator is feature-based (gradient+histogram+pixel)
+                    // use the same strict threshold (default 80). Embeddings are L2
 
 
-                    // which produces high scores (60-80) for any two aligned face crops,
+                    // normalized so cosine similarity maps cleanly to 0-100.
 
 
-                    // even of different people. Apply a stricter threshold to guard against
+                    var onnxUsed = false;
 
 
-                    // spoofing, but when the client has already passed the active blink
+                    string onnxDetails = string.Empty;
 
 
-                    // liveness challenge, relax it to a low floor (40) — the blink
+                    if (_onnxFaceEmbedding.IsReady)
 
 
-                    // is the real anti-spoof signal and the server comparator is only a
+                    {
 
 
-                    // coarse second check.  Without liveness proof, keep the strict 75.
+                        try
 
 
-                    // Note: we cap at Math.Min(minFaceScore, 40) so a very low store setting
+                        {
 
 
-                    // is still honored, but a high setting (e.g. 80) won't lock out iOS
+                            var checkInEmb = await _onnxFaceEmbedding.GetEmbeddingFromRelativeAsync(faceImageStoredPath);
 
 
-                    // users whose feature-based server score is inherently lower.
+                            if (checkInEmb != null)
 
 
-                    var strictMin = request.LivenessPassed
+                            {
 
 
-                        ? Math.Min(minFaceScore, 40.0)
+                                var regEmbeddings = new List<float[]>();
 
 
-                        : Math.Max(minFaceScore, 75.0);
+                                foreach (var regPath in regImages)
 
 
-                    isFaceVerified = serverFaceScore >= strictMin;
+                                {
+
+
+                                    var regEmb = await _onnxFaceEmbedding.GetEmbeddingFromRelativeAsync(regPath);
+
+
+                                    if (regEmb != null) regEmbeddings.Add(regEmb);
+
+
+                                }
+
+
+                                if (regEmbeddings.Count > 0)
+
+
+                                {
+
+
+                                    serverFaceScore = OnnxFaceEmbeddingService.BestCosineScore(checkInEmb, regEmbeddings);
+
+
+                                    onnxUsed = true;
+
+
+                                    onnxDetails = $"ONNX embedding match, {regEmbeddings.Count} refs, best={serverFaceScore:F1}";
+
+
+                                }
+
+
+                            }
+
+
+                        }
+
+
+                        catch (Exception ex)
+
+
+                        {
+
+
+                            _logger.LogWarning(ex, "ONNX face embedding failed for {EmpId}, falling back to gradient", request.EmployeeId);
+
+
+                        }
+
+
+                    }
+
+
+
+
+
+                    double compScore;
+
+
+                    string compDetails;
+
+
+                    if (onnxUsed)
+
+
+                    {
+
+
+                        compScore = serverFaceScore!.Value;
+
+
+                        compDetails = onnxDetails;
+
+
+                    }
+
+
+                    else
+
+
+                    {
+
+
+                        var (fbScore, fbDetails) = await _faceComparisonService.CompareAsync(faceImageStoredPath, regImages);
+
+
+                        compScore = fbScore;
+
+
+                        compDetails = fbDetails;
+
+
+                        serverFaceScore = fbScore;
+
+
+                    }
+
+
+
+
+
+                    // Threshold selection:
+
+
+                    //  - ONNX embedding scores are on the same scale as the client TFLite
+
+
+                    //    model, so apply the full strict minFaceScore (default 80).
+
+
+                    //  - Gradient fallback scores top out around 50 for same-person in
+
+
+                    //    mismatched lighting, so keep the relaxed floor (40) when the
+
+
+                    //    client passed active blink liveness.
+
+
+                    //  - Without liveness proof in either mode, keep strict 75.
+
+
+                    double strictMin;
+
+
+                    if (onnxUsed)
+
+
+                    {
+
+
+                        strictMin = request.LivenessPassed ? minFaceScore : Math.Max(minFaceScore, 75.0);
+
+
+                    }
+
+
+                    else
+
+
+                    {
+
+
+                        strictMin = request.LivenessPassed
+
+
+                            ? Math.Min(minFaceScore, 40.0)
+
+
+                            : Math.Max(minFaceScore, 75.0);
+
+
+                    }
+
+
+                    isFaceVerified = compScore >= strictMin;
 
 
                     _logger.LogWarning(
 
 
-                        "Server face comparison for employee {EmpId}: score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, clientScore={ClientScore}, details={Details}",
+                        "Server face comparison for employee {EmpId}: mode={Mode}, score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, clientScore={ClientScore}, details={Details}",
 
 
-                        request.EmployeeId, serverFaceScore, isFaceVerified, strictMin, request.LivenessPassed, clientFaceScore, compDetails);
+                        request.EmployeeId, onnxUsed ? "ONNX" : "gradient", compScore, isFaceVerified, strictMin, request.LivenessPassed, clientFaceScore, compDetails);
 
 
                 }
