@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
+import '../services/mlkit_face_signature_service.dart';
 
 /// Result of face verification: score + captured photo as base64.
 class FaceVerificationResult {
@@ -351,18 +352,83 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       if (!FaceEmbeddingService.isReady) {
         // TFLite (MobileFaceNet) not available on this device.
         //
-        // Historically we tried HOG/LBP fallback (bad — accepted spoofs) and
-        // then a hard reject for iOS (bad — blocked legitimate users when the
-        // TensorFlowLiteSwift pod failed to load on newer iOS SDKs).
+        // On iOS the TensorFlowLiteSwift pod sometimes fails to load on newer
+        // SDKs. Instead of forcing server delegation (where the feature-based
+        // comparator rejects even legitimate faces), try a second on-device
+        // path: Google ML Kit (Apple Vision on iOS) geometric face signature.
         //
-        // Current strategy for BOTH platforms: delegate to the server by
-        // sending matchScore = -1 plus the captured face image. The server
-        // runs its own comparator with strictMin = 75 (higher than client's
-        // iOS min of 65), and we already enforced liveness (blink detection)
-        // on-device, so this path is still spoof-resistant.
+        // If that also fails to extract a signature (no face, bad lighting),
+        // fall back to the server as last resort.
         debugPrint(
-            'TFLite MobileFaceNet not available — delegating to server. lastInitError=${FaceEmbeddingService.lastInitError}');
+            'TFLite MobileFaceNet not available — trying MLKit signature fallback. lastInitError=${FaceEmbeddingService.lastInitError}');
 
+        if (capturedFilePath != null) {
+          _updateStatus(_VerifyStatus.verified, 'Đang so sánh khuôn mặt (MLKit)...');
+          try {
+            final (mlScore, mlDetails) =
+                await MlkitFaceSignatureService.compareBestMatch(
+              capturedFilePath,
+              regPaths,
+            );
+            debugPrint('MLKit signature compare: score=$mlScore, details=$mlDetails');
+
+            // MLKit signature is less accurate than FaceNet so use a slightly
+            // lower threshold than the iOS TFLite min, but still enforce a
+            // sane minimum (don't accept anyone).
+            final mlMin = math.max(widget.minMatchScore - 5.0, 55.0);
+            if (mlScore >= mlMin) {
+              _updateStatus(
+                _VerifyStatus.verified,
+                'Xác thực thành công! Điểm: ${mlScore.toStringAsFixed(0)}',
+              );
+              _successController.forward();
+              final result = FaceVerificationResult(
+                matchScore: mlScore,
+                faceImageBase64: faceBase64,
+                livenessPassed: true,
+              );
+              await Future.delayed(const Duration(milliseconds: 1200));
+              if (mounted) {
+                widget.onVerifiedWithImage?.call(result);
+                widget.onVerified?.call(result.matchScore);
+                widget.onSuccess?.call();
+              }
+              return;
+            }
+
+            if (mlScore > 0) {
+              // MLKit ran but score below threshold → tell user to retry
+              // rather than silently sending to server which will just say no.
+              _updateStatus(_VerifyStatus.error,
+                  'Khuôn mặt không khớp (${mlScore.toStringAsFixed(0)}). Vui lòng thử lại.');
+              await Future.delayed(const Duration(seconds: 2));
+              if (mounted) {
+                setState(() {
+                  _captured = false;
+                  _consecutiveDetections = 0;
+                  _progress = 0.0;
+                  _eyesOpenSeen = false;
+                  _eyesClosedSeen = false;
+                  _blinkConfirmed = false;
+                  _frameCountSinceFace = 0;
+                  _status = _VerifyStatus.waiting;
+                  _statusMessage = 'Đưa khuôn mặt vào khung tròn';
+                });
+                _pulseController.repeat(reverse: true);
+                try {
+                  await _cameraController?.startImageStream(_onCameraFrame);
+                } catch (_) {}
+              }
+              return;
+            }
+            // score == 0 means MLKit could not detect / extract signature
+            // → fall through to server delegation below.
+          } catch (e) {
+            debugPrint('MLKit signature fallback failed: $e');
+          }
+        }
+
+        // Last resort: server comparison (feature-based, strictMin=75).
         _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
         final result = FaceVerificationResult(
           matchScore: -1,
