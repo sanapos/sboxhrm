@@ -3519,6 +3519,28 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 ]),
               ),
             ),
+            // Fullscreen toggle button
+            Positioned(
+              top: 8, left: 8,
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(8),
+                elevation: 2,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _openFullscreenManagerMap(center, zoom),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.fullscreen, size: 16, color: Colors.grey[700]),
+                      const SizedBox(width: 4),
+                      Text('Toàn màn hình',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[700], fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -3563,6 +3585,20 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         ),
       ),
     ]);
+  }
+
+  void _openFullscreenManagerMap(LatLng initialCenter, double initialZoom) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FullscreenEmployeeMap(
+          employeeLocations: List<Map<String, dynamic>>.from(_employeeLocations),
+          deptColors: _deptColors,
+          initialCenter: initialCenter,
+          initialZoom: initialZoom,
+        ),
+      ),
+    );
   }
 
   Widget _buildEmployeeLocationTile(int index) {
@@ -4518,6 +4554,273 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
           );
         },
       ),
+    );
+  }
+}
+
+
+// =================== FULLSCREEN EMPLOYEE MAP ===================
+class _FullscreenEmployeeMap extends StatefulWidget {
+  final List<Map<String, dynamic>> employeeLocations;
+  final List<Color> deptColors;
+  final LatLng initialCenter;
+  final double initialZoom;
+  const _FullscreenEmployeeMap({
+    required this.employeeLocations,
+    required this.deptColors,
+    required this.initialCenter,
+    required this.initialZoom,
+  });
+  @override
+  State<_FullscreenEmployeeMap> createState() => _FullscreenEmployeeMapState();
+}
+
+class _FullscreenEmployeeMapState extends State<_FullscreenEmployeeMap> {
+  final MapController _ctl = MapController();
+  String? _selectedId;
+
+  Color _deptColor(int i) => widget.deptColors[i % widget.deptColors.length];
+
+  String _sourceLabel(String? s) {
+    switch (s) {
+      case 'journey': return 'Hành trình';
+      case 'live': return 'Trực tuyến';
+      case 'punch': return 'Chấm công';
+      case 'checkin': return 'Check-in';
+      default: return 'Chưa có vị trí';
+    }
+  }
+
+  @override
+  void dispose() { _ctl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final markers = <Marker>[];
+    final circles = <CircleMarker>[];
+    final withLoc = <Map<String, dynamic>>[];
+
+    for (final emp in widget.employeeLocations) {
+      final lat = (emp['latitude'] as num?)?.toDouble();
+      final lng = (emp['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || lat == 0) continue;
+      withLoc.add(emp);
+      final deptIdx = (emp['departmentColorIndex'] as num?)?.toInt() ?? 0;
+      final color = _deptColor(deptIdx);
+      final name = (emp['employeeName'] ?? '?').toString();
+      final isSel = emp['employeeId'] == _selectedId;
+      final src = (emp['locationSource'] ?? '').toString();
+      final checkinCount = (emp['checkinCount'] as num?)?.toInt() ?? 0;
+
+      circles.add(CircleMarker(
+        point: LatLng(lat, lng),
+        radius: isSel ? 28 : 18,
+        color: color.withValues(alpha: isSel ? 0.22 : 0.1),
+        borderColor: color.withValues(alpha: 0.5),
+        borderStrokeWidth: 1,
+      ));
+
+      markers.add(Marker(
+        point: LatLng(lat, lng),
+        width: isSel ? 200 : 140,
+        height: isSel ? 72 : 56,
+        child: GestureDetector(
+          onTap: () => setState(() => _selectedId = isSel ? null : emp['employeeId'] as String?),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isSel ? color : color.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4)],
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                  name.length > 16 ? '${name.substring(0, 16)}…' : name,
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+                if (checkinCount > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                    child: Text('$checkinCount', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ]),
+            ),
+            Icon(
+              src == 'journey' ? Icons.directions_walk :
+              src == 'live' ? Icons.gps_fixed :
+              src == 'punch' ? Icons.fingerprint :
+              src == 'checkin' ? Icons.location_on :
+              Icons.person_pin_circle,
+              color: color,
+              size: isSel ? 28 : 22,
+            ),
+          ]),
+        ),
+      ));
+    }
+
+    final selected = _selectedId == null
+        ? null
+        : widget.employeeLocations.firstWhere(
+            (e) => e['employeeId'] == _selectedId,
+            orElse: () => <String, dynamic>{},
+          );
+
+    return Scaffold(
+      body: Stack(children: [
+        FlutterMap(
+          mapController: _ctl,
+          options: MapOptions(
+            initialCenter: widget.initialCenter,
+            initialZoom: widget.initialZoom,
+            onTap: (_, __) => setState(() => _selectedId = null),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              userAgentPackageName: 'com.zktecoadms.app',
+            ),
+            if (circles.isNotEmpty) CircleLayer(circles: circles),
+            if (markers.isNotEmpty) MarkerLayer(markers: markers),
+          ],
+        ),
+        // Close button
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 8,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            elevation: 3,
+            child: IconButton(
+              icon: const Icon(Icons.close, size: 22),
+              tooltip: 'Đóng',
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ),
+        // Stats + fit-to-bounds
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 8,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            elevation: 3,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.people, size: 14, color: Colors.grey[700]),
+                  const SizedBox(width: 4),
+                  Text('${withLoc.length}/${widget.employeeLocations.length}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w600)),
+                ]),
+              ),
+              Container(width: 1, height: 24, color: Colors.grey.shade300),
+              IconButton(
+                icon: const Icon(Icons.center_focus_strong, size: 20),
+                tooltip: 'Thu nhỏ xem hết',
+                onPressed: () {
+                  if (withLoc.isEmpty) return;
+                  final pts = withLoc.map((e) => LatLng(
+                    (e['latitude'] as num).toDouble(),
+                    (e['longitude'] as num).toDouble(),
+                  )).toList();
+                  if (pts.length == 1) {
+                    _ctl.move(pts.first, 16);
+                  } else {
+                    _ctl.fitCamera(CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints(pts),
+                      padding: const EdgeInsets.all(48),
+                    ));
+                  }
+                },
+              ),
+            ]),
+          ),
+        ),
+        // Selected employee info card
+        if (selected != null && selected.isNotEmpty)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: MediaQuery.of(context).padding.bottom + 12,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: _deptColor((selected['departmentColorIndex'] as num?)?.toInt() ?? 0).withValues(alpha: 0.15),
+                    child: Text(
+                      (selected['employeeName']?.toString() ?? '?').isNotEmpty
+                          ? selected['employeeName'].toString()[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        color: _deptColor((selected['departmentColorIndex'] as num?)?.toInt() ?? 0),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (selected['employeeName'] ?? '?').toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        Text(
+                          (selected['department'] ?? '').toString() +
+                              ((selected['position'] ?? '').toString().isNotEmpty
+                                  ? ' • ${selected['position']}'
+                                  : ''),
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Icon(
+                            selected['locationSource'] == 'journey' ? Icons.directions_walk
+                              : selected['locationSource'] == 'live' ? Icons.gps_fixed
+                              : selected['locationSource'] == 'punch' ? Icons.fingerprint
+                              : selected['locationSource'] == 'checkin' ? Icons.location_on
+                              : Icons.location_off,
+                            size: 13, color: Colors.green,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _sourceLabel(selected['locationSource']?.toString()),
+                            style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
+                          ),
+                          if (selected['lastUpdateTime'] != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat('HH:mm').format(DateTime.parse(selected['lastUpdateTime'].toString()).toLocal()),
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ]),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _selectedId = null),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 }

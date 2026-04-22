@@ -1638,13 +1638,14 @@ public class FieldCheckInController : AuthenticatedControllerBase
             var empIdStr = emp.Id.ToString();
             var empCode = emp.EmployeeCode;
             var appUserIdStr = emp.ApplicationUserId?.ToString();
-            var deptName = emp.Department ?? "Chua phan phong";
+            var deptName = emp.Department ?? "Chưa phân bổ";
 
             // Assign consistent color index per department
             if (!deptColorMap.ContainsKey(deptName))
                 deptColorMap[deptName] = deptColorIndex++;
 
-            // Find last GPS: priority journey > checkin > punch
+            // Find current working location — prioritize REAL-TIME sources (journey route, live GPS) over historical check-ins.
+            // Priority: journey (active route GPS) > live (device heartbeat) > punch (attendance GPS) > checkin (visit report GPS)
             double? lat = null, lng = null;
             DateTime? lastUpdate = null;
             string? source = null;
@@ -1670,20 +1671,20 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 catch { }
             }
 
-            // Fallback: last check-in GPS
+            // Fallback: live GPS from device heartbeat (real-time working position)
             if (lat == null)
             {
-                var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr));
-                if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
+                var live = liveLocations.FirstOrDefault(l => l.EmployeeId == empCode || l.EmployeeId == empIdStr || (appUserIdStr != null && l.EmployeeId == appUserIdStr));
+                if (live != null && live.Latitude != 0)
                 {
-                    lat = lastVisit.CheckInLatitude;
-                    lng = lastVisit.CheckInLongitude;
-                    lastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime;
-                    source = "checkin";
+                    lat = live.Latitude;
+                    lng = live.Longitude;
+                    lastUpdate = live.UpdatedAt;
+                    source = "live";
                 }
             }
 
-            // Fallback: last mobile punch GPS
+            // Fallback: last mobile punch GPS (recent attendance event)
             if (lat == null)
             {
                 var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr || (appUserIdStr != null && p.OdooEmployeeId == appUserIdStr));
@@ -1696,16 +1697,16 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 }
             }
 
-            // Fallback: live GPS from device
+            // Fallback: last check-in GPS (historical — least fresh)
             if (lat == null)
             {
-                var live = liveLocations.FirstOrDefault(l => l.EmployeeId == empCode || l.EmployeeId == empIdStr || (appUserIdStr != null && l.EmployeeId == appUserIdStr));
-                if (live != null && live.Latitude != 0)
+                var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr));
+                if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
                 {
-                    lat = live.Latitude;
-                    lng = live.Longitude;
-                    lastUpdate = live.UpdatedAt;
-                    source = "live";
+                    lat = lastVisit.CheckInLatitude;
+                    lng = lastVisit.CheckInLongitude;
+                    lastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime;
+                    source = "checkin";
                 }
             }
 
@@ -1775,7 +1776,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 .Select(u => new { u.Id, u.UserName, u.FirstName, u.LastName })
                 .ToListAsync();
 
-            var unmatchedDept = "Chua phan phong";
+            var unmatchedDept = "Chưa phân bổ";
             if (!deptColorMap.ContainsKey(unmatchedDept))
                 deptColorMap[unmatchedDept] = deptColorIndex++;
 
@@ -1805,9 +1806,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
                 if (uLat == null)
                 {
-                    var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == userIdStr);
-                    if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
-                    { uLat = lastVisit.CheckInLatitude; uLng = lastVisit.CheckInLongitude; uLastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime; uSource = "checkin"; }
+                    var live = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
+                    if (live != null && live.Latitude != 0)
+                    { uLat = live.Latitude; uLng = live.Longitude; uLastUpdate = live.UpdatedAt; uSource = "live"; }
                 }
 
                 if (uLat == null)
@@ -1819,9 +1820,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
                 if (uLat == null)
                 {
-                    var live = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
-                    if (live != null && live.Latitude != 0)
-                    { uLat = live.Latitude; uLng = live.Longitude; uLastUpdate = live.UpdatedAt; uSource = "live"; }
+                    var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == userIdStr);
+                    if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
+                    { uLat = lastVisit.CheckInLatitude; uLng = lastVisit.CheckInLongitude; uLastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime; uSource = "checkin"; }
                 }
 
                 var uVisits = todayVisits
