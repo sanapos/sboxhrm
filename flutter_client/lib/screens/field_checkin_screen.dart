@@ -193,21 +193,28 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         text.contains('work location');
   }
 
+  /// Radius (in metres) used to filter "Điểm bán hôm nay" and "Điểm bán đã đăng ký"
+  /// on the Journey tab. Only locations within this distance from the current GPS
+  /// position are shown, so the list reflects what the user can realistically
+  /// check in to right now.
+  static const double _kNearbyRadiusMeters = 200.0;
+
   List<FieldLocationAssignment> get _sortedAssignments {
     final list = List<FieldLocationAssignment>.from(_myAssignments);
     if (_currentLat == null || _currentLng == null) return list;
-    list.sort((a, b) {
-      final aLoc = a.location;
-      final bLoc = b.location;
-      final aDist = aLoc == null
-          ? double.infinity
-          : _calculateDistance(_currentLat!, _currentLng!, aLoc.latitude, aLoc.longitude);
-      final bDist = bLoc == null
-          ? double.infinity
-          : _calculateDistance(_currentLat!, _currentLng!, bLoc.latitude, bLoc.longitude);
-      return aDist.compareTo(bDist);
-    });
-    return list;
+    // Annotate each assignment with its distance, filter by 200m, then sort by nearest.
+    final withDist = <MapEntry<FieldLocationAssignment, double>>[];
+    for (final a in list) {
+      final loc = a.location;
+      if (loc == null) continue;
+      final d = _calculateDistance(
+          _currentLat!, _currentLng!, loc.latitude, loc.longitude);
+      if (d <= _kNearbyRadiusMeters) {
+        withDist.add(MapEntry(a, d));
+      }
+    }
+    withDist.sort((a, b) => a.value.compareTo(b.value));
+    return withDist.map((e) => e.key).toList();
   }
 
   List<FieldLocation> _sortLocationsByDistance(List<FieldLocation> input) {
@@ -226,7 +233,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     final filtered = _fieldLocations.where((loc) {
       if (_isBranchAttendanceLocation(loc)) return false;
       if (assignedIds.contains(loc.id)) return false;
-      return true;
+      // Only show registered locations within the nearby radius; if GPS is not
+      // yet available we still show them sorted by distance (legacy behaviour).
+      if (_currentLat == null || _currentLng == null) return true;
+      final d = _calculateDistance(
+          _currentLat!, _currentLng!, loc.latitude, loc.longitude);
+      return d <= _kNearbyRadiusMeters;
     }).toList();
     return _sortLocationsByDistance(filtered);
   }
@@ -1731,7 +1743,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    'Điểm bán hôm nay (${_sortedAssignments.length})',
+                    'Điểm bán hôm nay trong 200m (${_sortedAssignments.length})',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF18181B)),
                   ),
                 ),
@@ -1743,7 +1755,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     child: Column(children: [
                       Icon(Icons.location_off, size: 40, color: Colors.grey[300]),
                       const SizedBox(height: 8),
-                      Text('Chưa được giao điểm nào', style: TextStyle(color: Colors.grey[500])),
+                      Text(
+                        _currentLat == null
+                            ? 'Đang xác định vị trí...'
+                            : 'Không có điểm bán nào trong bán kính 200m',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
                     ]),
                   )
                 else
@@ -1758,7 +1775,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(children: [
                     Expanded(child: Text(
-                      'Điểm bán đã đăng ký (${_visibleRegisteredLocations.length})',
+                      'Điểm bán đã đăng ký trong 200m (${_visibleRegisteredLocations.length})',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF18181B)),
                     )),
                     SizedBox(
