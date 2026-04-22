@@ -4,6 +4,7 @@ public enum Roles
 {
     User,
     Admin,
+    Director,
     Manager,
     Employee,
     SuperAdmin,

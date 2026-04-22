@@ -1563,14 +1563,24 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             Color barColor = const Color(0xFF22C55E);
             if (isZero) {
               barColor = const Color(0xFFEF4444);
-            } else if (isUnder) barColor = const Color(0xFFF59E0B);
-            else if (isOver) barColor = const Color(0xFF3B82F6);
+            } else if (isUnder) {
+              barColor = const Color(0xFFF59E0B);
+            } else if (isOver) {
+              barColor = const Color(0xFF3B82F6);
+            }
 
             String statusText = '✅ Bình thường';
             Color statusColor = const Color(0xFF22C55E);
-            if (isZero) { statusText = '🔴 Chưa xếp ca'; statusColor = const Color(0xFFEF4444); }
-            else if (isUnder) { statusText = '🟡 Ít ca'; statusColor = const Color(0xFFF59E0B); }
-            else if (isOver) { statusText = '🔵 Nhiều ca'; statusColor = const Color(0xFF3B82F6); }
+            if (isZero) {
+              statusText = '🔴 Chưa xếp ca';
+              statusColor = const Color(0xFFEF4444);
+            } else if (isUnder) {
+              statusText = '🟡 Ít ca';
+              statusColor = const Color(0xFFF59E0B);
+            } else if (isOver) {
+              statusText = '🔵 Nhiều ca';
+              statusColor = const Color(0xFF3B82F6);
+            }
 
             return DataRow(
               color: isZero ? WidgetStateProperty.all(const Color(0xFFEF4444).withValues(alpha: 0.04)) : null,

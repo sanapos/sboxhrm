@@ -268,8 +268,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             child: Row(
               children: [
                 if (!isNarrow) ...[
-                Icon(Icons.task_alt,
-                    color: const Color(0xFF1E3A5F), size: 28),
+                const Icon(Icons.task_alt,
+                    color: Color(0xFF1E3A5F), size: 28),
                 const SizedBox(width: 10),
                 const Text('Quản lý Công việc',
                     style: TextStyle(
@@ -438,7 +438,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Container(
                         padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
                         child: Icon(Icons.task_alt, size: 48, color: Colors.grey[400]),
                       ),
                       const SizedBox(height: 16),
@@ -949,13 +949,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   const Spacer(),
                   // Quick action counters
                   if (t.hasSubTasks) ...[
-                    Icon(Icons.checklist, size: 12, color: const Color(0xFFA1A1AA)),
+                    const Icon(Icons.checklist, size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 2),
                     Text('${t.completedSubTaskCount}/${t.subTaskCount}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 6),
                   ],
                   if (t.hasComments) ...[
-                    Icon(Icons.chat_bubble_outline, size: 12, color: const Color(0xFFA1A1AA)),
+                    const Icon(Icons.chat_bubble_outline, size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 2),
                     Text('${t.commentCount}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 6),
@@ -3456,6 +3456,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             firstDate: DateTime(2020),
             lastDate: DateTime(2030));
         if (d != null) {
+          if (!mounted) return;
           final t = await showTimePicker(
               context: context,
               initialTime: value != null

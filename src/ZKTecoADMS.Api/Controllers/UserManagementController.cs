@@ -202,6 +202,14 @@ public class UserManagementController(
             return BadRequest(AppResponse<bool>.Error(result.Errors.Select(e => e.Description)));
         }
 
+        // Đồng bộ cột Role để UI và dữ liệu hiển thị luôn khớp với Identity role
+        user.Role = request.NewRole;
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return BadRequest(AppResponse<bool>.Error(updateResult.Errors.Select(e => e.Description)));
+        }
+
         return Ok(AppResponse<bool>.Success(true));
     }
 

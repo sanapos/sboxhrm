@@ -317,6 +317,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       await _deviceStatusSubscription?.cancel();
       await _communicationSubscription?.cancel();
 
+      if (!mounted) return;
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       // Get a valid (non-expired) token, refreshing if necessary
       final token = await authProvider.getValidToken();

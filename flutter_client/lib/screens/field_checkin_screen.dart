@@ -67,6 +67,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   List<VisitReport> _reports = [];
   List<JourneyTracking> _managerJourneys = [];
   bool _isLoadingManager = false;
+  String _managerCustomerStatusFilter = 'Tất cả';
   DateTime _reportFrom = DateTime.now().subtract(const Duration(days: 7));
   DateTime _reportTo = DateTime.now();
   List<Map<String, dynamic>> _employees = [];
@@ -176,6 +177,87 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         _refreshEmployeeLocations();
       }
     });
+  }
+
+  bool _isBranchAttendanceLocation(FieldLocation loc) {
+    final category = (loc.category ?? '').toLowerCase();
+    final name = loc.name.toLowerCase();
+    final address = (loc.address ?? '').toLowerCase();
+    if (category == 'branch_attendance' || category == 'work_location' || category == 'office_branch') {
+      return true;
+    }
+    final text = '$name $address';
+    return text.contains('chi nhanh cham cong') ||
+        text.contains('chi nhánh chấm công') ||
+        text.contains('branch attendance') ||
+        text.contains('work location');
+  }
+
+  List<FieldLocationAssignment> get _sortedAssignments {
+    final list = List<FieldLocationAssignment>.from(_myAssignments);
+    if (_currentLat == null || _currentLng == null) return list;
+    list.sort((a, b) {
+      final aLoc = a.location;
+      final bLoc = b.location;
+      final aDist = aLoc == null
+          ? double.infinity
+          : _calculateDistance(_currentLat!, _currentLng!, aLoc.latitude, aLoc.longitude);
+      final bDist = bLoc == null
+          ? double.infinity
+          : _calculateDistance(_currentLat!, _currentLng!, bLoc.latitude, bLoc.longitude);
+      return aDist.compareTo(bDist);
+    });
+    return list;
+  }
+
+  List<FieldLocation> _sortLocationsByDistance(List<FieldLocation> input) {
+    final list = List<FieldLocation>.from(input);
+    if (_currentLat == null || _currentLng == null) return list;
+    list.sort((a, b) {
+      final aDist = _calculateDistance(_currentLat!, _currentLng!, a.latitude, a.longitude);
+      final bDist = _calculateDistance(_currentLat!, _currentLng!, b.latitude, b.longitude);
+      return aDist.compareTo(bDist);
+    });
+    return list;
+  }
+
+  List<FieldLocation> get _visibleRegisteredLocations {
+    final assignedIds = _myAssignments.map((a) => a.locationId).toSet();
+    final filtered = _fieldLocations.where((loc) {
+      if (_isBranchAttendanceLocation(loc)) return false;
+      if (assignedIds.contains(loc.id)) return false;
+      return true;
+    }).toList();
+    return _sortLocationsByDistance(filtered);
+  }
+
+  String _extractCustomerStatus(VisitReport v) {
+    return (v.reportData?['customerStatus'] ?? '').toString().trim();
+  }
+
+  String _extractNextAction(VisitReport v) {
+    return (v.reportData?['nextAction'] ?? '').toString().trim();
+  }
+
+  List<String> get _managerCustomerStatusOptions {
+    final statuses = _reports
+        .map(_extractCustomerStatus)
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return ['Tất cả', ...statuses];
+  }
+
+  List<VisitReport> get _filteredManagerReports {
+    if (_managerCustomerStatusFilter == 'Tất cả') return _reports;
+    final selected = _managerCustomerStatusFilter.toLowerCase();
+    return _reports.where((v) => _extractCustomerStatus(v).toLowerCase() == selected).toList();
+  }
+
+  List<VisitReport> get _weeklyManagerReports {
+    final from = DateTime.now().subtract(const Duration(days: 7));
+    return _reports.where((v) => v.visitDate.isAfter(from)).toList();
   }
 
   Future<void> _refreshEmployeeLocations() async {
@@ -513,6 +595,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   // ========== JOURNEY ACTIONS ==========
 
+  // ignore: unused_element
   Future<void> _startJourney() async {
     final resp = await _apiService.startJourney();
     if (!mounted) return;
@@ -528,6 +611,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     }
   }
 
+  // ignore: unused_element
   Future<void> _endJourney() async {
     // Flush pending points
     if (_pendingTrackPoints.isNotEmpty) {
@@ -535,6 +619,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       _pendingTrackPoints.clear();
       _savePendingPoints();
     }
+
+    if (!mounted) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -797,8 +883,70 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     if (!mounted || !gotGps || _currentLat == null) return;
 
     final noteCtl = TextEditingController(text: visit.reportNote);
+    final meetingSummaryCtl = TextEditingController(text: (visit.reportData?['meetingSummary'] ?? '').toString());
+    final customerStatusCtl = TextEditingController(text: (visit.reportData?['customerStatus'] ?? '').toString());
+    final nextActionCtl = TextEditingController(text: (visit.reportData?['nextAction'] ?? '').toString());
     final List<XFile> selectedPhotos = [];
     final picker = ImagePicker();
+
+    // Build suggestions from past visits (same location first, then any other past report by this user)
+    List<String> collectSuggestions(String Function(VisitReport v) pick) {
+      final pool = <VisitReport>[
+        ..._historyVisits.where((v) => v.locationId == visit.locationId),
+        ..._todayVisits.where((v) => v.id != visit.id && v.locationId == visit.locationId),
+        ..._historyVisits.where((v) => v.locationId != visit.locationId),
+      ];
+      final seen = <String>{};
+      final result = <String>[];
+      for (final v in pool) {
+        final s = pick(v).trim();
+        if (s.isEmpty) continue;
+        final key = s.toLowerCase();
+        if (seen.add(key)) result.add(s);
+        if (result.length >= 5) break;
+      }
+      return result;
+    }
+
+    final noteSuggestions = collectSuggestions((v) => v.reportNote ?? '');
+    final meetingSuggestions = collectSuggestions((v) => (v.reportData?['meetingSummary'] ?? '').toString());
+    final statusSuggestions = collectSuggestions((v) => (v.reportData?['customerStatus'] ?? '').toString());
+    final nextSuggestions = collectSuggestions((v) => (v.reportData?['nextAction'] ?? '').toString());
+
+    Widget suggestionChips(List<String> items, TextEditingController ctl, StateSetter setDialogState) {
+      if (items.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 2),
+        child: SizedBox(
+          height: 30,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (_, i) => ActionChip(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+              side: BorderSide(color: const Color(0xFF1E3A5F).withValues(alpha: 0.25)),
+              avatar: Icon(Icons.history, size: 14, color: Colors.grey[700]),
+              label: Text(
+                items[i].length > 40 ? '${items[i].substring(0, 40)}…' : items[i],
+                style: const TextStyle(fontSize: 11),
+              ),
+              onPressed: () {
+                ctl.text = items[i];
+                ctl.selection = TextSelection.fromPosition(TextPosition(offset: ctl.text.length));
+                setDialogState(() {});
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    bool showMore = meetingSummaryCtl.text.isNotEmpty ||
+        customerStatusCtl.text.isNotEmpty ||
+        nextActionCtl.text.isNotEmpty;
 
     final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
@@ -808,12 +956,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         builder: (ctx, setDialogState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.75),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
             padding: const EdgeInsets.all(20),
             child: SingleChildScrollView(child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -831,27 +980,52 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     ])),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: noteCtl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú / Báo cáo',
-                    hintText: 'Nhập ghi chú...',
-                    border: OutlineInputBorder(),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Row(children: [
+                    Icon(Icons.tips_and_updates, size: 14, color: Colors.blue[700]),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                      'Các trường đều không bắt buộc. Bấm gợi ý để điền nhanh từ lần trước.',
+                      style: TextStyle(fontSize: 11, color: Colors.blue[800]),
+                    )),
+                  ]),
                 ),
                 const SizedBox(height: 12),
-                // Photos
+                // Primary field: short note
+                TextField(
+                  controller: noteCtl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Ghi chú nhanh',
+                    hintText: 'Tóm tắt 1 dòng...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                suggestionChips(noteSuggestions, noteCtl, setDialogState),
+                const SizedBox(height: 10),
+                // Photos (optional)
                 Row(children: [
-                  Text('Ảnh (${selectedPhotos.length}/5)', style: const TextStyle(fontWeight: FontWeight.w500)),
+                  const Icon(Icons.photo_camera, size: 16, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 6),
+                  Text('Ảnh (${selectedPhotos.length}/5) — tuỳ chọn', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
                   const Spacer(),
                   if (selectedPhotos.length < 5) ...[
-                    IconButton(icon: const Icon(Icons.camera_alt), onPressed: () async {
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.camera_alt), onPressed: () async {
                       final p = await picker.pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 1280);
                       if (p != null) setDialogState(() => selectedPhotos.add(p));
                     }),
-                    IconButton(icon: const Icon(Icons.photo_library), onPressed: () async {
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.photo_library), onPressed: () async {
                       final ps = await picker.pickMultiImage(imageQuality: 70, maxWidth: 1280);
                       setDialogState(() => selectedPhotos.addAll(ps.take(5 - selectedPhotos.length)));
                     }),
@@ -884,13 +1058,72 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                       ),
                     ),
                   ),
+                const SizedBox(height: 10),
+                // Collapsible "more fields" section
+                InkWell(
+                  onTap: () => setDialogState(() => showMore = !showMore),
+                  child: Row(children: [
+                    Icon(showMore ? Icons.expand_less : Icons.expand_more, size: 20, color: const Color(0xFF1E3A5F)),
+                    const SizedBox(width: 4),
+                    Text(
+                      showMore ? 'Thu gọn báo cáo chi tiết' : 'Báo cáo chi tiết (tuỳ chọn)',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600),
+                    ),
+                  ]),
+                ),
+                if (showMore) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: meetingSummaryCtl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Tình hình gặp khách',
+                      hintText: 'VD: Khách quan tâm sản phẩm A',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  suggestionChips(meetingSuggestions, meetingSummaryCtl, setDialogState),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: customerStatusCtl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Kết quả chăm sóc',
+                      hintText: 'VD: Đã demo, đồng ý test 7 ngày',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  suggestionChips(statusSuggestions, customerStatusCtl, setDialogState),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nextActionCtl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Hành động tiếp theo',
+                      hintText: 'VD: Hẹn gặp thứ 5 để chốt đơn',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  suggestionChips(nextSuggestions, nextActionCtl, setDialogState),
+                ],
                 const SizedBox(height: 20),
                 Row(children: [
                   Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ'))),
                   const SizedBox(width: 12),
                   Expanded(
+                    flex: 2,
                     child: FilledButton.icon(
-                      onPressed: () => Navigator.pop(ctx, {'note': noteCtl.text}),
+                      onPressed: () {
+                        Navigator.pop(ctx, {
+                          'note': noteCtl.text.trim(),
+                          'meetingSummary': meetingSummaryCtl.text.trim(),
+                          'customerStatus': customerStatusCtl.text.trim(),
+                          'nextAction': nextActionCtl.text.trim(),
+                        });
+                      },
                       icon: const Icon(Icons.logout),
                       label: const Text('Check-out'),
                       style: FilledButton.styleFrom(backgroundColor: Colors.orange, padding: const EdgeInsets.symmetric(vertical: 14)),
@@ -916,6 +1149,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       'latitude': _currentLat,
       'longitude': _currentLng,
       'note': result['note'],
+      'reportDataJson': jsonEncode({
+        'meetingSummary': (result['meetingSummary'] ?? '').toString().trim(),
+        'customerStatus': (result['customerStatus'] ?? '').toString().trim(),
+        'nextAction': (result['nextAction'] ?? '').toString().trim(),
+        'submittedAt': DateTime.now().toIso8601String(),
+      }),
       if (photoBase64.isNotEmpty) 'photos': photoBase64,
     });
 
@@ -928,6 +1167,154 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     } else {
       NotificationOverlayManager().showWarning(title: 'Lỗi', message: resp['message'] ?? 'Lỗi');
     }
+  }
+
+  Future<void> _showVisitDetailSheet(VisitReport visit) async {
+    final meetingSummary = (visit.reportData?['meetingSummary'] ?? '').toString().trim();
+    final customerStatus = (visit.reportData?['customerStatus'] ?? '').toString().trim();
+    final nextAction = (visit.reportData?['nextAction'] ?? '').toString().trim();
+
+    Widget reportField(IconData icon, String label, String value) {
+      if (value.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 14, color: const Color(0xFF1E3A5F)),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Text(value, style: const TextStyle(fontSize: 13)),
+          ),
+        ]),
+      );
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 14),
+            Row(children: [
+              CircleAvatar(
+                backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                child: const Icon(Icons.store, color: Color(0xFF1E3A5F)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(visit.locationName ?? 'Điểm bán', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                if (visit.employeeName != null)
+                  Text(visit.employeeName!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ])),
+              _buildStatusChip(visit.status),
+            ]),
+            const SizedBox(height: 12),
+            // Times
+            Wrap(spacing: 12, runSpacing: 6, children: [
+              if (visit.checkInTime != null)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.login, size: 14, color: Colors.green),
+                  const SizedBox(width: 4),
+                  Text('Check-in: ${DateFormat('dd/MM HH:mm').format(visit.checkInTime!.toLocal())}', style: const TextStyle(fontSize: 12)),
+                ]),
+              if (visit.checkOutTime != null)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.logout, size: 14, color: Colors.orange),
+                  const SizedBox(width: 4),
+                  Text('Check-out: ${DateFormat('dd/MM HH:mm').format(visit.checkOutTime!.toLocal())}', style: const TextStyle(fontSize: 12)),
+                ]),
+              if (visit.timeSpentMinutes != null && visit.timeSpentMinutes! > 0)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.timer, size: 14, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 4),
+                  Text('Thời gian: ${visit.timeSpentFormatted}', style: const TextStyle(fontSize: 12)),
+                ]),
+            ]),
+            const Divider(height: 22),
+            if (meetingSummary.isEmpty && customerStatus.isEmpty && nextAction.isEmpty && (visit.reportNote == null || visit.reportNote!.isEmpty) && visit.photos.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: Column(children: [
+                  Icon(Icons.note_alt_outlined, size: 40, color: Colors.grey[300]),
+                  const SizedBox(height: 8),
+                  Text('Chưa có báo cáo cho lượt này', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                ])),
+              )
+            else ...[
+              if (visit.reportNote != null && visit.reportNote!.isNotEmpty)
+                reportField(Icons.notes, 'Ghi chú', visit.reportNote!),
+              reportField(Icons.handshake, 'Tình hình gặp khách', meetingSummary),
+              reportField(Icons.task_alt, 'Kết quả chăm sóc', customerStatus),
+              reportField(Icons.arrow_forward, 'Hành động tiếp theo', nextAction),
+              if (visit.photos.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.photo_library, size: 14, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 6),
+                  Text('Ảnh (${visit.photos.length})', style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 90,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: visit.photos.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) {
+                      final url = visit.photos[i];
+                      return GestureDetector(
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.black,
+                            insetPadding: const EdgeInsets.all(12),
+                            child: InteractiveViewer(
+                              child: Image.network(url, fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white, size: 60)),
+                            ),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(url, width: 90, height: 90, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 90, height: 90, color: Colors.grey[200],
+                              child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+            ),
+          ],
+        )),
+      ),
+    );
   }
 
   Future<void> _reviewVisit(VisitReport visit) async {
@@ -1058,54 +1445,81 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.zktecoadms.app',
             ),
-            // Route polyline
-            if (_todayJourney != null && _todayJourney!.routePoints.isNotEmpty)
+            // Check-in route polyline (connects check-in points in chronological order)
+            if (() {
+              final pts = _todayVisits
+                  .where((v) => v.checkInLatitude != null && v.checkInLongitude != null && v.checkInTime != null)
+                  .length;
+              return pts >= 2;
+            }())
               PolylineLayer(polylines: [
                 Polyline(
-                  points: _todayJourney!.routePoints.map((p) => LatLng(p.lat, p.lng)).toList(),
+                  points: (_todayVisits
+                      .where((v) => v.checkInLatitude != null && v.checkInLongitude != null && v.checkInTime != null)
+                      .toList()
+                        ..sort((a, b) => a.checkInTime!.compareTo(b.checkInTime!)))
+                      .map((v) => LatLng(v.checkInLatitude!, v.checkInLongitude!))
+                      .toList(),
                   color: const Color(0xFF1E3A5F),
                   strokeWidth: 4,
                 ),
               ]),
-            // Dwell zone circles
-            if (_todayJourney != null)
-              CircleLayer(circles: _todayJourney!.routePoints
-                  .where((p) => p.isDwell)
-                  .map((p) => CircleMarker(
-                    point: LatLng(p.lat, p.lng),
-                    radius: 30,
-                    color: Colors.orange.withValues(alpha: 0.2),
-                    borderColor: Colors.orange,
-                    borderStrokeWidth: 2,
-                  ))
-                  .toList()),
             // Location markers
             MarkerLayer(markers: [
-              // Dwell location markers (with time badge)
-              if (_todayJourney != null)
-                ..._todayJourney!.routePoints.where((p) => p.isDwell).map((p) => Marker(
-                  point: LatLng(p.lat, p.lng),
-                  width: 70,
-                  height: 36,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+              // Check-in point markers (with name + time label, numbered by chronological order)
+              ...() {
+                final sorted = _todayVisits
+                    .where((v) => v.checkInLatitude != null && v.checkInLongitude != null && v.checkInTime != null)
+                    .toList()
+                  ..sort((a, b) => a.checkInTime!.compareTo(b.checkInTime!));
+                return sorted.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final v = e.value;
+                  final label = '${v.locationName ?? "Điểm"} · ${DateFormat('HH:mm').format(v.checkInTime!.toLocal())}';
+                  return Marker(
+                    point: LatLng(v.checkInLatitude!, v.checkInLongitude!),
+                    width: 140,
+                    height: 48,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF1E3A5F), width: 1),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 3)],
+                          ),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F)),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E3A5F),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 3)],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${idx + 1}',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.access_time, size: 12, color: Colors.white),
-                      const SizedBox(width: 3),
-                      Text(
-                        p.dwellMinutes! >= 60
-                            ? '${p.dwellMinutes! ~/ 60}h${p.dwellMinutes! % 60}p'
-                            : '${p.dwellMinutes}p',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ]),
-                  ),
-                )),
+                  );
+                }).toList();
+              }(),
               // Current position
               if (_currentLat != null)
                 Marker(
@@ -1123,9 +1537,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   ),
                 ),
               // Assignment location pins
-              ..._myAssignments.where((a) => a.location != null).map((a) {
-                final visited = _todayVisits.any((v) => v.locationId == a.locationId);
+              ..._sortedAssignments.where((a) => a.location != null).map((a) {
                 final activeVisit = _todayVisits.where((v) => v.locationId == a.locationId && v.isCheckedIn).firstOrNull;
+                final visited = _todayVisits.any((v) => v.locationId == a.locationId && v.checkOutTime != null);
                 return Marker(
                   point: LatLng(a.location!.latitude, a.location!.longitude),
                   width: 44,
@@ -1134,7 +1548,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     onTap: () {
                       if (activeVisit != null) {
                         _doCheckOut(activeVisit);
-                      } else if (!visited) {
+                      } else {
                         _doCheckIn(a);
                       }
                     },
@@ -1171,59 +1585,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   ),
                 );
               }),
-              // Field location pins (registered by employees)
-              ..._fieldLocations.where((loc) =>
-                !_myAssignments.any((a) => a.location != null
-                    && (a.location!.latitude - loc.latitude).abs() < 0.0001
-                    && (a.location!.longitude - loc.longitude).abs() < 0.0001)
-              ).map((loc) {
-                final visited = _todayVisits.any((v) => v.locationId == loc.id);
-                final activeVisit = _todayVisits.where((v) => v.locationId == loc.id && v.isCheckedIn).firstOrNull;
-                return Marker(
-                  point: LatLng(loc.latitude, loc.longitude),
-                  width: 42,
-                  height: 42,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (activeVisit != null) {
-                        _doCheckOut(activeVisit);
-                      } else if (!visited) {
-                        _doCheckInAtFieldLocation(loc);
-                      }
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: activeVisit != null
-                            ? Colors.orange
-                            : visited
-                                ? const Color(0xFF22C55E)
-                                : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: activeVisit != null
-                              ? Colors.orange.shade700
-                              : visited
-                                  ? const Color(0xFF059669)
-                                  : const Color(0xFF6366F1),
-                          width: 2,
-                        ),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4)],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          activeVisit != null
-                              ? Icons.radio_button_checked
-                              : visited
-                                  ? Icons.check
-                                  : Icons.storefront,
-                          color: activeVisit != null || visited ? Colors.white : const Color(0xFF6366F1),
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
+              // Field location pins (registered by employees) - hidden: only assigned locations shown on map
             ]),
           ],
         ),
@@ -1369,13 +1731,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    'Điểm bán hôm nay (${_myAssignments.length})',
+                    'Điểm bán hôm nay (${_sortedAssignments.length})',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF18181B)),
                   ),
                 ),
                 const SizedBox(height: 8),
 
-                if (_myAssignments.isEmpty)
+                if (_sortedAssignments.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(children: [
@@ -1385,7 +1747,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     ]),
                   )
                 else
-                  ..._myAssignments.map((a) => _buildLocationCard(a)),
+                  ..._sortedAssignments.map((a) => _buildLocationCard(a)),
 
                 const SizedBox(height: 16),
                 const Divider(height: 1),
@@ -1396,7 +1758,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(children: [
                     Expanded(child: Text(
-                      'Điểm bán đã đăng ký (${_fieldLocations.length})',
+                      'Điểm bán đã đăng ký (${_visibleRegisteredLocations.length})',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF18181B)),
                     )),
                     SizedBox(
@@ -1467,7 +1829,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                       Text('Không tìm thấy điểm bán', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                     ]),
                   )
-                else if (_fieldLocations.isEmpty && !_isSearching)
+                else if (_visibleRegisteredLocations.isEmpty && !_isSearching)
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(children: [
@@ -1483,7 +1845,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     ]),
                   )
                 else
-                  ...(_isSearching ? _searchResults : _fieldLocations).map((loc) => _buildFieldLocationCard(loc)),
+                  ...(_isSearching ? _sortLocationsByDistance(_searchResults.where((loc) => !_isBranchAttendanceLocation(loc)).toList()) : _visibleRegisteredLocations)
+                      .map((loc) => _buildFieldLocationCard(loc)),
 
                 const SizedBox(height: 20),
               ],
@@ -1517,10 +1880,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   void _fitAllMarkers() {
     final points = <LatLng>[];
     if (_currentLat != null) points.add(LatLng(_currentLat!, _currentLng!));
-    for (final a in _myAssignments) {
+    for (final a in _sortedAssignments) {
       if (a.location != null) points.add(LatLng(a.location!.latitude, a.location!.longitude));
     }
-    for (final loc in _fieldLocations) {
+    for (final loc in _visibleRegisteredLocations) {
       points.add(LatLng(loc.latitude, loc.longitude));
     }
     if (points.isEmpty) return;
@@ -1589,12 +1952,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isActive ? 'Đang theo dõi vị trí' : 'Hành trình đã hoàn thành',
+              isActive ? 'Hành trình đang hoạt động' : 'Hành trình đã hoàn thành',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isActive ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F)),
-            ),
-            Text(
-              '${_todayJourney!.distanceFormatted} • ${_todayJourney!.durationFormatted} • ${_todayJourney!.checkedInCount} điểm',
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
           ],
         )),
@@ -1607,7 +1966,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   Widget _buildLocationCard(FieldLocationAssignment a) {
     final todayVisit = _todayVisits.where((v) => v.locationId == a.locationId).toList();
     final activeVisit = todayVisit.where((v) => v.isCheckedIn).firstOrNull;
-    final completedVisit = todayVisit.where((v) => v.isCheckedOut).firstOrNull;
 
     double? distance;
     if (_currentLat != null && a.location != null) {
@@ -1621,10 +1979,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       accentColor = Colors.orange;
       statusIcon = Icons.radio_button_checked;
       statusLabel = 'Đang ở điểm';
-    } else if (completedVisit != null) {
-      accentColor = const Color(0xFF22C55E);
-      statusIcon = Icons.check_circle;
-      statusLabel = completedVisit.timeSpentFormatted;
     } else {
       accentColor = const Color(0xFF71717A);
       statusIcon = Icons.radio_button_unchecked;
@@ -1664,9 +2018,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         ]),
         trailing: activeVisit != null
             ? _actionButton('Check-out', Icons.logout, Colors.orange, () => _doCheckOut(activeVisit))
-            : completedVisit == null
-                ? _actionButton('Check-in', Icons.login, const Color(0xFF1E3A5F), () => _doCheckIn(a))
-                : Icon(Icons.check_circle, color: const Color(0xFF22C55E).withValues(alpha: 0.7)),
+          : _actionButton('Check-in', Icons.login, const Color(0xFF1E3A5F), () => _doCheckIn(a)),
         onTap: () {
           if (a.location != null) {
             _mapController.move(LatLng(a.location!.latitude, a.location!.longitude), 16);
@@ -1706,7 +2058,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     // Check if already visited today
     final todayVisit = _todayVisits.where((v) => v.locationId == loc.id).toList();
     final activeVisit = todayVisit.where((v) => v.isCheckedIn).firstOrNull;
-    final completedVisit = todayVisit.where((v) => v.isCheckedOut).firstOrNull;
 
     Color accentColor;
     IconData statusIcon;
@@ -1715,10 +2066,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       accentColor = Colors.orange;
       statusIcon = Icons.radio_button_checked;
       statusLabel = 'Đang ở điểm';
-    } else if (completedVisit != null) {
-      accentColor = const Color(0xFF22C55E);
-      statusIcon = Icons.check_circle;
-      statusLabel = completedVisit.timeSpentFormatted;
     } else {
       accentColor = const Color(0xFF6366F1);
       statusIcon = Icons.storefront;
@@ -1770,9 +2117,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         ]),
         trailing: activeVisit != null
             ? _actionButton('Check-out', Icons.logout, Colors.orange, () => _doCheckOut(activeVisit))
-            : completedVisit == null
-                ? _actionButton('Check-in', Icons.login, const Color(0xFF6366F1), () => _doCheckInAtFieldLocation(loc))
-                : Icon(Icons.check_circle, color: const Color(0xFF22C55E).withValues(alpha: 0.7)),
+          : _actionButton('Check-in', Icons.login, const Color(0xFF6366F1), () => _doCheckInAtFieldLocation(loc)),
         onTap: () {
           _mapController.move(LatLng(loc.latitude, loc.longitude), 16);
           try { _sheetCtl.animateTo(0.12, duration: const Duration(milliseconds: 300), curve: Curves.easeOut); } catch (_) {}
@@ -2063,11 +2408,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                           });
                           setSheetState(() => saving = false);
                           if (result['isSuccess'] == true) {
-                            if (mounted) {
-                              Navigator.pop(ctx);
-                              NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã đăng ký điểm bán thành công!');
-                              _loadMyData();
-                            }
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã đăng ký điểm bán thành công!');
+                            _loadMyData();
                           } else {
                             NotificationOverlayManager().showWarning(title: 'Lỗi', message: result['message'] ?? 'Lỗi đăng ký');
                           }
@@ -2329,6 +2673,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     return result;
   }
 
+  // ignore: unused_element
   Widget _buildJourneyHistoryCard(JourneyTracking j) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -2380,11 +2725,22 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   Widget _buildHistoryVisitCard(VisitReport v) {
     final hasContact = v.contactName != null || v.contactPhone != null;
+    final meetingSummary = (v.reportData?['meetingSummary'] ?? '').toString().trim();
+    final customerStatus = (v.reportData?['customerStatus'] ?? '').toString().trim();
+    final nextAction = (v.reportData?['nextAction'] ?? '').toString().trim();
+    final hasReport = meetingSummary.isNotEmpty ||
+        customerStatus.isNotEmpty ||
+        nextAction.isNotEmpty ||
+        (v.reportNote != null && v.reportNote!.isNotEmpty) ||
+        v.photos.isNotEmpty;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 1,
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showVisitDetailSheet(v),
+        child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Header: location name + status
@@ -2512,7 +2868,36 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               Text('${v.photos.length} ảnh', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
             ]),
           ],
+          // View report footer
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: (hasReport ? const Color(0xFF1E3A5F) : Colors.grey).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(children: [
+              Icon(
+                hasReport ? Icons.description : Icons.description_outlined,
+                size: 13,
+                color: hasReport ? const Color(0xFF1E3A5F) : Colors.grey[500],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  hasReport ? 'Xem báo cáo chi tiết' : 'Chưa có báo cáo — bấm để xem',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: hasReport ? const Color(0xFF1E3A5F) : Colors.grey[600],
+                    fontWeight: hasReport ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 14, color: Colors.grey[500]),
+            ]),
+          ),
         ]),
+      ),
       ),
     );
   }
@@ -3220,9 +3605,37 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   }
 
   Widget _buildManagerListView() {
+    final weekly = _weeklyManagerReports;
+    final filteredReports = _filteredManagerReports;
+    final weeklyTotal = weekly.length;
+    final weeklyWithPhotos = weekly.where((v) => v.photos.isNotEmpty).length;
+    final weeklyWithStructured = weekly.where((v) {
+      final rd = v.reportData ?? const <String, dynamic>{};
+      return (rd['meetingSummary'] ?? '').toString().trim().isNotEmpty ||
+          (rd['customerStatus'] ?? '').toString().trim().isNotEmpty ||
+          (rd['nextAction'] ?? '').toString().trim().isNotEmpty;
+    }).length;
+    final weeklyWithNextAction = weekly.where((v) => _extractNextAction(v).isNotEmpty).length;
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        // Weekly KPI for manager
+        const Text('KPI 7 ngày gần nhất', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildStatCard('Lượt gặp', '$weeklyTotal', Icons.badge, const Color(0xFF1E3A5F)),
+            const SizedBox(width: 6),
+            _buildStatCard('Có ảnh', '$weeklyWithPhotos', Icons.photo_camera, const Color(0xFF16A34A)),
+            const SizedBox(width: 6),
+            _buildStatCard('Có báo cáo', '$weeklyWithStructured', Icons.summarize, const Color(0xFF9333EA)),
+            const SizedBox(width: 6),
+            _buildStatCard('Có follow-up', '$weeklyWithNextAction', Icons.next_plan, const Color(0xFFF59E0B)),
+          ].map((w) => Expanded(child: w)).toList(),
+        ),
+        const SizedBox(height: 16),
+
         // Journey reports
         if (_managerJourneys.isNotEmpty) ...[
           Text('Hành trình nhân viên (${_managerJourneys.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -3242,9 +3655,30 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         const SizedBox(height: 16),
 
         // Reports
-        Text('Báo cáo check-in (${_reports.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text('Báo cáo check-in (${filteredReports.length}/${_reports.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
-        ..._reports.map(_buildManagerReportCard),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: _managerCustomerStatusOptions.map((status) {
+            final selected = status == _managerCustomerStatusFilter;
+            return ChoiceChip(
+              label: Text(status, style: const TextStyle(fontSize: 11)),
+              selected: selected,
+              onSelected: (_) => setState(() => _managerCustomerStatusFilter = status),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        if (filteredReports.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Không có báo cáo theo bộ lọc đã chọn', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            ),
+          )
+        else
+          ...filteredReports.map(_buildManagerReportCard),
       ],
     );
   }
@@ -3582,24 +4016,91 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   }
 
   Widget _buildManagerReportCard(VisitReport visit) {
+    final reportData = visit.reportData ?? const <String, dynamic>{};
+    final meetingSummary = (reportData['meetingSummary'] ?? '').toString().trim();
+    final customerStatus = (reportData['customerStatus'] ?? '').toString().trim();
+    final nextAction = (reportData['nextAction'] ?? '').toString().trim();
+
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      child: ListTile(
-        dense: true,
-        leading: CircleAvatar(
-          radius: 16, backgroundColor: Colors.teal.shade50,
-          child: Text((visit.employeeName ?? '?')[0].toUpperCase(),
-              style: TextStyle(color: Colors.teal[700], fontWeight: FontWeight.bold, fontSize: 12)),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.teal.shade50,
+                  child: Text(
+                    (visit.employeeName ?? '?')[0].toUpperCase(),
+                    style: TextStyle(color: Colors.teal[700], fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${visit.employeeName ?? ""} - ${visit.locationName ?? ""}',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      Text(
+                        '${DateFormat('dd/MM HH:mm').format(visit.visitDate.toLocal())} • ${visit.timeSpentFormatted}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                visit.status == 'checked_out'
+                    ? TextButton(
+                        onPressed: () => _reviewVisit(visit),
+                        child: const Text('Duyệt', style: TextStyle(fontSize: 11)),
+                      )
+                    : _buildStatusChip(visit.status),
+              ],
+            ),
+            if (meetingSummary.isNotEmpty || customerStatus.isNotEmpty || nextAction.isNotEmpty || (visit.reportNote?.isNotEmpty ?? false) || visit.photos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              if (meetingSummary.isNotEmpty)
+                _managerInfoLine(Icons.people_outline, 'Tình hình gặp khách', meetingSummary),
+              if (customerStatus.isNotEmpty)
+                _managerInfoLine(Icons.support_agent, 'Kết quả chăm sóc', customerStatus),
+              if (nextAction.isNotEmpty)
+                _managerInfoLine(Icons.event_note, 'Hành động tiếp theo', nextAction),
+              if (visit.reportNote != null && visit.reportNote!.isNotEmpty)
+                _managerInfoLine(Icons.notes, 'Ghi chú', visit.reportNote!),
+              if (visit.photos.isNotEmpty)
+                _managerInfoLine(Icons.photo_library, 'Ảnh chăm sóc', '${visit.photos.length} ảnh'),
+            ],
+          ],
         ),
-        title: Text('${visit.employeeName ?? ""} - ${visit.locationName ?? ""}',
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        subtitle: Text(
-          '${DateFormat('dd/MM HH:mm').format(visit.visitDate.toLocal())} • ${visit.timeSpentFormatted}',
-          style: const TextStyle(fontSize: 11),
-        ),
-        trailing: visit.status == 'checked_out'
-            ? TextButton(onPressed: () => _reviewVisit(visit), child: const Text('Duyệt', style: TextStyle(fontSize: 11)))
-            : _buildStatusChip(visit.status),
+      ),
+    );
+  }
+
+  Widget _managerInfoLine(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 13, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                children: [
+                  TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

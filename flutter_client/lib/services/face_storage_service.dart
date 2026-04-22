@@ -2,19 +2,26 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 /// Service to download and cache face registration images locally on the device.
 /// Works like a face attendance machine - stores reference photos for comparison.
 class FaceStorageService {
   final String baseUrl;
+
+  String _joinPath(String a, String b, [String? c]) {
+    final sep = Platform.pathSeparator;
+    if (c == null) {
+      return '$a$sep$b';
+    }
+    return '$a$sep$b$sep$c';
+  }
   
   FaceStorageService({required this.baseUrl});
 
   /// Get the local directory for cached face images
   Future<Directory> _getFaceCacheDir(String employeeId) async {
     final appDir = await getApplicationDocumentsDirectory();
-    final faceDir = Directory(p.join(appDir.path, 'face_cache', employeeId));
+    final faceDir = Directory(_joinPath(appDir.path, 'face_cache', employeeId));
     if (!await faceDir.exists()) {
       await faceDir.create(recursive: true);
     }
@@ -33,7 +40,7 @@ class FaceStorageService {
     final cacheDir = await _getFaceCacheDir(employeeId);
     
     // Check manifest to detect if server images changed (re-registration)
-    final manifestFile = File(p.join(cacheDir.path, '_manifest.txt'));
+    final manifestFile = File(_joinPath(cacheDir.path, '_manifest.txt'));
     final newManifest = serverImageUrls.join('\n');
     bool needsRefresh = true;
     
@@ -43,7 +50,7 @@ class FaceStorageService {
         // Same URLs — check if all files exist
         final existing = <String>[];
         for (int i = 0; i < serverImageUrls.length; i++) {
-          final f = File(p.join(cacheDir.path, 'face_$i.jpg'));
+          final f = File(_joinPath(cacheDir.path, 'face_$i.jpg'));
           if (await f.exists() && await f.length() > 1000) {
             existing.add(f.path);
           }
@@ -70,7 +77,7 @@ class FaceStorageService {
     for (int i = 0; i < serverImageUrls.length; i++) {
       final serverUrl = serverImageUrls[i];
       final fileName = 'face_$i.jpg';
-      final localFile = File(p.join(cacheDir.path, fileName));
+      final localFile = File(_joinPath(cacheDir.path, fileName));
 
       try {
         final fullUrl = _resolveUrl(serverUrl);
@@ -138,7 +145,7 @@ class FaceStorageService {
   /// Clear all face caches
   Future<void> clearAllCaches() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final faceDir = Directory(p.join(appDir.path, 'face_cache'));
+    final faceDir = Directory(_joinPath(appDir.path, 'face_cache'));
     if (await faceDir.exists()) {
       await faceDir.delete(recursive: true);
     }

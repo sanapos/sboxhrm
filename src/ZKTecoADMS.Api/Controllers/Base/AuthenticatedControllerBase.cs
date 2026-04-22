@@ -28,6 +28,7 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     protected Guid RequiredStoreId => GetRequiredStoreId();
 
     protected bool IsAdmin => CurrentUserRole.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
+        || CurrentUserRole.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
         || CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
     
     protected bool IsManager => IsAdmin

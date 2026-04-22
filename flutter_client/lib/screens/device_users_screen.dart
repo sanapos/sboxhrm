@@ -2447,6 +2447,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       // Tiếp tục đăng ký, server sẽ xử lý nếu offline
     }
 
+    if (!mounted) return;
+
     final fingerNames = [
       'Ngón cái phải',
       'Ngón trỏ phải',

@@ -737,9 +737,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       final dx = (viewportSize.width - scaledWidth) / 2;
       final dy = (viewportSize.height - scaledHeight) / 2;
 
-      final matrix = Matrix4.identity()
-        ..translate(dx > 0 ? dx : 0.0, dy > 0 ? dy : 0.0)
-        ..scale(scale);
+      final matrix = Matrix4.diagonal3Values(scale, scale, 1.0)
+        ..setTranslationRaw(dx > 0 ? dx : 0.0, dy > 0 ? dy : 0.0, 0.0);
       _transformationController.value = matrix;
     });
   }

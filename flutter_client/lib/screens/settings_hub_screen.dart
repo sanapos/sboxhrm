@@ -51,6 +51,11 @@ class SettingsHubScreen extends StatefulWidget {
 class _SettingsHubScreenState extends State<SettingsHubScreen> {
   int? _selectedIndex;
 
+  bool get _isSuperAdmin {
+    final role = (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ?? '').toLowerCase();
+    return role == 'superadmin';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -143,7 +148,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 10: return const ProductSalarySettingsScreen();
       case 11: return const AiSettingsScreen();
       case 12: return const DeviceManagementSettingsScreen();
-      case 15: return const GoogleDriveSettingsScreen();
+      case 15:
+        if (_isSuperAdmin) return const GoogleDriveSettingsScreen();
+        return const _SettingsAccessDeniedScreen(
+          title: 'Khong co quyen truy cap',
+          message: 'Chi SuperAdmin moi duoc cau hinh Google Drive.',
+        );
       default: return const SizedBox();
     }
   }
@@ -312,6 +322,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final permProvider = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
+      if (item.moduleCode == 'GoogleDrive' && !isSuperAdmin) {
+        return false;
+      }
       // Lọc theo gói dịch vụ
       if (!isDirector && allowedModules != null && allowedModules.isNotEmpty && !allowedModules.contains(item.moduleCode)) {
         return false;
@@ -545,4 +558,42 @@ class _SidebarItem {
   final Color accent;
   final String moduleCode;
   const _SidebarItem({required this.index, required this.icon, required this.label, required this.desc, required this.accent, required this.moduleCode});
+}
+
+class _SettingsAccessDeniedScreen extends StatelessWidget {
+  final String title;
+  final String message;
+
+  const _SettingsAccessDeniedScreen({
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      appBar: AppBar(
+        title: const Text('Thiet lap HRM'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF18181B),
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline_rounded, size: 56, color: Color(0xFF94A3B8)),
+              const SizedBox(height: 12),
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+              const SizedBox(height: 8),
+              Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

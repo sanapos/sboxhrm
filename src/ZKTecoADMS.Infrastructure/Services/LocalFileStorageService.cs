@@ -22,9 +22,19 @@ public class LocalFileStorageService : IFileStorageService
         _logger = logger;
         
         var request = httpContextAccessor.HttpContext?.Request;
-        _baseUrl = request != null 
-            ? $"{request.Scheme}://{request.Host}" 
-            : "http://localhost:7070";
+        if (request != null)
+        {
+            // Respect reverse proxy headers so HTTPS URLs aren't downgraded to HTTP.
+            var forwardedProto = request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+            var scheme = !string.IsNullOrWhiteSpace(forwardedProto) ? forwardedProto : request.Scheme;
+            var forwardedHost = request.Headers["X-Forwarded-Host"].FirstOrDefault();
+            var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.ToString();
+            _baseUrl = $"{scheme}://{host}";
+        }
+        else
+        {
+            _baseUrl = "http://localhost:7070";
+        }
     }
 
     public async Task<string> UploadAsync(Stream fileStream, string fileName, string folder = "uploads")

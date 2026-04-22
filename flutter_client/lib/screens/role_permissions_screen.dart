@@ -134,7 +134,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       {'id': '036', 'module': 'Role', 'moduleDisplayName': 'Phân quyền', 'displayOrder': 36},
       {'id': '038', 'module': 'SystemSettings', 'moduleDisplayName': 'Hệ thống', 'displayOrder': 38},
       {'id': '039', 'module': 'NotificationSettings', 'moduleDisplayName': 'Thiết lập thông báo', 'displayOrder': 39},
-      {'id': '040', 'module': 'GoogleDrive', 'moduleDisplayName': 'Google Drive', 'displayOrder': 40},
       {'id': '041', 'module': 'AIGemini', 'moduleDisplayName': 'Thiết lập AI', 'displayOrder': 41},
       {'id': '042', 'module': 'Settings', 'moduleDisplayName': 'Cài đặt', 'displayOrder': 42},
     ];

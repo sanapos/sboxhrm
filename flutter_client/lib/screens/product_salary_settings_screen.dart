@@ -293,9 +293,9 @@ class _ProductSalarySettingsScreenState
                 ),
                 child: Table(
                   columnWidths: const {
-                    0: const FlexColumnWidth(1),
-                    1: const FlexColumnWidth(1.5),
-                    2: const FlexColumnWidth(1.5),
+                    0: FlexColumnWidth(1),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.5),
                   },
                   children: [
                     const TableRow(
@@ -623,7 +623,7 @@ class _ProductSalarySettingsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
-            value: selectedGroupId,
+            initialValue: selectedGroupId,
             decoration: const InputDecoration(
                 labelText: 'Nhóm sản phẩm *',
                 border: OutlineInputBorder()),

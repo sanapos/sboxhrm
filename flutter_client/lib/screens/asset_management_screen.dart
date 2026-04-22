@@ -720,7 +720,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        Expanded(child: Text('${item.assetName ?? item.assetCode ?? "SP"}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(item.assetName ?? item.assetCode ?? "SP", style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(4)),
@@ -768,7 +768,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 onTap: () => _showStockDetailDialog(asset),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9)))),
+                                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -881,7 +881,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     // Select product
                     DropdownButtonFormField<String>(
-                      value: selectedAssetId,
+                      initialValue: selectedAssetId,
                       decoration: InputDecoration(
                         labelText: 'Sản phẩm *',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -4635,6 +4635,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         inventoryId: _inventory.id,
         code: code,
       );
+      if (!mounted) return;
       setState(() => _isScanning = false);
 
       if (result['isSuccess'] == true) {
@@ -4986,9 +4987,14 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       final diff = actual - item.expectedQuantity;
       if (diff < 0) {
         lossItems++;
-      } else if (diff > 0) surplusItems++;
-      else matchItems++;
-      if (item.hasIssue) issueItems++;
+      } else if (diff > 0) {
+        surplusItems++;
+      } else {
+        matchItems++;
+      }
+      if (item.hasIssue) {
+        issueItems++;
+      }
     }
 
     return {

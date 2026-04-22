@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -175,6 +176,61 @@ public class StorageController : AuthenticatedControllerBase
         {
             _logger.LogError(ex, "Error testing Google Drive connection");
             return StatusCode(500, AppResponse<object>.Fail($"Lỗi kiểm tra kết nối: {ex.Message}"));
+        }
+    }
+
+    /// <summary>
+    /// Test upload file mẫu lên Google Drive
+    /// </summary>
+    [HttpPost("google-drive/test-upload")]
+    public async Task<ActionResult<AppResponse<object>>> TestGoogleDriveUpload()
+    {
+        try
+        {
+            var storeId = RequiredStoreId;
+            var credJson = await _dbContext.Set<AppSettings>()
+                .Where(s => s.StoreId == storeId && s.Key == AppSettingKeys.GoogleDriveCredentialsJson)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+
+            var folderId = await _dbContext.Set<AppSettings>()
+                .Where(s => s.StoreId == storeId && s.Key == AppSettingKeys.GoogleDriveFolderId)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(credJson))
+            {
+                return Ok(AppResponse<object>.Fail("Chưa cấu hình credentials JSON"));
+            }
+
+            var initialized = await _googleDriveService.InitializeAsync(credJson, folderId);
+            if (!initialized)
+            {
+                return Ok(AppResponse<object>.Fail("Không thể khởi tạo Google Drive service"));
+            }
+
+            var fileName = $"zkteco-upload-test-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
+            var content = $"Google Drive test upload from ZKTeco ADMS at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+
+            await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+            var uploadedPath = await _googleDriveService.UploadAsync(stream, fileName, "zkteco-test");
+
+            var deletedAfterTest = await _googleDriveService.DeleteAsync(uploadedPath);
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                message = deletedAfterTest
+                    ? "Upload test thành công (đã tự động xóa file test)."
+                    : "Upload test thành công (không thể tự động xóa file test).",
+                uploadedPath,
+                deletedAfterTest,
+                fileName
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing Google Drive upload");
+            return StatusCode(500, AppResponse<object>.Fail($"Lỗi test upload: {ex.Message}"));
         }
     }
 

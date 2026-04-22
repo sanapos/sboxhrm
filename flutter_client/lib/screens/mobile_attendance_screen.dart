@@ -351,6 +351,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (_cachedFacePaths.isEmpty) {
         await _loadCachedFacesFromDevice();
       }
+      if (!mounted) return;
       if (_cachedFacePaths.isEmpty) {
         _showError('Chưa có ảnh đăng ký Face ID trên máy. Vui lòng đồng bộ lại hoặc liên hệ quản lý.');
         return;

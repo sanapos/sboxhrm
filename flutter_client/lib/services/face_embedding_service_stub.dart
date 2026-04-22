@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 /// Web stub for FaceEmbeddingService.
 /// TFLite is not supported on web — face comparison is done server-side.
 class FaceEmbeddingService {
+  static String? lastInitError;
+
   static Future<void> initialize() async {
     debugPrint('FaceEmbeddingService: not available on web (TFLite unsupported)');
   }

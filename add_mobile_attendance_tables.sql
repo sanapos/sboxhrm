@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "MobileAttendanceSettings" (
     "AutoApproveInRange" boolean NOT NULL DEFAULT true,
     "AllowManualApproval" boolean NOT NULL DEFAULT true,
     "MaxPhotosPerRegistration" integer NOT NULL DEFAULT 5,
-    "MaxPunchesPerDay" integer NOT NULL DEFAULT 4,
+    "MaxPunchesPerDay" integer NOT NULL DEFAULT 10,
     "RequirePhotoProof" boolean NOT NULL DEFAULT false,
     "IsActive" boolean NOT NULL DEFAULT true,
     "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),

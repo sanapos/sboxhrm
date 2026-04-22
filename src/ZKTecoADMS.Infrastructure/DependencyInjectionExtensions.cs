@@ -132,16 +132,16 @@ public static class DependencyInjectionExtensions
         services.AddAuthorization(options =>
         {
             options.AddPolicy(PolicyNames.AdminOnly,
-                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.SuperAdmin), nameof(Roles.Agent)));
+                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.SuperAdmin), nameof(Roles.Agent)));
 
             options.AddPolicy(PolicyNames.AtLeastAdmin,
-                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.SuperAdmin), nameof(Roles.Agent)));
+                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.SuperAdmin), nameof(Roles.Agent)));
 
             options.AddPolicy(PolicyNames.AtLeastManager,
-                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Manager), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead)));
+                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead)));
             
             options.AddPolicy(PolicyNames.AtLeastEmployee,
-                policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant)));
+                policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant)));
 
             options.AddPolicy(PolicyNames.HourlyEmployeeOnly,
                 policy => policy.RequireAssertion(context =>

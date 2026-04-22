@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'settings_hub_screen.dart';
 
 /// Màn hình cấu hình Google Drive storage
-/// Cho phép SuperAdmin/Admin thiết lập lưu trữ ảnh trên Google Drive
+/// Chỉ cho phép SuperAdmin thiết lập lưu trữ ảnh trên Google Drive
 class GoogleDriveSettingsScreen extends StatefulWidget {
   const GoogleDriveSettingsScreen({super.key});
 
@@ -135,8 +137,80 @@ class _GoogleDriveSettingsScreenState extends State<GoogleDriveSettingsScreen> {
     if (mounted) setState(() => _isTesting = false);
   }
 
+  Future<void> _testUploadImage() async {
+    setState(() {
+      _isTesting = true;
+      _testMessage = null;
+      _testSuccess = null;
+    });
+
+    try {
+      final result = await _apiService.testGoogleDriveUpload();
+      if (result['isSuccess'] == true && result['data'] != null) {
+        final data = result['data'];
+        final uploadedPath = data['uploadedPath']?.toString();
+        final message = data['message']?.toString() ?? 'Upload test thành công';
+
+        setState(() {
+          _testSuccess = true;
+          _testMessage = uploadedPath != null && uploadedPath.isNotEmpty
+              ? '$message\nĐường dẫn test: $uploadedPath'
+              : message;
+        });
+      } else {
+        setState(() {
+          _testSuccess = false;
+          _testMessage = result['message'] ?? 'Upload test thất bại';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _testSuccess = false;
+        _testMessage = 'Lỗi: $e';
+      });
+    }
+
+    if (mounted) setState(() => _isTesting = false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final role = (Provider.of<AuthProvider>(context).currentUser?.role ?? '').toLowerCase();
+    if (role != 'superadmin') {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFAFAFA),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+            onPressed: () => SettingsHubScreen.goBack(context),
+          ),
+          title: const Text(
+            'Cấu hình Google Drive',
+            style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 52, color: Color(0xFF94A3B8)),
+                SizedBox(height: 10),
+                Text(
+                  'Chi SuperAdmin moi duoc phep cau hinh Google Drive.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -434,6 +508,12 @@ class _GoogleDriveSettingsScreenState extends State<GoogleDriveSettingsScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF34A853),
                 ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _isTesting ? null : _testUploadImage,
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: const Text('Test upload ảnh'),
               ),
             ],
           ),

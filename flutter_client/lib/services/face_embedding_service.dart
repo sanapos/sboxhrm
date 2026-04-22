@@ -15,6 +15,10 @@ class FaceEmbeddingService {
   static const int _inputSize = 112; // MobileFaceNet input: 112x112
   static int _embeddingSize = 192; // Output dimension (will be read from model)
 
+  /// Captures the last initialization exception so the UI can surface it for diagnostics
+  /// (iOS TFLite load failures were previously hidden by the silent catch).
+  static String? lastInitError;
+
   // Cache: path → embedding (avoids recomputing for registered faces)
   static final Map<String, Float32List> _embeddingCache = {};
 
@@ -24,6 +28,7 @@ class FaceEmbeddingService {
 
     try {
       _interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
+      lastInitError = null;
       debugPrint('MobileFaceNet loaded successfully');
 
       final inputTensors = _interpreter!.getInputTensors();
@@ -36,8 +41,10 @@ class FaceEmbeddingService {
       // Dynamically set embedding size from model
       _embeddingSize = outputShape.last;
       debugPrint('Embedding size: $_embeddingSize');
-    } catch (e) {
+    } catch (e, st) {
+      lastInitError = e.toString();
       debugPrint('Failed to load MobileFaceNet: $e');
+      debugPrint('$st');
       _interpreter = null;
     }
   }

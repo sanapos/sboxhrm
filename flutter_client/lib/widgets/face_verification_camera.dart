@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
-import '../services/face_comparison_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 
@@ -350,48 +349,20 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       }
 
       if (!FaceEmbeddingService.isReady) {
-        // TFLite (MobileFaceNet) not available.
+        // TFLite (MobileFaceNet) not available on this device.
         //
-        // Previously we fell back to HOG/LBP here, but that feature-based
-        // comparator produces 60-75 for any two aligned face crops — even of
-        // different people — which caused iOS devices to approve photo/video
-        // spoofs and even different people. The safe behaviour is:
+        // Historically we tried HOG/LBP fallback (bad — accepted spoofs) and
+        // then a hard reject for iOS (bad — blocked legitimate users when the
+        // TensorFlowLiteSwift pod failed to load on newer iOS SDKs).
         //
-        //   * iOS: reject locally and ask user to retry. Do NOT send a made-up
-        //     score to the server.
-        //   * Android/other: if the TFLite model is missing we also cannot
-        //     verify identity locally — delegate to the server by sending
-        //     matchScore = -1 so the server runs a full comparison.
-        //
-        // This matches the user requirement: "only send up if iOS processed
-        // the image correctly on-device".
-        debugPrint('TFLite MobileFaceNet not available — cannot verify on-device');
+        // Current strategy for BOTH platforms: delegate to the server by
+        // sending matchScore = -1 plus the captured face image. The server
+        // runs its own comparator with strictMin = 75 (higher than client's
+        // iOS min of 65), and we already enforced liveness (blink detection)
+        // on-device, so this path is still spoof-resistant.
+        debugPrint(
+            'TFLite MobileFaceNet not available — delegating to server. lastInitError=${FaceEmbeddingService.lastInitError}');
 
-        if (Platform.isIOS) {
-          _updateStatus(_VerifyStatus.error,
-              'Không khởi tạo được mô hình nhận dạng khuôn mặt trên thiết bị. Vui lòng khởi động lại ứng dụng và thử lại.');
-          await Future.delayed(const Duration(seconds: 3));
-          if (mounted) {
-            setState(() {
-              _captured = false;
-              _consecutiveDetections = 0;
-              _progress = 0.0;
-              _eyesOpenSeen = false;
-              _eyesClosedSeen = false;
-              _blinkConfirmed = false;
-              _frameCountSinceFace = 0;
-              _status = _VerifyStatus.waiting;
-              _statusMessage = 'Đưa khuôn mặt vào khung tròn';
-            });
-            _pulseController.repeat(reverse: true);
-            try {
-              await _cameraController?.startImageStream(_onCameraFrame);
-            } catch (_) {}
-          }
-          return;
-        }
-
-        // Non-iOS: delegate to server (server runs a stricter comparator).
         _updateStatus(_VerifyStatus.faceDetected, 'Đang gửi ảnh để server xác thực...');
         final result = FaceVerificationResult(
           matchScore: -1,

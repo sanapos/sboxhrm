@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 import 'system_admin_helpers.dart';
 
@@ -74,6 +76,9 @@ class SettingsTabState extends State<SettingsTab> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
 
+    final role = (Provider.of<AuthProvider>(context).currentUser?.role ?? '').toLowerCase();
+    final isSuperAdmin = role == 'superadmin';
+
     final filtered = _filteredSettings;
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final setting in filtered) {
@@ -104,7 +109,7 @@ class SettingsTabState extends State<SettingsTab> {
     return Column(
       children: [
         _buildToolbar(allGroups),
-        _buildGoogleDriveCard(),
+        if (isSuperAdmin) _buildGoogleDriveCard(),
         Expanded(
           child: filtered.isEmpty
               ? AdminHelpers.emptyState(
@@ -295,7 +300,7 @@ class SettingsTabState extends State<SettingsTab> {
                       ),
                       value: isEnabled,
                       onChanged: (v) => setSt(() => isEnabled = v),
-                      activeColor: const Color(0xFF34A853),
+                      activeThumbColor: const Color(0xFF34A853),
                     ),
                   ),
                   const SizedBox(height: 16),

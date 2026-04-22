@@ -205,15 +205,19 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       final yaw = face.headEulerAngleY ?? 0.0;   // left/right
       final pitch = face.headEulerAngleX ?? 0.0;  // up/down
 
+      // iOS front camera + ML Kit can report yaw with opposite sign to user-facing hint.
+      // Normalize yaw so left/right prompts match what user actually turns.
+      final normalizedYaw = Platform.isIOS ? -yaw : yaw;
+
       final step = _steps[_currentStep];
-      final isAligned = _checkDirection(step.direction, yaw, pitch);
+      final isAligned = _checkDirection(step.direction, normalizedYaw, pitch);
 
       if (isAligned) {
         _updateFaceStatus(_FaceStatus.aligned, _getAlignedHint(step.direction));
       } else {
         _updateFaceStatus(
           _FaceStatus.wrongDirection,
-          _getDirectionHint(step.direction, yaw, pitch),
+          _getDirectionHint(step.direction, normalizedYaw, pitch),
         );
       }
     } catch (e) {

@@ -981,7 +981,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           // Employee + Date row
           if (isMobile) ...[
             DropdownButtonFormField<String>(
-              value: selEmployeeId,
+              initialValue: selEmployeeId,
               decoration: const InputDecoration(
                   labelText: 'Nhân viên *',
                   border: OutlineInputBorder(),
@@ -1021,7 +1021,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 Expanded(
                   flex: 3,
                   child: DropdownButtonFormField<String>(
-                    value: selEmployeeId,
+                    initialValue: selEmployeeId,
                     decoration: const InputDecoration(
                         labelText: 'Nhân viên *',
                         border: OutlineInputBorder(),
@@ -1104,7 +1104,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: line.productItemId,
+                            initialValue: line.productItemId,
                             decoration: const InputDecoration(
                                 hintText: 'Chọn sản phẩm',
                                 border: OutlineInputBorder(),
@@ -1182,7 +1182,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   Expanded(
                     flex: 4,
                     child: DropdownButtonFormField<String>(
-                      value: line.productItemId,
+                      initialValue: line.productItemId,
                       decoration: const InputDecoration(
                           hintText: 'Chọn SP',
                           border: OutlineInputBorder(),
@@ -1380,7 +1380,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            value: selEmployeeId,
+            initialValue: selEmployeeId,
             decoration: const InputDecoration(
                 labelText: 'Nhân viên *', border: OutlineInputBorder()),
             items: _employees.map((e) {
@@ -1394,7 +1394,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: selItemId,
+            initialValue: selItemId,
             decoration: const InputDecoration(
                 labelText: 'Sản phẩm *', border: OutlineInputBorder()),
             items: _items.map((item) {
