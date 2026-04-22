@@ -48,6 +48,17 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <!-- InsightFace ArcFace MobileFaceNet (WebFace600K): 512-dim identity
+         embedding, much stronger discrimination than generic mobilefacenet. -->
+    <Content Update="wwwroot\models\w600k_mbf.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <!-- Silent (passive) anti-spoofing: detects photo/video/screen replay. -->
+    <Content Update="wwwroot\models\antispoof.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

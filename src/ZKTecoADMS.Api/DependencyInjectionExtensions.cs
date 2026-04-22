@@ -113,6 +113,7 @@ public static class DependencyInjectionExtensions
         // Register ONNX embedding service as singleton so the InferenceSession
         // is loaded once and reused across requests (heavy init).
         services.AddSingleton<FaceDetectorService>();
+        services.AddSingleton<FaceAntiSpoofService>();
         services.AddSingleton<OnnxFaceEmbeddingService>();
         
         // Register notification services

@@ -80,6 +80,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
     private readonly OnnxFaceEmbeddingService _onnxFaceEmbedding;
+    private readonly FaceAntiSpoofService _faceAntiSpoof;
 
 
     private readonly IAttendanceNotificationService _attendanceNotificationService;
@@ -145,7 +146,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         ISystemNotificationService systemNotificationService,
 
 
-        OnnxFaceEmbeddingService onnxFaceEmbedding)
+        OnnxFaceEmbeddingService onnxFaceEmbedding,
+        FaceAntiSpoofService faceAntiSpoof)
 
 
     {
@@ -164,6 +166,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         _faceComparisonService = faceComparisonService;
+        _faceAntiSpoof = faceAntiSpoof;
 
 
         _attendanceNotificationService = attendanceNotificationService;
@@ -5430,14 +5433,32 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
                     isFaceVerified = compScore >= strictMin;
 
+                    // Passive anti-spoof: check if the captured image looks like
+                    // a real face vs a photo/video replay. If live probability is
+                    // below 0.4 we reject even if the identity score passed —
+                    // this catches attack vectors the client-side blink cannot
+                    // (e.g. moving photo, screen replay with fake blink).
+                    double liveProb = 1.0;
+                    if (isFaceVerified && _faceAntiSpoof.IsReady)
+                    {
+                        try
+                        {
+                            liveProb = await _faceAntiSpoof.GetLiveProbabilityFromRelativeAsync(faceImageStoredPath);
+                            if (liveProb < 0.4)
+                            {
+                                isFaceVerified = false;
+                                compDetails += $" | anti-spoof rejected (live={liveProb:F2})";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Anti-spoof inference failed for {EmpId}", request.EmployeeId);
+                        }
+                    }
 
                     _logger.LogWarning(
-
-
-                        "Server face comparison for employee {EmpId}: mode={Mode}, score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, clientScore={ClientScore}, details={Details}",
-
-
-                        request.EmployeeId, onnxUsed ? "ONNX" : "gradient", compScore, isFaceVerified, strictMin, request.LivenessPassed, clientFaceScore, compDetails);
+                        "Server face comparison for employee {EmpId}: mode={Mode}, score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, liveProb={LiveProb:F2}, clientScore={ClientScore}, details={Details}",
+                        request.EmployeeId, onnxUsed ? "ONNX" : "gradient", compScore, isFaceVerified, strictMin, request.LivenessPassed, liveProb, clientFaceScore, compDetails);
 
 
                 }
