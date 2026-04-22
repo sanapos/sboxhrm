@@ -1,7 +1,11 @@
 # See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
+# NOTE: We use the Debian-based (glibc) images, NOT Alpine (musl). The
+# Microsoft.ML.OnnxRuntime NuGet package ships a glibc-linked
+# libonnxruntime.so; loading it on Alpine fails with "symbol not found"
+# because musl does not provide the _chk variants glibc exposes.
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 USER $APP_UID
 WORKDIR /app
 EXPOSE 7070
@@ -9,7 +13,7 @@ EXPOSE 7071
 
 
 # This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["ZKTecoADMS.Api/ZKTecoADMS.Api.csproj", "ZKTecoADMS.Api/"]
