@@ -5203,16 +5203,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     // which produces high scores (60-80) for any two aligned face crops,
 
 
-                    // even of different people. Apply a much stricter threshold here so
+                    // even of different people. Apply a stricter threshold to guard against
 
 
-                    // iOS clients (which have no TFLite and always fall back to the server)
+                    // spoofing, but when the client has already passed the active blink
 
 
-                    // cannot be spoofed by showing a different person's face.
+                    // liveness challenge, relax it to minFaceScore (default 55) — the blink
 
 
-                    var strictMin = Math.Max(minFaceScore, 75.0);
+                    // is the real anti-spoof signal and the server comparator is only a
+
+
+                    // coarse second check.  Without liveness proof, keep the strict 75.
+
+
+                    var strictMin = request.LivenessPassed
+
+
+                        ? minFaceScore
+
+
+                        : Math.Max(minFaceScore, 75.0);
 
 
                     isFaceVerified = serverFaceScore >= strictMin;
@@ -5221,10 +5233,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     _logger.LogInformation(
 
 
-                        "Server face comparison for employee {EmpId}: score={Score}, verified={Verified}, strictMin={StrictMin}, clientScore={ClientScore}, details={Details}",
+                        "Server face comparison for employee {EmpId}: score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, clientScore={ClientScore}, details={Details}",
 
 
-                        request.EmployeeId, serverFaceScore, isFaceVerified, strictMin, clientFaceScore, compDetails);
+                        request.EmployeeId, serverFaceScore, isFaceVerified, strictMin, request.LivenessPassed, clientFaceScore, compDetails);
 
 
                 }
