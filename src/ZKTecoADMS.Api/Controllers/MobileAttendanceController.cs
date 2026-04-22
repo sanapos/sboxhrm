@@ -103,17 +103,18 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         new string(bssid.Where(c => char.IsAsciiHexDigit(c)).ToArray()).ToLowerInvariant();
     // Legacy compatibility: old stores may still have MaxPunchesPerDay = 4 in DB.
-    // Treat that legacy value as the new default 10 to prevent unintended blocking.
+    // Treat that legacy value as the new default. A value of 0 or negative now
+    // means "unlimited" (no per-day cap) so stores with shift-based rotation
+    // (e.g. restaurants, factories with multiple breaks) aren't blocked.
     private static int ResolveMaxPunchesPerDay(int? configured)
     {
-        const int defaultMaxPunches = 10;
+        const int defaultMaxPunches = 20;
         const int legacyMaxPunches = 4;
+        const int unlimited = int.MaxValue;
 
-        if (!configured.HasValue || configured.Value <= 0)
-            return defaultMaxPunches;
-
-        if (configured.Value == legacyMaxPunches)
-            return defaultMaxPunches;
+        if (!configured.HasValue) return defaultMaxPunches;
+        if (configured.Value <= 0) return unlimited;
+        if (configured.Value == legacyMaxPunches) return defaultMaxPunches;
 
         return configured.Value;
     }
