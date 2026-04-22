@@ -33,6 +33,14 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
+  # tflite_flutter 0.12.x does NOT auto-bundle the TensorFlowLiteC.framework
+  # on iOS, which causes the runtime error:
+  #   "Failed to lookup symbol 'TfLiteModelCreate':
+  #    dlsym(RTLD_DEFAULT, TfLiteModelCreate): symbol not found"
+  # Adding the TensorFlowLiteSwift pod pulls in TensorFlowLiteC as a transitive
+  # dependency and links it into the app bundle so dlsym can find the symbols.
+  pod 'TensorFlowLiteSwift', '~> 2.14.0'
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
