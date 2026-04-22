@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/global_location_reporter.dart';
 import '../models/user.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -122,6 +123,8 @@ class AuthProvider extends ChangeNotifier {
         // Fetch allowed modules cho store user
         if (_user != null) {
           await _fetchAllowedModules();
+          // Resume global location reporting for persisted sessions.
+          GlobalLocationReporter.instance.start();
         }
       }
     } catch (e) {
@@ -192,7 +195,11 @@ class AuthProvider extends ChangeNotifier {
           
           // Fetch allowed modules cho store user
           await _fetchAllowedModules();
-          
+
+          // Start global location reporting for employees/managers so the
+          // manager map can see real-time positions.
+          GlobalLocationReporter.instance.start();
+
           _isLoading = false;
           notifyListeners();
           return true;
@@ -251,6 +258,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
+
+    GlobalLocationReporter.instance.stop();
 
     await _apiService.clearToken();
 

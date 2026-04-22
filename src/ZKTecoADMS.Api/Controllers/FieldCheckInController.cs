@@ -1623,10 +1623,12 @@ public class FieldCheckInController : AuthenticatedControllerBase
             })
             .ToListAsync();
 
-        // 5b. Get live GPS locations reported by devices
+        // 5b. Get live GPS locations reported by devices (last 24h, most recent first)
+        var liveCutoff = DateTime.UtcNow.AddHours(-24);
         var liveLocations = await _dbContext.EmployeeLiveLocations
             .AsNoTracking()
-            .Where(l => l.StoreId == storeId && l.UpdatedAt >= today)
+            .Where(l => l.StoreId == storeId && l.UpdatedAt >= liveCutoff)
+            .OrderByDescending(l => l.UpdatedAt)
             .ToListAsync();
 
         // 6. Build result per employee
