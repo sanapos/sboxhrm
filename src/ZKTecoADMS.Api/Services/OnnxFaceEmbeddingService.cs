@@ -24,6 +24,7 @@ public class OnnxFaceEmbeddingService : IDisposable
     private const int InputSize = 112; // MobileFaceNet: 112x112 RGB
     private readonly ILogger<OnnxFaceEmbeddingService> _logger;
     private readonly IWebHostEnvironment _env;
+    private readonly FaceDetectorService _faceDetector;
     private readonly object _lock = new();
     private InferenceSession? _session;
     private string? _inputName;
@@ -34,10 +35,12 @@ public class OnnxFaceEmbeddingService : IDisposable
 
     public OnnxFaceEmbeddingService(
         ILogger<OnnxFaceEmbeddingService> logger,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        FaceDetectorService faceDetector)
     {
         _logger = logger;
         _env = env;
+        _faceDetector = faceDetector;
     }
 
     public bool IsReady
@@ -78,7 +81,7 @@ public class OnnxFaceEmbeddingService : IDisposable
                 _outputName = _session.OutputMetadata.Keys.First();
                 var outShape = _session.OutputMetadata[_outputName].Dimensions;
                 _embeddingSize = outShape.Last() > 0 ? outShape.Last() : 192;
-                _logger.LogInformation(
+                _logger.LogWarning(
                     "OnnxFaceEmbeddingService loaded: input={In}, output={Out}, embeddingSize={Size}",
                     _inputName, _outputName, _embeddingSize);
             }
@@ -154,13 +157,25 @@ public class OnnxFaceEmbeddingService : IDisposable
 
     private float[] RunInference(Image<Rgb24> image)
     {
-        // Center-crop to square, then resize to 112x112
-        var minDim = Math.Min(image.Width, image.Height);
-        var offX = (image.Width - minDim) / 2;
-        var offY = (image.Height - minDim) / 2;
-        image.Mutate(x => x
-            .Crop(new Rectangle(offX, offY, minDim, minDim))
-            .Resize(InputSize, InputSize));
+        // 1) Try UltraFace to crop to the actual face bbox.
+        //    This is critical: without it, the 112×112 input is ~60% background
+        //    and embeddings become sensitive to scene/lighting instead of identity,
+        //    making only the registration angle match.
+        var faceBox = _faceDetector.DetectBestFace(image, expandRatio: 0.25f);
+        if (faceBox is { } box)
+        {
+            image.Mutate(x => x.Crop(box).Resize(InputSize, InputSize));
+        }
+        else
+        {
+            // Fallback: center-crop to square then resize
+            var minDim = Math.Min(image.Width, image.Height);
+            var offX = (image.Width - minDim) / 2;
+            var offY = (image.Height - minDim) / 2;
+            image.Mutate(x => x
+                .Crop(new Rectangle(offX, offY, minDim, minDim))
+                .Resize(InputSize, InputSize));
+        }
 
         // NHWC float32 tensor, normalized to [-1, 1] per MobileFaceNet convention
         var tensor = new DenseTensor<float>(new[] { 1, InputSize, InputSize, 3 });
