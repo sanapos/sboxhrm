@@ -38,13 +38,13 @@
     <!-- Ship the ONNX face embedding model so iOS clients (which cannot run
          TFLite on-device reliably) can be verified server-side using the same
          MobileFaceNet architecture as the Android client. -->
-    <Content Include="wwwroot\models\mobilefacenet.onnx">
+    <Content Update="wwwroot\models\mobilefacenet.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <!-- UltraFace RFB-320 detector: crops to the actual face bbox before
          feeding MobileFaceNet so embeddings focus on identity, not background. -->
-    <Content Include="wwwroot\models\ultraface-RFB-320.onnx">
+    <Content Update="wwwroot\models\ultraface-RFB-320.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

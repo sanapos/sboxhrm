@@ -67,7 +67,7 @@ public class FaceDetectorService : IDisposable
                     return;
                 }
 
-                var options = new SessionOptions
+                var options = new Microsoft.ML.OnnxRuntime.SessionOptions
                 {
                     GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
                     InterOpNumThreads = 1,
