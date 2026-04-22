@@ -4210,10 +4210,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     {
 
 
-        _logger.LogWarning("ðŸ“Œ PUNCH START: EmpId={EmpId}, DeviceId={DeviceId}, PunchType={PunchType}, PunchTime={PunchTime}, FaceScore={FaceScore}, Lat={Lat}, Lng={Lng}",
+        _logger.LogWarning("ðŸ“Œ PUNCH START: EmpId={EmpId}, DeviceId={DeviceId}, PunchType={PunchType}, PunchTime={PunchTime}, FaceScore={FaceScore}, Liveness={Liveness}, Lat={Lat}, Lng={Lng}",
 
 
-            request.EmployeeId, request.DeviceId, request.PunchType, request.PunchTime, request.FaceMatchScore, request.Latitude, request.Longitude);
+            request.EmployeeId, request.DeviceId, request.PunchType, request.PunchTime, request.FaceMatchScore, request.LivenessPassed, request.Latitude, request.Longitude);
 
 
 
@@ -5209,7 +5209,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     // spoofing, but when the client has already passed the active blink
 
 
-                    // liveness challenge, relax it to minFaceScore (default 55) — the blink
+                    // liveness challenge, relax it to a low floor (40) — the blink
 
 
                     // is the real anti-spoof signal and the server comparator is only a
@@ -5218,10 +5218,19 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     // coarse second check.  Without liveness proof, keep the strict 75.
 
 
+                    // Note: we cap at Math.Min(minFaceScore, 40) so a very low store setting
+
+
+                    // is still honored, but a high setting (e.g. 80) won't lock out iOS
+
+
+                    // users whose feature-based server score is inherently lower.
+
+
                     var strictMin = request.LivenessPassed
 
 
-                        ? minFaceScore
+                        ? Math.Min(minFaceScore, 40.0)
 
 
                         : Math.Max(minFaceScore, 75.0);
@@ -5230,7 +5239,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     isFaceVerified = serverFaceScore >= strictMin;
 
 
-                    _logger.LogInformation(
+                    _logger.LogWarning(
 
 
                         "Server face comparison for employee {EmpId}: score={Score}, verified={Verified}, strictMin={StrictMin}, liveness={Liveness}, clientScore={ClientScore}, details={Details}",
