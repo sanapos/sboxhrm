@@ -40,7 +40,14 @@ public class OnnxFaceEmbeddingService : IDisposable
         _env = env;
     }
 
-    public bool IsReady => _session != null;
+    public bool IsReady
+    {
+        get
+        {
+            EnsureInitialized();
+            return _session != null;
+        }
+    }
     public string? LastInitError => _lastInitError;
 
     private void EnsureInitialized()

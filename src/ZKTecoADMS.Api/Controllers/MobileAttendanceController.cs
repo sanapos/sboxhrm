@@ -5374,7 +5374,22 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     {
 
 
-                        strictMin = request.LivenessPassed ? minFaceScore : Math.Max(minFaceScore, 75.0);
+                        // ONNX MobileFaceNet embeddings produce scores on the
+
+
+                        // same scale as the Android TFLite client. Apply the
+
+
+                        // full configured minimum (default 80). With liveness
+
+
+                        // the blink already confirms a live person, but we
+
+
+                        // still require identity match at the store's setting.
+
+
+                        strictMin = minFaceScore;
 
 
                     }
@@ -5386,13 +5401,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     {
 
 
-                        strictMin = request.LivenessPassed
+                        // Gradient+histogram+pixel comparator is NOT identity-
 
 
-                            ? Math.Min(minFaceScore, 40.0)
+                        // aware: it gives 35-50 for ANY two face crops (even
 
 
-                            : Math.Max(minFaceScore, 75.0);
+                        // different people). A low floor of 40 would accept
+
+
+                        // anyone. Keep the strict minimum (≥55) even with
+
+
+                        // liveness so a photo of a different face cannot pass.
+
+
+                        // If the ONNX model is not deployed and the gradient
+
+
+                        // score is below this, the punch rightly rejects.
+
+
+                        strictMin = Math.Max(minFaceScore, 55.0);
 
 
                     }
