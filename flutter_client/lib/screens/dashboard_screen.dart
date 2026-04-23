@@ -2349,10 +2349,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _fmtTime(dynamic t) {
     if (t == null) return '';
+    final raw = t.toString();
+    // TimeSpan values from backend (e.g. shift start "08:30:00") — return as HH:mm.
+    if (RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$').hasMatch(raw)) {
+      final parts = raw.split(':');
+      final h = int.tryParse(parts[0]) ?? 0;
+      final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+    }
     try {
-      final dt = DateTime.parse(t.toString());
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) { return t.toString(); }
+      // AttendanceTime is stored UTC; Dart's DateTime.parse treats bare ISO strings
+      // (no Z/offset) as local, which shows VN punches 7h off. Force UTC, then shift to VN.
+      final hasTz = raw.endsWith('Z') || raw.contains('+') ||
+          RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);
+      final dt = hasTz ? DateTime.parse(raw).toUtc() : DateTime.parse('${raw}Z').toUtc();
+      final vn = dt.add(const Duration(hours: 7));
+      return '${vn.hour.toString().padLeft(2, '0')}:${vn.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return raw;
+    }
   }
 
   String _fmtDate(dynamic d) {
