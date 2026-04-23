@@ -4913,7 +4913,21 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             var livenessOk = !requireLiveness || request.LivenessPassed;
 
 
-            var trustClient = hasRegistration && hasClientImage && clientFaceScore >= minFaceScore && livenessOk;
+            // SECURITY: Never trust clientFaceScore from the mobile app as the
+            // sole verification signal. Real-world logs proved that the iOS
+            // HOG+LBP fallback (used when TFLite fails to load) scored an
+            // imposter at 81.5 against another user's registered face — well
+            // above the 55 threshold — while the server-side ArcFace R50
+            // scored the same pair at 0.15 cosine (rejected). Allowing the
+            // FAST PATH would therefore let anyone punch by sending a large
+            // clientFaceScore. Force the server-side comparison path on every
+            // request; the client score is still logged for debugging but is
+            // no longer authoritative.
+            var trustClient = false;
+
+            // Previous (unsafe) logic kept for reference only:
+            // var trustClient = hasRegistration && hasClientImage
+            //     && clientFaceScore >= minFaceScore && livenessOk;
 
 
 
@@ -5267,13 +5281,13 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                                 {
 
 
-                                    serverFaceScore = OnnxFaceEmbeddingService.BestCosineScore(checkInEmb, regEmbeddings);
+                                    serverFaceScore = OnnxFaceEmbeddingService.BestCosineScore(checkInEmb, regEmbeddings, out var cosDbg);
 
 
                                     onnxUsed = true;
 
 
-                                    onnxDetails = $"ONNX embedding match, {regEmbeddings.Count} refs, best={serverFaceScore:F1}";
+                                    onnxDetails = $"ONNX embedding match, {regEmbeddings.Count} refs, best={serverFaceScore:F1}, cos=[{cosDbg}]";
 
 
                                 }
