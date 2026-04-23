@@ -309,12 +309,15 @@ public class ReportsController(
     {
         try
         {
-            var targetYear = year ?? DateTime.Now.Year;
-            var targetMonth = month ?? DateTime.Now.Month;
+            var targetYear = year ?? DateTime.UtcNow.AddHours(7).Year;
+            var targetMonth = month ?? DateTime.UtcNow.AddHours(7).Month;
             var storeId = RequiredStoreId;
 
+            // VN calendar month boundaries (local) + UTC query window.
             var startDate = new DateTime(targetYear, targetMonth, 1);
             var endDate = startDate.AddMonths(1).AddDays(-1);
+            var utcStart = startDate.AddHours(-7);
+            var utcEnd = startDate.AddMonths(1).AddHours(-7);
 
             // Get employees
             var employeesQuery = dbContext.Employees
@@ -329,14 +332,19 @@ public class ReportsController(
 
             var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
 
-            // Get attendances for the month (filter by Device.StoreId) — use Select projection
-            var attendances = await dbContext.AttendanceLogs
-                .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.AttendanceTime >= startDate 
-                    && a.AttendanceTime <= endDate.AddDays(1)
+            // AttendanceLogs stored in UTC — filter by VN-month UTC range.
+            var rawAttendances = await dbContext.AttendanceLogs
+                .Where(a => a.Device != null && a.Device.StoreId == storeId
+                    && a.AttendanceTime >= utcStart
+                    && a.AttendanceTime < utcEnd
                     && employeeCodes.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
+
+            // Project once to VN-local time so all Date/TimeOfDay compares are correct.
+            var attendances = rawAttendances
+                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
+                .ToList();
 
             // Build attendance lookup by PIN for O(1) access
             var attendanceByPin = attendances.ToLookup(a => a.PIN);
@@ -389,17 +397,17 @@ public class ReportsController(
                 var empLeaveUserId = employee.ApplicationUserId ?? Guid.Empty;
                 var empLeaves = leavesByUserId[empLeaveUserId];
 
-                // Count working days attended
+                // Count working days attended (VN-local dates)
                 var daysPresent = empAttendances
-                    .Select(a => a.AttendanceTime.Date)
+                    .Select(a => a.VnTime.Date)
                     .Distinct()
                     .Count();
 
-                // Count late arrivals
+                // Count late arrivals using VN local TimeOfDay
                 var lateDays = empAttendances
                     .Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                    .GroupBy(a => a.AttendanceTime.Date)
-                    .Count(g => g.OrderBy(a => a.AttendanceTime).First().AttendanceTime.TimeOfDay > lateThreshold);
+                    .GroupBy(a => a.VnTime.Date)
+                    .Count(g => g.OrderBy(a => a.VnTime).First().VnTime.TimeOfDay > lateThreshold);
 
                 // Count leave days for this employee
                 var leaveDays = 0;
@@ -410,19 +418,19 @@ public class ReportsController(
                     leaveDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
                 }
 
-                // Calculate total worked hours
+                // Calculate total worked minutes — group by VN date, diff in VN times
                 var totalWorkedMinutes = 0;
-                var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
+                var groupedByDate = empAttendances.GroupBy(a => a.VnTime.Date);
                 foreach (var dayGroup in groupedByDate)
                 {
                     var dayCheckIn = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                        .OrderBy(a => a.AttendanceTime).FirstOrDefault();
+                        .OrderBy(a => a.VnTime).FirstOrDefault();
                     var dayCheckOut = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
-                        .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
-                    
+                        .OrderByDescending(a => a.VnTime).FirstOrDefault();
+
                     if (dayCheckIn != null && dayCheckOut != null)
                     {
-                        totalWorkedMinutes += (int)(dayCheckOut.AttendanceTime - dayCheckIn.AttendanceTime).TotalMinutes;
+                        totalWorkedMinutes += (int)(dayCheckOut.VnTime - dayCheckIn.VnTime).TotalMinutes;
                     }
                 }
 

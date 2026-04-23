@@ -54,7 +54,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _clockTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    // Greeting and current-shift display only need coarse updates — every 60s
+    // rebuilds the entire dashboard tree unnecessarily. 5 minutes is enough to
+    // cross morning/afternoon/evening boundaries and shift transitions.
+    _clockTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -100,97 +103,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // Memoized derived values (recomputed once per _loadAllData)
+  List<Map<String, dynamic>> _memoLate = const [];
+  List<Map<String, dynamic>> _memoAbsent = const [];
+  List<Map<String, dynamic>> _memoNotScheduled = const [];
+  int _memoCheckIns = 0;
+  int _memoCheckOuts = 0;
+  int _memoOnlineDevices = 0;
+
+  /// Safely run an API call; log and return [fallback] on error so one failing
+  /// endpoint never takes down the entire dashboard batch.
+  Future<T> _safe<T>(Future<T> Function() call, T fallback, String label) async {
+    try {
+      return await call().timeout(const Duration(seconds: 20));
+    } catch (e) {
+      debugPrint('[dashboard] $label failed: $e');
+      return fallback;
+    }
+  }
+
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
-    try {
-      final target = _selectedDate ?? DateTime.now();
-      final todayStr = '${target.year}-${target.month.toString().padLeft(2, '0')}-${target.day.toString().padLeft(2, '0')}';
+    final target = _selectedDate ?? DateTime.now();
+    final todayStr =
+        '${target.year}-${target.month.toString().padLeft(2, '0')}-${target.day.toString().padLeft(2, '0')}';
+    final dayStart = DateTime(target.year, target.month, target.day);
+    final dayEnd = DateTime(target.year, target.month, target.day, 23, 59, 59);
+    final now = DateTime.now();
+    final monthStart =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    final lastDay = DateTime(now.year, now.month + 1, 0).day;
+    final monthEnd =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
 
-      // Phase 1: Critical data (show dashboard ASAP)
-      final criticalResults = await Future.wait([
-        _api.getDailyAttendanceReport(date: todayStr),           // 0
-        _api.getDeviceStatus(),                                   // 1
-        _api.getEmployees(pageSize: 500),                         // 2
-      ]);
+    // Phase 1 — minimum data to paint the dashboard. Only 3 calls.
+    final emptyMap = <String, dynamic>{};
+    final emptyList = <dynamic>[];
+    final critical = await Future.wait([
+      _safe(() => _api.getDailyAttendanceReport(date: todayStr), emptyMap, 'daily'),
+      _safe(() => _api.getDeviceStatus(), emptyList, 'devices'),
+      _safe(() => _api.getEmployees(pageSize: 500), emptyList, 'employees'),
+    ]);
 
-      if (mounted) {
-        final dailyReportResp = criticalResults[0] as Map<String, dynamic>;
-        final dailyData = (dailyReportResp['data'] as Map<String, dynamic>?) ?? {};
+    if (!mounted) return;
+    final dailyResp = critical[0] as Map<String, dynamic>;
+    final dailyData = (dailyResp['data'] as Map<String, dynamic>?) ?? {};
+    setState(() {
+      _dailyReport = dailyData;
+      _dailyReportItems = (dailyData['items'] as List<dynamic>?) ?? [];
+      _devices = critical[1] as List<dynamic>;
+      _employees = critical[2] as List<dynamic>;
+      _isLoading = false;
+      _recomputeMemoized();
+    });
 
-        setState(() {
-          _dailyReport = dailyData;
-          _dailyReportItems = (dailyData['items'] as List<dynamic>?) ?? [];
-          _devices = criticalResults[1] as List<dynamic>;
-          _employees = criticalResults[2] as List<dynamic>;
-          _isLoading = false;
-        });
+    // Phase 2 — all remaining data in ONE parallel batch (was 2 sequential phases).
+    // Each call is independently protected: a single 500 won't break the others.
+    final batch = await Future.wait([
+      _safe(() => _api.getAttendanceTrends(days: 7), emptyList, 'trends'),          // 0
+      _safe(() => _api.getCommunications(page: 1, pageSize: 5), emptyMap, 'comms'), // 1
+      _safe(() => _api.getKpiResults(), emptyMap, 'kpi-results'),                   // 2
+      _safe(() => _api.getAllLeaves(status: 'Approved', fromDate: todayStr, toDate: todayStr, pageSize: 100), emptyMap, 'leaves-today'), // 3
+      _safe(() => _api.getKpiDashboard(), emptyMap, 'kpi-dashboard'),               // 4
+      _safe(() => _api.getWorkSchedules(fromDate: dayStart, toDate: dayEnd, pageSize: 500), emptyMap, 'schedules'), // 5
+      _safe(() => _api.getPendingLeaves(pageSize: 100), emptyMap, 'pending-leaves'),// 6
+      _safe(() => _api.getAttendanceCorrections(pageSize: 100), emptyMap, 'corrections'), // 7
+      _safe(() => _api.getShiftSwapsPendingApproval(), emptyMap, 'swaps'),          // 8
+      _safe(() => _api.getTaskStatistics(), emptyMap, 'tasks'),                     // 9
+      _safe(() => _api.getOvertimeStatistics(), emptyMap, 'ot'),                    // 10
+      _safe(() => _api.getPenaltyTicketStats(month: now.month, year: now.year), emptyMap, 'penalty'), // 11
+      _safe(() => _api.getCashTransactionSummary(fromDate: monthStart, toDate: monthEnd), emptyMap, 'cash'), // 12
+      _safe(() => _api.getMonthlyAttendanceReport(month: now.month, year: now.year), emptyMap, 'monthly'), // 13
+      _safe(() => _api.getExpiringDocuments(), emptyMap, 'docs'),                   // 14
+    ]);
+
+    if (!mounted) return;
+    Map<String, dynamic> asMap(int i) => batch[i] as Map<String, dynamic>;
+    setState(() {
+      _trends = batch[0] as List<dynamic>;
+      _communications = _extractList(asMap(1));
+      _kpiResults = _extractList(asMap(2));
+      _todayLeaves = _extractList(asMap(3));
+      _kpiDashboard = (asMap(4)['data'] as Map<String, dynamic>?) ?? {};
+      _todaySchedules = _extractList(asMap(5));
+      _pendingLeaves = _extractList(asMap(6));
+      _pendingCorrections = _extractList(asMap(7));
+      _pendingSwaps = _extractList(asMap(8));
+      _taskStats = (asMap(9)['data'] as Map<String, dynamic>?) ?? asMap(9);
+      _overtimeStats = (asMap(10)['data'] as Map<String, dynamic>?) ?? asMap(10);
+      _penaltyStats = (asMap(11)['data'] as Map<String, dynamic>?) ?? asMap(11);
+      _cashSummary = (asMap(12)['data'] as Map<String, dynamic>?) ?? asMap(12);
+      _monthlyReport = (asMap(13)['data'] as Map<String, dynamic>?) ?? asMap(13);
+      _expiringDocs = _extractList(asMap(14));
+    });
+  }
+
+  /// Recompute all list-scanning derived values in O(n) once per refresh,
+  /// instead of re-iterating _dailyReportItems on every widget rebuild.
+  void _recomputeMemoized() {
+    final late = <Map<String, dynamic>>[];
+    final absent = <Map<String, dynamic>>[];
+    final notSched = <Map<String, dynamic>>[];
+    var ins = 0;
+    var outs = 0;
+    for (final raw in _dailyReportItems) {
+      if (raw is! Map<String, dynamic>) continue;
+      final status = (raw['status'] ?? '').toString().toLowerCase();
+      if (raw['checkInTime'] != null) ins++;
+      if (raw['checkOutTime'] != null) outs++;
+      if (status.contains('muộn') || status.contains('trễ') ||
+          status.contains('late') || status.contains('sớm') ||
+          status.contains('early')) {
+        late.add(raw);
       }
-
-      // Phase 2: Secondary data (load in background)
-      // Normalize to day boundaries so backend filter `w.Date >= from && w.Date <= to`
-      // matches WorkSchedule.Date (stored at 00:00) — otherwise target=DateTime.now() has
-      // hours/minutes and both comparisons fail → empty result.
-      final dayStart = DateTime(target.year, target.month, target.day);
-      final dayEnd = DateTime(target.year, target.month, target.day, 23, 59, 59);
-      final secondaryResults = await Future.wait([
-        _api.getAttendanceTrends(days: 7),                       // 0
-        _api.getCommunications(page: 1, pageSize: 5),            // 1
-        _api.getKpiResults(),                                     // 2
-        _api.getAllLeaves(status: 'Approved', fromDate: todayStr, toDate: todayStr, pageSize: 100), // 3
-        _api.getKpiDashboard(),                                   // 4
-        _api.getWorkSchedules(fromDate: dayStart, toDate: dayEnd, pageSize: 500), // 5
-      ]);
-
-      if (mounted) {
-        final commData = secondaryResults[1] as Map<String, dynamic>;
-        final leavesResp = secondaryResults[3] as Map<String, dynamic>;
-        final kpiData = secondaryResults[2] as Map<String, dynamic>;
-        final kpiDashData = secondaryResults[4] as Map<String, dynamic>;
-        final schedulesResp = secondaryResults[5] as Map<String, dynamic>;
-
-        setState(() {
-          _trends = secondaryResults[0] as List<dynamic>;
-          _communications = _extractList(commData);
-          _kpiResults = _extractList(kpiData);
-          _todayLeaves = _extractList(leavesResp);
-          _kpiDashboard = (kpiDashData['data'] as Map<String, dynamic>?) ?? {};
-          _todaySchedules = _extractList(schedulesResp);
-        });
+      if (status.contains('vắng') || status.contains('absent')) {
+        absent.add(raw);
       }
-
-      // Phase 3: Extra dashboard data
-      final now = DateTime.now();
-      final monthStart = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-      final monthEnd = '${now.year}-${now.month.toString().padLeft(2, '0')}-${DateTime(now.year, now.month + 1, 0).day.toString().padLeft(2, '0')}';
-      final extraResults = await Future.wait([
-        _api.getPendingLeaves(pageSize: 100),                     // 0
-        _api.getAttendanceCorrections(pageSize: 100),             // 1
-        _api.getShiftSwapsPendingApproval(),                      // 2
-        _api.getTaskStatistics(),                                  // 3
-        _api.getOvertimeStatistics(),                              // 4
-        _api.getPenaltyTicketStats(month: now.month, year: now.year), // 5
-        _api.getCashTransactionSummary(fromDate: monthStart, toDate: monthEnd), // 6
-        _api.getMonthlyAttendanceReport(month: now.month, year: now.year), // 7
-        _api.getExpiringDocuments(),                               // 8
-      ]);
-
-      if (mounted) {
-        setState(() {
-          _pendingLeaves = _extractList(extraResults[0]);
-          _pendingCorrections = _extractList(extraResults[1]);
-          _pendingSwaps = _extractList(extraResults[2]);
-          _taskStats = (extraResults[3]['data'] as Map<String, dynamic>?) ?? extraResults[3];
-          _overtimeStats = (extraResults[4]['data'] as Map<String, dynamic>?) ?? extraResults[4];
-          _penaltyStats = (extraResults[5]['data'] as Map<String, dynamic>?) ?? extraResults[5];
-          _cashSummary = (extraResults[6]['data'] as Map<String, dynamic>?) ?? extraResults[6];
-          _monthlyReport = (extraResults[7]['data'] as Map<String, dynamic>?) ?? extraResults[7];
-          _expiringDocs = _extractList(extraResults[8]);
-        });
+      if (status.contains('không có lịch') || status.contains('ngày nghỉ')) {
+        notSched.add(raw);
       }
-    } catch (e) {
-      debugPrint('Dashboard load error: $e');
-      if (mounted) setState(() => _isLoading = false);
     }
+    _memoLate = late;
+    _memoAbsent = absent;
+    _memoNotScheduled = notSched;
+    _memoCheckIns = ins;
+    _memoCheckOuts = outs;
+
+    // Online device count — cached (recomputed when _devices changes).
+    final threshold = DateTime.now().toUtc().subtract(const Duration(seconds: 90));
+    var online = 0;
+    for (final d in _devices) {
+      if (d is! Map) continue;
+      final lastOnlineRaw = d['lastOnline'] ?? d['LastOnline'];
+      if (lastOnlineRaw != null) {
+        try {
+          final lo = DateTime.parse(lastOnlineRaw.toString()).toUtc();
+          if (lo.isAfter(threshold)) { online++; continue; }
+        } catch (_) {}
+      }
+      final s = (d['deviceStatus'] ?? d['DeviceStatus'] ?? '').toString();
+      if (s.toLowerCase() == 'online') online++;
+    }
+    _memoOnlineDevices = online;
   }
 
   List<dynamic> _extractList(Map<String, dynamic> data) {
@@ -203,48 +257,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===== COMPUTED DATA (from Daily Attendance Report) =====
+  // These read pre-computed memoized lists populated by _recomputeMemoized().
   List<dynamic> get _todayEmployees => _dailyReportItems;
-  List<dynamic> get _lateEmployees {
-    return _dailyReportItems.whereType<Map<String, dynamic>>().where((e) {
-      final status = (e['status'] ?? '').toString().toLowerCase();
-      return status.contains('muộn') || status.contains('trễ') || status.contains('late') || status.contains('sớm') || status.contains('early');
-    }).toList();
-  }
+  List<dynamic> get _lateEmployees => _memoLate;
   // ignore: unused_element
-  List<dynamic> get _absentEmployeesList {
-    return _dailyReportItems.whereType<Map<String, dynamic>>().where((e) {
-      final status = (e['status'] ?? '').toString().toLowerCase();
-      return status.contains('vắng') || status.contains('absent');
-    }).toList();
-  }
+  List<dynamic> get _absentEmployeesList => _memoAbsent;
 
   int get _totalEmployees => ((_dailyReport['totalEmployees'] ?? _employees.length) as num).toInt();
   int get _presentCount => ((_dailyReport['present'] ?? 0) as num).toInt();
   int get _absentCount => ((_dailyReport['absent'] ?? 0) as num).toInt();
   int get _lateCount => ((_dailyReport['late'] ?? 0) as num).toInt();
-  int get _checkIns => _dailyReportItems.whereType<Map<String, dynamic>>().where((e) => e['checkInTime'] != null).length;
-  int get _checkOuts => _dailyReportItems.whereType<Map<String, dynamic>>().where((e) => e['checkOutTime'] != null).length;
+  int get _checkIns => _memoCheckIns;
+  int get _checkOuts => _memoCheckOuts;
   double get _attendanceRate => ((_dailyReport['attendanceRate'] ?? 0) as num).toDouble();
-  int get _onlineDevices {
-    // DeviceDto doesn't expose isOnline — compute from lastOnline (90s window) or deviceStatus.
-    final threshold = DateTime.now().toUtc().subtract(const Duration(seconds: 90));
-    int count = 0;
-    for (final d in _devices) {
-      if (d is! Map) continue;
-      // Prefer fresh lastOnline heartbeat if present
-      final lastOnlineRaw = d['lastOnline'] ?? d['LastOnline'];
-      if (lastOnlineRaw != null) {
-        try {
-          final lo = DateTime.parse(lastOnlineRaw.toString()).toUtc();
-          if (lo.isAfter(threshold)) { count++; continue; }
-        } catch (_) {}
-      }
-      // Fallback to DeviceStatus string from server
-      final status = (d['deviceStatus'] ?? d['DeviceStatus'] ?? '').toString();
-      if (status.toLowerCase() == 'online') count++;
-    }
-    return count;
-  }
+  int get _onlineDevices => _memoOnlineDevices;
   int get _totalDevices => _devices.length;
 
   List<Map<String, dynamic>> get _todayBirthdays {
@@ -313,21 +339,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return unique;
   }
 
-  List<Map<String, dynamic>> get _absentWithoutPermission {
-    // Only employees with status "Vắng mặt" (has schedule, no check-in, no leave)
-    return _dailyReportItems.whereType<Map<String, dynamic>>().where((e) {
-      final status = (e['status'] ?? '').toString().toLowerCase();
-      return status.contains('vắng') || status.contains('absent');
-    }).toList();
-  }
+  List<Map<String, dynamic>> get _absentWithoutPermission => _memoAbsent;
 
   /// Employees not scheduled today (no work schedule or day off)
-  List<Map<String, dynamic>> get _notScheduledEmployees {
-    return _dailyReportItems.whereType<Map<String, dynamic>>().where((e) {
-      final status = (e['status'] ?? '').toString().toLowerCase();
-      return status.contains('không có lịch') || status.contains('ngày nghỉ');
-    }).toList();
-  }
+  List<Map<String, dynamic>> get _notScheduledEmployees => _memoNotScheduled;
 
   /// Number of employees scheduled to work today
   int get _scheduledCount {
