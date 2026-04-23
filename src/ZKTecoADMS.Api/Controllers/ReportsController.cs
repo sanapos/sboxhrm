@@ -19,6 +19,20 @@ public class ReportsController(
     ILogger<ReportsController> logger
 ) : AuthenticatedControllerBase
 {
+    /// <summary>
+    /// Build a VN (UTC+7) day range for querying UTC-stored timestamps.
+    /// Returns (targetLocal, utcStart, utcEnd) where utcStart..utcEnd represents
+    /// the VN day [00:00, next-00:00). When <paramref name="date"/> is null, uses today (VN).
+    /// </summary>
+    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date)
+    {
+        // "Local VN day" — zero the time component, treat input as VN calendar date.
+        var targetLocal = (date ?? DateTime.UtcNow.AddHours(7)).Date;
+        var utcStart = targetLocal.AddHours(-7); // UTC instant at VN 00:00
+        var utcEnd = utcStart.AddDays(1);        // UTC instant at next VN 00:00
+        return (targetLocal, utcStart, utcEnd);
+    }
+
     #region Daily Attendance Report
 
     /// <summary>
@@ -32,7 +46,7 @@ public class ReportsController(
     {
         try
         {
-            var targetDate = date ?? DateTime.Today;
+            var (targetDate, vnStart, vnEnd) = VnDayRange(date);
             var storeId = RequiredStoreId;
 
             // Get all employees (filter by Deleted == null for active)
@@ -73,10 +87,13 @@ public class ReportsController(
 
             var allPins = pinToEmployeeId.Keys.ToList();
 
-            // Get attendances for the date (filter by Device.StoreId) — use Select projection
+            // Get attendances for the date (filter by Device.StoreId) — use Select projection.
+            // AttendanceTime is stored in UTC; filter by VN-day UTC range so punches near
+            // midnight VN fall into the correct calendar day.
             var attendances = await dbContext.AttendanceLogs
-                .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.AttendanceTime.Date == targetDate.Date
+                .Where(a => a.Device != null && a.Device.StoreId == storeId
+                    && a.AttendanceTime >= vnStart
+                    && a.AttendanceTime < vnEnd
                     && allPins.Contains(a.PIN))
                 .OrderBy(a => a.AttendanceTime)
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState, a.Note })
@@ -183,7 +200,10 @@ public class ReportsController(
                 }
                 else if (checkIn != null)
                 {
-                    var checkInTime = checkIn.AttendanceTime.TimeOfDay;
+                    // AttendanceTime is stored in UTC; shift StartTime/EndTime are VN local.
+                    // Convert to VN before comparing TimeOfDay, otherwise every check-in looks
+                    // "early" by 7 hours and trend/late calculations go wrong.
+                    var checkInTime = checkIn.AttendanceTime.AddHours(7).TimeOfDay;
                     if (checkInTime > expectedStart)
                     {
                         lateMinutes = (int)(checkInTime - expectedStart).TotalMinutes;
@@ -198,7 +218,7 @@ public class ReportsController(
 
                     if (checkOut != null)
                     {
-                        var checkOutTime = checkOut.AttendanceTime.TimeOfDay;
+                        var checkOutTime = checkOut.AttendanceTime.AddHours(7).TimeOfDay;
                         if (checkOutTime < expectedEnd)
                         {
                             earlyLeaveMinutes = (int)(expectedEnd - checkOutTime).TotalMinutes;

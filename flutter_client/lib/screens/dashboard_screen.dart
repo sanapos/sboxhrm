@@ -127,13 +127,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       // Phase 2: Secondary data (load in background)
+      // Normalize to day boundaries so backend filter `w.Date >= from && w.Date <= to`
+      // matches WorkSchedule.Date (stored at 00:00) — otherwise target=DateTime.now() has
+      // hours/minutes and both comparisons fail → empty result.
+      final dayStart = DateTime(target.year, target.month, target.day);
+      final dayEnd = DateTime(target.year, target.month, target.day, 23, 59, 59);
       final secondaryResults = await Future.wait([
         _api.getAttendanceTrends(days: 7),                       // 0
         _api.getCommunications(page: 1, pageSize: 5),            // 1
         _api.getKpiResults(),                                     // 2
         _api.getAllLeaves(status: 'Approved', fromDate: todayStr, toDate: todayStr, pageSize: 100), // 3
         _api.getKpiDashboard(),                                   // 4
-        _api.getWorkSchedules(fromDate: target, toDate: target, pageSize: 500), // 5
+        _api.getWorkSchedules(fromDate: dayStart, toDate: dayEnd, pageSize: 500), // 5
       ]);
 
       if (mounted) {
@@ -220,7 +225,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _checkIns => _dailyReportItems.whereType<Map<String, dynamic>>().where((e) => e['checkInTime'] != null).length;
   int get _checkOuts => _dailyReportItems.whereType<Map<String, dynamic>>().where((e) => e['checkOutTime'] != null).length;
   double get _attendanceRate => ((_dailyReport['attendanceRate'] ?? 0) as num).toDouble();
-  int get _onlineDevices => _devices.where((d) => d['isOnline'] == true).length;
+  int get _onlineDevices {
+    // DeviceDto doesn't expose isOnline — compute from lastOnline (90s window) or deviceStatus.
+    final threshold = DateTime.now().toUtc().subtract(const Duration(seconds: 90));
+    int count = 0;
+    for (final d in _devices) {
+      if (d is! Map) continue;
+      // Prefer fresh lastOnline heartbeat if present
+      final lastOnlineRaw = d['lastOnline'] ?? d['LastOnline'];
+      if (lastOnlineRaw != null) {
+        try {
+          final lo = DateTime.parse(lastOnlineRaw.toString()).toUtc();
+          if (lo.isAfter(threshold)) { count++; continue; }
+        } catch (_) {}
+      }
+      // Fallback to DeviceStatus string from server
+      final status = (d['deviceStatus'] ?? d['DeviceStatus'] ?? '').toString();
+      if (status.toLowerCase() == 'online') count++;
+    }
+    return count;
+  }
   int get _totalDevices => _devices.length;
 
   List<Map<String, dynamic>> get _todayBirthdays {
@@ -272,8 +296,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return status == 'nghỉ phép' || status.contains('leave') || (status.contains('phép') && !status.contains('ngày nghỉ'));
     }).toList();
     // Also include from leave API if report has none
-    if (fromReport.isNotEmpty) return fromReport;
-    return _todayLeaves.whereType<Map<String, dynamic>>().toList();
+    final source = fromReport.isNotEmpty
+        ? fromReport
+        : _todayLeaves.whereType<Map<String, dynamic>>().toList();
+    // Dedupe by employee identity — leave API may return one row per day for a multi-day leave
+    // or report + leave fallback overlap → caused names appearing twice.
+    final seen = <String>{};
+    final unique = <Map<String, dynamic>>[];
+    for (final e in source) {
+      final key = (e['employeeId'] ?? e['employeeUserId'] ?? e['employeeCode'] ??
+                   e['userId'] ?? e['id'] ?? e['employeeName'] ?? '').toString();
+      if (key.isEmpty || seen.add(key)) {
+        unique.add(e);
+      }
+    }
+    return unique;
   }
 
   List<Map<String, dynamic>> get _absentWithoutPermission {

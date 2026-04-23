@@ -186,8 +186,13 @@ public class DashboardController(
         {
             var storeId = RequiredStoreId;
             days = Math.Clamp(days, 1, 90); // Cap at 90 days to prevent loading excessive data
-            var endDate = DateTime.Today;
+            // Use VN calendar for the trend window so punches near midnight VN land on
+            // the correct day on the chart.
+            var endDate = DateTime.UtcNow.AddHours(7).Date;
             var startDate = endDate.AddDays(-days);
+            // AttendanceTime is UTC; translate VN [startDate, endDate+1) to UTC range.
+            var utcRangeStart = startDate.AddHours(-7);
+            var utcRangeEnd = endDate.AddDays(1).AddHours(-7);
 
             var employees = await dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null)
@@ -198,11 +203,16 @@ public class DashboardController(
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= startDate
-                    && a.AttendanceTime <= endDate.AddDays(1)
+                    && a.AttendanceTime >= utcRangeStart
+                    && a.AttendanceTime < utcRangeEnd
                     && employeeCodes.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
+
+            // Project each punch into its VN-local date/time once to reuse below.
+            var vnAttendances = attendances
+                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
+                .ToList();
 
             var lateThreshold = new TimeSpan(8, 30, 0);
             var trends = new List<object>();
@@ -212,7 +222,7 @@ public class DashboardController(
                 if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday)
                     continue;
 
-                var dayAttendances = attendances.Where(a => a.AttendanceTime.Date == d).ToList();
+                var dayAttendances = vnAttendances.Where(a => a.VnTime.Date == d).ToList();
                 var presentPins = dayAttendances.Select(a => a.PIN).Distinct().ToList();
                 var lateCount = 0;
 
@@ -220,9 +230,9 @@ public class DashboardController(
                 {
                     var checkIn = dayAttendances
                         .Where(a => a.PIN == pin && a.AttendanceState == AttendanceStates.CheckIn)
-                        .OrderBy(a => a.AttendanceTime)
+                        .OrderBy(a => a.VnTime)
                         .FirstOrDefault();
-                    if (checkIn?.AttendanceTime.TimeOfDay > lateThreshold)
+                    if (checkIn != null && checkIn.VnTime.TimeOfDay > lateThreshold)
                         lateCount++;
                 }
 
