@@ -28,18 +28,28 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  # tflite_flutter 0.12.x uses DynamicLibrary.process() which wraps
+  # dlsym(RTLD_DEFAULT, ...). For iOS that only finds symbols in libraries
+  # Runner itself directly links (LC_LOAD_DYLIB in Runner's Mach-O).
+  #
+  # The plugin already declares a TensorFlowLiteSwift/CoreML = 2.12.0
+  # dependency, but the Swift pod only pulls TensorFlowLiteC in as a
+  # transitive / lazy dep — dyld does not load the C framework eagerly,
+  # so `TfLiteModelCreate` is missing from RTLD_DEFAULT.
+  #
+  # Adding TensorFlowLiteC 2.12 directly to Runner forces CocoaPods to
+  # add it to Runner's Link Binary With Libraries phase, inserting an
+  # `LC_LOAD_DYLIB @rpath/TensorFlowLiteC.framework/TensorFlowLiteC` in
+  # the Runner binary. dyld then loads it at launch and its C symbols
+  # become discoverable via dlsym(RTLD_DEFAULT, ...).
   use_frameworks!
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # tflite_flutter 0.12.x does NOT auto-bundle the TensorFlowLiteC.framework
-  # on iOS, which causes the runtime error:
-  #   "Failed to lookup symbol 'TfLiteModelCreate':
-  #    dlsym(RTLD_DEFAULT, TfLiteModelCreate): symbol not found"
-  # Adding the TensorFlowLiteSwift pod pulls in TensorFlowLiteC as a transitive
-  # dependency and links it into the app bundle so dlsym can find the symbols.
-  pod 'TensorFlowLiteSwift', '~> 2.14.0'
+  # Must match the version tflite_flutter's podspec pins
+  # (TensorFlowLiteSwift/CoreML = 2.12.0).
+  pod 'TensorFlowLiteC', '2.12.0'
 
   target 'RunnerTests' do
     inherit! :search_paths

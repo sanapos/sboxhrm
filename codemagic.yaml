@@ -76,7 +76,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
 
       - name: Build IPA
         script: |
@@ -135,7 +135,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
 
       - name: Build IPA
         script: |

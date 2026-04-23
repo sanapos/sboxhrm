@@ -24,7 +24,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
           
       - name: Flutter build iOS
         script: |
@@ -66,7 +66,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
           
       - name: Flutter build iOS
         script: |
