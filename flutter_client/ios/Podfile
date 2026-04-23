@@ -73,28 +73,93 @@ post_install do |installer|
     end
   end
 
-  # TensorFlowLiteC 2.12.0 ships as a STATIC vendored framework. A plain
-  # `-framework TensorFlowLiteC` lets the linker dead-strip unused C symbols
-  # (including TfLiteModelCreate) because no Swift/ObjC code references
-  # them directly. tflite_flutter looks them up at runtime via
-  # dlsym(RTLD_DEFAULT, ...), which needs the symbols present in the
-  # Runner binary. Use -force_load on the framework binary to pull in
-  # every symbol unconditionally.
+  # tflite_flutter uses DynamicLibrary.process() -> dlsym(RTLD_DEFAULT, ...)
+  # to resolve TFLite C symbols at runtime. TensorFlowLiteC ships as a
+  # STATIC vendored framework, so its symbols get linked into Runner by the
+  # Swift wrapper — but Xcode's Release build strips them from the dynamic
+  # symbol table, making dlsym fail with:
+  #   "Failed to lookup symbol 'TfLiteModelCreate'".
+  #
+  # Fix: on the Runner target
+  #   0. Compile Runner/TFLiteSymbolKeepalive.m (explicit C references to
+  #      every TFLite symbol tflite_flutter calls) so the linker keeps them.
+  #   1. Disable symbol stripping (STRIP_*, DEAD_CODE_STRIPPING, COPY_PHASE_STRIP)
+  #   2. Pass `-Wl,-export_dynamic` so the linker keeps ALL global symbols
+  #      in the main executable's exported symbol table.
+  #   3. Pass `-Wl,-u,_<symbol>` for critical TFLite C symbols so the
+  #      linker can never drop them even in aggressive LTO.
+  #   4. Use `-force_load` on the static framework binary to pull every
+  #      object file into Runner regardless of reachability.
   installer.aggregate_targets.each do |aggregate_target|
     next unless aggregate_target.name == 'Pods-Runner'
-    aggregate_target.user_project.native_targets.each do |runner_target|
+    user_project = aggregate_target.user_project
+    user_project.native_targets.each do |runner_target|
       next unless runner_target.name == 'Runner'
+
+      # --- (0) Add TFLiteSymbolKeepalive.m to Runner's Compile Sources ---
+      keepalive_rel = 'Runner/TFLiteSymbolKeepalive.m'
+      keepalive_abs = File.expand_path(keepalive_rel, File.dirname(__FILE__))
+      if File.exist?(keepalive_abs)
+        already_added = runner_target.source_build_phase.files_references.any? do |fr|
+          fr && fr.path && fr.path.end_with?('TFLiteSymbolKeepalive.m')
+        end
+        unless already_added
+          runner_group = user_project.main_group['Runner'] || user_project.main_group
+          file_ref = runner_group.new_reference(keepalive_abs)
+          runner_target.add_file_references([file_ref])
+        end
+      end
+
       runner_target.build_configurations.each do |config|
+        config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+        config.build_settings['STRIP_STYLE'] = 'debugging'
+        config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
+        config.build_settings['DEAD_CODE_STRIPPING'] = 'NO'
+        config.build_settings['COPY_PHASE_STRIP'] = 'NO'
+
         ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
         ldflags = [ldflags] if ldflags.is_a?(String)
-        force_load = '-force_load "${PODS_XCFRAMEWORKS_BUILD_DIR}/TensorFlowLiteC/TensorFlowLiteC.framework/TensorFlowLiteC"'
-        alt_force_load = '-force_load "${PODS_CONFIGURATION_BUILD_DIR}/TensorFlowLiteC/TensorFlowLiteC.framework/TensorFlowLiteC"'
         joined = ldflags.join(' ')
-        unless joined.include?('TensorFlowLiteC/TensorFlowLiteC')
-          # Xcode expands whichever var resolves; include both for safety.
-          ldflags << force_load
-          ldflags << alt_force_load
+
+        # Force-load the static framework binary so every object is linked.
+        fl = '-force_load "${PODS_ROOT}/TensorFlowLiteC/Frameworks/TensorFlowLiteC.framework/TensorFlowLiteC"'
+        ldflags << fl unless joined.include?('TensorFlowLiteC/TensorFlowLiteC')
+
+        # Export every global symbol (including ones from static libs) so
+        # dlsym(RTLD_DEFAULT) can see them.
+        ldflags << '-Wl,-export_dynamic' unless joined.include?('-export_dynamic')
+
+        # Pin the specific TFLite C symbols tflite_flutter looks up so the
+        # linker never drops them under LTO / dead-strip.
+        %w[
+          _TfLiteModelCreate
+          _TfLiteModelCreateFromFile
+          _TfLiteModelDelete
+          _TfLiteInterpreterOptionsCreate
+          _TfLiteInterpreterOptionsDelete
+          _TfLiteInterpreterOptionsSetNumThreads
+          _TfLiteInterpreterCreate
+          _TfLiteInterpreterDelete
+          _TfLiteInterpreterAllocateTensors
+          _TfLiteInterpreterGetInputTensorCount
+          _TfLiteInterpreterGetInputTensor
+          _TfLiteInterpreterGetOutputTensorCount
+          _TfLiteInterpreterGetOutputTensor
+          _TfLiteInterpreterInvoke
+          _TfLiteTensorType
+          _TfLiteTensorNumDims
+          _TfLiteTensorDim
+          _TfLiteTensorByteSize
+          _TfLiteTensorData
+          _TfLiteTensorName
+          _TfLiteTensorCopyFromBuffer
+          _TfLiteTensorCopyToBuffer
+          _TfLiteVersion
+        ].each do |sym|
+          flag = "-Wl,-u,#{sym}"
+          ldflags << flag unless joined.include?(flag)
         end
+
         config.build_settings['OTHER_LDFLAGS'] = ldflags
       end
     end
