@@ -46,6 +46,24 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
+    /// Vietnam is UTC+7, but all timestamps are stored as UTC. A naive
+    /// <c>DateTime.UtcNow.Date</c> comparison drops an entire day for users
+    /// acting between 00:00 and 07:00 local time (their VisitDate/PunchTime
+    /// rows stamped with yesterday UTC won't match "today UTC"). This helper
+    /// returns the VN calendar date together with the UTC range that covers
+    /// that VN day, so callers can filter time-stamped columns correctly:
+    ///   <c>v.VisitDate &gt;= vnStart &amp;&amp; v.VisitDate &lt; vnEnd</c>.
+    /// For date-only columns (e.g. JourneyDate) compare against <c>today</c>.
+    /// </summary>
+    private static (DateTime today, DateTime vnStart, DateTime vnEnd) VnTodayRange()
+    {
+        var today = DateTime.UtcNow.AddHours(7).Date;
+        var vnStart = today.AddHours(-7); // UTC instant of VN 00:00
+        var vnEnd = vnStart.AddDays(1);   // UTC instant of next VN 00:00
+        return (today, vnStart, vnEnd);
+    }
+
+    /// <summary>
     /// Nén ảnh: resize max 1024px, JPEG quality 65%
     /// </summary>
     private static MemoryStream CompressImage(byte[] imageBytes, int maxWidth = 1024, int quality = 65)
@@ -522,12 +540,12 @@ public class FieldCheckInController : AuthenticatedControllerBase
             return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm bÃ¡n"));
 
         // Check if already checked in at this location today (not yet checked out)
-        var today = DateTime.UtcNow.Date;
+        var (today, vnStart, vnEnd) = VnTodayRange();
         var existing = await _dbContext.VisitReports
             .FirstOrDefaultAsync(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
                 && v.LocationId == request.LocationId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= vnStart && v.VisitDate < vnEnd
                 && v.Status == "checked_in"
                 && v.Deleted == null);
 
@@ -554,7 +572,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(j => j.StoreId == storeId
                 && j.EmployeeId == employeeId
-                && j.JourneyDate.Date == today
+                && j.JourneyDate == today
                 && j.Status == "in_progress"
                 && j.Deleted == null);
         if (activeJourney != null) journeyId = activeJourney.Id;
@@ -813,13 +831,13 @@ public class FieldCheckInController : AuthenticatedControllerBase
     {
         var storeId = RequiredStoreId;
         var employeeId = CurrentUserId.ToString();
-        var today = DateTime.UtcNow.Date;
+        var (_, vnStart, vnEnd) = VnTodayRange();
 
         var visits = await _dbContext.VisitReports
             .AsNoTracking()
             .Where(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= vnStart && v.VisitDate < vnEnd
                 && v.Deleted == null)
             .OrderBy(v => v.CheckInTime)
             .Select(v => new
@@ -1059,13 +1077,13 @@ public class FieldCheckInController : AuthenticatedControllerBase
     {
         var storeId = RequiredStoreId;
         var employeeId = CurrentUserId.ToString();
-        var today = DateTime.UtcNow.Date;
+        var (today, _, _) = VnTodayRange();
 
         // Check if journey already exists for today
         var existing = await _dbContext.JourneyTrackings
             .FirstOrDefaultAsync(j => j.StoreId == storeId
                 && j.EmployeeId == employeeId
-                && j.JourneyDate.Date == today
+                && j.JourneyDate == today
                 && j.Deleted == null);
 
         if (existing != null && existing.Status == "in_progress")
@@ -1235,12 +1253,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
         journey.TotalDistanceKm = Math.Round(totalDistanceM / 1000.0, 2);
         journey.UpdatedAt = DateTime.UtcNow;
 
-        // Update checked-in count from today's visits
-        var today = journey.JourneyDate.Date;
+        // Update checked-in count from today's visits (VisitDate is stored in
+        // UTC, but JourneyDate is the VN calendar date — convert that to a UTC
+        // window so the filter matches).
+        var journeyDayStart = journey.JourneyDate.AddHours(-7);
+        var journeyDayEnd = journeyDayStart.AddDays(1);
         journey.CheckedInCount = await _dbContext.VisitReports
             .CountAsync(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= journeyDayStart && v.VisitDate < journeyDayEnd
                 && v.Status != "draft"
                 && v.Deleted == null);
 
@@ -1248,7 +1269,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         journey.TotalOnSiteMinutes = await _dbContext.VisitReports
             .Where(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= journeyDayStart && v.VisitDate < journeyDayEnd
                 && v.TimeSpentMinutes.HasValue
                 && v.Deleted == null)
             .SumAsync(v => v.TimeSpentMinutes!.Value);
@@ -1268,6 +1289,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
             totalTravelMinutes = journey.TotalTravelMinutes,
             totalOnSiteMinutes = journey.TotalOnSiteMinutes,
             checkedInCount = journey.CheckedInCount,
+            // Return the updated polyline so the client can redraw the route
+            // without a second round-trip to /journey/today.
+            routePoints = journey.RoutePointsJson,
         }));
     }
 
@@ -1298,18 +1322,19 @@ public class FieldCheckInController : AuthenticatedControllerBase
         journey.UpdatedBy = CurrentUserEmail;
 
         // Final recalc
-        var today = journey.JourneyDate.Date;
+        var journeyDayStart = journey.JourneyDate.AddHours(-7);
+        var journeyDayEnd = journeyDayStart.AddDays(1);
         journey.CheckedInCount = await _dbContext.VisitReports
             .CountAsync(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= journeyDayStart && v.VisitDate < journeyDayEnd
                 && v.Status != "draft"
                 && v.Deleted == null);
 
         journey.TotalOnSiteMinutes = await _dbContext.VisitReports
             .Where(v => v.StoreId == storeId
                 && v.EmployeeId == employeeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= journeyDayStart && v.VisitDate < journeyDayEnd
                 && v.TimeSpentMinutes.HasValue
                 && v.Deleted == null)
             .SumAsync(v => v.TimeSpentMinutes!.Value);
@@ -1344,13 +1369,13 @@ public class FieldCheckInController : AuthenticatedControllerBase
     {
         var storeId = RequiredStoreId;
         var employeeId = CurrentUserId.ToString();
-        var today = DateTime.UtcNow.Date;
+        var (today, _, _) = VnTodayRange();
 
         var journey = await _dbContext.JourneyTrackings
             .AsNoTracking()
             .FirstOrDefaultAsync(j => j.StoreId == storeId
                 && j.EmployeeId == employeeId
-                && j.JourneyDate.Date == today
+                && j.JourneyDate == today
                 && j.Deleted == null);
 
         if (journey == null)
@@ -1381,12 +1406,12 @@ public class FieldCheckInController : AuthenticatedControllerBase
     public async Task<ActionResult> GetActiveJourneys()
     {
         var storeId = RequiredStoreId;
-        var today = DateTime.UtcNow.Date;
+        var (today, vnStart, vnEnd) = VnTodayRange();
 
         var journeys = await _dbContext.JourneyTrackings
             .AsNoTracking()
             .Where(j => j.StoreId == storeId
-                && j.JourneyDate.Date == today
+                && j.JourneyDate == today
                 && j.Deleted == null)
             .OrderByDescending(j => j.StartTime)
             .Select(j => new
@@ -1410,7 +1435,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         var todayVisits = await _dbContext.VisitReports
             .AsNoTracking()
             .Where(v => v.StoreId == storeId
-                && v.VisitDate.Date == today
+                && v.VisitDate >= vnStart && v.VisitDate < vnEnd
                 && v.Deleted == null)
             .OrderBy(v => v.CheckInTime)
             .Select(v => new
@@ -1545,7 +1570,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     public async Task<ActionResult> GetEmployeeLocations()
     {
         var storeId = RequiredStoreId;
-        var today = DateTime.UtcNow.Date;
+        var (today, vnStart, vnEnd) = VnTodayRange();
 
         // Auto-link Employees.ApplicationUserId where missing
         var unlinkedEmps = await _dbContext.Employees
@@ -1597,7 +1622,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         // 3. Get today's active journeys (for live GPS from route points)
         var todayJourneys = await _dbContext.JourneyTrackings
             .AsNoTracking()
-            .Where(j => j.StoreId == storeId && j.JourneyDate.Date == today && j.Deleted == null)
+            .Where(j => j.StoreId == storeId && j.JourneyDate == today && j.Deleted == null)
             .Select(j => new
             {
                 j.EmployeeId,
@@ -1611,7 +1636,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         // 4. Get today's check-in visits
         var todayVisits = await _dbContext.VisitReports
             .AsNoTracking()
-            .Where(v => v.StoreId == storeId && v.VisitDate.Date == today && v.Deleted == null)
+            .Where(v => v.StoreId == storeId && v.VisitDate >= vnStart && v.VisitDate < vnEnd && v.Deleted == null)
             .OrderBy(v => v.CheckInTime)
             .Select(v => new
             {
@@ -1629,7 +1654,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         // 5. Get today's mobile attendance punches with GPS
         var todayPunches = await _dbContext.MobileAttendanceRecords
             .AsNoTracking()
-            .Where(m => m.StoreId == storeId && m.PunchTime.Date == today && m.Deleted == null
+            .Where(m => m.StoreId == storeId && m.PunchTime >= vnStart && m.PunchTime < vnEnd && m.Deleted == null
                 && m.Latitude.HasValue && m.Longitude.HasValue)
             .OrderByDescending(m => m.PunchTime)
             .Select(m => new
@@ -1651,8 +1676,16 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .ToListAsync();
 
         // 6. Build result per employee
-        var deptColorIndex = 0;
-        var deptColorMap = new Dictionary<string, int>();
+        // Pre-compute department -> color index so the legend is STABLE across
+        // refresh cycles (previously the index was assigned inside the Select,
+        // which re-ordered colours whenever the employee list changed order —
+        // managers saw departments swap colours every 60 seconds).
+        var deptColorMap = employees
+            .Select(e => e.Department ?? "Chưa phân bổ")
+            .Distinct()
+            .OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
+            .Select((name, idx) => new { name, idx })
+            .ToDictionary(x => x.name, x => x.idx);
 
         var result = employees.Select(emp =>
         {
@@ -1661,9 +1694,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
             var appUserIdStr = emp.ApplicationUserId?.ToString();
             var deptName = emp.Department ?? "Chưa phân bổ";
 
-            // Assign consistent color index per department
+            // Colour index was assigned up-front above; safe fallback if a new
+            // department name slipped through.
             if (!deptColorMap.ContainsKey(deptName))
-                deptColorMap[deptName] = deptColorIndex++;
+                deptColorMap[deptName] = deptColorMap.Count;
 
             // Find current working location. Each source exposes its own timestamp;
             // we pick the FRESHEST one instead of a fixed hierarchy so a stale
@@ -1807,7 +1841,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
             var unmatchedDept = "Chưa phân bổ";
             if (!deptColorMap.ContainsKey(unmatchedDept))
-                deptColorMap[unmatchedDept] = deptColorIndex++;
+                deptColorMap[unmatchedDept] = deptColorMap.Count;
 
             foreach (var user in unmatchedUsers)
             {

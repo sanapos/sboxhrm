@@ -47,6 +47,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   bool _isGettingLocation = false;
   Timer? _trackingTimer;
   Timer? _managerRefreshTimer;
+  Timer? _journeyTabRefreshTimer;
   Timer? _locationReportTimer;
   final List<Map<String, dynamic>> _pendingTrackPoints = [];
   double? _lastTrackedLat;
@@ -109,12 +110,15 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     _loadMyData();
     _restorePendingPoints();
     _startLocationReporting();
+    // Kick off periodic refresh for the default (Hành trình) tab.
+    _startJourneyTabRefresh();
   }
 
   @override
   void dispose() {
     _trackingTimer?.cancel();
     _managerRefreshTimer?.cancel();
+    _journeyTabRefreshTimer?.cancel();
     _locationReportTimer?.cancel();
     _locationSearchCtl.dispose();
     _tabCtl.dispose();
@@ -169,6 +173,49 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     } else {
       _managerRefreshTimer?.cancel();
     }
+    // Auto-refresh the employee's own Hành trình tab so new assignments,
+    // check-ins and route points appear without having to leave and re-open
+    // the screen. Previously only the manager tab polled.
+    if (_tabCtl.index == 0) {
+      _startJourneyTabRefresh();
+    } else {
+      _journeyTabRefreshTimer?.cancel();
+    }
+  }
+
+  void _startJourneyTabRefresh() {
+    _journeyTabRefreshTimer?.cancel();
+    _journeyTabRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (_tabCtl.index == 0 && mounted) {
+        _refreshJourneyTab();
+      }
+    });
+  }
+
+  Future<void> _refreshJourneyTab() async {
+    try {
+      final results = await Future.wait([
+        _apiService.getMyFieldAssignments(),
+        _apiService.getTodayFieldVisits(),
+        _apiService.getTodayJourney(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        if (results[0]['isSuccess'] == true && results[0]['data'] != null) {
+          _myAssignments = (results[0]['data'] as List)
+              .map((e) => FieldLocationAssignment.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        if (results[1]['isSuccess'] == true && results[1]['data'] != null) {
+          _todayVisits = (results[1]['data'] as List)
+              .map((e) => VisitReport.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        if (results[2]['isSuccess'] == true && results[2]['data'] != null) {
+          _todayJourney = JourneyTracking.fromJson(results[2]['data'] as Map<String, dynamic>);
+        }
+      });
+    } catch (_) {}
   }
 
   void _startManagerRefresh() {
@@ -552,6 +599,26 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             _savePendingPoints();
             final resp = await _apiService.trackJourneyPoints(pts);
             if (resp['isSuccess'] == true && resp['data'] != null) {
+              final data = resp['data'] as Map<String, dynamic>;
+              // Backend now returns the updated routePoints JSON so we can
+              // redraw the polyline immediately (previously the map froze
+              // because we were copying the OLD route points forward).
+              List<RoutePoint> freshPoints = _todayJourney!.routePoints;
+              final rp = data['routePoints'];
+              if (rp != null) {
+                try {
+                  final raw = rp is String
+                      ? jsonDecode(rp)
+                      : rp;
+                  if (raw is List) {
+                    freshPoints = raw
+                        .map((e) => RoutePoint.fromJson(e as Map<String, dynamic>))
+                        .toList();
+                  }
+                } catch (_) {
+                  // keep previous points on parse error
+                }
+              }
               setState(() {
                 _todayJourney = JourneyTracking(
                   id: _todayJourney!.id,
@@ -559,12 +626,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   startTime: _todayJourney!.startTime,
                   endTime: _todayJourney!.endTime,
                   status: _todayJourney!.status,
-                  totalDistanceKm: (resp['data']['totalDistanceKm'] as num?)?.toDouble() ?? _todayJourney!.totalDistanceKm,
-                  totalTravelMinutes: resp['data']['totalTravelMinutes'] ?? _todayJourney!.totalTravelMinutes,
-                  totalOnSiteMinutes: resp['data']['totalOnSiteMinutes'] ?? _todayJourney!.totalOnSiteMinutes,
-                  checkedInCount: resp['data']['checkedInCount'] ?? _todayJourney!.checkedInCount,
+                  totalDistanceKm: (data['totalDistanceKm'] as num?)?.toDouble() ?? _todayJourney!.totalDistanceKm,
+                  totalTravelMinutes: data['totalTravelMinutes'] ?? _todayJourney!.totalTravelMinutes,
+                  totalOnSiteMinutes: data['totalOnSiteMinutes'] ?? _todayJourney!.totalOnSiteMinutes,
+                  checkedInCount: data['checkedInCount'] ?? _todayJourney!.checkedInCount,
                   assignedCount: _todayJourney!.assignedCount,
-                  routePoints: _todayJourney!.routePoints,
+                  routePoints: freshPoints,
                 );
               });
             }
@@ -1458,6 +1525,19 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.zktecoadms.app',
             ),
+            // Live GPS journey polyline (raw device trail, updates as the
+            // employee moves). Drawn UNDER the check-in line so the check-in
+            // waypoints remain visually on top.
+            if ((_todayJourney?.routePoints.length ?? 0) >= 2)
+              PolylineLayer(polylines: [
+                Polyline(
+                  points: _todayJourney!.routePoints
+                      .map((p) => LatLng(p.lat, p.lng))
+                      .toList(),
+                  color: const Color(0xFF2E7D32).withValues(alpha: 0.75),
+                  strokeWidth: 3,
+                ),
+              ]),
             // Check-in route polyline (connects check-in points in chronological order)
             if (() {
               final pts = _todayVisits
