@@ -73,8 +73,13 @@ post_install do |installer|
     end
   end
 
-  # Ensure Runner directly links TensorFlowLiteC.framework so dyld loads it
-  # at launch and tflite_flutter's dlsym(RTLD_DEFAULT, ...) succeeds.
+  # TensorFlowLiteC 2.12.0 ships as a STATIC vendored framework. A plain
+  # `-framework TensorFlowLiteC` lets the linker dead-strip unused C symbols
+  # (including TfLiteModelCreate) because no Swift/ObjC code references
+  # them directly. tflite_flutter looks them up at runtime via
+  # dlsym(RTLD_DEFAULT, ...), which needs the symbols present in the
+  # Runner binary. Use -force_load on the framework binary to pull in
+  # every symbol unconditionally.
   installer.aggregate_targets.each do |aggregate_target|
     next unless aggregate_target.name == 'Pods-Runner'
     aggregate_target.user_project.native_targets.each do |runner_target|
@@ -82,7 +87,14 @@ post_install do |installer|
       runner_target.build_configurations.each do |config|
         ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
         ldflags = [ldflags] if ldflags.is_a?(String)
-        ldflags << '-framework' << '"TensorFlowLiteC"' unless ldflags.join(' ').include?('TensorFlowLiteC')
+        force_load = '-force_load "${PODS_XCFRAMEWORKS_BUILD_DIR}/TensorFlowLiteC/TensorFlowLiteC.framework/TensorFlowLiteC"'
+        alt_force_load = '-force_load "${PODS_CONFIGURATION_BUILD_DIR}/TensorFlowLiteC/TensorFlowLiteC.framework/TensorFlowLiteC"'
+        joined = ldflags.join(' ')
+        unless joined.include?('TensorFlowLiteC/TensorFlowLiteC')
+          # Xcode expands whichever var resolves; include both for safety.
+          ldflags << force_load
+          ldflags << alt_force_load
+        end
         config.build_settings['OTHER_LDFLAGS'] = ldflags
       end
     end
