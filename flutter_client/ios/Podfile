@@ -72,4 +72,20 @@ post_install do |installer|
       ]
     end
   end
+
+  # Ensure Runner directly links TensorFlowLiteC.framework so dyld loads it
+  # at launch and tflite_flutter's dlsym(RTLD_DEFAULT, ...) succeeds.
+  installer.aggregate_targets.each do |aggregate_target|
+    next unless aggregate_target.name == 'Pods-Runner'
+    aggregate_target.user_project.native_targets.each do |runner_target|
+      next unless runner_target.name == 'Runner'
+      runner_target.build_configurations.each do |config|
+        ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+        ldflags = [ldflags] if ldflags.is_a?(String)
+        ldflags << '-framework' << '"TensorFlowLiteC"' unless ldflags.join(' ').include?('TensorFlowLiteC')
+        config.build_settings['OTHER_LDFLAGS'] = ldflags
+      end
+    end
+    aggregate_target.user_project.save
+  end
 end
