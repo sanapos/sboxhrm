@@ -1,8 +1,11 @@
 // dart:io used conditionally on mobile platforms
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+
+import 'ios_native_face_embedder.dart';
 
 /// Face embedding service using MobileFaceNet (TFLite).
 /// Converts face images to 192-dimensional identity vectors.
@@ -15,6 +18,11 @@ class FaceEmbeddingService {
   static const int _inputSize = 112; // MobileFaceNet input: 112x112
   static int _embeddingSize = 192; // Output dimension (will be read from model)
 
+  /// True once the iOS-native (CoreML + Vision) embedder has been probed
+  /// and confirmed ready. When true the service bypasses TFLite entirely
+  /// for embedding extraction.
+  static bool _iosNativeReady = false;
+
   /// Captures the last initialization exception so the UI can surface it for diagnostics
   /// (iOS TFLite load failures were previously hidden by the silent catch).
   static String? lastInitError;
@@ -24,6 +32,25 @@ class FaceEmbeddingService {
 
   /// Initialize the TFLite interpreter (call once on app start or first use).
   static Future<void> initialize() async {
+    // On iOS, try the native CoreML + Vision embedder FIRST. It uses the
+    // same ArcFace w600k_mbf architecture as the server so scores line up,
+    // and runs on the Neural Engine. When it is available we skip TFLite
+    // entirely so the Failed-to-lookup-symbol dialog cannot reappear.
+    if (!kIsWeb && Platform.isIOS) {
+      final native = await IosNativeFaceEmbedder.isAvailable();
+      if (native) {
+        _iosNativeReady = true;
+        lastInitError = null;
+        debugPrint('FaceEmbeddingService: using iOS native CoreML embedder');
+        // Probe output dim lazily on first embed call; keep default 192
+        // so legacy code paths still work. Actual dim is detected in
+        // getEmbedding().
+        return;
+      }
+      debugPrint('FaceEmbeddingService: iOS native embedder unavailable, '
+          'falling back to TFLite');
+    }
+
     if (_interpreter != null) return;
 
     try {
@@ -50,17 +77,35 @@ class FaceEmbeddingService {
   }
 
   /// Check if the model is loaded and ready.
-  static bool get isReady => _interpreter != null;
+  static bool get isReady => _iosNativeReady || _interpreter != null;
 
   /// Get face embedding (192-dim vector) from image bytes.
   /// The image should be face-cropped (from ML Kit bounding box).
   static Future<Float32List?> getEmbedding(Uint8List imageBytes) async {
+    // iOS-native (CoreML + Vision) path.
+    if (_iosNativeReady) {
+      final emb = await IosNativeFaceEmbedder.embed(imageBytes);
+      if (emb != null) {
+        if (emb.length != _embeddingSize) {
+          _embeddingSize = emb.length;
+        }
+        return emb;
+      }
+      debugPrint('FaceNet(iOS-native): returned null, falling through to TFLite');
+    }
+
     if (_interpreter == null) {
       await initialize();
-      if (_interpreter == null) {
+      if (_interpreter == null && !_iosNativeReady) {
         debugPrint('FaceNet: interpreter is null, cannot get embedding');
         return null;
       }
+      // Retry native if just became ready.
+      if (_iosNativeReady) {
+        final emb = await IosNativeFaceEmbedder.embed(imageBytes);
+        if (emb != null) return emb;
+      }
+      if (_interpreter == null) return null;
     }
 
     try {

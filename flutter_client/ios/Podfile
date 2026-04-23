@@ -110,6 +110,37 @@ post_install do |installer|
         end
       end
 
+      # --- (0b) Add NativeFaceEmbedder.swift to Runner's Compile Sources ---
+      native_face_rel = 'Runner/NativeFaceEmbedder.swift'
+      native_face_abs = File.expand_path(native_face_rel, File.dirname(__FILE__))
+      if File.exist?(native_face_abs)
+        already_added_swift = runner_target.source_build_phase.files_references.any? do |fr|
+          fr && fr.path && fr.path.end_with?('NativeFaceEmbedder.swift')
+        end
+        unless already_added_swift
+          runner_group = user_project.main_group['Runner'] || user_project.main_group
+          file_ref = runner_group.new_reference(native_face_abs)
+          runner_target.add_file_references([file_ref])
+        end
+      end
+
+      # --- (0c) Add FaceNet.mlpackage to Runner's Resources (Xcode will
+      #          auto-compile it to FaceNet.mlmodelc). The .mlpackage is
+      #          generated pre-build by ios/scripts/convert_facenet_to_coreml.py
+      #          (run from the Codemagic "Convert ArcFace ONNX to CoreML" step).
+      mlpkg_rel = 'Runner/FaceNet.mlpackage'
+      mlpkg_abs = File.expand_path(mlpkg_rel, File.dirname(__FILE__))
+      if File.exist?(mlpkg_abs)
+        already_added_ml = runner_target.resources_build_phase.files_references.any? do |fr|
+          fr && fr.path && fr.path.end_with?('FaceNet.mlpackage')
+        end
+        unless already_added_ml
+          runner_group = user_project.main_group['Runner'] || user_project.main_group
+          ml_ref = runner_group.new_reference(mlpkg_abs)
+          runner_target.add_resources([ml_ref])
+        end
+      end
+
       runner_target.build_configurations.each do |config|
         config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
         config.build_settings['STRIP_STYLE'] = 'debugging'

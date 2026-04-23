@@ -17,5 +17,11 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Register the native (CoreML + Vision) face embedder channel so Dart
+    // can call it via MethodChannel('sana/native_face_embedder').
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeFaceEmbedder") {
+      NativeFaceEmbedder.register(with: registrar)
+    }
   }
 }

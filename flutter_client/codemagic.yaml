@@ -21,6 +21,12 @@ workflows:
       - name: Get Flutter packages
         script: flutter packages pub get
 
+      - name: Convert ArcFace ONNX to CoreML
+        script: |
+          python3 -m pip install --quiet --upgrade coremltools onnx
+          python3 ios/scripts/convert_facenet_to_coreml.py
+          ls -lh ios/Runner/FaceNet.mlpackage || true
+
       - name: Install CocoaPods dependencies
         script: |
           cd ios
@@ -62,6 +68,12 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
+
+      - name: Convert ArcFace ONNX to CoreML
+        script: |
+          python3 -m pip install --quiet --upgrade coremltools onnx
+          python3 ios/scripts/convert_facenet_to_coreml.py
+          ls -lh ios/Runner/FaceNet.mlpackage || true
 
       - name: Install CocoaPods dependencies
         script: |
