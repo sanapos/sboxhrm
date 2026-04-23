@@ -121,9 +121,12 @@ post_install do |installer|
         ldflags = [ldflags] if ldflags.is_a?(String)
         joined = ldflags.join(' ')
 
-        # Force-load the static framework binary so every object is linked.
-        fl = '-force_load "${PODS_ROOT}/TensorFlowLiteC/Frameworks/TensorFlowLiteC.framework/TensorFlowLiteC"'
-        ldflags << fl unless joined.include?('TensorFlowLiteC/TensorFlowLiteC')
+        # NOTE: We intentionally do NOT use -force_load on the framework
+        # binary because TFLiteC 2.12 ships as an XCFramework whose
+        # per-arch slice path is not stable across Xcode versions, and a
+        # missing path makes the linker fail with "Build input file cannot
+        # be found". Symbol preservation is achieved via the keepalive
+        # source file + -Wl,-u flags + -export_dynamic below.
 
         # Export every global symbol (including ones from static libs) so
         # dlsym(RTLD_DEFAULT) can see them.
