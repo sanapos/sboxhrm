@@ -1665,11 +1665,26 @@ public class FieldCheckInController : AuthenticatedControllerBase
             if (!deptColorMap.ContainsKey(deptName))
                 deptColorMap[deptName] = deptColorIndex++;
 
-            // Find current working location — prioritize REAL-TIME sources (journey route, live GPS) over historical check-ins.
-            // Priority: journey (active route GPS) > live (device heartbeat) > punch (attendance GPS) > checkin (visit report GPS)
+            // Find current working location. Each source exposes its own timestamp;
+            // we pick the FRESHEST one instead of a fixed hierarchy so a stale
+            // morning journey point cannot override a live GPS heartbeat sent
+            // 60 seconds ago (this caused the "Quản lý tab shows yesterday's
+            // street" bug). Punch/check-in GPS are used only as last resort.
             double? lat = null, lng = null;
             DateTime? lastUpdate = null;
             string? source = null;
+
+            void consider(double candLat, double candLng, DateTime candTime, string candSource)
+            {
+                if (candLat == 0 && candLng == 0) return;
+                if (lastUpdate == null || candTime > lastUpdate)
+                {
+                    lat = candLat;
+                    lng = candLng;
+                    lastUpdate = candTime;
+                    source = candSource;
+                }
+            }
 
             var journey = todayJourneys.FirstOrDefault(j => j.EmployeeId == empCode || j.EmployeeId == empIdStr || (appUserIdStr != null && j.EmployeeId == appUserIdStr));
             if (journey != null)
@@ -1680,33 +1695,26 @@ public class FieldCheckInController : AuthenticatedControllerBase
                     if (points.Count > 0)
                     {
                         var last = points.Last();
-                        if (last.Lat != 0 && last.Lng != 0)
+                        if (last.Lat != 0 || last.Lng != 0)
                         {
-                            lat = last.Lat;
-                            lng = last.Lng;
-                            lastUpdate = last.Time;
-                            source = "journey";
+                            consider(last.Lat, last.Lng, last.Time, "journey");
                         }
                     }
                 }
                 catch { }
             }
 
-            // Fallback: live GPS from device heartbeat (real-time working position)
-            if (lat == null)
+            // Live GPS from device heartbeat (posted every 60s regardless of movement)
+            var live = liveLocations.FirstOrDefault(l => l.EmployeeId == empCode || l.EmployeeId == empIdStr || (appUserIdStr != null && l.EmployeeId == appUserIdStr));
+            if (live != null && (live.Latitude != 0 || live.Longitude != 0))
             {
-                var live = liveLocations.FirstOrDefault(l => l.EmployeeId == empCode || l.EmployeeId == empIdStr || (appUserIdStr != null && l.EmployeeId == appUserIdStr));
-                if (live != null && live.Latitude != 0)
-                {
-                    lat = live.Latitude;
-                    lng = live.Longitude;
-                    lastUpdate = live.UpdatedAt;
-                    source = "live";
-                }
+                consider(live.Latitude, live.Longitude, live.UpdatedAt, "live");
             }
 
-            // Fallback: last mobile punch GPS (recent attendance event)
-            if (lat == null)
+            // Last mobile punch GPS (recent attendance event) — only used if nothing
+            // newer was found above, because morning check-in punch stays for the
+            // whole day otherwise.
+            if (lastUpdate == null)
             {
                 var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr || (appUserIdStr != null && p.OdooEmployeeId == appUserIdStr));
                 if (lastPunch?.Latitude != null && lastPunch.Latitude != 0)
