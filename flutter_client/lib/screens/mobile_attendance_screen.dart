@@ -344,6 +344,50 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       return;
     }
 
+    // ---------------------------------------------------------------------
+    // LIVE RE-VALIDATION at tap time.
+    // Bug: employee opened the screen at the office (wifi/gps passed), went
+    // home, then tapped submit. The cached `_isLocationVerified` / `_isWifiVerified`
+    // flags were still true so the punch was accepted with home coordinates.
+    // Fix: refresh GPS and WiFi BSSID right before we proceed (and before
+    // opening the face camera, so the user does not waste a face scan).
+    // ---------------------------------------------------------------------
+    setState(() => _isAutoSubmitting = true);
+    try {
+      await Future.wait<void>([
+        _getCurrentLocation(),
+        _checkWifiConnection(requestPermissions: false),
+      ]);
+    } catch (_) {
+      // individual helpers already log; continue to condition check below
+    }
+    if (!mounted) return;
+    setState(() => _isAutoSubmitting = false);
+
+    // A fresh face scan must always be performed at tap time so a stale
+    // verification from earlier on this screen cannot be replayed after
+    // the employee has walked away.
+    if (_isFaceVerified) {
+      setState(() {
+        _isFaceVerified = false;
+        _faceMatchScore = null;
+        _faceImageBase64 = null;
+        _livenessPassed = false;
+      });
+    }
+
+    if (!_conditionsMet && !_allowOutsideCheckIn) {
+      final reasons = <String>[];
+      final s = _settings;
+      if (s != null) {
+        if (s.enableLocation && !_isLocationVerified) reasons.add('vị trí');
+        if (s.enableWifi && !_isWifiVerified) reasons.add('WiFi');
+      }
+      final detail = reasons.isEmpty ? '' : ' (${reasons.join(', ')})';
+      _showError('Chưa đạt đủ điều kiện xác thực$detail. Vui lòng kiểm tra lại khi bạn ở khu vực cho phép.');
+      return;
+    }
+
     // If face is enabled and not yet verified, open camera first
     final settings = _settings;
     if (settings != null && settings.enableFaceId && !_isFaceVerified && !_allowOutsideCheckIn) {
