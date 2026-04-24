@@ -10654,4 +10654,363 @@ class ApiService {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
+
+  // ============================================================
+  // SuperAdmin Announcements (Phase 1)
+  // ============================================================
+
+  Future<Map<String, dynamic>> listSystemAnnouncements({
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+    int? kind,
+    int? status,
+  }) async {
+    try {
+      final qp = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+        if (kind != null) 'kind': '$kind',
+        if (status != null) 'status': '$status',
+      };
+      final uri = Uri.parse('$baseUrl/api/system-admin/announcements')
+          .replace(queryParameters: qp);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createSystemAnnouncement(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/announcements'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendSystemAnnouncement(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/announcements/$id/send'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resendFailedAnnouncement(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse(
+              '$baseUrl/api/system-admin/announcements/$id/resend-failed'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelSystemAnnouncement(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/announcements/$id/cancel'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSystemAnnouncement(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/system-admin/announcements/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAnnouncementStats(String id) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/announcements/$id/stats'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> previewAnnouncementAudience(
+      Map<String, dynamic> audience) async {
+    try {
+      final response = await http.post(
+          Uri.parse(
+              '$baseUrl/api/system-admin/announcements/preview-audience'),
+          headers: _headers,
+          body: jsonEncode(audience));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getActiveAnnouncements() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/announcements/active'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> markAnnouncementSeen(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/announcements/$id/seen'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> markAnnouncementClicked(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/announcements/$id/clicked'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> markAnnouncementAcked(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/announcements/$id/ack'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> dismissAnnouncement(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/announcements/$id/dismiss'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ============ Phase 2 — Maintenance Windows ============
+
+  Future<Map<String, dynamic>> listMaintenanceWindows({bool? activeOnly}) async {
+    try {
+      final qs = activeOnly == true ? '?activeOnly=true' : '';
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/maintenance$qs'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createMaintenanceWindow(Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/maintenance'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> activateMaintenanceWindow(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/maintenance/$id/activate'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deactivateMaintenanceWindow(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/maintenance/$id/deactivate'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMaintenanceWindow(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/system-admin/maintenance/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getActiveMaintenance() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/maintenance/active'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ============ Phase 3 — Marketing (Templates + Campaigns) ============
+
+  Future<Map<String, dynamic>> listNotificationTemplates({bool? activeOnly}) async {
+    try {
+      final qs = activeOnly == true ? '?activeOnly=true' : '';
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/marketing/templates$qs'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createNotificationTemplate(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/marketing/templates'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateNotificationTemplate(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/system-admin/marketing/templates/$id'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteNotificationTemplate(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/system-admin/marketing/templates/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> listMarketingCampaigns(
+      {int page = 1, int pageSize = 50}) async {
+    try {
+      final response = await http.get(
+          Uri.parse(
+              '$baseUrl/api/system-admin/marketing/campaigns?page=$page&pageSize=$pageSize'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMarketingCampaign(String id) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createMarketingCampaign(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/marketing/campaigns'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> launchMarketingCampaign(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse(
+              '$baseUrl/api/system-admin/marketing/campaigns/$id/launch'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelMarketingCampaign(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse(
+              '$baseUrl/api/system-admin/marketing/campaigns/$id/cancel'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMarketingCampaign(String id) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
 }

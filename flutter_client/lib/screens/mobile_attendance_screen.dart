@@ -380,7 +380,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       final reasons = <String>[];
       final s = _settings;
       if (s != null) {
-        if (s.enableLocation && !_isLocationVerified) reasons.add('vị trí');
+        if (s.enableGps && !_isLocationVerified) reasons.add('vị trí');
         if (s.enableWifi && !_isWifiVerified) reasons.add('WiFi');
       }
       final detail = reasons.isEmpty ? '' : ' (${reasons.join(', ')})';

@@ -11,6 +11,9 @@ import 'system_admin/database_tab.dart';
 import 'system_admin/audit_tab.dart';
 import 'system_admin/service_packages_tab.dart';
 import 'system_admin/key_promotions_tab.dart';
+import 'system_admin/announcements_tab.dart';
+import 'system_admin/maintenance_tab.dart';
+import 'system_admin/marketing_tab.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   const SystemAdminScreen({super.key});
@@ -35,11 +38,14 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _auditKey = GlobalKey<AuditTabState>();
   final _servicePackagesKey = GlobalKey<ServicePackagesTabState>();
   final _keyPromotionsKey = GlobalKey<KeyPromotionsTabState>();
+  final _announcementsKey = GlobalKey<AnnouncementsTabState>();
+  final _maintenanceKey = GlobalKey<MaintenanceTabState>();
+  final _marketingKey = GlobalKey<MarketingTabState>();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 11, vsync: this);
+    _tabController = TabController(length: 14, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {}); // Rebuild header badges when tab changes
@@ -89,6 +95,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 AuditTab(key: _auditKey),
                 ServicePackagesTab(key: _servicePackagesKey),
                 KeyPromotionsTab(key: _keyPromotionsKey),
+                AnnouncementsTab(key: _announcementsKey),
+                MaintenanceTab(key: _maintenanceKey),
+                MarketingTab(key: _marketingKey),
               ],
             ),
           ),
@@ -107,6 +116,13 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final settingCount = _settingsKey.currentState?.settings.length ?? 0;
     final packageCount = _servicePackagesKey.currentState?.packages.length ?? 0;
     final promoCount = _keyPromotionsKey.currentState?.promotions.length ?? 0;
+    final announcementCount =
+        _announcementsKey.currentState?.announcements.length ?? 0;
+    final maintenanceCount =
+        _maintenanceKey.currentState?.windows.length ?? 0;
+    final marketingCount =
+        (_marketingKey.currentState?.templates.length ?? 0) +
+            (_marketingKey.currentState?.campaigns.length ?? 0);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -205,6 +221,15 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               Tab(
                   icon: const Icon(Icons.card_giftcard, size: 18),
                   text: 'KH Kích key ($promoCount)'),
+              Tab(
+                  icon: const Icon(Icons.campaign, size: 18),
+                  text: 'Thông báo ($announcementCount)'),
+              Tab(
+                  icon: const Icon(Icons.build_circle, size: 18),
+                  text: 'Bảo trì ($maintenanceCount)'),
+              Tab(
+                  icon: const Icon(Icons.local_offer, size: 18),
+                  text: 'Marketing ($marketingCount)'),
             ],
           ),
         ],

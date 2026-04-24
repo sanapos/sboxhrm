@@ -74,6 +74,13 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationCategory> NotificationCategories => Set<NotificationCategory>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+
+    // SuperAdmin Announcements / Maintenance / Marketing campaigns
+    public DbSet<SystemAnnouncement> SystemAnnouncements => Set<SystemAnnouncement>();
+    public DbSet<AnnouncementDelivery> AnnouncementDeliveries => Set<AnnouncementDelivery>();
+    public DbSet<MaintenanceWindow> MaintenanceWindows => Set<MaintenanceWindow>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<MarketingCampaign> MarketingCampaigns => Set<MarketingCampaign>();
     
     // Permissions & Roles
     public DbSet<Permission> Permissions => Set<Permission>();

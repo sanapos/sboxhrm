@@ -3,13 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Hệ thống typography chuẩn cho tiếng Việt
-/// Sử dụng Inter (hỗ trợ tốt dấu tiếng Việt, dễ đọc trên web/mobile)
-/// Line-height tối ưu cho ký tự có dấu
+/// Sử dụng Be Vietnam Pro – font được thiết kế riêng cho tiếng Việt
+/// (Google Fonts + Lâm Bảo), dấu thanh đẹp, được dùng phổ biến trên
+/// các app/website tại Việt Nam.
 class AppTypography {
   AppTypography._();
 
   static TextTheme _buildTextTheme(Color textColor, Color subtextColor) {
-    final base = GoogleFonts.interTextTheme();
+    final base = GoogleFonts.beVietnamProTextTheme();
     return base.copyWith(
       // === DISPLAY: Tiêu đề lớn, dashboard header ===
       displayLarge: base.displayLarge!.copyWith(fontSize: 28, fontWeight: FontWeight.w700, height: 1.35, color: textColor, letterSpacing: -0.5),

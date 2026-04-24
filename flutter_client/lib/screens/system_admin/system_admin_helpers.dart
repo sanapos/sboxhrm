@@ -13,6 +13,69 @@ class AdminHelpers {
   static const Color cardBg = Colors.white;
   static const Color surfaceBg = Color(0xFFF8FAFC);
 
+  // ===== Enum parsers (backend uses JsonStringEnumConverter ⇒ may return enum name or int) =====
+
+  static const Map<String, int> announcementKindMap = {
+    'News': 0,
+    'Maintenance': 1,
+    'Upgrade': 2,
+    'Renewal': 3,
+    'Marketing': 4,
+  };
+  static const Map<String, int> announcementSeverityMap = {
+    'Info': 0,
+    'Success': 1,
+    'Warning': 2,
+    'Critical': 3,
+  };
+  static const Map<String, int> announcementStatusMap = {
+    'Draft': 0,
+    'Scheduled': 1,
+    'Sending': 2,
+    'Sent': 3,
+    'Cancelled': 4,
+    'Failed': 5,
+  };
+  static const Map<String, int> campaignStatusMap = {
+    'Draft': 0,
+    'Scheduled': 1,
+    'Running': 2,
+    'Completed': 3,
+    'Cancelled': 4,
+    'Failed': 5,
+  };
+  static const Map<String, int> notificationChannelMap = {
+    'None': 0,
+    'InApp': 1,
+    'Banner': 2,
+    'Email': 4,
+    'Sms': 8,
+    'Push': 16,
+  };
+
+  /// Parse a value that may be int (numeric enum) or String (enum name or flags CSV).
+  static int parseEnumInt(dynamic v, [Map<String, int>? names]) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      if (v.isEmpty) return 0;
+      final asInt = int.tryParse(v);
+      if (asInt != null) return asInt;
+      // [Flags] enum serialized as "InApp, Banner"
+      if (names != null) {
+        int acc = 0;
+        for (final part in v.split(',')) {
+          final key = part.trim();
+          if (key.isEmpty) continue;
+          acc |= names[key] ?? 0;
+        }
+        return acc;
+      }
+    }
+    return 0;
+  }
+
   static Widget emptyState(IconData icon, String msg) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -67,11 +130,20 @@ class AdminHelpers {
   static String formatDate(dynamic date) {
     if (date == null) return '';
     try {
-      final d = DateTime.parse(date.toString());
+      final d = DateTime.parse(date.toString()).toLocal();
       return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     } catch (_) {
       return date.toString();
     }
+  }
+
+  /// Safely convert dynamic value (int / num / numeric string) to int with default.
+  static int parseInt(dynamic v, [int defaultValue = 0]) {
+    if (v == null) return defaultValue;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? defaultValue;
+    return defaultValue;
   }
 
   static String formatDateTime(dynamic date) {

@@ -2213,32 +2213,41 @@ public class SystemAdminController : AuthenticatedControllerBase
             // This handles all 50+ tables referencing StoreId
 
             // Helper to execute delete with a fresh parameter each time
+            // Uses SAVEPOINT so an unexpected failure doesn't poison the outer transaction.
             async Task DeleteFrom(string table, string column = "\"StoreId\"")
             {
+                var sp = "sp_" + Guid.NewGuid().ToString("N").Substring(0, 12);
                 try
                 {
+                    await _dbContext.Database.ExecuteSqlRawAsync($"SAVEPOINT {sp}");
 #pragma warning disable EF1002 // Table/column names are hardcoded, not user input
                     await _dbContext.Database.ExecuteSqlRawAsync(
                         $"DELETE FROM \"{table}\" WHERE {column} = @storeId",
                         new Npgsql.NpgsqlParameter("@storeId", id));
 #pragma warning restore EF1002
+                    await _dbContext.Database.ExecuteSqlRawAsync($"RELEASE SAVEPOINT {sp}");
                 }
-                catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01" || ex.SqlState == "42703" || ex.SqlState == "42P10")
+                catch (Exception ex)
                 {
-                    _logger.LogDebug("Table {Table} or column not found, skipping: {Message}", table, ex.Message);
+                    _logger.LogDebug("DeleteFrom({Table}) skipped: {Message}", table, ex.Message);
+                    try { await _dbContext.Database.ExecuteSqlRawAsync($"ROLLBACK TO SAVEPOINT {sp}"); } catch { }
                 }
             }
 
             async Task ExecuteRawSafe(string sql)
             {
+                var sp = "sp_" + Guid.NewGuid().ToString("N").Substring(0, 12);
                 try
                 {
+                    await _dbContext.Database.ExecuteSqlRawAsync($"SAVEPOINT {sp}");
                     await _dbContext.Database.ExecuteSqlRawAsync(sql,
                         new Npgsql.NpgsqlParameter("@storeId", id));
+                    await _dbContext.Database.ExecuteSqlRawAsync($"RELEASE SAVEPOINT {sp}");
                 }
-                catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01" || ex.SqlState == "42703" || ex.SqlState == "42P10")
+                catch (Exception ex)
                 {
-                    _logger.LogDebug("Table or column in query does not exist, skipping: {Sql}", sql);
+                    _logger.LogDebug("ExecuteRawSafe skipped: {Message} | SQL: {Sql}", ex.Message, sql);
+                    try { await _dbContext.Database.ExecuteSqlRawAsync($"ROLLBACK TO SAVEPOINT {sp}"); } catch { }
                 }
             }
 
@@ -2300,6 +2309,53 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Approval child tables
             await ExecuteRawSafe(
                 "DELETE FROM \"ApprovalSteps\" WHERE \"ApprovalFlowId\" IN (SELECT \"Id\" FROM \"ApprovalFlows\" WHERE \"StoreId\" = @storeId)");
+
+            // 1b. Dynamic sweep: delete rows in ANY table that has an EmployeeId column
+            // referencing employees of this store. Handles tables whose StoreId is nullable
+            // (e.g. WorkSchedules) or tables that don't have StoreId at all.
+            try
+            {
+                var employeeRefTables = await _dbContext.Database
+                    .SqlQueryRaw<string>(
+                        @"SELECT c.table_name FROM information_schema.columns c
+                          JOIN information_schema.tables t ON c.table_name = t.table_name AND t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+                          WHERE c.column_name = 'EmployeeId' AND c.table_schema = 'public'
+                          AND c.table_name <> 'Employees'")
+                    .ToListAsync();
+
+                foreach (var table in employeeRefTables)
+                {
+                    await ExecuteRawSafe(
+                        $"DELETE FROM \"{table}\" WHERE \"EmployeeId\" IN (SELECT \"Id\" FROM \"Employees\" WHERE \"StoreId\" = @storeId)");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Dynamic EmployeeId discovery skipped: {Message}", ex.Message);
+            }
+
+            // 1c. Dynamic sweep: delete rows in ANY table that has a DeviceId column
+            // referencing devices of this store.
+            try
+            {
+                var deviceRefTables = await _dbContext.Database
+                    .SqlQueryRaw<string>(
+                        @"SELECT c.table_name FROM information_schema.columns c
+                          JOIN information_schema.tables t ON c.table_name = t.table_name AND t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+                          WHERE c.column_name = 'DeviceId' AND c.table_schema = 'public'
+                          AND c.table_name <> 'Devices'")
+                    .ToListAsync();
+
+                foreach (var table in deviceRefTables)
+                {
+                    await ExecuteRawSafe(
+                        $"DELETE FROM \"{table}\" WHERE \"DeviceId\" IN (SELECT \"Id\" FROM \"Devices\" WHERE \"StoreId\" = @storeId)");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Dynamic DeviceId discovery skipped: {Message}", ex.Message);
+            }
 
             // 2. Delete all tables with direct StoreId reference
             await DeleteFrom("Devices");
@@ -2371,6 +2427,50 @@ public class SystemAdminController : AuthenticatedControllerBase
                 "DELETE FROM \"AspNetUserLogins\" WHERE \"UserId\" IN (SELECT \"Id\" FROM \"AspNetUsers\" WHERE \"StoreId\" = @storeId)");
             await ExecuteRawSafe(
                 "DELETE FROM \"AspNetUserTokens\" WHERE \"UserId\" IN (SELECT \"Id\" FROM \"AspNetUsers\" WHERE \"StoreId\" = @storeId)");
+            // 3b. Before deleting AspNetUsers, discover EVERY FK pointing at AspNetUsers.Id
+            // and either NULL it out (if nullable) or DELETE the referencing row.
+            // This uses pg catalogs so it catches ManagerId, TargetUserId, SenderUserId, etc.
+            try
+            {
+                var fkRefs = await _dbContext.Database
+                    .SqlQueryRaw<UserFkRef>(
+                        @"SELECT tc.table_name AS ""TableName"",
+                                 kcu.column_name AS ""ColumnName"",
+                                 col.is_nullable AS ""IsNullable""
+                          FROM information_schema.table_constraints tc
+                          JOIN information_schema.key_column_usage kcu
+                            ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+                          JOIN information_schema.constraint_column_usage ccu
+                            ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+                          JOIN information_schema.columns col
+                            ON col.table_schema = kcu.table_schema AND col.table_name = kcu.table_name AND col.column_name = kcu.column_name
+                          WHERE tc.constraint_type = 'FOREIGN KEY'
+                            AND tc.table_schema = 'public'
+                            AND ccu.table_name = 'AspNetUsers'
+                            AND ccu.column_name = 'Id'
+                            AND tc.table_name NOT LIKE 'AspNet%'
+                            AND tc.table_name <> 'UserRefreshTokens'")
+                    .ToListAsync();
+
+                foreach (var fk in fkRefs)
+                {
+                    if (string.Equals(fk.IsNullable, "YES", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await ExecuteRawSafe(
+                            $"UPDATE \"{fk.TableName}\" SET \"{fk.ColumnName}\" = NULL WHERE \"{fk.ColumnName}\" IN (SELECT \"Id\" FROM \"AspNetUsers\" WHERE \"StoreId\" = @storeId)");
+                    }
+                    else
+                    {
+                        await ExecuteRawSafe(
+                            $"DELETE FROM \"{fk.TableName}\" WHERE \"{fk.ColumnName}\" IN (SELECT \"Id\" FROM \"AspNetUsers\" WHERE \"StoreId\" = @storeId)");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("User FK sweep skipped: {Message}", ex.Message);
+            }
+
             await ExecuteRawSafe(
                 "DELETE FROM \"AspNetUsers\" WHERE \"StoreId\" = @storeId");
 
@@ -4443,6 +4543,9 @@ public class SystemAdminController : AuthenticatedControllerBase
 
     #endregion
 }
+
+// DTO for user FK discovery during store cascade delete
+internal record UserFkRef(string TableName, string ColumnName, string IsNullable);
 
 public record ExtendDaysRequest(int Days);
 

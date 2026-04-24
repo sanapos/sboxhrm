@@ -1,9 +1,9 @@
 using ZKTecoADMS.Application.Settings;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Api.Middlewares;
 using ZKTecoADMS.Api.Hubs;
-using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Api.Services;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -114,12 +114,26 @@ public static class DependencyInjectionExtensions
         // is loaded once and reused across requests (heavy init).
         services.AddSingleton<FaceDetectorService>();
         services.AddSingleton<FaceAntiSpoofService>();
+        services.AddHttpClient("face-sidecar");
         services.AddSingleton<OnnxFaceEmbeddingService>();
         
         // Register notification services
         services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
         services.AddScoped<ISystemNotificationService, SystemNotificationService>();
         services.AddScoped<IDeviceStatusNotificationService, DeviceStatusNotificationService>();
+
+        // SuperAdmin announcements (Phase 1)
+        services.AddScoped<IAudienceResolver, AudienceResolver>();
+        services.AddScoped<IAnnouncementService, AnnouncementService>();
+
+        // SuperAdmin maintenance (Phase 2)
+        services.AddScoped<IMaintenanceService, MaintenanceService>();
+
+        // Phase 3 — channel providers (Email/SMS/Push)
+        services.AddScoped<INotificationChannelProvider, ZKTecoADMS.Infrastructure.Services.Channels.EmailChannelProvider>();
+        services.AddScoped<INotificationChannelProvider, ZKTecoADMS.Infrastructure.Services.Channels.SmsChannelProvider>();
+        services.AddScoped<INotificationChannelProvider, ZKTecoADMS.Infrastructure.Services.Channels.PushChannelProvider>();
+        services.AddScoped<IMarketingService, MarketingService>();
         
         // Register Gemini AI service
         services.AddSingleton<IGeminiAiService, GeminiAiService>();
@@ -133,6 +147,11 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
         services.AddHostedService<FieldDataCleanupBackgroundService>();
+
+        // Phase 2 jobs
+        services.AddHostedService<ScheduledAnnouncementBackgroundService>();
+        services.AddHostedService<RenewalReminderBackgroundService>();
+        services.AddHostedService<MaintenanceNotifierBackgroundService>();
         
         services.AddSwaggerGen(config =>
         {
@@ -299,6 +318,7 @@ public static class DependencyInjectionExtensions
         app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMaintenanceMode();
         app.MapControllers().RequireRateLimiting("per-user");
         
         // Map SignalR hub for real-time attendance notifications (require authentication)

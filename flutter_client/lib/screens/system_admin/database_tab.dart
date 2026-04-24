@@ -35,8 +35,7 @@ class DatabaseTabState extends State<DatabaseTab> {
       setState(() {
         if (results[0]['isSuccess'] == true) _dbInfo = results[0]['data'];
         if (results[1]['isSuccess'] == true) {
-          _backupFiles =
-              List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+          _backupFiles = AdminHelpers.extractList(results[1]['data']);
         }
       });
     } catch (e) {

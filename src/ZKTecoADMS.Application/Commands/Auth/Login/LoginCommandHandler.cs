@@ -24,10 +24,31 @@ public class LoginCommandHandler(
         var store = await storeRepository.GetSingleAsync(
             s => s.Code.ToLower() == request.StoreCode.ToLower() && s.IsActive,
             cancellationToken: cancellationToken);
-        
+
         if (store == null)
         {
             return AppResponse<AuthenticateResponse>.Error("Mã cửa hàng không tồn tại hoặc đã bị vô hiệu hóa.");
+        }
+
+        // ===== Kiểm tra hết hạn sử dụng (expiry) =====
+        var now = DateTime.UtcNow;
+        bool isExpired = false;
+        if (store.ExpiryDate.HasValue)
+        {
+            // Nếu có ExpiryDate thì chỉ cần kiểm tra ngày này
+            if (store.ExpiryDate.Value.Date < now.Date)
+                isExpired = true;
+        }
+        else if (store.TrialStartDate.HasValue && store.TrialDays > 0)
+        {
+            // Nếu không có ExpiryDate thì kiểm tra hết hạn dùng thử
+            var trialEnd = store.TrialStartDate.Value.Date.AddDays(store.TrialDays);
+            if (trialEnd < now.Date)
+                isExpired = true;
+        }
+        if (isExpired)
+        {
+            return AppResponse<AuthenticateResponse>.Error("Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.");
         }
 
         // First, find the user by username/email AND store (lightweight query for validation)

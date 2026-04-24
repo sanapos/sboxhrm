@@ -334,9 +334,12 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
     final bonus4Ctrl = TextEditingController(text: (promo?['bonus4Keys'] ?? 0).toString());
 
     String? selectedPackageId = promo?['servicePackageId']?.toString();
-    DateTime startDate = DateTime.tryParse(promo?['startDate'] ?? '') ?? DateTime.now();
-    DateTime endDate = DateTime.tryParse(promo?['endDate'] ?? '') ??
-        DateTime.now().add(const Duration(days: 30));
+    DateTime startDate =
+        DateTime.tryParse(promo?['startDate'] ?? '')?.toLocal() ??
+            DateTime.now();
+    DateTime endDate =
+        DateTime.tryParse(promo?['endDate'] ?? '')?.toLocal() ??
+            DateTime.now().add(const Duration(days: 30));
 
     showDialog(
       context: context,

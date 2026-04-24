@@ -22,6 +22,7 @@ class StoresTabState extends State<StoresTab> {
   String? _statusFilter;
   String? _packageFilter;
   String? _expiryFilter;
+  String? _usageFilter; // trial / active / inactive / expired
   String? _inactivityFilter;
   int _currentPage = 1;
   final int _pageSize = 20;
@@ -89,6 +90,10 @@ class StoresTabState extends State<StoresTab> {
             (_expiryFilter == 'expiring30' && remaining != null && remaining > 0 && remaining <= 30) ||
             (_expiryFilter == 'valid' && remaining != null && remaining > 30);
 
+        // Usage filter (trial / active / inactive / expired)
+        final usage = _getUsageStatus(s);
+        final matchUsage = _usageFilter == null || usage == _usageFilter;
+
         // Inactivity filter
         final inactiveDays = _getInactiveDays(s);
         final matchInactivity = _inactivityFilter == null ||
@@ -100,7 +105,7 @@ class StoresTabState extends State<StoresTab> {
             (_inactivityFilter == '>365' && inactiveDays != null && inactiveDays >= 365) ||
             (_inactivityFilter == 'never' && inactiveDays == null);
 
-        return matchSearch && matchStatus && matchPackage && matchExpiry && matchInactivity;
+        return matchSearch && matchStatus && matchPackage && matchExpiry && matchUsage && matchInactivity;
       }).toList();
       _currentPage = 1;
     });
@@ -116,14 +121,16 @@ class StoresTabState extends State<StoresTab> {
         return expiryDate.difference(DateTime.now()).inDays;
       }
     }
-    // Fallback: trialStartDate + trialDays
-    final trialStart = store['trialStartDate'];
+    // Fallback: trialStartDate (or createdAt if trial start not set) + trialDays
     final trialDays = store['trialDays'] as int?;
-    if (trialStart != null && trialDays != null) {
-      final startDate = DateTime.tryParse(trialStart.toString());
-      if (startDate != null) {
-        final endDate = startDate.add(Duration(days: trialDays));
-        return endDate.difference(DateTime.now()).inDays;
+    if (trialDays != null) {
+      final startRaw = store['trialStartDate'] ?? store['createdAt'];
+      if (startRaw != null) {
+        final startDate = DateTime.tryParse(startRaw.toString());
+        if (startDate != null) {
+          final endDate = startDate.add(Duration(days: trialDays));
+          return endDate.difference(DateTime.now()).inDays;
+        }
       }
     }
     return null;
@@ -136,6 +143,31 @@ class StoresTabState extends State<StoresTab> {
     final dt = DateTime.tryParse(lastActivity.toString());
     if (dt == null) return null;
     return DateTime.now().difference(dt).inDays;
+  }
+
+  /// Returns true if store is currently on a trial license (not a paid package)
+  bool _isTrial(Map<String, dynamic> store) {
+    final lt = (store['licenseType'] ?? '').toString().toLowerCase();
+    // Treat as trial when licenseType explicitly says trial, OR when there is no
+    // paid package AND a trialStartDate/trialDays is configured.
+    if (lt == 'trial') return true;
+    final hasPackage = store['servicePackageName'] != null;
+    final hasTrial = store['trialStartDate'] != null && store['trialDays'] != null;
+    return !hasPackage && hasTrial;
+  }
+
+  /// Compute usage status for filters/badges:
+  /// 'trial'   = đang dùng thử (còn hạn dùng thử)
+  /// 'active'  = đang sử dụng (đã mua, còn hạn, có giao dịch)
+  /// 'inactive'= không sử dụng (còn hạn nhưng chưa từng có giao dịch)
+  /// 'expired' = hết hạn sử dụng
+  String _getUsageStatus(Map<String, dynamic> store) {
+    final remaining = _getRemainingDays(store);
+    if (remaining != null && remaining <= 0) return 'expired';
+    if (_isTrial(store)) return 'trial';
+    final lastActivity = store['lastActivityAt'];
+    if (lastActivity == null) return 'inactive';
+    return 'active';
   }
 
   @override
@@ -172,6 +204,12 @@ class StoresTabState extends State<StoresTab> {
       final r = _getRemainingDays(s);
       return r != null && r > 0 && r <= 30;
     }).length;
+    final trialCount =
+        _stores.where((s) => _getUsageStatus(s) == 'trial').length;
+    final usingCount =
+        _stores.where((s) => _getUsageStatus(s) == 'active').length;
+    final notUsingCount =
+        _stores.where((s) => _getUsageStatus(s) == 'inactive').length;
 
     // Collect unique package names
     final packageNames = _stores
@@ -205,6 +243,21 @@ class StoresTabState extends State<StoresTab> {
                 ],
                 onChanged: (v) {
                   _statusFilter = v;
+                  _applyFilters();
+                },
+              ),
+              _buildDropdown<String?>(
+                value: _usageFilter,
+                hint: 'Tình trạng SD',
+                items: [
+                  _dropItem(null, 'Tất cả tình trạng'),
+                  _dropItem('trial', 'Đang dùng thử'),
+                  _dropItem('active', 'Đang sử dụng'),
+                  _dropItem('inactive', 'Không sử dụng'),
+                  _dropItem('expired', 'Hết hạn sử dụng'),
+                ],
+                onChanged: (v) {
+                  _usageFilter = v;
                   _applyFilters();
                 },
               ),
@@ -265,6 +318,21 @@ class StoresTabState extends State<StoresTab> {
               AdminHelpers.countBadge(
                   'Hoạt động', activeCount, AdminHelpers.success),
               const SizedBox(width: 8),
+              if (trialCount > 0) ...[
+                AdminHelpers.countBadge(
+                    'Dùng thử', trialCount, const Color(0xFF7C3AED)),
+                const SizedBox(width: 8),
+              ],
+              if (usingCount > 0) ...[
+                AdminHelpers.countBadge(
+                    'Đang SD', usingCount, AdminHelpers.info),
+                const SizedBox(width: 8),
+              ],
+              if (notUsingCount > 0) ...[
+                AdminHelpers.countBadge(
+                    'Không SD', notUsingCount, Colors.grey.shade600),
+                const SizedBox(width: 8),
+              ],
               if (expiringCount > 0) ...[
                 AdminHelpers.countBadge(
                     'Sắp hết hạn', expiringCount, AdminHelpers.warning),
@@ -383,6 +451,7 @@ class StoresTabState extends State<StoresTab> {
     final name = store['name'] ?? store['storeName'] ?? 'N/A';
     final phone = store['phone']?.toString() ?? '';
     final licenseType = store['licenseType']?.toString() ?? '';
+    final trialChip = _getTrialStatus(store);
 
     return InkWell(
       onTap: () => _showStoreDetail(store),
@@ -401,6 +470,10 @@ class StoresTabState extends State<StoresTab> {
               const SizedBox(height: 2),
               Text([if (phone.isNotEmpty) phone, AdminHelpers.licenseTypeLabel(licenseType)].join(' \u00b7 '),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (trialChip != null) ...[
+                const SizedBox(height: 4),
+                trialChip,
+              ],
             ]),
           ),
           Container(
@@ -1103,17 +1176,22 @@ class StoresTabState extends State<StoresTab> {
   // ═══════════════════════ TRIAL STATUS HELPER ═══════════════════════
   Widget? _getTrialStatus(Map<String, dynamic> store) {
     final remaining = _getRemainingDays(store);
-    if (remaining == null) return null;
-
-    if (remaining > 30) {
-      return AdminHelpers.statusChip(
-          'Còn $remaining ngày', AdminHelpers.success);
-    } else if (remaining > 0) {
-      return AdminHelpers.statusChip(
-          'Còn $remaining ngày', AdminHelpers.warning);
-    } else {
-      return AdminHelpers.statusChip('Hết hạn', AdminHelpers.danger);
+    final isTrial = _isTrial(store);
+    if (remaining == null) {
+      return isTrial
+          ? AdminHelpers.statusChip('Dùng thử', const Color(0xFF7C3AED))
+          : null;
     }
+
+    if (remaining <= 0) {
+      return AdminHelpers.statusChip(
+          isTrial ? 'Hết hạn dùng thử' : 'Hết hạn', AdminHelpers.danger);
+    }
+    final prefix = isTrial ? 'Dùng thử · ' : '';
+    final color = remaining > 30
+        ? (isTrial ? const Color(0xFF7C3AED) : AdminHelpers.success)
+        : AdminHelpers.warning;
+    return AdminHelpers.statusChip('${prefix}Còn $remaining ngày', color);
   }
 
   // ═══════════════════════ EXTEND DAYS ═══════════════════════
@@ -1388,7 +1466,7 @@ class StoresTabState extends State<StoresTab> {
   String _fmtDate(dynamic d) {
     if (d == null) return '';
     try {
-      final dt = DateTime.parse(d.toString());
+      final dt = DateTime.parse(d.toString()).toLocal();
       return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
     } catch (_) {
       return d.toString();

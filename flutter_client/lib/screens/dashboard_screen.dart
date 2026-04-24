@@ -1,4 +1,5 @@
 import 'dart:async';
+// ignore_for_file: unused_import
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _dailyReport = {};
   List<dynamic> _dailyReportItems = [];
   DateTime? _selectedDate; // null => today
+  DateTime? _rangeStart; // for week/month preset; null => single day
+  DateTime? _rangeEnd;
+  String _presetKey = 'today'; // today|yesterday|thisWeek|lastWeek|thisMonth|lastMonth|custom
   List<dynamic> _todayLeaves = [];
   List<dynamic> _trends = [];
   List<dynamic> _devices = [];
@@ -44,6 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _pendingLeaves = [];
   List<dynamic> _pendingCorrections = [];
   List<dynamic> _pendingSwaps = [];
+  List<dynamic> _pendingAdvances = [];
   Map<String, dynamic> _taskStats = {};
   Map<String, dynamic> _overtimeStats = {};
   Map<String, dynamic> _penaltyStats = {};
@@ -141,7 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final emptyList = <dynamic>[];
     final critical = await Future.wait([
       _safe(() => _api.getDailyAttendanceReport(date: todayStr), emptyMap, 'daily'),
-      _safe(() => _api.getDeviceStatus(), emptyList, 'devices'),
+      _safe(() => _api.getDevices(storeOnly: true), emptyList, 'devices'),
       _safe(() => _api.getEmployees(pageSize: 500), emptyList, 'employees'),
     ]);
 
@@ -175,6 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _safe(() => _api.getCashTransactionSummary(fromDate: monthStart, toDate: monthEnd), emptyMap, 'cash'), // 12
       _safe(() => _api.getMonthlyAttendanceReport(month: now.month, year: now.year), emptyMap, 'monthly'), // 13
       _safe(() => _api.getExpiringDocuments(), emptyMap, 'docs'),                   // 14
+      _safe(() => _api.getAdvanceRequests(status: 0, pageSize: 100), emptyMap, 'advances'), // 15
     ]);
 
     if (!mounted) return;
@@ -195,6 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _cashSummary = (asMap(12)['data'] as Map<String, dynamic>?) ?? asMap(12);
       _monthlyReport = (asMap(13)['data'] as Map<String, dynamic>?) ?? asMap(13);
       _expiringDocs = _extractList(asMap(14));
+      _pendingAdvances = _extractList(asMap(15));
     });
   }
 
@@ -230,21 +237,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _memoCheckOuts = outs;
 
     // Online device count — cached (recomputed when _devices changes).
-    final threshold = DateTime.now().toUtc().subtract(const Duration(seconds: 90));
     var online = 0;
     for (final d in _devices) {
-      if (d is! Map) continue;
-      final lastOnlineRaw = d['lastOnline'] ?? d['LastOnline'];
-      if (lastOnlineRaw != null) {
-        try {
-          final lo = DateTime.parse(lastOnlineRaw.toString()).toUtc();
-          if (lo.isAfter(threshold)) { online++; continue; }
-        } catch (_) {}
-      }
-      final s = (d['deviceStatus'] ?? d['DeviceStatus'] ?? '').toString();
-      if (s.toLowerCase() == 'online') online++;
+      if (d is Map && _isDeviceOnline(d)) online++;
     }
     _memoOnlineDevices = online;
+  }
+
+  /// Online-device heuristic — copy EXACT logic from
+  /// `device_management_settings_screen.dart` so the Dashboard and the HRM
+  /// Settings screen always show the same counts.
+  bool _isDeviceOnline(Map d) {
+    // Ưu tiên dùng trạng thái do backend tính sẵn
+    final status = d['deviceStatus']?.toString().toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      return status == 'online';
+    }
+    // Fallback: tính từ lastOnline (server lưu UTC, phải parse đúng)
+    final lastOnline = d['lastOnline'];
+    if (lastOnline == null) return false;
+    try {
+      final raw = lastOnline.toString();
+      final dateStr =
+          (raw.contains('Z') || raw.contains('+')) ? raw : '${raw}Z';
+      final dt = DateTime.parse(dateStr);
+      return DateTime.now().toUtc().difference(dt).inMinutes < 5;
+    } catch (_) {
+      return false;
+    }
   }
 
   List<dynamic> _extractList(Map<String, dynamic> data) {
@@ -263,13 +283,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ignore: unused_element
   List<dynamic> get _absentEmployeesList => _memoAbsent;
 
-  int get _totalEmployees => ((_dailyReport['totalEmployees'] ?? _employees.length) as num).toInt();
-  int get _presentCount => ((_dailyReport['present'] ?? 0) as num).toInt();
-  int get _absentCount => ((_dailyReport['absent'] ?? 0) as num).toInt();
-  int get _lateCount => ((_dailyReport['late'] ?? 0) as num).toInt();
+  int get _totalEmployees {
+    // Match the detail list length.
+    if (_dailyReportItems.isNotEmpty) return _dailyReportItems.length;
+    final fromReport =
+        ((_dailyReport['totalEmployees'] ?? 0) as num).toInt();
+    return fromReport > 0 ? fromReport : _employees.length;
+  }
+  int get _presentCount => _kpiDetailData('present').length;
+  int get _absentCount => _kpiDetailData('absent').length;
+  int get _lateCount => _memoLate.length;
   int get _checkIns => _memoCheckIns;
   int get _checkOuts => _memoCheckOuts;
-  double get _attendanceRate => ((_dailyReport['attendanceRate'] ?? 0) as num).toDouble();
+  double get _attendanceRate {
+    final total = _totalEmployees;
+    if (total <= 0) return 0;
+    return (_presentCount / total) * 100.0;
+  }
   int get _onlineDevices => _memoOnlineDevices;
   int get _totalDevices => _devices.length;
 
@@ -433,13 +463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== HERO OVERVIEW (donut + KPI + date filter) =====================
   Widget _buildHeroOverview() {
-    final scheduled = math.max(_totalEmployees - _absentCount - _presentCount, 0);
     final rate = _attendanceRate.clamp(0, 100).toDouble();
-
-    final isSelectedToday = _selectedDate == null ||
-        (_selectedDate!.year == DateTime.now().year &&
-            _selectedDate!.month == DateTime.now().month &&
-            _selectedDate!.day == DateTime.now().day);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -455,53 +479,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Filter row
+          // Title row
           Row(
             children: [
               const Icon(Icons.analytics_outlined, size: 18, color: Color(0xFF1E3A5F)),
               const SizedBox(width: 6),
-              const Text(
-                'Tổng quan chấm công',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)),
-              ),
-              const Spacer(),
-              _buildDateChip('Hôm nay', isSelectedToday, () {
-                setState(() => _selectedDate = null);
-                _loadAllData();
-              }),
-              const SizedBox(width: 6),
-              _buildDateChip('Hôm qua',
-                  _selectedDate != null && _daysAgo(_selectedDate!) == 1, () {
-                setState(() => _selectedDate = DateTime.now().subtract(const Duration(days: 1)));
-                _loadAllData();
-              }),
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: _pickCustomDate,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: const Color(0xFFE4E9F0)),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.calendar_month, size: 14, color: Color(0xFF475569)),
-                      const SizedBox(width: 4),
-                      Text(
-                        _selectedDate == null
-                            ? 'Chọn ngày'
-                            : '${_selectedDate!.day}/${_selectedDate!.month}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
+              const Expanded(
+                child: Text(
+                  'Tổng quan chấm công',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)),
                 ),
               ),
+              if (_rangeLabel().isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E3A5F).withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _rangeLabel(),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E3A5F)),
+                  ),
+                ),
             ],
+          ),
+          const SizedBox(height: 10),
+          // Filter row — own line, horizontally scrollable so nothing is cut off
+          SizedBox(
+            height: 34,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildPresetChip('today', 'Hôm nay'),
+                const SizedBox(width: 6),
+                _buildPresetChip('yesterday', 'Hôm qua'),
+                const SizedBox(width: 6),
+                _buildPresetChip('thisWeek', 'Tuần này'),
+                const SizedBox(width: 6),
+                _buildPresetChip('lastWeek', 'Tuần trước'),
+                const SizedBox(width: 6),
+                _buildPresetChip('thisMonth', 'Tháng này'),
+                const SizedBox(width: 6),
+                _buildPresetChip('lastMonth', 'Tháng trước'),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: _pickCustomDate,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _presetKey == 'custom'
+                          ? const Color(0xFF1E3A5F)
+                          : Colors.white,
+                      border: Border.all(
+                          color: _presetKey == 'custom'
+                              ? const Color(0xFF1E3A5F)
+                              : const Color(0xFFE4E9F0)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_month,
+                            size: 14,
+                            color: _presetKey == 'custom'
+                                ? Colors.white
+                                : const Color(0xFF475569)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Lựa chọn khác',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _presetKey == 'custom'
+                                ? Colors.white
+                                : const Color(0xFF475569),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -528,18 +592,110 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
-          if (scheduled > 0) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Đã ghi nhận: $_checkIns vào / $_checkOuts ra  •  Lịch phân công: $scheduled NV',
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-            ),
-          ],
         ],
       ),
     );
   }
 
+  // Short label shown in the title chip describing the active range
+  String _rangeLabel() {
+    String d(DateTime x) => '${x.day}/${x.month}';
+    switch (_presetKey) {
+      case 'today':
+        return '';
+      case 'yesterday':
+        return 'Hôm qua';
+      case 'custom':
+        return _selectedDate == null ? '' : d(_selectedDate!);
+      default:
+        if (_rangeStart != null && _rangeEnd != null) {
+          return '${d(_rangeStart!)} – ${d(_rangeEnd!)}';
+        }
+        return '';
+    }
+  }
+
+  Widget _buildPresetChip(String key, String label) {
+    final selected = _presetKey == key;
+    return InkWell(
+      onTap: () => _applyPreset(key),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1E3A5F) : Colors.white,
+          border: Border.all(
+              color: selected
+                  ? const Color(0xFF1E3A5F)
+                  : const Color(0xFFE4E9F0)),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _applyPreset(String key) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime? start;
+    DateTime? end;
+    DateTime? single;
+
+    switch (key) {
+      case 'today':
+        single = today;
+        break;
+      case 'yesterday':
+        single = today.subtract(const Duration(days: 1));
+        break;
+      case 'thisWeek':
+        // Monday = 1 ... Sunday = 7
+        start = today.subtract(Duration(days: today.weekday - 1));
+        end = start.add(const Duration(days: 6));
+        break;
+      case 'lastWeek':
+        final thisMon = today.subtract(Duration(days: today.weekday - 1));
+        start = thisMon.subtract(const Duration(days: 7));
+        end = thisMon.subtract(const Duration(days: 1));
+        break;
+      case 'thisMonth':
+        start = DateTime(today.year, today.month, 1);
+        end = DateTime(today.year, today.month + 1, 0);
+        break;
+      case 'lastMonth':
+        start = DateTime(today.year, today.month - 1, 1);
+        end = DateTime(today.year, today.month, 0);
+        break;
+    }
+
+    setState(() {
+      _presetKey = key;
+      if (single != null) {
+        _selectedDate =
+            key == 'today' ? null : single; // null means "today" for API
+        _rangeStart = null;
+        _rangeEnd = null;
+      } else if (start != null && end != null) {
+        _rangeStart = start;
+        _rangeEnd = end.isAfter(today) ? today : end;
+        // Use the end of the range (capped to today) as the "target" day
+        // for the daily snapshot.
+        _selectedDate = _rangeEnd;
+      }
+    });
+    _loadAllData();
+  }
+
+  // ignore: unused_element
   int _daysAgo(DateTime d) {
     final now = DateTime.now();
     final a = DateTime(now.year, now.month, now.day);
@@ -555,11 +711,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _presetKey = 'custom';
+        _selectedDate = picked;
+        _rangeStart = null;
+        _rangeEnd = null;
+      });
       _loadAllData();
     }
   }
 
+  // ignore: unused_element
   Widget _buildDateChip(String label, bool selected, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -637,12 +799,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildHeroKpiTiles() {
     final tiles = <_HeroKpi>[
-      _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded, const Color(0xFF1E3A5F)),
-      _HeroKpi('Có mặt', '$_presentCount', Icons.how_to_reg_rounded, const Color(0xFF22C55E)),
-      _HeroKpi('Đi muộn', '$_lateCount', Icons.schedule_rounded, const Color(0xFFF59E0B)),
-      _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded, const Color(0xFFEF4444)),
-      _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded, const Color(0xFF2D5F8B)),
-      _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices', Icons.router_rounded, const Color(0xFF0F2340)),
+      _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded, const Color(0xFF1E3A5F), 'total'),
+      _HeroKpi('Có mặt', '$_presentCount', Icons.how_to_reg_rounded, const Color(0xFF22C55E), 'present'),
+      _HeroKpi('Đi muộn', '$_lateCount', Icons.schedule_rounded, const Color(0xFFF59E0B), 'late'),
+      _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded, const Color(0xFFEF4444), 'absent'),
+      _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded, const Color(0xFF2D5F8B), 'inout'),
+      _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices', Icons.router_rounded, const Color(0xFF0F2340), 'devices'),
     ];
 
     return LayoutBuilder(
@@ -667,176 +829,465 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHeroKpiTile(_HeroKpi k) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showKpiDetail(k),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: k.color.withValues(alpha: 0.15)),
-        boxShadow: [
-          BoxShadow(color: k.color.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: k.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(k.icon, size: 18, color: k.color),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: k.color.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                  color: k.color.withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2)),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  k.label,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: k.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  k.value,
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: k.color),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(k.icon, size: 18, color: k.color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            k.label,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            size: 14,
+                            color: k.color.withValues(alpha: 0.45)),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      k.value,
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: k.color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===================== KPI DETAIL SHEET =====================
+  void _showKpiDetail(_HeroKpi k) {
+    final items = _kpiDetailData(k.kind);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: k.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(k.icon, color: k.color, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(k.label,
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A))),
+                            Text('${items.length} mục',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // List
+                Expanded(
+                  child: items.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inbox_outlined,
+                                  size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text('Không có dữ liệu',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 6),
+                          itemBuilder: (_, i) => _buildKpiDetailRow(
+                              k.kind, items[i], k.color),
+                        ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  // ===================== LIVE STATS ROW =====================
-  // ignore: unused_element
-  Widget _buildLiveStatsRow() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 900;
-        final stats = [
-          _LiveStat(_l10n.totalEmployees, '$_totalEmployees', Icons.people_alt_rounded, const Color(0xFF1E3A5F)),
-          _LiveStat(_l10n.present, '$_presentCount', Icons.check_circle_rounded, const Color(0xFF1E3A5F)),
-          _LiveStat(_l10n.absent, '$_absentCount', Icons.cancel_rounded, const Color(0xFFEF4444)),
-          _LiveStat(_l10n.late, '$_lateCount', Icons.access_time_filled, const Color(0xFFF59E0B)),
-          _LiveStat(_l10n.checkIn, '$_checkIns', Icons.login_rounded, const Color(0xFF0F2340)),
-          _LiveStat(_l10n.checkOut, '$_checkOuts', Icons.logout_rounded, const Color(0xFF1E3A5F)),
-          _LiveStat(_l10n.attendanceRate, '${_attendanceRate.toStringAsFixed(1)}%', Icons.pie_chart_rounded, const Color(0xFF2D5F8B)),
-          _LiveStat(_l10n.onlineDevices, '$_onlineDevices/$_totalDevices', Icons.router_rounded, const Color(0xFF0F2340)),
-        ];
-
-        if (isWide) {
-          return Row(
-            children: stats.map((s) => Expanded(child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: _buildLiveStatCard(s),
-            ))).toList(),
-          );
+  List<Map<String, dynamic>> _kpiDetailData(String kind) {
+    switch (kind) {
+      case 'total':
+        // Prefer the daily report roster (same source as the summary total)
+        // and fall back to the employee list if it's empty.
+        if (_dailyReportItems.isNotEmpty) {
+          return _dailyReportItems
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
         }
-        if (constraints.maxWidth < 400) {
-          // Single column on very narrow mobile
-          return Column(
-            children: stats.map((s) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildLiveStatCardRow(s),
-            )).toList(),
-          );
-        }
-        final cols = constraints.maxWidth < 480 ? 2 : constraints.maxWidth < 650 ? 3 : 4;
-        final ratio = constraints.maxWidth < 480 ? 1.2 : constraints.maxWidth < 650 ? 1.3 : 1.5;
-        return GridView.count(
-          crossAxisCount: cols,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: ratio,
-          children: stats.map((s) => _buildLiveStatCard(s)).toList(),
-        );
-      },
-    );
+        return _employees
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      case 'present':
+        // "Present" = anybody whose status says có mặt / present / đúng giờ /
+        // on time / đi muộn / late / sớm / early. We intentionally include
+        // late arrivals because the backend's `present` count also includes
+        // them.
+        return _dailyReportItems.whereType<Map>().where((r) {
+          final s = (r['status'] ?? '').toString().toLowerCase();
+          if (s.contains('vắng') ||
+              s.contains('absent') ||
+              s.contains('nghỉ')) return false;
+          if (r['checkInTime'] != null) return true;
+          return s.contains('có mặt') ||
+              s.contains('present') ||
+              s.contains('đúng giờ') ||
+              s.contains('on time') ||
+              s.contains('muộn') ||
+              s.contains('late') ||
+              s.contains('sớm') ||
+              s.contains('early');
+        }).map((e) => Map<String, dynamic>.from(e)).toList();
+      case 'late':
+        return _memoLate.map((e) => Map<String, dynamic>.from(e)).toList();
+      case 'absent':
+        // Be strict: only items explicitly marked absent (or with no
+        // check-in AND status containing "vắng"/"absent"/"nghỉ").
+        return _dailyReportItems.whereType<Map>().where((r) {
+          final s = (r['status'] ?? '').toString().toLowerCase();
+          return s.contains('vắng') ||
+              s.contains('absent') ||
+              s.contains('nghỉ');
+        }).map((e) => Map<String, dynamic>.from(e)).toList();
+      case 'inout':
+        return _dailyReportItems
+            .whereType<Map>()
+            .where((r) =>
+                r['checkInTime'] != null || r['checkOutTime'] != null)
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      case 'devices':
+        return _devices
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+    }
+    return const [];
   }
 
-  Widget _buildLiveStatCard(_LiveStat stat) {
+  String _relativeTime(DateTime t) {
+    final diff = DateTime.now().difference(t);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s trước';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 30) return '${diff.inDays} ngày trước';
+    return '${t.day}/${t.month}/${t.year}';
+  }
+
+  Widget _buildKpiDetailRow(
+      String kind, Map<String, dynamic> item, Color accent) {
+    if (kind == 'devices') {
+      final name = (item['deviceName'] ?? item['DeviceName'] ?? '-').toString();
+      final sn =
+          (item['serialNumber'] ?? item['SerialNumber'] ?? '').toString();
+      final ip = (item['ipAddress'] ?? item['IpAddress'] ?? '').toString();
+      final isOnline = _isDeviceOnline(item);
+      final lastOnlineRaw = item['lastOnline'] ?? item['LastOnline'];
+      String lastSeen = '';
+      if (lastOnlineRaw != null && !isOnline) {
+        try {
+          final lo = DateTime.parse(lastOnlineRaw.toString()).toLocal();
+          lastSeen = _relativeTime(lo);
+        } catch (_) {}
+      }
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.blueGrey.shade100),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: (isOnline
+                      ? const Color(0xFF22C55E)
+                      : const Color(0xFFEF4444))
+                  .withValues(alpha: .12),
+              child: Icon(Icons.router_rounded,
+                  color: isOnline
+                      ? const Color(0xFF22C55E)
+                      : const Color(0xFFEF4444),
+                  size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (sn.isNotEmpty) 'SN: $sn',
+                      if (ip.isNotEmpty) 'IP: $ip',
+                      if (lastSeen.isNotEmpty) 'Mất KN: $lastSeen',
+                    ].join('  •  '),
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (isOnline
+                        ? const Color(0xFF22C55E)
+                        : const Color(0xFFEF4444))
+                    .withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                isOnline ? 'Online' : 'Offline',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isOnline
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFDC2626)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Employee / attendance row
+    final name = (item['fullName'] ??
+            item['FullName'] ??
+            item['employeeName'] ??
+            item['EmployeeName'] ??
+            '-')
+        .toString();
+    final code = (item['employeeCode'] ??
+            item['EmployeeCode'] ??
+            item['code'] ??
+            '')
+        .toString();
+    final dept = (item['department'] ??
+            item['Department'] ??
+            item['departmentName'] ??
+            '')
+        .toString();
+    final ci = _formatTime(item['checkInTime']);
+    final co = _formatTime(item['checkOutTime']);
+    final status = (item['status'] ?? '').toString();
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: stat.color.withValues(alpha: 0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: stat.color.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: stat.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(stat.icon, color: stat.color, size: 18),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            stat.value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: stat.color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            stat.label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLiveStatCardRow(_LiveStat stat) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: stat.color.withValues(alpha: 0.15)),
-        boxShadow: [
-          BoxShadow(color: stat.color.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blueGrey.shade100),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: stat.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(stat.icon, color: stat.color, size: 20),
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: accent.withValues(alpha: .12),
+            child: Text(
+              name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
+              style: TextStyle(
+                  color: accent, fontWeight: FontWeight.bold, fontSize: 14),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(stat.label, style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (code.isNotEmpty) code,
+                    if (dept.isNotEmpty) dept,
+                  ].join('  •  '),
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (ci.isNotEmpty || co.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        if (ci.isNotEmpty) ...[
+                          const Icon(Icons.login,
+                              size: 12, color: Color(0xFF22C55E)),
+                          const SizedBox(width: 3),
+                          Text(ci,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF16A34A),
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                        if (ci.isNotEmpty && co.isNotEmpty)
+                          const SizedBox(width: 10),
+                        if (co.isNotEmpty) ...[
+                          const Icon(Icons.logout,
+                              size: 12, color: Color(0xFFEF4444)),
+                          const SizedBox(width: 3),
+                          Text(co,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFFDC2626),
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
-          Text(stat.value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: stat.color)),
+          if (status.isNotEmpty)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: accent),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  String _formatTime(dynamic v) {
+    if (v == null) return '';
+    final s = v.toString();
+    try {
+      final dt = DateTime.parse(s).toLocal();
+      final hh = dt.hour.toString().padLeft(2, '0');
+      final mm = dt.minute.toString().padLeft(2, '0');
+      return '$hh:$mm';
+    } catch (_) {
+      // fallback: show HH:mm portion if already formatted
+      final m = RegExp(r'(\d{1,2}:\d{2})').firstMatch(s);
+      return m?.group(1) ?? s;
+    }
   }
 
   // ===================== MAIN GRID =====================
@@ -1046,16 +1497,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: '${working.length} working',
       child: Column(
         children: [
-          Row(children: [
-            _miniChip('Vào', '$_checkIns', const Color(0xFF1E3A5F)),
-            const SizedBox(width: 8),
-            _miniChip('Ra', '$_checkOuts', const Color(0xFF1E3A5F)),
-            const SizedBox(width: 8),
-            _miniChip('Trễ', '$_lateCount', const Color(0xFFF59E0B)),
-            const SizedBox(width: 8),
-            _miniChip('Vắng', '$_absentCount', const Color(0xFFEF4444)),
-          ]),
-          const SizedBox(height: 16),
           if (working.isEmpty)
             _emptyState(_l10n.noAttendanceToday)
           else
@@ -1300,12 +1741,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final scheduledWorkers = _scheduledCount;
     final schedulesWithShift = _todaySchedules.whereType<Map<String, dynamic>>()
         .where((s) => s['isDayOff'] != true).toList();
-    
-    // Group by shift name
-    final shiftGroups = <String, int>{};
+
+    // Group by shift name with attended count (checkInTime != null on daily report)
+    final shiftTotal = <String, int>{};
+    final shiftAttended = <String, int>{};
+
+    // Build quick lookup: employeeId -> hasCheckedIn
+    final attendedIds = <String>{};
+    for (final r in _todayEmployees.whereType<Map<String, dynamic>>()) {
+      if (r['checkInTime'] != null) {
+        final id = (r['employeeId'] ?? r['employeeUserId'] ?? r['employeeCode'] ?? '').toString();
+        if (id.isNotEmpty) attendedIds.add(id);
+      }
+    }
+
     for (final s in schedulesWithShift) {
       final shiftName = (s['shiftName'] ?? s['shift']?['name'] ?? 'Ca chung').toString();
-      shiftGroups[shiftName] = (shiftGroups[shiftName] ?? 0) + 1;
+      shiftTotal[shiftName] = (shiftTotal[shiftName] ?? 0) + 1;
+      final id = (s['employeeId'] ?? s['employeeUserId'] ?? s['employeeCode'] ?? '').toString();
+      if (id.isNotEmpty && attendedIds.contains(id)) {
+        shiftAttended[shiftName] = (shiftAttended[shiftName] ?? 0) + 1;
+      }
     }
 
     // Determine current shift
@@ -1363,24 +1819,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ]),
         ),
         const SizedBox(height: 14),
-        if (shiftGroups.isNotEmpty)
-          ...shiftGroups.entries.map((e) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(children: [
-              const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10)),
-                child: Text('${e.value} NV',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
-              ),
-            ]),
-          )),
-        if (shiftGroups.isEmpty && scheduledWorkers == 0)
+        if (shiftTotal.isNotEmpty)
+          ...shiftTotal.entries.map((e) {
+            final total = e.value;
+            final attended = shiftAttended[e.key] ?? 0;
+            final rate = total > 0 ? (attended / total) : 0.0;
+            final rateColor = rate >= 0.8
+                ? const Color(0xFF1E3A5F)
+                : rate >= 0.5
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFFEF4444);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Column(children: [
+                Row(children: [
+                  const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                  Text('$attended/$total',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: rateColor)),
+                ]),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: rate, minHeight: 5,
+                    backgroundColor: const Color(0xFFE4E4E7),
+                    valueColor: AlwaysStoppedAnimation(rateColor),
+                  ),
+                ),
+              ]),
+            );
+          }),
+        if (shiftTotal.isEmpty && scheduledWorkers == 0)
           _emptyState(_l10n.noScheduledToday),
         const SizedBox(height: 10),
         Row(children: [
@@ -1788,8 +2259,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== CARD: DEVICE STATUS =====================
   Widget _buildDeviceStatusCard() {
-    final online = _devices.where((d) => d['isOnline'] == true).toList();
-    final offline = _devices.where((d) => d['isOnline'] != true).toList();
+    final online = _devices.whereType<Map>().where(_isDeviceOnline).toList();
+    final offline =
+        _devices.whereType<Map>().where((d) => !_isDeviceOnline(d)).toList();
 
     return _DashCard(
       icon: Icons.devices_other_outlined,
@@ -1806,9 +2278,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (_devices.isEmpty)
           _emptyState('Chưa có thiết bị')
         else
-          ..._devices.take(5).map((d) {
+          ..._devices.whereType<Map>().take(5).map((d) {
             final name = (d['deviceName'] ?? d['name'] ?? 'N/A').toString();
-            final isOn = d['isOnline'] == true;
+            final isOn = _isDeviceOnline(d);
             final ip = (d['ipAddress'] ?? '').toString();
             final loc = (d['location'] ?? '').toString();
             return Padding(
@@ -1844,7 +2316,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final leaveCount = _pendingLeaves.length;
     final correctionCount = _pendingCorrections.length;
     final swapCount = _pendingSwaps.length;
-    final totalPending = leaveCount + correctionCount + swapCount;
+    final advanceCount = _pendingAdvances.length;
+    final totalPending = leaveCount + correctionCount + swapCount + advanceCount;
 
     return _DashCard(
       icon: Icons.pending_actions_outlined,
@@ -1857,6 +2330,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _approvalRow(Icons.edit_note, 'Chỉnh sửa chấm công', correctionCount, const Color(0xFF2D5F8B)),
         const SizedBox(height: 8),
         _approvalRow(Icons.swap_horiz, 'Đổi ca làm việc', swapCount, const Color(0xFFEC4899)),
+        const SizedBox(height: 8),
+        _approvalRow(Icons.account_balance_wallet_outlined, 'Yêu cầu ứng lương', advanceCount, const Color(0xFF10B981)),
         if (totalPending == 0) ...[
           const SizedBox(height: 12),
           _emptyState('Không có đơn chờ duyệt'),
@@ -2816,18 +3291,11 @@ class _DashCard extends StatelessWidget {
   }
 }
 
-class _LiveStat {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  _LiveStat(this.label, this.value, this.icon, this.color);
-}
-
 class _HeroKpi {
   final String label;
   final String value;
   final IconData icon;
   final Color color;
-  _HeroKpi(this.label, this.value, this.icon, this.color);
+  final String kind; // total|present|late|absent|inout|devices
+  _HeroKpi(this.label, this.value, this.icon, this.color, this.kind);
 }

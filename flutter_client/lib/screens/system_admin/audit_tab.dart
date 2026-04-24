@@ -50,8 +50,10 @@ class AuditTabState extends State<AuditTab> {
         final data = res['data'];
         _auditLogs = AdminHelpers.extractList(data);
         if (data is Map) {
-          _totalCount = (data['total'] ?? data['totalCount'] ?? _auditLogs.length) as int;
-          _totalPages = (data['totalPages'] ?? (_totalCount / _pageSize).ceil()) as int;
+          _totalCount = AdminHelpers.parseInt(
+              data['total'] ?? data['totalCount'], _auditLogs.length);
+          _totalPages = AdminHelpers.parseInt(
+              data['totalPages'], (_totalCount / _pageSize).ceil());
         } else {
           _totalCount = _auditLogs.length;
           _totalPages = 1;

@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
+import '../widgets/announcement_banner.dart';
 import '../models/hrm.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
@@ -38,6 +39,7 @@ import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
 import 'dashboard_screen.dart';
 import 'hr_report_screen.dart';
+import 'advanced_reports_screen.dart';
 import 'attendance_report_screen.dart';
 import 'payroll_report_screen.dart';
 import 'agent_license_keys_screen.dart';
@@ -972,6 +974,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'HrReport',
     ),
     NavItem(
+      icon: Icons.analytics_outlined,
+      activeIcon: Icons.analytics,
+      label: 'Báo cáo HR nâng cao',
+      subtitle: '29 báo cáo chuyên sâu, 8 cụm, xuất Excel',
+      screen: const AdvancedReportsScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'HrReport',
+    ),
+    NavItem(
       icon: Icons.schedule_outlined,
       activeIcon: Icons.schedule,
       label: 'Báo cáo chấm công',
@@ -1114,6 +1126,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Column(
                 children: [
                   _buildTopBar(),
+                  const AnnouncementBanner(),
                   Expanded(
                     child: _getScreenForIndex(_selectedIndex),
                   ),
@@ -1160,6 +1173,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Column(
                 children: [
                   _buildTopBar(),
+                  const AnnouncementBanner(),
                   Expanded(
                     child: _getScreenForIndex(_selectedIndex),
                   ),
@@ -1247,7 +1261,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             _buildUserMenu(),
           ],
         ),
-        body: _getScreenForIndex(_selectedIndex),
+        body: Column(
+          children: [
+            const AnnouncementBanner(),
+            Expanded(child: _getScreenForIndex(_selectedIndex)),
+          ],
+        ),
         bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
         drawer: _buildDrawer(),
       ),
