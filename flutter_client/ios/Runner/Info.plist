@@ -71,7 +71,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập camera để chấm công bằng khuôn mặt</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập microphone cho camera</string>
+	<string>Ứng dụng cần quyền truy cập microphone để bạn nói chuyện với Trợ lý ảo HRM bằng giọng nói</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ứng dụng sử dụng nhận dạng giọng nói để chuyển lời nói của bạn thành văn bản khi chat với Trợ lý ảo HRM</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh đại diện</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
