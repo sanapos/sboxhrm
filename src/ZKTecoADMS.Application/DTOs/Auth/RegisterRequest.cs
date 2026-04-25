@@ -6,7 +6,8 @@ public record RegisterRequest(
     string Email,          // Email đăng nhập
     string Password,       // Mật khẩu
     string? PhoneNumber,   // Số điện thoại (tùy chọn)
-    string? StoreCode      // Mã cửa hàng tùy chỉnh (tùy chọn, auto-generate nếu không có)
+    string? StoreCode,     // Mã cửa hàng tùy chỉnh (tùy chọn, auto-generate nếu không có)
+    string? AgentCode = null // Mã đại lý (tùy chọn). Nếu hợp lệ → cửa hàng sẽ thuộc đại lý này
 );
 
 // Đăng ký nhân viên cho cửa hàng (sau này)

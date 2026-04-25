@@ -72,7 +72,12 @@ public static class AppSettingKeys
     public const string YoutubeUrl = "youtube_url";
     public const string ZaloUrl = "zalo_url";
     public const string WebsiteUrl = "website_url";
-    
+
+    // Footer (login screen external links)
+    public const string LearnMoreUrl = "learn_more_url";
+    public const string ContactUrl = "contact_url";
+    public const string SupportUrl = "support_url";
+
     // Legal
     public const string TermsOfService = "terms_of_service";
     public const string PrivacyPolicy = "privacy_policy";

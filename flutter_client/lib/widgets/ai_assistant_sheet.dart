@@ -218,30 +218,197 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     });
   }
 
+  Map<String, String> _parseActionParams(String action) {
+    final out = <String, String>{};
+    final parts = action.split('|');
+    for (var i = 1; i < parts.length; i++) {
+      final eq = parts[i].indexOf('=');
+      if (eq <= 0) continue;
+      final k = parts[i].substring(0, eq).trim().toLowerCase();
+      final v = parts[i].substring(eq + 1).trim();
+      if (k.isNotEmpty) out[k] = v;
+    }
+    return out;
+  }
+
+  Future<void> _handleCreateAdvance(String action) async {
+    final params = _parseActionParams(action);
+    final initialAmount = double.tryParse(
+            params['amount']?.replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ??
+        0;
+    final amountCtrl = TextEditingController(
+        text: initialAmount > 0 ? initialAmount.toStringAsFixed(0) : '');
+    final reasonCtrl = TextEditingController(text: params['reason'] ?? '');
+    final now = DateTime.now();
+    final forMonth = int.tryParse(params['month'] ?? '') ?? now.month;
+    final forYear = int.tryParse(params['year'] ?? '') ?? now.year;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_rounded,
+                color: Color(0xFF8B5CF6)),
+            SizedBox(width: 8),
+            Expanded(child: Text('Xác nhận tạo phiếu ứng lương')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Số tiền (VND)',
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Lý do',
+                  prefixIcon: Icon(Icons.notes),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('Cho tháng: $forMonth/$forYear',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ')),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.check),
+            label: const Text('Tạo phiếu'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
+    if (amount <= 0) {
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: 'Số tiền không hợp lệ');
+      return;
+    }
+
+    try {
+      final res = await _api.createAdvanceRequest(
+        amount: amount,
+        reason: reasonCtrl.text.trim(),
+        forMonth: forMonth,
+        forYear: forYear,
+      );
+      final ok = (res['isSuccess'] == true) || (res['success'] == true);
+      if (ok) {
+        NotificationOverlayManager().showSuccess(
+            title: 'Thành công',
+            message: 'Đã tạo phiếu ứng lương ${amount.toStringAsFixed(0)}đ');
+        if (mounted) {
+          setState(() {
+            _messages.add(_ChatMsg('assistant',
+                '✅ Đã tạo phiếu ứng lương ${amount.toStringAsFixed(0)}đ cho tháng $forMonth/$forYear. Phiếu đang chờ duyệt.'));
+          });
+        }
+      } else {
+        NotificationOverlayManager().showError(
+            title: 'Không tạo được',
+            message: res['message']?.toString() ?? 'Lỗi không xác định');
+      }
+    } catch (e) {
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: e.toString());
+    }
+  }
+
   void _handleAction(String action) {
+    // Parameterized actions: "create_advance|amount=2000000|reason=..."
+    if (action.startsWith('create_advance')) {
+      _handleCreateAdvance(action);
+      return;
+    }
     // Close sheet first so navigation target becomes visible
     Navigator.of(context).pop();
     switch (action) {
       case 'nav_leave':
+      case 'nav_leave_create':
         NavigationNotifier.goToLeaves();
         break;
       case 'nav_work_schedule':
+      case 'nav_shift_change':
         NavigationNotifier.goToWorkSchedule();
         break;
       case 'nav_attendance_correction':
+      case 'nav_attendance_correction_create':
         NavigationNotifier.goToAttendanceCorrections();
         break;
       case 'nav_attendance_history':
+      case 'nav_attendance':
         NavigationNotifier.goToAttendance();
         break;
       case 'nav_payroll':
+      case 'nav_payslip':
         NavigationNotifier.goToPayroll();
         break;
       case 'nav_feedback':
+      case 'nav_feedback_create':
         NavigationNotifier.goTo(NavigationNotifier.feedback);
         break;
       case 'nav_communication':
         NavigationNotifier.goToCommunication();
+        break;
+      case 'nav_advance':
+      case 'nav_advance_create':
+        NavigationNotifier.goToAdvanceRequests();
+        break;
+      case 'nav_overtime':
+      case 'nav_overtime_create':
+        // Overtime is a tab inside attendance approval flow; route to attendance for now
+        NavigationNotifier.goTo(NavigationNotifier.attendanceApproval);
+        break;
+      case 'nav_field_checkin':
+      case 'nav_field_checkin_create':
+        NavigationNotifier.goTo(NavigationNotifier.fieldCheckIn);
+        break;
+      case 'nav_meal':
+      case 'nav_meal_register':
+        NavigationNotifier.goTo(NavigationNotifier.meals);
+        break;
+      case 'nav_kpi':
+        NavigationNotifier.goToKpi();
+        break;
+      case 'nav_tasks':
+        NavigationNotifier.goToTaskManagement();
+        break;
+      case 'nav_assets':
+        NavigationNotifier.goToAssetManagement();
+        break;
+      case 'nav_cash':
+        NavigationNotifier.goToCashTransaction();
+        break;
+      case 'nav_bonus_penalty':
+        NavigationNotifier.goToBonusPenalty();
+        break;
+      case 'nav_employees':
+        NavigationNotifier.goToEmployees();
+        break;
+      case 'nav_departments':
+        NavigationNotifier.goToDepartments();
+        break;
+      case 'nav_dashboard':
+        NavigationNotifier.goTo(NavigationNotifier.dashboard);
         break;
       default:
         NotificationOverlayManager().showInfo(
@@ -250,21 +417,65 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   (String, IconData) _actionLabelIcon(String action) {
+    if (action.startsWith('create_advance')) {
+      return ('✨ Tạo phiếu ứng lương ngay', Icons.flash_on_rounded);
+    }
     switch (action) {
       case 'nav_leave':
-        return ('Đăng ký nghỉ phép', Icons.beach_access_rounded);
+        return ('Xem nghỉ phép', Icons.beach_access_rounded);
+      case 'nav_leave_create':
+        return ('+ Thêm phiếu nghỉ', Icons.beach_access_rounded);
       case 'nav_work_schedule':
         return ('Lịch làm việc', Icons.calendar_month_rounded);
+      case 'nav_shift_change':
+        return ('+ Đổi ca', Icons.swap_horiz_rounded);
       case 'nav_attendance_correction':
-        return ('Sửa giờ / Quên chấm', Icons.edit_calendar_rounded);
+        return ('Phiếu sửa giờ', Icons.edit_calendar_rounded);
+      case 'nav_attendance_correction_create':
+        return ('+ Sửa giờ / Quên chấm', Icons.edit_calendar_rounded);
       case 'nav_attendance_history':
+      case 'nav_attendance':
         return ('Lịch sử chấm công', Icons.history_rounded);
       case 'nav_payroll':
+      case 'nav_payslip':
         return ('Phiếu lương', Icons.payments_rounded);
       case 'nav_feedback':
         return ('Phản ánh / Ý kiến', Icons.feedback_rounded);
+      case 'nav_feedback_create':
+        return ('+ Gửi phản ánh', Icons.feedback_rounded);
       case 'nav_communication':
         return ('Bảng tin', Icons.campaign_rounded);
+      case 'nav_advance':
+        return ('Ứng lương', Icons.account_balance_wallet_rounded);
+      case 'nav_advance_create':
+        return ('+ Thêm phiếu ứng lương', Icons.account_balance_wallet_rounded);
+      case 'nav_overtime':
+        return ('Tăng ca / OT', Icons.access_time_rounded);
+      case 'nav_overtime_create':
+        return ('+ Đăng ký tăng ca', Icons.access_time_rounded);
+      case 'nav_field_checkin':
+        return ('Đi công tác', Icons.location_on_rounded);
+      case 'nav_field_checkin_create':
+        return ('+ Tạo phiếu công tác', Icons.location_on_rounded);
+      case 'nav_meal':
+      case 'nav_meal_register':
+        return ('Đăng ký ăn', Icons.restaurant_rounded);
+      case 'nav_kpi':
+        return ('KPI cá nhân', Icons.flag_rounded);
+      case 'nav_tasks':
+        return ('Công việc', Icons.task_alt_rounded);
+      case 'nav_assets':
+        return ('Tài sản', Icons.inventory_2_rounded);
+      case 'nav_cash':
+        return ('Giao dịch quỹ', Icons.account_balance_rounded);
+      case 'nav_bonus_penalty':
+        return ('Thưởng / Phạt', Icons.workspace_premium_rounded);
+      case 'nav_employees':
+        return ('Nhân viên', Icons.people_rounded);
+      case 'nav_departments':
+        return ('Phòng ban', Icons.account_tree_rounded);
+      case 'nav_dashboard':
+        return ('Tổng quan', Icons.dashboard_rounded);
       default:
         return (action, Icons.open_in_new);
     }
@@ -272,23 +483,29 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollCtrl) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(child: _buildMessages()),
-              _buildInputBar(),
-            ],
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: viewInsets),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(child: _buildMessages()),
+                _buildInputBar(),
+              ],
+            ),
           ),
         );
       },
@@ -518,6 +735,7 @@ Future<void> showAiAssistant(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const AiAssistantSheet(),
   );

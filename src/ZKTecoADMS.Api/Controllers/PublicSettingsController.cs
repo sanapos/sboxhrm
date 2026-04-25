@@ -62,7 +62,12 @@ public class PublicSettingsController : ControllerBase
                 settings.GetValueOrDefault(AppSettingKeys.YoutubeUrl),
                 settings.GetValueOrDefault(AppSettingKeys.ZaloUrl),
                 settings.GetValueOrDefault(AppSettingKeys.WebsiteUrl),
-                
+
+                // Footer
+                settings.GetValueOrDefault(AppSettingKeys.LearnMoreUrl),
+                settings.GetValueOrDefault(AppSettingKeys.ContactUrl),
+                settings.GetValueOrDefault(AppSettingKeys.SupportUrl),
+
                 // Legal
                 settings.GetValueOrDefault(AppSettingKeys.TermsOfService),
                 settings.GetValueOrDefault(AppSettingKeys.PrivacyPolicy)

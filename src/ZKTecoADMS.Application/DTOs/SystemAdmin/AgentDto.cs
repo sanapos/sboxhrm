@@ -34,7 +34,8 @@ public record AgentDto(
 );
 
 /// <summary>
-/// Request tạo Agent mới (không cần password - đại lý sẽ tự đăng ký)
+/// Request tạo Agent mới. Nếu cung cấp Email + Password sẽ tạo luôn tài khoản đăng nhập (role Agent),
+/// nếu không sẽ chỉ sinh token để đại lý tự đăng ký qua link.
 /// </summary>
 public record CreateAgentRequest(
     string Name,
@@ -42,9 +43,10 @@ public record CreateAgentRequest(
     string? Description,
     string? Address,
     string? Phone,
-    string? Email, // Email liên hệ (optional)
+    string? Email, // Email liên hệ / dùng để đăng nhập nếu kèm Password
     int MaxStores = 10,
-    int TokenValidDays = 30 // Token có hiệu lực bao nhiêu ngày
+    int TokenValidDays = 30, // Token có hiệu lực bao nhiêu ngày
+    string? Password = null  // Nếu có → tạo ngay tài khoản Agent với mật khẩu này
 );
 
 /// <summary>

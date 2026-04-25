@@ -16,6 +16,7 @@ namespace ZKTecoADMS.Application.Commands.Auth.Register;
 public class RegisterCommandHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Store> storeRepository,
+    IRepository<Agent> agentRepository,
     IEmailService emailService,
     IOptions<EmailSettings> emailSettings,
     ISystemNotificationService notificationService,
@@ -49,6 +50,21 @@ public class RegisterCommandHandler(
         var userId = Guid.NewGuid();
         var storeId = Guid.NewGuid();
         
+        // Resolve agent (nếu có AgentCode hợp lệ → cửa hàng sẽ thuộc đại lý này)
+        Guid? agentId = null;
+        if (!string.IsNullOrWhiteSpace(request.AgentCode))
+        {
+            var code = request.AgentCode.Trim().ToUpper();
+            var agent = await agentRepository.GetSingleAsync(
+                a => a.Code.ToUpper() == code && a.IsActive,
+                cancellationToken: cancellationToken);
+            if (agent == null)
+            {
+                return AppResponse<string>.Error($"Mã đại lý '{request.AgentCode}' không tồn tại hoặc đã ngừng hoạt động.");
+            }
+            agentId = agent.Id;
+        }
+
         // 1. Tạo Store trước (chưa có OwnerId)
         var store = new Store
         {
@@ -57,7 +73,8 @@ public class RegisterCommandHandler(
             Code = storeCode,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            OwnerId = null // Chưa có owner, sẽ cập nhật sau
+            OwnerId = null, // Chưa có owner, sẽ cập nhật sau
+            AgentId = agentId
         };
         await storeRepository.AddAsync(store, cancellationToken);
         

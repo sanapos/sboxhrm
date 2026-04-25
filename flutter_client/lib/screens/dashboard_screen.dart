@@ -456,39 +456,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F2340), Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                colors: [Color(0xFF050B1A), Color(0xFF0B1E3F), Color(0xFF14306B)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
           ),
-          // Decorative gradient orbs
-          Positioned(
-            right: -40,
-            top: -30,
-            child: Container(
-              width: 140,
-              height: 140,
+          // Strong dark scrim to guarantee text legibility under bright camera/sunlight
+          Positioned.fill(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  iconColor.withValues(alpha: 0.35),
-                  iconColor.withValues(alpha: 0.0),
-                ]),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.25),
+                    Colors.black.withValues(alpha: 0.10),
+                    Colors.black.withValues(alpha: 0.25),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
           ),
+          // Tiny accent orb in corner only (small + low alpha)
           Positioned(
-            left: -30,
-            bottom: -40,
+            right: -80,
+            top: -70,
             child: Container(
               width: 120,
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  Colors.white.withValues(alpha: 0.10),
-                  Colors.white.withValues(alpha: 0.0),
+                  iconColor.withValues(alpha: 0.10),
+                  iconColor.withValues(alpha: 0.0),
                 ]),
               ),
             ),
@@ -534,9 +536,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Text(
                               '$greeting,',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
+                                color: Colors.white.withValues(alpha: 0.95),
                                 fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
+                                shadows: const [
+                                  Shadow(color: Color(0x66000000), blurRadius: 4, offset: Offset(0, 1)),
+                                ],
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -548,9 +553,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fullName,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          shadows: [
+                            Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 2)),
+                            Shadow(color: Color(0x80000000), blurRadius: 2, offset: Offset(0, 1)),
+                          ],
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -571,9 +580,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.black.withValues(alpha: 0.28),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -585,14 +594,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           letterSpacing: 1.2,
+                          shadows: [
+                            Shadow(color: Color(0x80000000), blurRadius: 4, offset: Offset(0, 1)),
+                          ],
                         ),
                       ),
                       Text(
                         _now.year.toString(),
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                         ),
                       ),

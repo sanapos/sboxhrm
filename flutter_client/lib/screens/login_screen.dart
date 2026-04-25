@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,6 +35,11 @@ class _LoginScreenState extends State<LoginScreen>
   static const String _prefStoreCode = 'saved_store_code';
   static const String _prefEmail = 'saved_email';
 
+  // Footer link URLs (loaded from /api/publicsettings, with safe defaults)
+  String _learnMoreUrl = 'https://sboxhrm.com';
+  String _contactUrl = 'https://sboxhrm.com/lien-he';
+  String _supportUrl = 'https://sboxhrm.com/ho-tro';
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +54,32 @@ class _LoginScreenState extends State<LoginScreen>
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
     _loadSavedCredentials();
+    _loadPublicSettings();
+  }
+
+  Future<void> _loadPublicSettings() async {
+    try {
+      final res = await http
+          .get(Uri.parse('${ApiService.baseUrl}/api/publicsettings'))
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode != 200) return;
+      final body = json.decode(res.body) as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+      String pick(String key, String fallback) {
+        final v = data[key];
+        if (v is String && v.trim().isNotEmpty) return v.trim();
+        return fallback;
+      }
+      if (!mounted) return;
+      setState(() {
+        _learnMoreUrl = pick('learnMoreUrl', _learnMoreUrl);
+        _contactUrl = pick('contactUrl', _contactUrl);
+        _supportUrl = pick('supportUrl', _supportUrl);
+      });
+    } catch (e) {
+      debugPrint('LoginScreen public settings load failed: $e');
+    }
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -556,7 +591,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                       // Spacing for footer
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -579,9 +614,13 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                      GestureDetector(
+                        onLongPress: () => Navigator.of(context).pushNamed('/admin'),
+                        behavior: HitTestBehavior.opaque,
+                        child: Text(
+                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                        ),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -598,18 +637,16 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ],
             )
-          : Stack(
+          : Column(
               children: [
-                scrollContent,
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  bottom: 20,
-                  child: IgnorePointer(
-                    ignoring: MediaQuery.of(context).viewInsets.bottom > 0,
-                    child: AnimatedOpacity(
-                      opacity: MediaQuery.of(context).viewInsets.bottom > 0 ? 0.0 : 1.0,
-                      duration: const Duration(milliseconds: 200),
+                Expanded(child: scrollContent),
+                IgnorePointer(
+                  ignoring: MediaQuery.of(context).viewInsets.bottom > 0,
+                  child: AnimatedOpacity(
+                    opacity: MediaQuery.of(context).viewInsets.bottom > 0 ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -624,9 +661,14 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                          GestureDetector(
+                            onLongPress: () => Navigator.of(context).pushNamed('/admin'),
+                            behavior: HitTestBehavior.opaque,
+                            child: Text(
+                              '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                              style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ],
                       ),
@@ -663,18 +705,59 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildFooterLink(String text) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.grey.shade400,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.3,
+    return InkWell(
+      onTap: () => _handleFooterLinkTap(text),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleFooterLinkTap(String label) async {
+    String? raw;
+    switch (label) {
+      case 'TÌM HIỂU THÊM':
+        raw = _learnMoreUrl;
+        break;
+      case 'LIÊN HỆ':
+        raw = _contactUrl;
+        break;
+      case 'HỖ TRỢ':
+        raw = _supportUrl;
+        break;
+    }
+    if (raw == null || raw.trim().isEmpty) return;
+    Uri? uri = Uri.tryParse(raw.trim());
+    if (uri == null || (!uri.hasScheme)) {
+      uri = Uri.tryParse('https://${raw.trim()}');
+    }
+    if (uri == null) return;
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Không mở được liên kết',
+          message: uri.toString(),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi mở liên kết',
+          message: e.toString(),
+        );
+      }
+    }
   }
 
   static Widget _buildLabel(String text) {

@@ -210,6 +210,40 @@ public class AgentRegistrationController : ControllerBase
             return StatusCode(500, AppResponse<TokenValidationResponse>.Fail("Có lỗi xảy ra"));
         }
     }
+
+    /// <summary>
+    /// Public lookup: lấy thông tin tóm tắt của đại lý theo mã (dùng cho trang đăng ký cửa hàng có ?agentCode=)
+    /// </summary>
+    [HttpGet("lookup/{code}")]
+    public async Task<ActionResult<AppResponse<object>>> LookupByCode(string code)
+    {
+        try
+        {
+            var normalized = (code ?? string.Empty).Trim().ToUpper();
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return BadRequest(AppResponse<object>.Fail("Thiếu mã đại lý"));
+            }
+            var agent = await _dbContext.Agents
+                .FirstOrDefaultAsync(a => a.Code.ToUpper() == normalized && a.IsActive);
+            if (agent == null)
+            {
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy đại lý"));
+            }
+            return Ok(AppResponse<object>.Success(new
+            {
+                id = agent.Id,
+                code = agent.Code,
+                name = agent.Name,
+                isActive = agent.IsActive
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error looking up agent by code {Code}", code);
+            return StatusCode(500, AppResponse<object>.Fail("Có lỗi xảy ra"));
+        }
+    }
 }
 
 /// <summary>

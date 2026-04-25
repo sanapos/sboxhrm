@@ -217,12 +217,24 @@ class ApiService {
     }
   }
 
+  /// Public: Tra cứu đại lý theo mã (dùng trong trang đăng ký cửa hàng khi có ?agentCode=)
+  Future<Map<String, dynamic>> lookupAgentByCode(String code) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/agentregistration/lookup/$code'))
+          .timeout(const Duration(seconds: 8));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // Đăng ký cửa hàng mới
   Future<Map<String, dynamic>> register(
       String storeName, String email, String password,
-      {String? phoneNumber, String? storeCode}) async {
+      {String? phoneNumber, String? storeCode, String? agentCode}) async {
     try {
-      debugPrint('📝 Register attempt: $storeName - $email');
+      debugPrint('📝 Register attempt: $storeName - $email (agent: $agentCode)');
       final body = {
         'storeName': storeName,
         'email': email,
@@ -233,6 +245,9 @@ class ApiService {
       }
       if (storeCode != null && storeCode.isNotEmpty) {
         body['storeCode'] = storeCode;
+      }
+      if (agentCode != null && agentCode.isNotEmpty) {
+        body['agentCode'] = agentCode;
       }
       final response = await http
           .post(
@@ -7369,7 +7384,8 @@ class ApiService {
       String? address,
       String? description,
       int? maxStores,
-      int? tokenValidDays}) async {
+      int? tokenValidDays,
+      String? password}) async {
     try {
       final data = <String, dynamic>{
         if (name != null) 'name': name,
@@ -7380,6 +7396,7 @@ class ApiService {
         if (description != null) 'description': description,
         if (maxStores != null) 'maxStores': maxStores,
         if (tokenValidDays != null) 'tokenValidDays': tokenValidDays,
+        if (password != null && password.isNotEmpty) 'password': password,
       };
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/agents'),

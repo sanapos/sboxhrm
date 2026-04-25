@@ -400,6 +400,7 @@ class AgentsTabState extends State<AgentsTab> {
     final codeCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -407,16 +408,29 @@ class AgentsTabState extends State<AgentsTab> {
         title: const Text('Thêm đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            AdminHelpers.dialogField(nameCtrl, 'Tên đại lý', Icons.person),
-            const SizedBox(height: 12),
-            AdminHelpers.dialogField(codeCtrl, 'Mã đại lý', Icons.tag),
-            const SizedBox(height: 12),
-            AdminHelpers.dialogField(emailCtrl, 'Email', Icons.email),
-            const SizedBox(height: 12),
-            AdminHelpers.dialogField(
-                phoneCtrl, 'Số điện thoại', Icons.phone),
-          ]),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              AdminHelpers.dialogField(nameCtrl, 'Tên đại lý', Icons.person),
+              const SizedBox(height: 12),
+              AdminHelpers.dialogField(codeCtrl, 'Mã đại lý', Icons.tag),
+              const SizedBox(height: 12),
+              AdminHelpers.dialogField(emailCtrl, 'Email đăng nhập', Icons.email),
+              const SizedBox(height: 12),
+              AdminHelpers.dialogField(phoneCtrl, 'Số điện thoại', Icons.phone),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu (tuỳ chọn)',
+                  helperText: 'Nhập mật khẩu để tạo ngay tài khoản đăng nhập. Bỏ trống để dùng link tự đăng ký.',
+                  helperMaxLines: 3,
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ]),
+          ),
         ),
         actions: [
           TextButton(
@@ -424,18 +438,34 @@ class AgentsTabState extends State<AgentsTab> {
               child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () async {
+              final pwd = passwordCtrl.text.trim();
+              if (pwd.isNotEmpty && emailCtrl.text.trim().isEmpty) {
+                AdminHelpers.showSuccess(context, 'Cần nhập email khi đặt mật khẩu');
+                return;
+              }
+              if (pwd.isNotEmpty && pwd.length < 6) {
+                AdminHelpers.showSuccess(context, 'Mật khẩu tối thiểu 6 ký tự');
+                return;
+              }
               final res = await _apiService.createAgent(
                   name: nameCtrl.text,
                   code: codeCtrl.text,
                   email: emailCtrl.text,
-                  phone: phoneCtrl.text);
+                  phone: phoneCtrl.text,
+                  password: pwd.isEmpty ? null : pwd);
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               if (res['isSuccess'] == true) {
                 loadData();
                 if (mounted) {
+                  final hasCreds = pwd.isNotEmpty;
                   AdminHelpers.showSuccess(
-                      context, 'Tạo đại lý thành công');
+                      context,
+                      hasCreds
+                          ? 'Đã tạo đại lý + tài khoản đăng nhập'
+                          : 'Tạo đại lý thành công. Hãy gửi link đăng ký cho họ.');
+                  // Hiển thị link đăng ký cửa hàng cho đại lý
+                  _showAgentRegistrationLink(codeCtrl.text.trim().toUpperCase());
                 }
               } else {
                 if (mounted) AdminHelpers.showApiError(context, res);
@@ -452,7 +482,53 @@ class AgentsTabState extends State<AgentsTab> {
       codeCtrl.dispose();
       emailCtrl.dispose();
       phoneCtrl.dispose();
+      passwordCtrl.dispose();
     });
+  }
+
+  void _showAgentRegistrationLink(String agentCode) {
+    if (agentCode.isEmpty) return;
+    final link = 'https://sbox.sana.vn/register?agentCode=$agentCode';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Link đăng ký cửa hàng'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Gửi link sau cho đại lý. Cửa hàng đăng ký qua link này sẽ thuộc quyền quản lý của đại lý:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(link,
+                  style: const TextStyle(fontFamily: 'monospace')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: link));
+              NotificationOverlayManager()
+                  .showSuccess(title: 'Sao chép', message: 'Đã sao chép link');
+            },
+            child: const Text('Sao chép'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showEditAgentDialog(Map<String, dynamic> agent) {

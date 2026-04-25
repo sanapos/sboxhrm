@@ -19,6 +19,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  String? _agentCode; // Mã đại lý nếu vào từ link giới thiệu
+  String? _agentName;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -33,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   @override
   void initState() {
     super.initState();
+    _readAgentCodeFromUrl();
     _storeNameController.addListener(_onStoreNameChanged);
     _animController = AnimationController(
       vsync: this,
@@ -44,6 +47,32 @@ class _RegisterScreenState extends State<RegisterScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
+  }
+
+  void _readAgentCodeFromUrl() {
+    try {
+      final params = Uri.base.queryParameters;
+      final code = params['agentCode'] ?? params['agent'] ?? params['ref'];
+      if (code != null && code.trim().isNotEmpty) {
+        _agentCode = code.trim();
+        _resolveAgentName();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _resolveAgentName() async {
+    // Best-effort lookup: thử resolve tên đại lý để hiển thị, nếu API không có thì bỏ qua.
+    if (_agentCode == null) return;
+    try {
+      final api = ApiService();
+      final res = await api.lookupAgentByCode(_agentCode!);
+      if (mounted && res['isSuccess'] == true) {
+        final name = (res['data'] as Map?)?['name']?.toString();
+        if (name != null && name.isNotEmpty) {
+          setState(() => _agentName = name);
+        }
+      }
+    } catch (_) {}
   }
 
   void _onStoreNameChanged() {
@@ -123,6 +152,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _passwordController.text,
         phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         storeCode: _loginNameController.text.trim(),
+        agentCode: _agentCode,
       );
 
       if (result['isSuccess'] == true) {
@@ -377,6 +407,37 @@ class _RegisterScreenState extends State<RegisterScreen>
                             ),
                           ),
                           const SizedBox(height: 32),
+
+                          // Banner: đăng ký qua link đại lý
+                          if (_agentCode != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7E6),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFFFD591)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.handshake_rounded, color: Color(0xFFD46B08)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _agentName != null
+                                          ? 'Bạn đang đăng ký qua đại lý: $_agentName ($_agentCode)'
+                                          : 'Bạn đang đăng ký qua mã đại lý: $_agentCode',
+                                      style: const TextStyle(
+                                        color: Color(0xFFAD4E00),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
 
                           // Form
                           Form(

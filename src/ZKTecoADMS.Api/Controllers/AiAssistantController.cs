@@ -72,29 +72,67 @@ public class AiAssistantController(
                 .ToList();
             var combined = string.Join("\n", history);
 
-            // Pick provider
+            // Pick provider — only use providers that are ENABLED + CONFIGURED.
             var wantGemini = string.Equals(dto.Provider, "gemini", StringComparison.OrdinalIgnoreCase);
             var wantDeepSeek = string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase);
+            var geminiOk = geminiAiService.IsEnabled;
+            var deepSeekOk = deepSeekAiService.IsEnabled;
+
+            if (!geminiOk && !deepSeekOk)
+            {
+                return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
+                {
+                    Reply = "Trợ lý AI hiện chưa được cấu hình. Vui lòng liên hệ quản trị viên để bật Gemini hoặc DeepSeek trong phần Cài đặt hệ thống.",
+                    Provider = "none",
+                    Actions = new List<string>()
+                }));
+            }
+
             string reply;
             string usedProvider;
-            if (wantDeepSeek)
-            {
-                reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                usedProvider = "deepseek";
-            }
-            else
+            // Decide order: respect explicit choice if available, otherwise prefer Gemini when both enabled.
+            var tryOrder = new List<string>();
+            if (wantDeepSeek && deepSeekOk) tryOrder.Add("deepseek");
+            if (wantGemini && geminiOk) tryOrder.Add("gemini");
+            if (geminiOk && !tryOrder.Contains("gemini")) tryOrder.Add("gemini");
+            if (deepSeekOk && !tryOrder.Contains("deepseek")) tryOrder.Add("deepseek");
+
+            reply = string.Empty;
+            usedProvider = string.Empty;
+            Exception? lastEx = null;
+            foreach (var provider in tryOrder)
             {
                 try
                 {
-                    reply = await geminiAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                    usedProvider = "gemini";
+                    if (provider == "gemini")
+                    {
+                        reply = await geminiAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
+                        usedProvider = "gemini";
+                    }
+                    else
+                    {
+                        reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
+                        usedProvider = "deepseek";
+                    }
+                    lastEx = null;
+                    break;
                 }
-                catch (Exception geminiEx) when (!wantGemini)
+                catch (Exception ex)
                 {
-                    logger.LogWarning(geminiEx, "Gemini failed, fallback to DeepSeek");
-                    reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                    usedProvider = "deepseek";
+                    lastEx = ex;
+                    logger.LogWarning(ex, "AI provider {Provider} failed, will try next", provider);
                 }
+            }
+
+            if (string.IsNullOrEmpty(usedProvider))
+            {
+                logger.LogError(lastEx, "All AI providers failed");
+                return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
+                {
+                    Reply = "Xin lỗi, trợ lý AI tạm thời không phản hồi. Vui lòng thử lại sau ít phút.",
+                    Provider = "error",
+                    Actions = new List<string>()
+                }));
             }
 
             // Extract [[ACTION:xxx]] tags
@@ -123,7 +161,12 @@ public class AiAssistantController(
         catch (Exception ex)
         {
             logger.LogError(ex, "AI Assistant chat failed");
-            return StatusCode(500, AppResponse<ChatResponse>.Fail("Lỗi trợ lý AI: " + ex.Message));
+            return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
+            {
+                Reply = "Xin lỗi, đã có lỗi khi xử lý câu hỏi. Bạn thử lại nhé.",
+                Provider = "error",
+                Actions = new List<string>()
+            }));
         }
     }
 
@@ -134,10 +177,14 @@ public class AiAssistantController(
     {
         var userId = CurrentUserId;
         var storeId = CurrentStoreId;
+        var role = string.Empty;
+        try { role = CurrentUserRole; } catch { /* token may not have role */ }
         var buf = new StringBuilder();
 
         try
         {
+            buf.AppendLine($"Vai trò: {(string.IsNullOrEmpty(role) ? "(không rõ)" : role)}");
+
             // Profile
             var emp = await db.Employees
                 .AsNoTracking()
@@ -148,7 +195,9 @@ public class AiAssistantController(
                     e.EmployeeCode,
                     e.FirstName,
                     e.LastName,
-                    e.DepartmentId
+                    e.DepartmentId,
+                    e.Position,
+                    e.JoinDate
                 })
                 .FirstOrDefaultAsync(ct);
 
@@ -163,7 +212,9 @@ public class AiAssistantController(
 
                 buf.AppendLine($"Họ tên: {emp.LastName} {emp.FirstName}");
                 buf.AppendLine($"Mã NV: {emp.EmployeeCode}");
+                if (!string.IsNullOrEmpty(emp.Position)) buf.AppendLine($"Chức vụ: {emp.Position}");
                 if (!string.IsNullOrEmpty(dept)) buf.AppendLine($"Phòng ban: {dept}");
+                if (emp.JoinDate.HasValue) buf.AppendLine($"Ngày vào làm: {emp.JoinDate.Value:dd/MM/yyyy}");
             }
             else
             {
@@ -171,19 +222,35 @@ public class AiAssistantController(
             }
 
             var today = DateTime.UtcNow.Date;
+            var startOfYear = new DateTime(today.Year, 1, 1);
 
-            // Leaves: pending + recent
+            // Leaves: pending + recent + total this year
             var leaves = await db.Leaves
                 .AsNoTracking()
-                .Where(l => l.EmployeeUserId == userId && l.StartDate >= today.AddDays(-60))
+                .Where(l => l.EmployeeUserId == userId && l.StartDate >= today.AddDays(-90))
                 .OrderByDescending(l => l.StartDate)
                 .Take(10)
                 .Select(l => new { l.StartDate, l.EndDate, l.Status, l.Type, l.Reason })
                 .ToListAsync(ct);
+
+            var leavesYearStats = await db.Leaves
+                .AsNoTracking()
+                .Where(l => l.EmployeeUserId == userId && l.StartDate >= startOfYear)
+                .GroupBy(l => l.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            if (leavesYearStats.Count > 0)
+            {
+                buf.AppendLine();
+                buf.AppendLine("Tổng số đơn nghỉ năm nay (theo trạng thái):");
+                foreach (var s in leavesYearStats)
+                    buf.AppendLine($"- {s.Status}: {s.Count} đơn");
+            }
             if (leaves.Count > 0)
             {
                 buf.AppendLine();
-                buf.AppendLine("Lịch sử nghỉ phép (60 ngày gần nhất):");
+                buf.AppendLine("Lịch sử nghỉ phép (90 ngày gần nhất):");
                 foreach (var l in leaves)
                 {
                     buf.AppendLine(
@@ -191,27 +258,74 @@ public class AiAssistantController(
                 }
             }
 
-            // Attendance: last 7 days count
+            // Attendance: last 7 days count + 30 days summary
             var weekAgo = today.AddDays(-7);
-            var attCount = await db.AttendanceLogs
-                .AsNoTracking()
-                .Where(a => a.AttendanceTime >= weekAgo
-                    && db.Employees.Any(e => e.ApplicationUserId == userId && e.Id == a.EmployeeId))
-                .CountAsync(ct);
-            buf.AppendLine();
-            buf.AppendLine($"Chấm công 7 ngày gần đây: {attCount} lượt");
+            var monthAgo = today.AddDays(-30);
+            var empId = emp?.Id;
+            if (empId.HasValue)
+            {
+                var attCount7 = await db.AttendanceLogs
+                    .AsNoTracking()
+                    .Where(a => a.AttendanceTime >= weekAgo && a.EmployeeId == empId.Value)
+                    .CountAsync(ct);
+                var attCount30 = await db.AttendanceLogs
+                    .AsNoTracking()
+                    .Where(a => a.AttendanceTime >= monthAgo && a.EmployeeId == empId.Value)
+                    .CountAsync(ct);
+                buf.AppendLine();
+                buf.AppendLine($"Chấm công 7 ngày gần đây: {attCount7} lượt | 30 ngày: {attCount30} lượt");
+            }
 
-            // Last payslip
-            var lastPayslip = await db.Payslips
+            // Advance requests recent
+            var advances = await db.AdvanceRequests
+                .AsNoTracking()
+                .Where(a => a.EmployeeUserId == userId && a.RequestDate >= today.AddDays(-180))
+                .OrderByDescending(a => a.RequestDate)
+                .Take(5)
+                .Select(a => new { a.RequestDate, a.Amount, a.Status, a.Reason })
+                .ToListAsync(ct);
+            if (advances.Count > 0)
+            {
+                buf.AppendLine();
+                buf.AppendLine("Yêu cầu ứng lương (180 ngày gần nhất):");
+                foreach (var a in advances)
+                    buf.AppendLine($"- {a.RequestDate:dd/MM/yyyy} | {a.Amount:N0}đ | {a.Status} | {a.Reason}");
+            }
+
+            // Last 3 payslips
+            var payslips = await db.Payslips
                 .AsNoTracking()
                 .Where(p => p.EmployeeUserId == userId)
                 .OrderByDescending(p => p.Year).ThenByDescending(p => p.Month)
+                .Take(3)
                 .Select(p => new { p.Year, p.Month, p.NetSalary, p.Status })
-                .FirstOrDefaultAsync(ct);
-            if (lastPayslip != null)
+                .ToListAsync(ct);
+            if (payslips.Count > 0)
             {
                 buf.AppendLine();
-                buf.AppendLine($"Phiếu lương mới nhất: {lastPayslip.Month:D2}/{lastPayslip.Year} - Thực nhận {lastPayslip.NetSalary:N0} VND ({lastPayslip.Status})");
+                buf.AppendLine("Phiếu lương gần nhất:");
+                foreach (var p in payslips)
+                    buf.AppendLine($"- {p.Month:D2}/{p.Year}: {p.NetSalary:N0}đ ({p.Status})");
+            }
+
+            // Manager-only: pending approvals snapshot (only count, no PII of others)
+            var roleLower = role.ToLowerInvariant();
+            if (roleLower == "owner" || roleLower == "admin" || roleLower == "director" ||
+                roleLower == "manager" || roleLower == "departmenthead")
+            {
+                try
+                {
+                    var pendingLeaves = await db.Leaves.AsNoTracking()
+                        .Where(l => l.StoreId == storeId && l.Status == Domain.Enums.LeaveStatus.Pending)
+                        .CountAsync(ct);
+                    var pendingAdv = await db.AdvanceRequests.AsNoTracking()
+                        .Where(a => a.StoreId == storeId && a.Status == Domain.Enums.AdvanceRequestStatus.Pending)
+                        .CountAsync(ct);
+                    buf.AppendLine();
+                    buf.AppendLine("Đơn chờ duyệt (toàn cửa hàng):");
+                    buf.AppendLine($"- Nghỉ phép: {pendingLeaves} | Ứng lương: {pendingAdv}");
+                }
+                catch { /* ignore */ }
             }
         }
         catch (Exception ex)
@@ -225,44 +339,68 @@ public class AiAssistantController(
 
     private static string BuildSystemPrompt(string userContext)
     {
-        return $@"Bạn là Trợ lý ảo HRM của hệ thống SBOX HRM, chuyên hỗ trợ nhân viên bằng tiếng Việt.
+        return $@"Bạn là Trợ lý ảo HRM của hệ thống SBOX HRM, chuyên hỗ trợ nhân viên và quản lý bằng tiếng Việt.
 
 NGUYÊN TẮC:
 - Luôn trả lời BẰNG TIẾNG VIỆT, ngắn gọn, thân thiện, chuyên nghiệp.
 - Chỉ trả lời dựa trên DỮ LIỆU CÁ NHÂN của chính người dùng được cung cấp bên dưới.
 - KHÔNG bịa số liệu. Nếu không đủ thông tin, nói thẳng ""Tôi không có dữ liệu này"".
-- Khi người dùng muốn thực hiện tác vụ, hãy hướng dẫn ngắn gọn VÀ kèm thẻ hành động ở cuối tin nhắn.
+- Tôn trọng phân quyền: nếu user là nhân viên (Employee) thì chỉ nói về dữ liệu CỦA HỌ. Nếu là quản lý/admin thì có thể nói về số đơn chờ duyệt toàn cửa hàng (đã cung cấp ở context).
+- Khi người dùng muốn thực hiện tác vụ (tạo/sửa/xem), hãy hướng dẫn ngắn gọn VÀ kèm thẻ hành động ở cuối tin nhắn.
 
-XỬ LÝ ĐẦU VÀO GIỌNG NÓI (RẤT QUAN TRỌNG):
-- Người dùng có thể nhập qua MICRO, do đó câu hỏi có thể bị NHẬN DẠNG SAI, THIẾU DẤU, SAI CHÍNH TẢ, GHÉP CHỮ LẠ, hoặc bị NÓI NGỌNG/PHƯƠNG NGỮ.
-- Hãy tự động ĐOÁN Ý theo NGỮ CẢNH HRM (chấm công, nghỉ phép, lịch làm, lương, phản ánh, truyền thông) — KHÔNG yêu cầu người dùng nói lại.
-- Một số ví dụ thường gặp cần đoán đúng:
-  • ""chấm cong"" / ""chăm công"" / ""trấm công"" → ""chấm công""
-  • ""quên trấm"" / ""kuen cham"" / ""quên chấm cong"" → ""quên chấm công""
-  • ""nghỉ fép"" / ""nghi phep"" / ""nghĩ phép"" → ""nghỉ phép""
-  • ""đổi ka"" / ""doi ca"" / ""đổi ga"" → ""đổi ca""
-  • ""fiếu lương"" / ""phieu luong"" / ""bảng lương"" → ""phiếu lương""
-  • ""fản ánh"" / ""phan anh"" / ""góp í"" → ""phản ánh / ý kiến""
-  • ""truyen thong"" / ""bản tin"" → ""truyền thông""
-  • ""sửa giờ"" / ""sủa giờ"" / ""sua gio cham"" → ""yêu cầu sửa giờ chấm công""
-- Nếu thật sự MƠ HỒ giữa nhiều ý, hãy hỏi LẠI ngắn gọn 1 câu (vd: ""Bạn muốn xin nghỉ phép hay đổi ca?"").
-- KHÔNG nhắc lại lỗi nhận dạng, KHÔNG chê người dùng phát âm sai. Trả lời tự nhiên như đã hiểu đúng ngay từ đầu.
+XỬ LÝ ĐẦU VÀO GIỌNG NÓI:
+- Câu hỏi có thể nhập qua MICRO nên có thể NHẬN DẠNG SAI, THIẾU DẤU, SAI CHÍNH TẢ.
+- Tự động ĐOÁN Ý theo NGỮ CẢNH HRM. KHÔNG yêu cầu người dùng nói lại.
+- VD đoán: ""chấm cong""→""chấm công""; ""nghi phep""→""nghỉ phép""; ""ung luong""→""ứng lương""; ""tang ca""→""tăng ca""; ""di cong tac""→""đi công tác"".
+- KHÔNG nhắc lại lỗi nhận dạng.
 
-CÁC THẺ HÀNH ĐỘNG HỢP LỆ (ĐẶT Ở CUỐI, MỖI THẺ 1 DÒNG, KHÔNG GIẢI THÍCH THÊM):
-- [[ACTION:nav_leave]]                 → mở màn đăng ký nghỉ phép
-- [[ACTION:nav_work_schedule]]         → mở màn đăng ký lịch làm / đổi ca
-- [[ACTION:nav_attendance_correction]] → mở màn gửi yêu cầu sửa giờ / quên chấm
-- [[ACTION:nav_attendance_history]]    → mở lịch sử chấm công cá nhân
-- [[ACTION:nav_payroll]]               → mở phiếu lương cá nhân
-- [[ACTION:nav_feedback]]              → mở màn gửi phản ánh/ý kiến
-- [[ACTION:nav_communication]]         → mở bảng tin truyền thông
+CÁC THẺ HÀNH ĐỘNG HỢP LỆ (đặt CUỐI tin nhắn, mỗi thẻ 1 dòng riêng, KHÔNG giải thích):
+
+— XEM DỮ LIỆU —
+- [[ACTION:nav_dashboard]]               → Tổng quan
+- [[ACTION:nav_attendance_history]]      → Lịch sử chấm công cá nhân
+- [[ACTION:nav_payroll]]                 → Phiếu lương cá nhân
+- [[ACTION:nav_kpi]]                     → KPI cá nhân
+- [[ACTION:nav_communication]]           → Bảng tin / truyền thông
+- [[ACTION:nav_meal]]                    → Đăng ký ăn / báo cơm
+- [[ACTION:nav_tasks]]                   → Danh sách công việc
+- [[ACTION:nav_assets]]                  → Tài sản đang giữ
+- [[ACTION:nav_bonus_penalty]]           → Lịch sử thưởng / phạt
+
+— TẠO PHIẾU MỚI (gợi ý dùng các thẻ ""_create"" khi user muốn THÊM/TẠO/ĐĂNG KÝ MỚI) —
+- [[ACTION:nav_leave_create]]            → Thêm phiếu xin nghỉ phép
+- [[ACTION:nav_advance_create]]          → Thêm phiếu ứng lương
+- [[ACTION:nav_overtime_create]]         → Đăng ký tăng ca / OT
+- [[ACTION:nav_field_checkin_create]]    → Tạo phiếu đi công tác / chấm công ngoài
+- [[ACTION:nav_attendance_correction_create]] → Tạo phiếu sửa giờ / báo quên chấm công
+- [[ACTION:nav_shift_change]]            → Đổi ca / đăng ký lịch làm
+- [[ACTION:nav_feedback_create]]         → Gửi phản ánh / ý kiến
+
+— TẠO PHIẾU TRỰC TIẾP (AI tự tạo, có hộp xác nhận) —
+- [[ACTION:create_advance|amount=SO_TIEN|reason=LY_DO|month=THANG|year=NAM]]
+  → Khi người dùng nói cụ thể số tiền muốn ứng (vd: ""ứng lương 2 triệu tháng này""), HÃY emit thẻ này
+    với amount = số nguyên (đơn vị VND, KHÔNG có dấu phẩy/chấm). VD:
+    [[ACTION:create_advance|amount=2000000|reason=Ứng lương tháng 4|month=4|year=2026]]
+  → Nếu user chỉ nói ""ứng lương"" mà KHÔNG có số tiền → dùng [[ACTION:nav_advance_create]] thay thế.
+  → KHÔNG bịa số tiền. Chỉ dùng khi user nêu rõ số.
+
+— XEM/SỬA DANH SÁCH (cho quản lý) —
+- [[ACTION:nav_leave]]                   → Danh sách phiếu nghỉ
+- [[ACTION:nav_advance]]                 → Danh sách phiếu ứng lương
+- [[ACTION:nav_attendance_correction]]   → Danh sách phiếu sửa giờ
+- [[ACTION:nav_overtime]]                → Danh sách phiếu OT
+- [[ACTION:nav_field_checkin]]           → Danh sách phiếu công tác
+- [[ACTION:nav_employees]]               → Quản lý nhân viên
+- [[ACTION:nav_departments]]             → Phòng ban
+- [[ACTION:nav_cash]]                    → Giao dịch quỹ
 
 QUY TẮC DÙNG THẺ:
-- Chỉ kèm thẻ khi người dùng THẬT SỰ muốn đi tới màn đó.
-- Tối đa 1-2 thẻ mỗi câu trả lời.
-- Tuyệt đối KHÔNG đặt thẻ giữa câu, chỉ đặt ở cuối.
+- Người dùng nói ""thêm"", ""tạo"", ""đăng ký"", ""xin"", ""gửi"" → ưu tiên thẻ ""_create"".
+- Người dùng nói ""xem"", ""danh sách"", ""kiểm tra"", ""trạng thái"", ""bao nhiêu"" → dùng thẻ xem.
+- Tối đa 2 thẻ mỗi câu trả lời. Đặt ở cuối, mỗi thẻ 1 dòng.
+- Tuyệt đối KHÔNG đặt thẻ giữa câu.
 
-=== THÔNG TIN CÁ NHÂN NGƯỜI DÙNG ===
+=== THÔNG TIN NGƯỜI DÙNG ===
 {userContext}
 === HẾT THÔNG TIN ===
 

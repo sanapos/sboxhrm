@@ -65,7 +65,12 @@ public record PublicAppSettingsResponse(
     string? YoutubeUrl,
     string? ZaloUrl,
     string? WebsiteUrl,
-    
+
+    // Footer (login screen external links)
+    string? LearnMoreUrl,
+    string? ContactUrl,
+    string? SupportUrl,
+
     // Legal
     string? TermsOfService,
     string? PrivacyPolicy

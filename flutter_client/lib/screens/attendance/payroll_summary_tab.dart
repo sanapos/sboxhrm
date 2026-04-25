@@ -1927,40 +1927,144 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                             final row = pagedData[index];
                             final name = row['name']?.toString() ?? '';
                             final code = row['code']?.toString() ?? '';
+                            final department = row['department']?.toString() ?? '';
                             final netSalary = ((row['netSalary'] as num?) ?? 0).round();
+                            final baseSalary = ((row['baseSalary'] as num?) ?? 0).round();
+                            final allowance = ((row['totalAllowance'] as num?) ?? 0).round();
+                            final bonus = ((row['bonus'] as num?) ?? 0).round();
+                            final penalty = (((row['penalty'] as num?) ?? 0) + ((row['latePenalty'] as num?) ?? 0)).round();
+                            final insurance = ((row['totalInsurance'] as num?) ?? 0).round();
+                            final advance = ((row['advance'] as num?) ?? 0).round();
+                            final workDays = ((row['workDays'] as num?) ?? 0).toInt();
+                            final standardDays = ((row['standardDays'] as num?) ?? 0).toInt();
+
+                            String fmtShort(int n) {
+                              if (n == 0) return '0';
+                              final abs = n.abs();
+                              if (abs >= 1000000) return '${(n / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
+                              if (abs >= 1000) return '${(n / 1000).toStringAsFixed(0)}k';
+                              return _currencyFmt.format(n);
+                            }
+
+                            Widget statPill(IconData icon, String label, int value, Color color, {bool subtractive = false}) {
+                              if (value == 0) return const SizedBox.shrink();
+                              final prefix = subtractive ? '-' : '+';
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(icon, size: 11, color: color),
+                                    const SizedBox(width: 3),
+                                    Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+                                    const SizedBox(width: 3),
+                                    Text('$prefix${fmtShort(value)}', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            final pills = [
+                              statPill(Icons.account_balance_wallet_outlined, 'CB', baseSalary, const Color(0xFF1E3A5F)),
+                              statPill(Icons.card_giftcard_outlined, 'PC', allowance, const Color(0xFF2D5F8B)),
+                              statPill(Icons.emoji_events_outlined, 'TH', bonus, const Color(0xFF8B5CF6)),
+                              statPill(Icons.health_and_safety_outlined, 'BH', insurance, const Color(0xFFF59E0B), subtractive: true),
+                              statPill(Icons.gavel_outlined, 'P', penalty, const Color(0xFFEF4444), subtractive: true),
+                              statPill(Icons.payments_outlined, 'Ứng', advance, const Color(0xFF0F2340), subtractive: true),
+                            ].where((w) => w is! SizedBox).toList();
+
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(color: const Color(0xFFE4E4E7)),
                                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                                 ),
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                   onTap: () => _showEmployeeDetail(row),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    child: Row(children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                                        child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 14)),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                          Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                          const SizedBox(height: 2),
-                                          Text([code, '${(row['workDays'] as num?)?.toInt() ?? 0} ngày'].join(' · '),
-                                            style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                                    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Row 1: avatar + name/code + net salary
+                                        Row(children: [
+                                          CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 15)),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                              Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                [
+                                                  if (code.isNotEmpty) code,
+                                                  if (department.isNotEmpty) department,
+                                                ].join(' · '),
+                                                style: const TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ]),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                _currencyFmt.format(netSalary),
+                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: netSalary >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+                                              ),
+                                              const SizedBox(height: 1),
+                                              Text('₫ thực nhận', style: TextStyle(color: Colors.grey.shade500, fontSize: 9.5, fontWeight: FontWeight.w500)),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
                                         ]),
-                                      ),
-                                      Text(_currencyFmt.format(netSalary), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: netSalary >= 0 ? Colors.green.shade700 : Colors.red)),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
-                                    ]),
+                                        const SizedBox(height: 10),
+                                        // Row 2: work days bar
+                                        Row(
+                                          children: [
+                                            Icon(Icons.event_available_outlined, size: 13, color: Colors.grey.shade600),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              standardDays > 0 ? '$workDays / $standardDays công' : '$workDays công',
+                                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            if (standardDays > 0)
+                                              Expanded(
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: LinearProgressIndicator(
+                                                    value: (workDays / standardDays).clamp(0.0, 1.0),
+                                                    minHeight: 5,
+                                                    backgroundColor: const Color(0xFFF1F5F9),
+                                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                                      workDays >= standardDays ? const Color(0xFF22C55E) : const Color(0xFF3B82F6),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        // Row 3: breakdown pills (only non-zero items)
+                                        if (pills.isNotEmpty) ...[
+                                          const SizedBox(height: 10),
+                                          Wrap(spacing: 6, runSpacing: 6, children: pills),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2438,16 +2542,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     final items = [
-      _SummaryItem('Tổng lương CB', _currencyFmt.format(totalBase.round()), const Color(0xFF1E3A5F)),
-      _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()), const Color(0xFF2D5F8B)),
-      _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()), const Color(0xFF1E3A5F)),
-      _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()), const Color(0xFFEF4444)),
-      _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()), const Color(0xFFF59E0B)),
-      _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()), const Color(0xFF0F2340)),
-      _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()), const Color(0xFFEC4899)),
-      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF1E3A5F)),
+      _SummaryItem('Tổng lương CB', _currencyFmt.format(totalBase.round()), const Color(0xFF1E3A5F), Icons.account_balance_wallet_outlined),
+      _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()), const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
+      _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()), const Color(0xFF8B5CF6), Icons.emoji_events_outlined),
+      _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()), const Color(0xFFEF4444), Icons.gavel_outlined),
+      _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()), const Color(0xFFF59E0B), Icons.health_and_safety_outlined),
+      _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()), const Color(0xFF0F2340), Icons.payments_outlined),
+      _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()), const Color(0xFFEC4899), Icons.flag_outlined),
+      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6), Icons.event_available_outlined),
     ];
-    final netItem = _SummaryItem('THỰC NHẬN', _currencyFmt.format(totalNet.round()), const Color(0xFF22C55E));
+    final netItem = _SummaryItem('THỰC NHẬN', _currencyFmt.format(totalNet.round()), const Color(0xFF22C55E), Icons.savings_outlined);
 
     if (isMobile) {
       // Mobile: 2-column grid + full-width net salary
@@ -2470,16 +2574,154 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
     }
 
-    // Desktop: single row with Expanded chips
-    return Row(
-      children: [
-        for (int i = 0; i < items.length; i++) ...[
-          Expanded(child: _miniChip(items[i].label, items[i].value, items[i].color)),
-          if (i < items.length - 1) const SizedBox(width: 8),
+    // Desktop: Net hero card on top + flexible Wrap of summary tiles below.
+    // Tiles wrap to 2-3 rows naturally so labels/values are never truncated.
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        // Choose how many tiles per row based on width to keep 3-row max.
+        // 8 items → 4 cols (2 rows) >= 1100, 3 cols (3 rows) >= 820, else 2 cols.
+        final perRow = w >= 1100 ? 4 : (w >= 820 ? 3 : 2);
+        const spacing = 10.0;
+        final tileWidth = (w - spacing * (perRow - 1)) / perRow;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _netHeroCard(netItem),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final it in items)
+                  SizedBox(width: tileWidth, child: _summaryTile(it)),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _netHeroCard(_SummaryItem item) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [item.color.withValues(alpha: 0.95), const Color(0xFF15803D)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: item.color.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6)),
         ],
-        const SizedBox(width: 8),
-        Expanded(child: _miniChip(netItem.label, netItem.value, netItem.color)),
-      ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${item.label} (tổng toàn công ty)',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${item.value} ₫',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryTile(_SummaryItem item) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: item.color.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(item.icon, color: item.color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.value,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: item.color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2493,13 +2735,27 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ),
       child: Row(
         children: [
+          Container(
+            width: highlight ? 32 : 26,
+            height: highlight ? 32 : 26,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: highlight ? 0.18 : 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(item.icon, color: item.color, size: highlight ? 18 : 14),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.label, style: TextStyle(fontSize: 10, color: item.color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
+                Text(item.label, style: TextStyle(fontSize: 10, color: item.color.withValues(alpha: 0.7), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Text(item.value, style: TextStyle(fontSize: highlight ? 14 : 12, fontWeight: FontWeight.bold, color: item.color)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(item.value, style: TextStyle(fontSize: highlight ? 15 : 12, fontWeight: FontWeight.bold, color: item.color)),
+                ),
               ],
             ),
           ),
@@ -2693,43 +2949,45 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final frozenCols = visibleCols.where((c) => _frozenKeys.contains(c.key)).toList();
     final scrollableCols = visibleCols.where((c) => !_frozenKeys.contains(c.key)).toList();
 
-    const double rowHeight = 40;
-    const double headerHeight = 44;
-    const double cellPadding = 8;
+    const double rowHeight = 44;
+    const double headerHeight = 46;
+    const double cellPadding = 10;
 
     double colWidth(PayrollColumn col) {
       switch (col.key) {
-        case 'stt': return 40;
+        case 'stt': return 44;
         case 'code': return 110;
-        case 'name': return 160;
-        case 'department': return 100;
-        case 'salaryType': return 80;
-        case 'standardDays': return 85;
-        case 'workDays': return 72;
-        case 'totalHours': return 68;
-        case 'otTotalHours': return 65;
-        default: return 110;
+        case 'name': return 170;
+        case 'department': return 110;
+        case 'salaryType': return 90;
+        case 'standardDays': return 90;
+        case 'workDays': return 78;
+        case 'totalHours': return 74;
+        case 'otTotalHours': return 70;
+        default: return 118;
       }
     }
 
     final frozenWidth = frozenCols.fold<double>(0, (s, c) => s + colWidth(c));
 
     Widget buildCell(String key, Map<String, dynamic> row, int index, double width) {
+      final isEven = index.isEven;
       return InkWell(
         onTap: () => _showEmployeeDetail(row),
         child: Container(
           width: width,
           height: rowHeight,
-          alignment: Alignment.center,
+          alignment: key == 'name' || key == 'code' || key == 'department' || key == 'salaryType' ? Alignment.centerLeft : Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: cellPadding),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
+          decoration: BoxDecoration(
+            color: isEven ? Colors.white : const Color(0xFFFAFBFC),
+            border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
           ),
           child: Text(
             _formatCellValue(key, row, index),
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: key == 'netSalary' ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+              fontWeight: key == 'netSalary' ? FontWeight.bold : (key == 'name' ? FontWeight.w600 : FontWeight.normal),
               color: _getCellColor(key, row),
             ),
             overflow: TextOverflow.ellipsis,
@@ -3017,7 +3275,8 @@ class _SummaryItem {
   final String label;
   final String value;
   final Color color;
-  const _SummaryItem(this.label, this.value, this.color);
+  final IconData icon;
+  const _SummaryItem(this.label, this.value, this.color, this.icon);
 }
 
 /// A ListView that follows the scroll position of a main ScrollController.
