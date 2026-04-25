@@ -14,6 +14,7 @@ public interface IGeminiAiService
     IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(
         string prompt, string typeLabel, string tone, string? context, int maxLength,
         CancellationToken cancellationToken = default);
+    Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -229,6 +230,59 @@ YÊU CẦU:
 {(context != null ? $"BỐI CẢNH THÊM: {context}" : "")}
 
 Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code block.";
+    }
+
+    public async Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024)
+    {
+        if (!IsConfigured)
+            throw new InvalidOperationException("Gemini API key chưa được cấu hình");
+
+        var requestBody = new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    parts = new[]
+                    {
+                        new { text = systemPrompt },
+                        new { text = userPrompt }
+                    }
+                }
+            },
+            generationConfig = new
+            {
+                temperature = _temperature,
+                maxOutputTokens = Math.Max(maxTokens, 256)
+            }
+        };
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
+        };
+
+        var response = await _httpClient.SendAsync(request);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Gemini API error {StatusCode}: {Body}", response.StatusCode, responseBody);
+            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
+        var text = "";
+        for (int i = parts.GetArrayLength() - 1; i >= 0; i--)
+        {
+            var part = parts[i];
+            if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean()) continue;
+            text = part.GetProperty("text").GetString() ?? "";
+            break;
+        }
+        return text.Trim();
     }
 
     public async IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(

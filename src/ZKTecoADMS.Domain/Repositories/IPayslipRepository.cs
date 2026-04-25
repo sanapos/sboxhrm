@@ -14,4 +14,5 @@ public interface IPayslipRepository
     Task DeleteAsync(Guid storeId, Guid id, CancellationToken cancellationToken = default);
     Task<bool> ExistsForEmployeeUserAndPeriodAsync(Guid storeId, Guid employeeUserId, int year, int month, CancellationToken cancellationToken = default);
     Task<List<Payslip>> GetPayslipsByManagerIdAsync(Guid storeId, Guid managerId, int year, int month, CancellationToken cancellationToken = default);
+    Task<List<Payslip>> GetByStoreAndPeriodAsync(Guid storeId, int year, int? month, CancellationToken cancellationToken = default);
 }

@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Payslips.GeneratePayslip;
 using ZKTecoADMS.Application.Queries.Payslips.GetEmployeePayslips;
 using ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
+using ZKTecoADMS.Application.Queries.Payslips.GetStorePayslips;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Payslips;
 using ZKTecoADMS.Application.Models;
@@ -64,6 +65,21 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetMyPayslips()
     {
         var query = new GetEmployeePayslipsQuery(RequiredStoreId, CurrentUserId, IsManager);
+        var result = await mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get all payslips in the current store for a given period (year + optional month).
+    /// Manager/Admin only. Used by payroll report dashboard.
+    /// </summary>
+    [HttpGet("store")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetStorePayslips(
+        [FromQuery] int year,
+        [FromQuery] int? month)
+    {
+        var query = new GetStorePayslipsQuery(RequiredStoreId, year, month);
         var result = await mediator.Send(query);
         return Ok(result);
     }

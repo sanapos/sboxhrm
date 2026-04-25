@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/ai_assist_sheet.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'feedback_detail_screen.dart';
@@ -127,7 +128,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     final hasActiveFilter = _filterStatus != null || _filterCategory != null;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFFF1F5F9),
       floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback')
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
@@ -140,83 +141,29 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           : null,
       body: Column(
         children: [
-          // ===== Gradient header =====
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 14 : 24, vertical: isMobile ? 12 : 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                    color: primary.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.feedback_outlined,
-                      color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text('Phản ánh / Ý kiến',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                ),
-                if (isMobile)
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                            _showMobileFilters
-                                ? Icons.filter_list_off
-                                : Icons.filter_list,
-                            color: Colors.white),
-                        onPressed: () => setState(
-                            () => _showMobileFilters = !_showMobileFilters),
+          // ===== Compact action bar (mobile: hidden, nút lọc gộp vào TabBar) =====
+          if (!isMobile)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  const Expanded(child: SizedBox()),
+                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback'))
+                    FilledButton.icon(
+                      onPressed: _showCreateDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Gửi ý kiến'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
                       ),
-                      if (hasActiveFilter)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF97316),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                if (!isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback'))
-                  FilledButton.icon(
-                    onPressed: _showCreateDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Gửi ý kiến'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: primary,
-                      elevation: 0,
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
           // ===== Collapsible filters =====
           if (!isMobile || _showMobileFilters)
             Container(
@@ -258,14 +205,48 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           // ===== TabBar =====
           Container(
             color: Colors.white,
-            child: TabBar(
-              controller: _tabCtl,
-              labelColor: primary,
-              unselectedLabelColor: const Color(0xFF71717A),
-              indicatorColor: primary,
-              tabs: const [
-                Tab(text: 'Của tôi'),
-                Tab(text: 'Hòm thư'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabCtl,
+                    labelColor: primary,
+                    unselectedLabelColor: const Color(0xFF71717A),
+                    indicatorColor: primary,
+                    tabs: const [
+                      Tab(text: 'Của tôi'),
+                      Tab(text: 'Hòm thư'),
+                    ],
+                  ),
+                ),
+                Stack(
+                  children: [
+                    IconButton(
+                      tooltip: 'Bộ lọc',
+                      icon: Icon(
+                          _showMobileFilters
+                              ? Icons.filter_list_off
+                              : Icons.filter_list,
+                          color: _showMobileFilters ? Colors.orange : primary),
+                      onPressed: () => setState(
+                          () => _showMobileFilters = !_showMobileFilters),
+                    ),
+                    if (hasActiveFilter)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF97316),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 4),
               ],
             ),
           ),
@@ -616,19 +597,39 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             // Tiêu đề
             TextField(
               controller: titleCtl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                   labelText: 'Tiêu đề *',
-                  border: OutlineInputBorder()),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: AiAssistIconButton(
+                    kind: 'feedback',
+                    title: 'AI gợi ý tiêu đề',
+                    targetController: titleCtl,
+                    tooltip: 'AI gợi ý tiêu đề',
+                    contextBuilder: () =>
+                        'Phân loại: ${_categoryLabels[category] ?? category}. '
+                        'Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự) cho phản ánh này. '
+                        'Chỉ trả về tiêu đề, không có dấu ngoặc kép, không giải thích.',
+                  )),
               maxLength: 300,
             ),
             const SizedBox(height: 12),
             // Nội dung
             TextField(
               controller: contentCtl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                   labelText: 'Nội dung *',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true),
+                  border: const OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                  suffixIcon: AiAssistIconButton(
+                    kind: 'feedback',
+                    title: 'AI soạn phản ánh',
+                    targetController: contentCtl,
+                    tooltip: 'AI soạn phản ánh',
+                    contextBuilder: () =>
+                        'Phân loại: ${_categoryLabels[category] ?? category}. '
+                        '${titleCtl.text.trim().isNotEmpty ? 'Tiêu đề: ${titleCtl.text.trim()}. ' : ''}'
+                        'Viết nội dung phản ánh/ý kiến đầy đủ, có đề xuất giải pháp.',
+                  )),
               maxLines: 5,
               maxLength: 5000,
             ),

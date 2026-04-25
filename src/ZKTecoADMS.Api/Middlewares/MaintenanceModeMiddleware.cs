@@ -61,6 +61,7 @@ public class MaintenanceModeMiddleware
         var active = await _cache.GetOrCreateAsync(CacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+            entry.Size = 1;
             try { return await svc.GetActiveAsync(ctx.RequestAborted); }
             catch (Exception ex)
             {

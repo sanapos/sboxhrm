@@ -1,4 +1,6 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'system_admin/system_admin_helpers.dart';
 import 'system_admin/dashboard_tab.dart';
 import 'system_admin/stores_tab.dart';
@@ -14,6 +16,7 @@ import 'system_admin/key_promotions_tab.dart';
 import 'system_admin/announcements_tab.dart';
 import 'system_admin/maintenance_tab.dart';
 import 'system_admin/marketing_tab.dart';
+import 'system_admin/content_pages_tab.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   const SystemAdminScreen({super.key});
@@ -41,11 +44,12 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _announcementsKey = GlobalKey<AnnouncementsTabState>();
   final _maintenanceKey = GlobalKey<MaintenanceTabState>();
   final _marketingKey = GlobalKey<MarketingTabState>();
+  final _contentPagesKey = GlobalKey<ContentPagesTabState>();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 14, vsync: this);
+    _tabController = TabController(length: 15, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {}); // Rebuild header badges when tab changes
@@ -98,6 +102,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 AnnouncementsTab(key: _announcementsKey),
                 MaintenanceTab(key: _maintenanceKey),
                 MarketingTab(key: _marketingKey),
+                ContentPagesTab(key: _contentPagesKey),
               ],
             ),
           ),
@@ -181,6 +186,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                             fontWeight: FontWeight.w600)),
                   ]),
                 ),
+              const SizedBox(width: 12),
+              _buildLogoutButton(),
             ],
           ),
           const SizedBox(height: 16),
@@ -230,10 +237,66 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               Tab(
                   icon: const Icon(Icons.local_offer, size: 18),
                   text: 'Marketing ($marketingCount)'),
+              const Tab(
+                  icon: Icon(Icons.description_outlined, size: 18),
+                  text: 'Nội dung & Phản hồi'),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildLogoutButton() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userLabel = auth.currentUser?.email ?? 'Admin';
+    return Tooltip(
+      message: 'Đăng xuất ($userLabel)',
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: _handleLogout,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: const [
+              Icon(Icons.logout, color: Colors.white, size: 14),
+              SizedBox(width: 6),
+              Text('Đăng xuất',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đăng xuất?'),
+        content: const Text('Bạn có chắc muốn đăng xuất khỏi khu vực quản trị?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.logout();
+    // _AdminRouteGuard watches auth state and will rebuild to AdminLoginScreen.
   }
 }

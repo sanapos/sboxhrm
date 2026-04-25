@@ -51,11 +51,15 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final rememberMe = prefs.getBool(_prefRememberMe) ?? false;
-      if (rememberMe) {
+      // Always pre-fill saved store code + email (even if rememberMe is false)
+      // so users don't need to re-enter them after logout.
+      final savedStore = prefs.getString(_prefStoreCode) ?? '';
+      final savedEmail = prefs.getString(_prefEmail) ?? '';
+      if (savedStore.isNotEmpty || savedEmail.isNotEmpty || rememberMe) {
         setState(() {
           _rememberMe = rememberMe;
-          _storeCodeController.text = prefs.getString(_prefStoreCode) ?? '';
-          _emailController.text = prefs.getString(_prefEmail) ?? '';
+          _storeCodeController.text = savedStore;
+          _emailController.text = savedEmail;
         });
       }
       // Clean up any previously saved password
@@ -68,14 +72,14 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _saveCredentials() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Always remember the last-used store code + email so logout preserves identity.
+      await prefs.setString(_prefStoreCode, _storeCodeController.text.trim());
+      await prefs.setString(_prefEmail, _emailController.text.trim());
+      // rememberMe flag only controls whether to keep the session / auto-login feel.
       if (_rememberMe) {
         await prefs.setBool(_prefRememberMe, true);
-        await prefs.setString(_prefStoreCode, _storeCodeController.text.trim());
-        await prefs.setString(_prefEmail, _emailController.text.trim());
       } else {
         await prefs.remove(_prefRememberMe);
-        await prefs.remove(_prefStoreCode);
-        await prefs.remove(_prefEmail);
       }
       // Always clean up any previously saved password
       await prefs.remove('saved_password');

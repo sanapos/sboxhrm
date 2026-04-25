@@ -43,7 +43,7 @@ class _CommunicationScreenState extends State<CommunicationScreen> with TickerPr
   String _searchTerm = '';
   int? _filterType;
   int? _filterPriority;
-  int? _filterStatus = 2;
+  int? _filterStatus; // null = hiển thị cả bài đã xuất bản + bản nháp của chính mình
   String _sortBy = 'newest';
   String _viewMode = 'grid'; // grid or list
 
@@ -330,7 +330,7 @@ class _CommunicationScreenState extends State<CommunicationScreen> with TickerPr
                 child: Stack(
                   children: [
                     Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: const Color(0xFF1E3A5F)),
-                    if (_searchTerm.isNotEmpty || _filterPriority != null || _filterStatus != 2 || _sortBy != 'newest')
+                    if (_searchTerm.isNotEmpty || _filterPriority != null || _filterStatus != null || _sortBy != 'newest')
                       Positioned(right: 0, top: 0, child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
                   ],
                 ),

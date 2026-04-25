@@ -247,6 +247,10 @@ class _HrReportScreenState extends State<HrReportScreen>
     }
   }
 
+  EdgeInsets get _tabPad => Responsive.isMobile(context)
+      ? const EdgeInsets.all(12)
+      : const EdgeInsets.all(24);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -464,20 +468,29 @@ class _HrReportScreenState extends State<HrReportScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: Colors.teal.shade700,
-        unselectedLabelColor: const Color(0xFFA1A1AA),
-        indicatorColor: Colors.teal,
-        indicatorWeight: 3,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        tabs: const [
-          Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard, size: 18)),
-          Tab(text: 'Sinh nhật', icon: Icon(Icons.cake, size: 18)),
-          Tab(text: 'Nhân khẩu học', icon: Icon(Icons.pie_chart, size: 18)),
-          Tab(text: 'Danh sách', icon: Icon(Icons.list_alt, size: 18)),
-        ],
-      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 600;
+        return TabBar(
+          controller: _tabController,
+          labelColor: Colors.teal.shade700,
+          unselectedLabelColor: const Color(0xFFA1A1AA),
+          indicatorColor: Colors.teal,
+          indicatorWeight: 3,
+          isScrollable: narrow,
+          tabAlignment: narrow ? TabAlignment.start : TabAlignment.fill,
+          labelPadding: narrow
+              ? const EdgeInsets.symmetric(horizontal: 16)
+              : const EdgeInsets.symmetric(horizontal: 8),
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          tabs: const [
+            Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard, size: 18)),
+            Tab(text: 'Sinh nhật', icon: Icon(Icons.cake, size: 18)),
+            Tab(text: 'Nhân khẩu học', icon: Icon(Icons.pie_chart, size: 18)),
+            Tab(text: 'Danh sách', icon: Icon(Icons.list_alt, size: 18)),
+          ],
+        );
+      }),
     );
   }
 
@@ -486,7 +499,7 @@ class _HrReportScreenState extends State<HrReportScreen>
   // ===========================================================
   Widget _buildOverviewTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: _tabPad,
       child: Column(
         children: [
           _buildSummaryCards(),
@@ -550,33 +563,59 @@ class _HrReportScreenState extends State<HrReportScreen>
       avgSeniority = totalDays / withJoinDate.length / 365.25;
     }
 
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: [
-        _summaryCard(_l10n.totalHeadcount, '$_totalEmployees', Icons.people,
-            Colors.blue),
-        _summaryCard(
-            'Đang làm việc', '$_activeCount', Icons.check_circle, Colors.green),
-        _summaryCard('Nam', '$_maleCount', Icons.male, Colors.indigo),
-        _summaryCard('Nữ', '$_femaleCount', Icons.female, Colors.pink),
-        _summaryCard('Độc thân', '$_singleCount', Icons.person, Colors.orange),
-        _summaryCard('Có gia đình', '$_marriedCount', Icons.family_restroom,
-            Colors.purple),
-        _summaryCard(
-            'Mới trong tháng', '$newThisMonth', Icons.person_add, Colors.teal),
-        _summaryCard('TB thâm niên', '${avgSeniority.toStringAsFixed(1)} năm',
-            Icons.timeline, Colors.amber.shade800),
-        _summaryCard('Sinh nhật tháng này', '${_birthdaysThisMonth.length}',
-            Icons.cake, Colors.red),
-      ],
-    );
+    final cards = <_SummaryCardData>[
+      _SummaryCardData(_l10n.totalHeadcount, '$_totalEmployees', Icons.people,
+          Colors.blue),
+      _SummaryCardData('Đang làm việc', '$_activeCount', Icons.check_circle,
+          Colors.green),
+      _SummaryCardData('Nam', '$_maleCount', Icons.male, Colors.indigo),
+      _SummaryCardData('Nữ', '$_femaleCount', Icons.female, Colors.pink),
+      _SummaryCardData(
+          'Độc thân', '$_singleCount', Icons.person, Colors.orange),
+      _SummaryCardData('Có gia đình', '$_marriedCount', Icons.family_restroom,
+          Colors.purple),
+      _SummaryCardData(
+          'Mới trong tháng', '$newThisMonth', Icons.person_add, Colors.teal),
+      _SummaryCardData(
+          'TB thâm niên',
+          '${avgSeniority.toStringAsFixed(1)} năm',
+          Icons.timeline,
+          Colors.amber.shade800),
+      _SummaryCardData('Sinh nhật tháng này', '${_birthdaysThisMonth.length}',
+          Icons.cake, Colors.red),
+    ];
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      int cols;
+      if (w >= 1100) {
+        cols = 5;
+      } else if (w >= 800) {
+        cols = 4;
+      } else if (w >= 560) {
+        cols = 3;
+      } else {
+        cols = 2;
+      }
+      const spacing = 12.0;
+      final cardW = (w - spacing * (cols - 1)) / cols;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          for (final c in cards)
+            SizedBox(
+              width: cardW,
+              child: _summaryCard(c.title, c.value, c.icon, c.color),
+            ),
+        ],
+      );
+    });
   }
 
   Widget _summaryCard(String title, String value, IconData icon, Color color) {
     return Container(
-      width: 165,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -589,6 +628,7 @@ class _HrReportScreenState extends State<HrReportScreen>
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -598,13 +638,26 @@ class _HrReportScreenState extends State<HrReportScreen>
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
+          ),
           const SizedBox(height: 4),
-          Text(title,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
-              textAlign: TextAlign.center),
+          Text(
+            title,
+            style: const TextStyle(
+                fontSize: 11.5,
+                color: Color(0xFF52525B),
+                height: 1.25,
+                fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -877,20 +930,38 @@ class _HrReportScreenState extends State<HrReportScreen>
   // ===========================================================
   Widget _buildBirthdayTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: _tabPad,
       child: Column(
         children: [
           // Birthday summary cards
-          Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: [
-              _summaryCard('Sinh nhật tháng này',
-                  '${_birthdaysThisMonth.length}', Icons.cake, Colors.red),
-              _summaryCard('Sắp đến (30 ngày)', '${_upcomingBirthdays.length}',
-                  Icons.event, Colors.orange),
-            ],
-          ),
+          LayoutBuilder(builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final cols = w >= 560 ? 2 : 2;
+            const spacing = 12.0;
+            final cardW = (w - spacing * (cols - 1)) / cols;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                SizedBox(
+                  width: cardW,
+                  child: _summaryCard(
+                      'Sinh nhật tháng này',
+                      '${_birthdaysThisMonth.length}',
+                      Icons.cake,
+                      Colors.red),
+                ),
+                SizedBox(
+                  width: cardW,
+                  child: _summaryCard(
+                      'Sắp đến (30 ngày)',
+                      '${_upcomingBirthdays.length}',
+                      Icons.event,
+                      Colors.orange),
+                ),
+              ],
+            );
+          }),
           const SizedBox(height: 24),
 
           // Upcoming birthdays list
@@ -1203,7 +1274,7 @@ class _HrReportScreenState extends State<HrReportScreen>
   // ===========================================================
   Widget _buildDemographicsTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: _tabPad,
       child: Column(
         children: [
           LayoutBuilder(builder: (context, constraints) {
@@ -1507,7 +1578,7 @@ class _HrReportScreenState extends State<HrReportScreen>
     });
     final now = DateTime.now();
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: _tabPad,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1772,4 +1843,12 @@ class _HrReportScreenState extends State<HrReportScreen>
     await file_saver.saveFileBytes(bytes, 'bao_cao_nhan_su_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv', 'text/csv;charset=utf-8');
     NotificationOverlayManager().showSuccess(title: 'Xuất báo cáo', message: 'Đã xuất báo cáo CSV');
   }
+}
+
+class _SummaryCardData {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _SummaryCardData(this.title, this.value, this.icon, this.color);
 }

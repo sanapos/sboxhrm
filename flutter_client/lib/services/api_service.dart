@@ -11,6 +11,10 @@ class ApiService {
   static const String _refreshTokenKey = 'refresh_token';
   static const Duration _defaultTimeout = Duration(seconds: 8);
 
+  /// Global callback invoked when a 401 is received AND refresh token fails.
+  /// AuthProvider registers this to perform auto-logout on session expiry.
+  static Future<void> Function()? onUnauthorized;
+
   String? _token;
 
   // Singleton pattern
@@ -105,11 +109,36 @@ class ApiService {
       if (refreshResult != null) {
         debugPrint('✅ ApiService: Token refreshed, retrying request...');
         response = await requestFn();
+        // If still 401 after refresh, session is truly expired
+        if (response.statusCode == 401) {
+          debugPrint('❌ ApiService: Still 401 after refresh → session expired');
+          await _triggerSessionExpired();
+        }
       } else {
-        debugPrint('❌ ApiService: Token refresh failed');
+        debugPrint('❌ ApiService: Token refresh failed → session expired');
+        await _triggerSessionExpired();
       }
     }
     return response;
+  }
+
+  bool _sessionExpiredTriggered = false;
+  Future<void> _triggerSessionExpired() async {
+    if (_sessionExpiredTriggered) return;
+    _sessionExpiredTriggered = true;
+    try {
+      final cb = onUnauthorized;
+      if (cb != null) {
+        await cb();
+      }
+    } catch (e) {
+      debugPrint('❌ ApiService: onUnauthorized callback error: $e');
+    } finally {
+      // Re-allow triggering for future sessions (after user logs in again).
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        _sessionExpiredTriggered = false;
+      });
+    }
   }
 
   // ==================== AUTH ====================
@@ -7687,6 +7716,53 @@ class ApiService {
     }
   }
 
+  /// Generic AI text assist (feedback, leave_reason, attendance_reason,
+  /// schedule_request, schedule_approval, attendance_report, payroll_report, generic)
+  Future<Map<String, dynamic>> aiAssist({
+    required String kind,
+    required String prompt,
+    String? context,
+    String? tone,
+    String? provider,
+    int maxTokens = 1024,
+  }) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/ai/assist'),
+          headers: _headers,
+          body: json.encode({
+            'kind': kind,
+            'prompt': prompt,
+            if (context != null) 'context': context,
+            if (tone != null) 'tone': tone,
+            if (provider != null) 'provider': provider,
+            'maxTokens': maxTokens,
+          }));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// AI Assistant chat - trợ lý ảo cá nhân với context người dùng.
+  Future<Map<String, dynamic>> aiAssistantChat({
+    required List<Map<String, String>> messages,
+    String? provider,
+  }) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/ai/assistant/chat'),
+          headers: _headers,
+          body: json.encode({
+            'messages': messages,
+            if (provider != null) 'provider': provider,
+          }));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> getGeminiConfig() async {
     try {
       final response = await http.get(
@@ -8608,6 +8684,22 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/payslips/$id'),
           headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Get all payslips in current store for a period (year + optional month).
+  /// Manager/Admin only. Used by payroll report dashboard.
+  Future<Map<String, dynamic>> getStorePayslips(
+      {required int year, int? month}) async {
+    try {
+      final params = <String, String>{'year': year.toString()};
+      if (month != null) params['month'] = month.toString();
+      final uri = Uri.parse('$baseUrl/api/payslips/store')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -11008,6 +11100,95 @@ class ApiService {
       final response = await http.delete(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id'),
           headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ============================================================
+  // App Pages: Terms / Privacy / Help
+  // ============================================================
+
+  Future<Map<String, dynamic>> getAppPage(String type) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/app-pages/$type'), headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminGetAllAppPages() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/app-pages'), headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminUpsertAppPage(
+      String type, Map<String, dynamic> body) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/system-admin/app-pages/$type'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ============================================================
+  // App Bug Reports
+  // ============================================================
+
+  Future<Map<String, dynamic>> submitAppBugReport(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/app-reports'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminGetAppBugReports({
+    String? status,
+    String? type,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final qp = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (type != null && type.isNotEmpty) 'type': type,
+      };
+      final uri = Uri.parse('$baseUrl/api/system-admin/app-reports')
+          .replace(queryParameters: qp);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminUpdateAppBugReport(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/system-admin/app-reports/$id'),
+          headers: _headers,
+          body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};

@@ -19,6 +19,7 @@ import 'system_settings_screen.dart';
 import 'tax_settings_screen.dart';
 import 'device_management_settings_screen.dart';
 import 'google_drive_settings_screen.dart';
+
 import 'product_salary_settings_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
@@ -326,11 +327,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return false;
       }
       // Lọc theo gói dịch vụ
-      if (!isDirector && allowedModules != null && allowedModules.isNotEmpty && !allowedModules.contains(item.moduleCode)) {
+      if (!isDirector && allowedModules != null && allowedModules.isNotEmpty && item.moduleCode != null && !allowedModules.contains(item.moduleCode)) {
         return false;
       }
       // Lọc theo quyền canView
-      if (!permProvider.canView(item.moduleCode)) return false;
+      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!)) return false;
       return true;
     }).toList();
   }
@@ -556,7 +557,7 @@ class _SidebarItem {
   final String label;
   final String desc;
   final Color accent;
-  final String moduleCode;
+  final String? moduleCode;
   const _SidebarItem({required this.index, required this.icon, required this.label, required this.desc, required this.accent, required this.moduleCode});
 }
 

@@ -38,10 +38,10 @@ import 'attendance_summary_screen.dart';
 import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
 import 'dashboard_screen.dart';
-import 'hr_report_screen.dart';
-import 'advanced_reports_screen.dart';
+
 import 'attendance_report_screen.dart';
 import 'payroll_report_screen.dart';
+import 'hr_report_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
@@ -119,7 +119,6 @@ class NavigationNotifier {
   static const int kpi = 21;
   static const int production = 22;
   static const int feedback = 23;
-  static const int hrReport = 24;
   static const int attendanceReport = 25;
   static const int payrollReport = 26;
   static const int agentLicenseKeys = 27;
@@ -963,27 +962,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // ══════════ BÁO CÁO ══════════
     NavItem(
-      icon: Icons.people_alt_outlined,
-      activeIcon: Icons.people_alt,
-      label: 'Báo cáo nhân sự',
-      subtitle: 'Thống kê nhân sự, phòng ban',
-      screen: const HrReportScreen(),
-      group: 'Báo cáo',
-      showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'HrReport',
-    ),
-    NavItem(
-      icon: Icons.analytics_outlined,
-      activeIcon: Icons.analytics,
-      label: 'Báo cáo HR nâng cao',
-      subtitle: '29 báo cáo chuyên sâu, 8 cụm, xuất Excel',
-      screen: const AdvancedReportsScreen(),
-      group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'HrReport',
-    ),
-    NavItem(
       icon: Icons.schedule_outlined,
       activeIcon: Icons.schedule,
       label: 'Báo cáo chấm công',
@@ -1004,6 +982,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: const Color(0xFF7C3AED),
       moduleCode: 'PayrollReport',
+    ),
+    NavItem(
+      icon: Icons.people_outline,
+      activeIcon: Icons.people,
+      label: 'Báo cáo nhân sự',
+      subtitle: 'Thống kê nhân sự, phòng ban',
+      screen: const HrReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'HrReport',
     ),
 
     // ══════════ ĐẠI LÝ ══════════
@@ -1264,13 +1253,33 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         body: Column(
           children: [
             const AnnouncementBanner(),
-            Expanded(child: _getScreenForIndex(_selectedIndex)),
+            Expanded(child: _buildMobileBody()),
           ],
         ),
         bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
         drawer: _buildDrawer(),
       ),
     ),
+    );
+  }
+
+  /// Mobile body: IndexedStack keeps bottom-nav screen states alive (scroll position preserved).
+  /// Non-bottom-nav screens are overlaid on top so IndexedStack stays in tree.
+  Widget _buildMobileBody() {
+    final bottomNavIndices = _mobileBottomNavDefs.map((d) => d.navIndex).toList();
+    final isBottomNav = bottomNavIndices.contains(_selectedIndex);
+    final stackIdx = isBottomNav ? bottomNavIndices.indexOf(_selectedIndex) : 0;
+    return Stack(
+      children: [
+        IndexedStack(
+          index: stackIdx,
+          children: bottomNavIndices
+              .map((i) => _getScreenForIndex(i))
+              .toList(),
+        ),
+        if (!isBottomNav)
+          _getScreenForIndex(_selectedIndex),
+      ],
     );
   }
 

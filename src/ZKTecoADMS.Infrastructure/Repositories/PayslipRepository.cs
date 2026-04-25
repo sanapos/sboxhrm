@@ -99,4 +99,20 @@ public class PayslipRepository(ZKTecoDbContext context) : IPayslipRepository
             .OrderBy(p => p.EmployeeUser.UserName)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<Payslip>> GetByStoreAndPeriodAsync(Guid storeId, int year, int? month, CancellationToken cancellationToken = default)
+    {
+        var q = context.Payslips
+            .Include(p => p.EmployeeUser)
+            .Include(p => p.SalaryProfile)
+            .Where(p => p.StoreId == storeId && p.Year == year);
+        if (month.HasValue)
+        {
+            q = q.Where(p => p.Month == month.Value);
+        }
+        return await q
+            .OrderByDescending(p => p.Month)
+            .ThenBy(p => p.EmployeeUser.UserName)
+            .ToListAsync(cancellationToken);
+    }
 }

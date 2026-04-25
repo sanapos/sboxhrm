@@ -97,6 +97,21 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _checkAuthStatus();
+    // Register global 401/session-expired handler so expired sessions get logged out.
+    ApiService.onUnauthorized = _handleSessionExpired;
+  }
+
+  bool _sessionExpiredHandling = false;
+  Future<void> _handleSessionExpired() async {
+    if (_sessionExpiredHandling) return;
+    _sessionExpiredHandling = true;
+    try {
+      if (_token == null && _user == null) return;
+      debugPrint('🚪 AuthProvider: Session expired → auto logout');
+      await logout();
+    } finally {
+      _sessionExpiredHandling = false;
+    }
   }
 
   Future<void> _checkAuthStatus() async {
@@ -263,15 +278,12 @@ class AuthProvider extends ChangeNotifier {
 
     await _apiService.clearToken();
 
-    // Clear saved credentials for security
+    // Clear sensitive credentials but KEEP saved identity (store code + email)
+    // so users don't need to re-enter them on next login.
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('remember_me');
-      await prefs.remove('saved_store_code');
-      await prefs.remove('saved_email');
+      // Do NOT remove: saved_store_code, saved_email, admin_saved_email, remember_me, admin_remember_me
       await prefs.remove('saved_password');
-      await prefs.remove('admin_remember_me');
-      await prefs.remove('admin_saved_email');
       await prefs.remove('admin_saved_password');
     } catch (e) {
       debugPrint('Clear saved credentials error: $e');

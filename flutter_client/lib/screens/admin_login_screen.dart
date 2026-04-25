@@ -54,10 +54,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final rememberMe = prefs.getBool(_prefAdminRememberMe) ?? false;
-      if (rememberMe) {
+      // Always pre-fill saved admin email so users don't re-enter it after logout.
+      final savedEmail = prefs.getString(_prefAdminEmail) ?? '';
+      if (savedEmail.isNotEmpty || rememberMe) {
         setState(() {
           _rememberMe = rememberMe;
-          _emailController.text = prefs.getString(_prefAdminEmail) ?? '';
+          _emailController.text = savedEmail;
         });
       }
       // Clean up any previously saved password
@@ -70,12 +72,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
   Future<void> _saveCredentials() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Always remember the last-used admin email so logout preserves identity.
+      await prefs.setString(_prefAdminEmail, _emailController.text.trim());
       if (_rememberMe) {
         await prefs.setBool(_prefAdminRememberMe, true);
-        await prefs.setString(_prefAdminEmail, _emailController.text.trim());
       } else {
         await prefs.remove(_prefAdminRememberMe);
-        await prefs.remove(_prefAdminEmail);
       }
       // Always clean up any previously saved password
       await prefs.remove('admin_saved_password');

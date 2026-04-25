@@ -920,11 +920,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           Icon(Icons.fact_check_outlined,
               size: 20, color: Theme.of(context).primaryColor),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text('Duyệt chấm công',
-                style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis),
-          ),
+          const Expanded(child: SizedBox()),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import 'app_info_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -191,19 +192,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   icon: Icons.description,
                   title: l.termsOfUse,
-                  onTap: () => _showInfoDialog(context, l.termsOfUse, 'Ứng dụng quản lý chấm công ZKTeco ADMS.\nBản quyền thuộc về công ty.\nNghiêm cấm sao chép, phân phối trái phép.'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AppInfoScreen(type: 'terms'),
+                  )),
                 ),
                 _buildSettingTile(
                   context,
                   icon: Icons.privacy_tip,
                   title: l.privacyPolicy,
-                  onTap: () => _showInfoDialog(context, l.privacyPolicy, 'Chúng tôi cam kết bảo mật thông tin cá nhân của bạn.\nDữ liệu chấm công chỉ được sử dụng cho mục đích quản lý nội bộ.\nKhông chia sẻ dữ liệu với bên thứ ba.'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AppInfoScreen(type: 'privacy'),
+                  )),
                 ),
                 _buildSettingTile(
                   context,
                   icon: Icons.help,
                   title: l.help,
-                  onTap: () => _showInfoDialog(context, l.help, 'Liên hệ hỗ trợ:\n• Email: support@sbox.vn\n• Hotline: 1900-xxxx\n• Giờ làm việc: 8:00 - 17:30 (T2-T6)'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AppInfoScreen(type: 'help'),
+                  )),
+                ),
+                _buildSettingTile(
+                  context,
+                  icon: Icons.bug_report_outlined,
+                  title: 'Báo lỗi & Góp ý',
+                  subtitle: 'Gửi phản hồi cho nhà phát triển',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AppInfoScreen(type: 'bugreport'),
+                  )),
                 ),
               ],
             ),

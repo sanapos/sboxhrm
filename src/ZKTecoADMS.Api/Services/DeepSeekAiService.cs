@@ -12,6 +12,7 @@ public interface IDeepSeekAiService
     IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(
         string prompt, string typeLabel, string tone, string? context, int maxLength,
         CancellationToken cancellationToken = default);
+    Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -140,6 +141,44 @@ public class DeepSeekAiService : IDeepSeekAiService
             _logger.LogWarning(ex, "Failed to parse DeepSeek JSON, returning raw text");
             return new AiGeneratedContent { Title = $"📰 {prompt}", Content = text, Summary = prompt, Tags = ["ai-generated"] };
         }
+    }
+
+    public async Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024)
+    {
+        if (!IsEnabled)
+            throw new InvalidOperationException("DeepSeek AI chưa được bật hoặc chưa cấu hình API key");
+
+        var requestBody = new
+        {
+            model = _model,
+            messages = new object[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = userPrompt }
+            },
+            max_tokens = Math.Max(maxTokens, 256),
+            temperature = _temperature
+        };
+
+        var url = $"{BaseUrl}/chat/completions";
+        var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+
+        var response = await _httpClient.SendAsync(request);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("DeepSeek API error {StatusCode}: {Body}", response.StatusCode, responseBody);
+            throw new AiApiException(ParseDeepSeekError(response.StatusCode, responseBody), (int)response.StatusCode);
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        var text = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        return text.Trim();
     }
 
     private string BuildSystemPrompt(string typeLabel, string tone, string? context, int maxLength, bool json = false)

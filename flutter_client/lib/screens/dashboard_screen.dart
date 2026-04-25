@@ -8,6 +8,8 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/ai_assistant_sheet.dart';
+import 'main_layout.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -385,25 +387,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return LoadingWidget(message: _l10n.loadingOverview);
     }
 
-    if (_isEmployee) {
-      return _buildEmployeeDashboard();
-    }
+    final body = _isEmployee
+        ? _buildEmployeeDashboard()
+        : RefreshIndicator(
+            onRefresh: _loadAllData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width < 768 ? 12 : 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 14),
+                  _buildQuickActions(),
+                  const SizedBox(height: 16),
+                  _buildHeroOverview(),
+                  const SizedBox(height: 20),
+                  _buildMainGrid(),
+                ],
+              ),
+            ),
+          );
 
-    return RefreshIndicator(
-      onRefresh: _loadAllData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width < 768 ? 12 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            _buildHeroOverview(),
-            const SizedBox(height: 20),
-            _buildMainGrid(),
-          ],
-        ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: body,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showAiAssistant(context),
+        backgroundColor: const Color(0xFF8B5CF6),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text('Trợ lý AI'),
+        tooltip: 'Mở trợ lý ảo HRM',
       ),
     );
   }
@@ -412,51 +427,294 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeader() {
     String greeting;
     IconData greetIcon;
+    Color iconColor;
     if (_now.hour < 12) {
       greeting = _l10n.goodMorning;
-      greetIcon = Icons.wb_sunny_outlined;
+      greetIcon = Icons.wb_sunny_rounded;
+      iconColor = const Color(0xFFFCD34D);
     } else if (_now.hour < 18) {
       greeting = _l10n.goodAfternoon;
-      greetIcon = Icons.wb_cloudy_outlined;
+      greetIcon = Icons.wb_twilight_rounded;
+      iconColor = const Color(0xFFFB923C);
     } else {
       greeting = _l10n.goodEvening;
-      greetIcon = Icons.nightlight_outlined;
+      greetIcon = Icons.nightlight_round;
+      iconColor = const Color(0xFFA78BFA);
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final fullName = auth.user?.fullName ?? 'User';
+    final role = auth.userRole;
+    final initials = _initialsOf(fullName);
+    final hh = _now.hour.toString().padLeft(2, '0');
+    final mm = _now.minute.toString().padLeft(2, '0');
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
         children: [
-          Icon(greetIcon, color: Colors.amber, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0F2340), Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          // Decorative gradient orbs
+          Positioned(
+            right: -40,
+            top: -30,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [
+                  iconColor.withValues(alpha: 0.35),
+                  iconColor.withValues(alpha: 0.0),
+                ]),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -30,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [
+                  Colors.white.withValues(alpha: 0.10),
+                  Colors.white.withValues(alpha: 0.0),
+                ]),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Row(
               children: [
-                Text(
-                  _l10n.sysOverview,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-                  overflow: TextOverflow.ellipsis,
+                // Avatar
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: Colors.white24, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '$greeting  •  ${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(greetIcon, color: iconColor, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              '$greeting,',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        fullName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _headerBadge(role),
+                          const SizedBox(width: 6),
+                          _headerBadge('${_weekday(_now.weekday)} • ${_now.day}/${_now.month}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Live clock pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$hh:$mm',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      Text(
+                        _now.year.toString(),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  String _initialsOf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'U';
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
+    return (parts[parts.length - 2].characters.first + parts.last.characters.first).toUpperCase();
+  }
+
+  Widget _headerBadge(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  // ===================== QUICK ACTIONS =====================
+  Widget _buildQuickActions() {
+    final actions = <_QuickAction>[
+      _QuickAction(Icons.fingerprint_rounded, 'Chấm công', const Color(0xFF22C55E), () => NavigationNotifier.goToAttendance()),
+      _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ', const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
+      _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6), () => NavigationNotifier.goToWorkSchedule()),
+      _QuickAction(Icons.payments_rounded, 'Phiếu lương', const Color(0xFF06B6D4), () => NavigationNotifier.goToPayroll()),
+      _QuickAction(Icons.campaign_rounded, 'Truyền thông', const Color(0xFFEC4899), () => NavigationNotifier.goToCommunication()),
+      _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI', const Color(0xFF6366F1), () => showAiAssistant(context)),
+    ];
+
+    return SizedBox(
+      height: 86,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: actions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) => _buildQuickActionTile(actions[i]),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionTile(_QuickAction a) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: a.onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 78,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: a.color.withValues(alpha: 0.18)),
+            boxShadow: [
+              BoxShadow(
+                color: a.color.withValues(alpha: 0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [a.color, Color.lerp(a.color, Colors.white, 0.35)!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: a.color.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(a.icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                a.label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -577,7 +835,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(width: 220, child: donut),
+                    SizedBox(width: 260, child: donut),
                     const SizedBox(width: 18),
                     Expanded(child: tiles),
                   ],
@@ -585,15 +843,441 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               return Column(
                 children: [
-                  SizedBox(height: 180, child: donut),
+                  SizedBox(height: 230, child: donut),
                   const SizedBox(height: 12),
                   tiles,
                 ],
               );
             },
           ),
+          const SizedBox(height: 12),
+          _buildInsightChipsRow(),
         ],
       ),
+    );
+  }
+
+  // ===================== INSIGHT CHIPS ROW =====================
+  Widget _buildInsightChipsRow() {
+    final pendingTotal = _pendingLeaves.length + _pendingCorrections.length +
+        _pendingSwaps.length + _pendingAdvances.length;
+    final otCount = _toInt(_overtimeStats['totalOvertimeCount'] ??
+        _overtimeStats['employeesWithOvertime'] ?? _overtimeStats['count'] ?? 0);
+    final taskTotal = _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
+    final taskDone = _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? _taskStats['done'] ?? 0);
+    final penaltyCount = _toInt(_penaltyStats['totalTickets'] ??
+        _penaltyStats['count'] ?? _penaltyStats['total'] ?? 0);
+    final cashIn = ((_cashSummary['totalIncome'] ?? _cashSummary['totalIn'] ?? 0) as num).toDouble();
+    final cashOut = ((_cashSummary['totalExpense'] ?? _cashSummary['totalOut'] ?? 0) as num).toDouble();
+    final cashNet = cashIn - cashOut;
+
+    // Reorder: Thu chi full-width at row 4 (last)
+    final chips = <_InsightChipData>[
+      // Row 1
+      _InsightChipData(Icons.beach_access_outlined, 'Nghỉ phép', '${_absentWithPermission.length}', const Color(0xFFF59E0B), 'leave_today'),
+      _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt', '$pendingTotal', const Color(0xFFEF4444), 'pending_all'),
+      _InsightChipData(Icons.cake_outlined, 'Sinh nhật', '${_todayBirthdays.length}', const Color(0xFFEC4899), 'birthday_detail'),
+      // Row 2
+      _InsightChipData(Icons.av_timer_outlined, 'OT tháng', '$otCount NV', const Color(0xFF8B5CF6), 'overtime_detail'),
+      _InsightChipData(Icons.task_alt_outlined, 'Công việc', taskTotal > 0 ? '$taskDone/$taskTotal' : '0', const Color(0xFF2D5F8B), 'task_detail'),
+      _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount', const Color(0xFFDC2626), 'penalty_detail'),
+      // Row 3
+      _InsightChipData(Icons.description_outlined, 'HĐ hết hạn', '${_expiringDocs.length}', const Color(0xFFEA580C), 'docs_detail'),
+      _InsightChipData(Icons.account_balance_wallet_outlined, 'Ứng lương', '${_pendingAdvances.length}', const Color(0xFF10B981), 'advance_detail'),
+      _InsightChipData(Icons.groups_outlined, 'NV mới', '${_newHiresThisMonth()}', const Color(0xFF0F2340), 'newhires_detail'),
+      // Row 4 — full width
+      _InsightChipData(Icons.attach_money, 'Thu chi', '${cashNet >= 0 ? '+' : ''}${_fmtMoney(cashNet)}', cashNet >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626), 'finance_detail'),
+    ];
+
+    Widget fixedRow(int start, int count) => Row(
+      children: List.generate(count * 2 - 1, (i) {
+        if (i.isOdd) return const SizedBox(width: 8);
+        final idx = start + i ~/ 2;
+        return Expanded(child: _buildInsightChip(chips[idx]));
+      }),
+    );
+
+    // Thu chi chip — full width (spans same width as 3-chip row)
+    final thuChiChip = chips[9];
+    final thuChiWidget = GestureDetector(
+      onTap: () => _showInsightDetail(thuChiChip),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: thuChiChip.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: thuChiChip.color.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(thuChiChip.icon, size: 16, color: thuChiChip.color),
+            const SizedBox(width: 8),
+            Text(thuChiChip.label,
+                style: TextStyle(fontSize: 12, color: thuChiChip.color, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 12),
+            Text(thuChiChip.value,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: thuChiChip.color)),
+          ],
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        fixedRow(0, 3),
+        const SizedBox(height: 8),
+        fixedRow(3, 3),
+        const SizedBox(height: 8),
+        fixedRow(6, 3),
+        const SizedBox(height: 8),
+        thuChiWidget,
+      ],
+    );
+  }
+
+  Widget _buildInsightChip(_InsightChipData c) {
+    return GestureDetector(
+      onTap: () => _showInsightDetail(c),
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 88),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: c.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: c.color.withValues(alpha: 0.22)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(c.icon, size: 12, color: c.color),
+              const SizedBox(width: 4),
+              Text(c.label, style: TextStyle(fontSize: 10, color: c.color, fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 4),
+            Text(c.value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c.color), maxLines: 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _newHiresThisMonth() {
+    final now = DateTime.now();
+    var count = 0;
+    for (final e in _employees) {
+      if (e is Map) {
+        final join = e['joinDate'] ?? e['hireDate'] ?? e['startDate'];
+        if (join != null) {
+          try {
+            final d = DateTime.parse(join.toString());
+            if (d.year == now.year && d.month == now.month) count++;
+          } catch (_) {}
+        }
+      }
+    }
+    return count;
+  }
+
+  String _fmtMoney(double v) {
+    if (v.abs() >= 1000000000) return '${(v / 1000000000).toStringAsFixed(1)}B';
+    if (v.abs() >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v.abs() >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  // ===================== INSIGHT DETAIL SHEET =====================
+  void _showInsightDetail(_InsightChipData c) {
+    final List<Map<String, dynamic>> items;
+    Widget? customContent;
+
+    switch (c.kind) {
+      case 'leave_today':
+        items = _absentWithPermission;
+        break;
+      case 'pending_all':
+        // Combine all pending lists
+        items = [
+          ..._pendingLeaves.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Đơn nghỉ phép'}),
+          ..._pendingCorrections.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Chỉnh sửa CC'}),
+          ..._pendingSwaps.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Đổi ca'}),
+          ..._pendingAdvances.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Ứng lương'}),
+        ];
+        break;
+      case 'birthday_detail':
+        items = [..._todayBirthdays, ..._monthlyBirthdays];
+        break;
+      case 'overtime_detail':
+        items = [];
+        customContent = _buildOvertimeDetailContent();
+        break;
+      case 'task_detail':
+        items = [];
+        customContent = _buildTaskDetailContent();
+        break;
+      case 'penalty_detail':
+        items = [];
+        customContent = _buildPenaltyDetailContent();
+        break;
+      case 'docs_detail':
+        items = _expiringDocs.whereType<Map<String, dynamic>>().toList();
+        break;
+      case 'advance_detail':
+        items = _pendingAdvances.whereType<Map<String, dynamic>>().toList();
+        break;
+      case 'finance_detail':
+        items = [];
+        customContent = _buildFinanceDetailContent();
+        break;
+      case 'newhires_detail':
+        final now = DateTime.now();
+        items = _employees.whereType<Map<String, dynamic>>().where((e) {
+          final join = e['joinDate'] ?? e['hireDate'] ?? e['startDate'];
+          if (join == null) return false;
+          try {
+            final d = DateTime.parse(join.toString());
+            return d.year == now.year && d.month == now.month;
+          } catch (_) { return false; }
+        }).toList();
+        break;
+      default:
+        items = [];
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.35,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: c.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(c.icon, color: c.color, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(c.label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(customContent != null ? c.value : '${items.length} mục',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: customContent != null
+                    ? SingleChildScrollView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        child: customContent,
+                      )
+                    : items.isEmpty
+                        ? _emptyState('Không có dữ liệu')
+                        : ListView.separated(
+                            controller: scrollController,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (_, i) => _buildInsightDetailRow(c.kind, items[i], c.color),
+                          ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsightDetailRow(String kind, Map<String, dynamic> item, Color accent) {
+    final name = (item['fullName'] ?? item['employeeName'] ?? item['name'] ?? '-').toString();
+    final sub1 = (item['departmentName'] ?? item['department'] ?? item['_type'] ?? '').toString();
+    final sub2 = (item['leaveType'] ?? item['type'] ?? item['contractType'] ?? '').toString();
+
+    String badge = '';
+    if (kind == 'birthday_detail') {
+      final dob = item['dateOfBirth'] ?? item['birthday'];
+      badge = dob != null ? _fmtDate(dob) : '';
+    } else if (kind == 'pending_all') {
+      badge = (item['_type'] ?? '').toString();
+    } else if (kind == 'docs_detail') {
+      badge = (item['expiryDate'] ?? item['endDate'] ?? '').toString().isNotEmpty
+          ? _fmtDate(item['expiryDate'] ?? item['endDate'])
+          : '';
+    } else if (kind == 'advance_detail') {
+      final amt = (item['requestedAmount'] ?? item['amount'] ?? 0) as num;
+      badge = '${_fmtMoney(amt.toDouble())}đ';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blueGrey.shade100),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: accent.withValues(alpha: .12),
+            child: Text(name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
+                style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (sub1.isNotEmpty || sub2.isNotEmpty)
+                  Text([sub1, sub2].where((s) => s.isNotEmpty).join(' • '),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          if (badge.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
+              child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: accent)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOvertimeDetailContent() {
+    final total = _toInt(_overtimeStats['totalOvertimeCount'] ?? _overtimeStats['count'] ?? 0);
+    final hours = ((_overtimeStats['totalOvertimeHours'] ?? _overtimeStats['hours'] ?? 0) as num).toDouble();
+    final approved = _toInt(_overtimeStats['approvedCount'] ?? _overtimeStats['approved'] ?? 0);
+    final pending = _toInt(_overtimeStats['pendingCount'] ?? _overtimeStats['pending'] ?? 0);
+    return Column(children: [
+      _detailStatRow(Icons.people_outline, 'Tổng NV làm OT', '$total người', const Color(0xFF8B5CF6)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.timer_outlined, 'Tổng giờ OT', '${hours.toStringAsFixed(1)} giờ', const Color(0xFF8B5CF6)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved', const Color(0xFF22C55E)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.pending_outlined, 'Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
+    ]);
+  }
+
+  Widget _buildTaskDetailContent() {
+    final total = _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
+    final todo = _toInt(_taskStats['todoCount'] ?? _taskStats['pending'] ?? _taskStats['notStarted'] ?? 0);
+    final inProg = _toInt(_taskStats['inProgressCount'] ?? _taskStats['inProgress'] ?? 0);
+    final done = _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? _taskStats['done'] ?? 0);
+    final overdue = _toInt(_taskStats['overdueCount'] ?? _taskStats['overdue'] ?? 0);
+    final rate = total > 0 ? (done / total * 100) : 0.0;
+    return Column(children: [
+      _detailStatRow(Icons.checklist, 'Tổng công việc', '$total', const Color(0xFF2D5F8B)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.radio_button_unchecked, 'Chưa bắt đầu', '$todo', const Color(0xFF71717A)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.autorenew, 'Đang làm', '$inProg', const Color(0xFFF59E0B)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.check_circle, 'Hoàn thành', '$done', const Color(0xFF22C55E)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.warning_amber, 'Quá hạn', '$overdue', const Color(0xFFEF4444)),
+      const SizedBox(height: 12),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: LinearProgressIndicator(
+          value: rate / 100, minHeight: 10,
+          backgroundColor: const Color(0xFFE4E4E7),
+          valueColor: AlwaysStoppedAnimation(rate >= 80 ? const Color(0xFF22C55E) : rate >= 50 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text('Tỉ lệ hoàn thành: ${rate.toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+    ]);
+  }
+
+  Widget _buildPenaltyDetailContent() {
+    final total = _toInt(_penaltyStats['totalTickets'] ?? _penaltyStats['count'] ?? _penaltyStats['total'] ?? 0);
+    final totalFine = ((_penaltyStats['totalFineAmount'] ?? _penaltyStats['totalAmount'] ?? 0) as num).toDouble();
+    final paid = _toInt(_penaltyStats['paidCount'] ?? _penaltyStats['paid'] ?? 0);
+    final unpaid = _toInt(_penaltyStats['unpaidCount'] ?? _penaltyStats['unpaid'] ?? 0);
+    return Column(children: [
+      _detailStatRow(Icons.receipt_long, 'Tổng phiếu vi phạm', '$total', const Color(0xFFDC2626)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.attach_money, 'Tổng tiền phạt', '${_fmtMoney(totalFine)}đ', const Color(0xFFDC2626)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.check_circle_outline, 'Đã nộp phạt', '$paid', const Color(0xFF22C55E)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.cancel_outlined, 'Chưa nộp', '$unpaid', const Color(0xFFF59E0B)),
+    ]);
+  }
+
+  Widget _buildFinanceDetailContent() {
+    final income = ((_cashSummary['totalIncome'] ?? _cashSummary['totalIn'] ?? 0) as num).toDouble();
+    final expense = ((_cashSummary['totalExpense'] ?? _cashSummary['totalOut'] ?? 0) as num).toDouble();
+    final net = income - expense;
+    final txCount = _toInt(_cashSummary['totalTransactions'] ?? _cashSummary['count'] ?? 0);
+    return Column(children: [
+      _detailStatRow(Icons.trending_up, 'Tổng thu', '${_fmtMoney(income)}đ', const Color(0xFF22C55E)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.trending_down, 'Tổng chi', '${_fmtMoney(expense)}đ', const Color(0xFFEF4444)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.account_balance, 'Tồn quỹ', '${net >= 0 ? '+' : ''}${_fmtMoney(net)}đ', net >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.receipt, 'Số giao dịch', '$txCount', const Color(0xFF2D5F8B)),
+    ]);
+  }
+
+  Widget _detailStatRow(IconData icon, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+      ]),
     );
   }
 
@@ -760,38 +1444,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: PieChart(
             PieChartData(
               sectionsSpace: 2,
-              centerSpaceRadius: 52,
+              centerSpaceRadius: 72,
               startDegreeOffset: -90,
               sections: [
                 PieChartSectionData(
                   value: rate,
                   color: arcColor,
-                  radius: 22,
+                  radius: 26,
                   showTitle: false,
                 ),
                 PieChartSectionData(
                   value: (100 - rate).clamp(0.0001, 100),
                   color: const Color(0xFFE2E8F0),
-                  radius: 22,
+                  radius: 26,
                   showTitle: false,
                 ),
               ],
             ),
           ),
         ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${rate.toStringAsFixed(1)}%',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: arcColor),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'Tỉ lệ chấm công',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${rate.toStringAsFixed(1)}%',
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: arcColor),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Tỉ lệ chấm công',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -829,70 +1517,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHeroKpiTile(_HeroKpi k) {
+    final lighter = Color.lerp(k.color, Colors.white, 0.18)!;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showKpiDetail(k),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: k.color.withValues(alpha: 0.15)),
+            gradient: LinearGradient(
+              colors: [k.color, lighter],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                  color: k.color.withValues(alpha: 0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2)),
+                  color: k.color.withValues(alpha: 0.30),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4)),
             ],
           ),
-          child: Row(
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: k.color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
+              // decorative ring
+              Positioned(
+                right: -14,
+                bottom: -14,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.10),
+                  ),
                 ),
-                child: Icon(k.icon, size: 18, color: k.color),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(k.icon, size: 18, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            k.label,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                k.label,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.2),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                size: 14,
+                                color: Colors.white.withValues(alpha: 0.7)),
+                          ],
                         ),
-                        Icon(Icons.chevron_right,
-                            size: 14,
-                            color: k.color.withValues(alpha: 0.45)),
+                        const SizedBox(height: 2),
+                        Text(
+                          k.value,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      k.value,
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: k.color),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1384,6 +2095,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               // Row 9: Expiring Documents
               _buildExpiringDocsCard(),
+              const SizedBox(height: 16),
+              // Row 10: HR Insight + Leave Analytics
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildHRInsightCard()),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildLeaveAnalyticsCard()),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Row 11: Productivity
+              _buildProductivityCard(),
             ],
           );
         }
@@ -1473,6 +2197,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
             const SizedBox(height: 16),
             _buildExpiringDocsCard(),
+            const SizedBox(height: 16),
+            if (isMedium) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _buildHRInsightCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildLeaveAnalyticsCard()),
+              ]),
+            ] else ...[
+              _buildHRInsightCard(),
+              const SizedBox(height: 16),
+              _buildLeaveAnalyticsCard(),
+            ],
+            const SizedBox(height: 16),
+            _buildProductivityCard(),
           ],
         );
       },
@@ -2897,6 +3635,284 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ===================== CARD: HR INSIGHT =====================
+  Widget _buildHRInsightCard() {
+    // Gender breakdown from employees list
+    int male = 0, female = 0, other = 0;
+    int withContract = 0;
+    final deptCountMap = <String, int>{};
+
+    for (final e in _employees) {
+      if (e is! Map<String, dynamic>) continue;
+      final gender = (e['gender'] ?? e['Gender'] ?? '').toString().toLowerCase();
+      if (gender == 'male' || gender == 'nam' || gender == '1') {
+        male++;
+      } else if (gender == 'female' || gender == 'nữ' || gender == '0') {
+        female++;
+      } else {
+        other++;
+      }
+      final contractType = e['contractType'] ?? e['employmentType'] ?? '';
+      if (contractType.toString().isNotEmpty) withContract++;
+
+      final dept = (e['departmentName'] ?? e['department'] ?? '').toString();
+      if (dept.isNotEmpty && dept != 'N/A') {
+        deptCountMap[dept] = (deptCountMap[dept] ?? 0) + 1;
+      }
+    }
+
+    final total = _employees.length;
+    final topDepts = (deptCountMap.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(4)
+        .toList();
+
+    return _DashCard(
+      icon: Icons.groups_3_outlined,
+      title: 'Phân tích nhân sự',
+      color: const Color(0xFF0F2340),
+      badge: '$total nhân viên',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Gender strip
+        Row(children: [
+          _hrStatMini(Icons.male_rounded, 'Nam', '$male', const Color(0xFF2D5F8B)),
+          const SizedBox(width: 8),
+          _hrStatMini(Icons.female_rounded, 'Nữ', '$female', const Color(0xFFEC4899)),
+          const SizedBox(width: 8),
+          _hrStatMini(Icons.person_outlined, 'Khác', '$other', const Color(0xFF71717A)),
+          const SizedBox(width: 8),
+          _hrStatMini(Icons.person_add_outlined, 'NV mới', '${_newHiresThisMonth()}', const Color(0xFF22C55E)),
+        ]),
+        const SizedBox(height: 12),
+        if (male + female + other > 0) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Row(
+              children: [
+                if (male > 0) Flexible(flex: male, child: Container(height: 8, color: const Color(0xFF2D5F8B))),
+                if (female > 0) Flexible(flex: female, child: Container(height: 8, color: const Color(0xFFEC4899))),
+                if (other > 0) Flexible(flex: other, child: Container(height: 8, color: const Color(0xFF71717A))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Top departments
+        if (topDepts.isNotEmpty) ...[
+          const Text('Top phòng ban', style: TextStyle(fontSize: 11, color: Color(0xFF71717A), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          ...topDepts.map((e) {
+            final pct = total > 0 ? e.value / total : 0.0;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(e.key, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Text('${e.value} NV', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  const SizedBox(width: 6),
+                  Text('${(pct * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F2340))),
+                ]),
+                const SizedBox(height: 2),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct, minHeight: 4,
+                    backgroundColor: const Color(0xFFE4E4E7),
+                    valueColor: const AlwaysStoppedAnimation(Color(0xFF1E3A5F)),
+                  ),
+                ),
+              ]),
+            );
+          }),
+        ],
+      ]),
+    );
+  }
+
+  Widget _hrStatMini(IconData icon, String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.12)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+        ]),
+      ),
+    );
+  }
+
+  // ===================== CARD: LEAVE ANALYTICS =====================
+  Widget _buildLeaveAnalyticsCard() {
+    // Build leave type breakdown from all known leave lists
+    final allLeaves = <Map<String, dynamic>>[
+      ..._pendingLeaves.whereType<Map<String, dynamic>>(),
+      ..._todayLeaves.whereType<Map<String, dynamic>>(),
+    ];
+
+    final typeMap = <String, int>{};
+    for (final l in allLeaves) {
+      final t = _formatLeaveType((l['leaveType'] ?? l['type'] ?? 'Khác').toString());
+      typeMap[t] = (typeMap[t] ?? 0) + 1;
+    }
+
+    final leaveTotal = allLeaves.length;
+    final approved = allLeaves.where((l) {
+      final s = (l['status'] ?? l['approvalStatus'] ?? '').toString().toLowerCase();
+      return s.contains('approved') || s.contains('duyệt');
+    }).length;
+    final pending = _pendingLeaves.length;
+    final annualUsed = _toInt(_monthlyReport['annualLeaveUsed'] ?? _monthlyReport['leaveUsed'] ?? 0);
+    final leaveTypes = (typeMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(5).toList();
+
+    return _DashCard(
+      icon: Icons.event_note_outlined,
+      title: 'Phân tích nghỉ phép',
+      color: const Color(0xFFF59E0B),
+      badge: '$leaveTotal đơn',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          _leaveStatBox('Đã duyệt', '$approved', const Color(0xFF22C55E)),
+          const SizedBox(width: 8),
+          _leaveStatBox('Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
+          const SizedBox(width: 8),
+          _leaveStatBox('Ngày phép đã dùng', '$annualUsed', const Color(0xFF1E3A5F)),
+        ]),
+        if (leaveTypes.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Phân loại nghỉ phép', style: TextStyle(fontSize: 11, color: Color(0xFF71717A), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          ...leaveTypes.map((e) {
+            final pct = leaveTotal > 0 ? e.value / leaveTotal : 0.0;
+            const barColor = Color(0xFFF59E0B);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(children: [
+                Expanded(child: Text(e.key, style: const TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 80,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(value: pct, minHeight: 6, backgroundColor: const Color(0xFFE4E4E7), valueColor: const AlwaysStoppedAnimation(barColor)),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SizedBox(width: 22, child: Text('${e.value}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B)), textAlign: TextAlign.right)),
+              ]),
+            );
+          }),
+        ],
+        if (leaveTotal == 0) _emptyState('Không có dữ liệu nghỉ phép'),
+      ]),
+    );
+  }
+
+  Widget _leaveStatBox(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)), textAlign: TextAlign.center, maxLines: 2),
+        ]),
+      ),
+    );
+  }
+
+  // ===================== CARD: PRODUCTIVITY DASHBOARD =====================
+  Widget _buildProductivityCard() {
+    // KPI
+    final avgKpi = ((_kpiDashboard['averageKpiScore'] ?? 0) as num).toDouble();
+    final kpiTotal = _toInt(_kpiDashboard['totalEmployees'] ?? 0);
+    final kpiApproved = _toInt(_kpiDashboard['totalApproved'] ?? 0);
+
+    // Attendance monthly
+    final monthTotal = _toInt(_monthlyReport['totalWorkDays'] ?? _monthlyReport['workdays'] ?? 0);
+    final monthPresent = _toInt(_monthlyReport['totalPresent'] ?? _monthlyReport['present'] ?? 0);
+    final monthLate = _toInt(_monthlyReport['totalLate'] ?? _monthlyReport['late'] ?? 0);
+    final monthRate = monthTotal > 0 ? (monthPresent / monthTotal * 100) : _attendanceRate;
+
+    // Task
+    final taskTotal = _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
+    final taskDone = _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? 0);
+    final taskRate = taskTotal > 0 ? (taskDone / taskTotal * 100) : 0.0;
+
+    // OT
+    final otHours = ((_overtimeStats['totalOvertimeHours'] ?? _overtimeStats['hours'] ?? 0) as num).toDouble();
+
+    final kpiColor = avgKpi >= 80 ? const Color(0xFF22C55E) : avgKpi >= 60 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    final attColor = monthRate >= 85 ? const Color(0xFF22C55E) : monthRate >= 70 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    final taskColor = taskRate >= 80 ? const Color(0xFF22C55E) : taskRate >= 50 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+
+    return _DashCard(
+      icon: Icons.bar_chart_rounded,
+      title: 'Năng suất & Hiệu suất',
+      color: const Color(0xFF2D5F8B),
+      child: Column(children: [
+        // KPI gauge row
+        _productivityRow('KPI trung bình', '${avgKpi.toStringAsFixed(1)}/100', avgKpi / 100, kpiColor,
+            sub: '$kpiApproved/$kpiTotal NV được đánh giá'),
+        const SizedBox(height: 10),
+        // Attendance rate
+        _productivityRow('Chấm công tháng', '${monthRate.toStringAsFixed(1)}%', monthRate / 100, attColor,
+            sub: monthLate > 0 ? '$monthLate lần đi trễ trong tháng' : ''),
+        const SizedBox(height: 10),
+        // Task completion
+        _productivityRow('Hoàn thành công việc', '${taskRate.toStringAsFixed(0)}%', taskRate / 100, taskColor,
+            sub: '$taskDone/$taskTotal việc'),
+        const SizedBox(height: 10),
+        // OT hours summary
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15)),
+          ),
+          child: Row(children: [
+            Icon(Icons.av_timer, size: 20, color: const Color(0xFF8B5CF6)),
+            const SizedBox(width: 10),
+            Expanded(child: Text('OT tháng này', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+            Text('${otHours.toStringAsFixed(1)} giờ', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF8B5CF6))),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _productivityRow(String label, String value, double progress, Color color, {String sub = ''}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+      ]),
+      if (sub.isNotEmpty)
+        Text(sub, style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+      const SizedBox(height: 4),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: LinearProgressIndicator(
+          value: progress.clamp(0.0, 1.0), minHeight: 7,
+          backgroundColor: const Color(0xFFE4E4E7),
+          valueColor: AlwaysStoppedAnimation(color),
+        ),
+      ),
+    ]);
+  }
+
   // ===================== EMPLOYEE DASHBOARD =====================
   Widget _buildEmployeeDashboard() {
     final todayShift = _employeeDashboard['todayShift'] as Map<String, dynamic>?;
@@ -3298,4 +4314,21 @@ class _HeroKpi {
   final Color color;
   final String kind; // total|present|late|absent|inout|devices
   _HeroKpi(this.label, this.value, this.icon, this.color, this.kind);
+}
+
+class _QuickAction {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  _QuickAction(this.icon, this.label, this.color, this.onTap);
+}
+
+class _InsightChipData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final String kind;
+  const _InsightChipData(this.icon, this.label, this.value, this.color, this.kind);
 }

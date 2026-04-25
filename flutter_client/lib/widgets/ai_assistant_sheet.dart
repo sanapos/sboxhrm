@@ -1,0 +1,524 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
+
+import '../services/api_service.dart';
+import '../screens/main_layout.dart';
+import 'notification_overlay.dart';
+
+class _ChatMsg {
+  final String role; // 'user' | 'assistant'
+  final String content;
+  final List<String> actions;
+  _ChatMsg(this.role, this.content, {this.actions = const []});
+}
+
+class AiAssistantSheet extends StatefulWidget {
+  const AiAssistantSheet({super.key});
+
+  @override
+  State<AiAssistantSheet> createState() => _AiAssistantSheetState();
+}
+
+class _AiAssistantSheetState extends State<AiAssistantSheet> {
+  final _api = ApiService();
+  final _inputCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+  final _stt = stt.SpeechToText();
+  final _tts = FlutterTts();
+
+  final List<_ChatMsg> _messages = [];
+  bool _isSending = false;
+  bool _sttReady = false;
+  bool _isListening = false;
+  bool _ttsEnabled = true;
+  bool _ttsSpeaking = false;
+  String _partialTranscript = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+    _initStt();
+    _messages.add(_ChatMsg('assistant',
+        'Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.'));
+  }
+
+  Future<void> _initTts() async {
+    try {
+      await _tts.setLanguage('vi-VN');
+      await _tts.setSpeechRate(0.5);
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+      _tts.setStartHandler(() {
+        if (mounted) setState(() => _ttsSpeaking = true);
+      });
+      _tts.setCompletionHandler(() {
+        if (mounted) setState(() => _ttsSpeaking = false);
+      });
+      _tts.setErrorHandler((_) {
+        if (mounted) setState(() => _ttsSpeaking = false);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _initStt() async {
+    try {
+      final mic = await Permission.microphone.request();
+      if (!mic.isGranted) return;
+      final ok = await _stt.initialize(
+        onStatus: (s) {
+          if (s == 'done' || s == 'notListening') {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+        onError: (e) {
+          if (mounted) setState(() => _isListening = false);
+        },
+      );
+      if (mounted) setState(() => _sttReady = ok);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    _scrollCtrl.dispose();
+    _tts.stop();
+    if (_isListening) _stt.stop();
+    super.dispose();
+  }
+
+  Future<void> _toggleListening() async {
+    if (!_sttReady) {
+      NotificationOverlayManager().showWarning(
+          title: 'Micro chưa sẵn sàng',
+          message: 'Vui lòng cấp quyền micro và thử lại');
+      await _initStt();
+      return;
+    }
+    if (_isListening) {
+      await _stt.stop();
+      if (_partialTranscript.trim().isNotEmpty) {
+        _inputCtrl.text = _partialTranscript.trim();
+      }
+      setState(() => _isListening = false);
+      return;
+    }
+    setState(() {
+      _isListening = true;
+      _partialTranscript = '';
+    });
+
+    // Chọn locale tốt nhất: ưu tiên vi-VN từ thiết bị, fallback vi_VN
+    String? bestLocale;
+    try {
+      final locales = await _stt.locales();
+      final vi = locales.firstWhere(
+        (l) => l.localeId.toLowerCase().startsWith('vi'),
+        orElse: () => stt.LocaleName('vi_VN', 'Vietnamese'),
+      );
+      bestLocale = vi.localeId;
+    } catch (_) {
+      bestLocale = 'vi_VN';
+    }
+
+    await _stt.listen(
+      localeId: bestLocale,
+      // Tăng pauseFor để không cắt câu giữa chừng khi người dùng ngập ngừng
+      pauseFor: const Duration(seconds: 4),
+      // Tổng thời gian tối đa 1 lượt nói
+      listenFor: const Duration(seconds: 60),
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: false,
+        // false = dùng nhận dạng đám mây của Google → chính xác hơn nhiều cho tiếng Việt
+        onDevice: false,
+        // dictation → cho phép câu dài, không bị ép thành lệnh ngắn
+        listenMode: stt.ListenMode.dictation,
+      ),
+      onResult: (r) {
+        setState(() {
+          _partialTranscript = r.recognizedWords;
+          _inputCtrl.text = _partialTranscript;
+          _inputCtrl.selection = TextSelection.fromPosition(
+            TextPosition(offset: _inputCtrl.text.length),
+          );
+        });
+        if (r.finalResult) {
+          setState(() => _isListening = false);
+          // Tự động gửi sau khi nói xong (nếu có nội dung)
+          if (_partialTranscript.trim().length >= 2) {
+            _send();
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _send() async {
+    final text = _inputCtrl.text.trim();
+    if (text.isEmpty || _isSending) return;
+    setState(() {
+      _messages.add(_ChatMsg('user', text));
+      _inputCtrl.clear();
+      _isSending = true;
+    });
+    _scrollToBottom();
+
+    try {
+      final history = _messages
+          .where((m) => m.content.trim().isNotEmpty)
+          .map((m) => {'role': m.role, 'content': m.content})
+          .toList();
+      final result = await _api.aiAssistantChat(messages: history);
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        final data = result['data'] as Map<String, dynamic>?;
+        final reply = (data?['reply'] as String?)?.trim() ?? '';
+        final actions = ((data?['actions'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList();
+        setState(() {
+          _messages.add(_ChatMsg('assistant', reply, actions: actions));
+        });
+        _scrollToBottom();
+        if (_ttsEnabled && reply.isNotEmpty) {
+          await _tts.stop();
+          await _tts.speak(reply);
+        }
+      } else {
+        final msg = (result['message'] as String?) ?? 'Lỗi trợ lý AI';
+        setState(() {
+          _messages.add(_ChatMsg('assistant', '⚠️ $msg'));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(_ChatMsg('assistant', '⚠️ Lỗi: $e'));
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _handleAction(String action) {
+    // Close sheet first so navigation target becomes visible
+    Navigator.of(context).pop();
+    switch (action) {
+      case 'nav_leave':
+        NavigationNotifier.goToLeaves();
+        break;
+      case 'nav_work_schedule':
+        NavigationNotifier.goToWorkSchedule();
+        break;
+      case 'nav_attendance_correction':
+        NavigationNotifier.goToAttendanceCorrections();
+        break;
+      case 'nav_attendance_history':
+        NavigationNotifier.goToAttendance();
+        break;
+      case 'nav_payroll':
+        NavigationNotifier.goToPayroll();
+        break;
+      case 'nav_feedback':
+        NavigationNotifier.goTo(NavigationNotifier.feedback);
+        break;
+      case 'nav_communication':
+        NavigationNotifier.goToCommunication();
+        break;
+      default:
+        NotificationOverlayManager().showInfo(
+            title: 'Thao tác', message: action);
+    }
+  }
+
+  (String, IconData) _actionLabelIcon(String action) {
+    switch (action) {
+      case 'nav_leave':
+        return ('Đăng ký nghỉ phép', Icons.beach_access_rounded);
+      case 'nav_work_schedule':
+        return ('Lịch làm việc', Icons.calendar_month_rounded);
+      case 'nav_attendance_correction':
+        return ('Sửa giờ / Quên chấm', Icons.edit_calendar_rounded);
+      case 'nav_attendance_history':
+        return ('Lịch sử chấm công', Icons.history_rounded);
+      case 'nav_payroll':
+        return ('Phiếu lương', Icons.payments_rounded);
+      case 'nav_feedback':
+        return ('Phản ánh / Ý kiến', Icons.feedback_rounded);
+      case 'nav_communication':
+        return ('Bảng tin', Icons.campaign_rounded);
+      default:
+        return (action, Icons.open_in_new);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollCtrl) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildMessages()),
+              _buildInputBar(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 36,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Trợ lý ảo HRM',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+                Text('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: _ttsEnabled ? 'Tắt đọc' : 'Bật đọc',
+            onPressed: () async {
+              if (_ttsEnabled && _ttsSpeaking) await _tts.stop();
+              setState(() => _ttsEnabled = !_ttsEnabled);
+            },
+            icon: Icon(_ttsEnabled
+                ? Icons.volume_up_rounded
+                : Icons.volume_off_rounded),
+          ),
+          IconButton(
+            tooltip: 'Đóng',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessages() {
+    return ListView.builder(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.all(12),
+      itemCount: _messages.length + (_isSending ? 1 : 0),
+      itemBuilder: (context, i) {
+        if (i >= _messages.length) return _buildTypingBubble();
+        return _buildBubble(_messages[i]);
+      },
+    );
+  }
+
+  Widget _buildBubble(_ChatMsg m) {
+    final isUser = m.role == 'user';
+    final bubble = Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78),
+      decoration: BoxDecoration(
+        color: isUser ? const Color(0xFF1E3A5F) : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(14),
+          topRight: const Radius.circular(14),
+          bottomLeft: Radius.circular(isUser ? 14 : 4),
+          bottomRight: Radius.circular(isUser ? 4 : 14),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SelectableText(
+            m.content,
+            style: TextStyle(
+              color: isUser ? Colors.white : const Color(0xFF18181B),
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          if (m.actions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: m.actions.map((a) {
+                final li = _actionLabelIcon(a);
+                return ActionChip(
+                  avatar: Icon(li.$2,
+                      size: 16, color: const Color(0xFF8B5CF6)),
+                  label: Text(li.$1,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8B5CF6),
+                          fontWeight: FontWeight.w600)),
+                  backgroundColor: const Color(0xFFF3E8FF),
+                  side: const BorderSide(color: Color(0xFFDDD6FE)),
+                  onPressed: () => _handleAction(a),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: bubble,
+    );
+  }
+
+  Widget _buildTypingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 10),
+            Text('Đang suy nghĩ...',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputBar() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border:
+              Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            IconButton(
+              tooltip: _isListening ? 'Dừng ghi âm' : 'Nói',
+              onPressed: _toggleListening,
+              icon: Icon(
+                _isListening ? Icons.mic : Icons.mic_none_rounded,
+                color: _isListening
+                    ? Colors.red
+                    : const Color(0xFF8B5CF6),
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _inputCtrl,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(
+                  hintText: _isListening
+                      ? 'Đang nghe...'
+                      : 'Hỏi trợ lý (VD: "Còn bao nhiêu phép?")',
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Material(
+              color: _isSending
+                  ? Colors.grey.shade300
+                  : const Color(0xFF8B5CF6),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isSending ? null : _send,
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Icon(Icons.send_rounded,
+                      color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showAiAssistant(BuildContext context) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const AiAssistantSheet(),
+  );
+}

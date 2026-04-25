@@ -96,6 +96,10 @@ dependencies:
   tflite_flutter: ^0.12.1
   flutter_local_notifications: 18.0.0
 
+  # AI Assistant - Voice input/output
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
+
 dependency_overrides:
   path_provider_foundation: 2.4.4
 

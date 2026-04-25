@@ -94,95 +94,93 @@ class _MobileAttendanceApprovalScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Duyệt chấm công Mobile',
-          style: TextStyle(
-            color: Color(0xFF18181B),
-            fontWeight: FontWeight.bold,
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
-            onPressed: _showFilterDialog,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF1E3A5F),
-          unselectedLabelColor: const Color(0xFF71717A),
-          indicatorColor: const Color(0xFF1E3A5F),
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.pending_actions, size: 18),
-                  const SizedBox(width: 6),
-                  const Text('Chờ duyệt'),
-                  if (_pendingRecords.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${_pendingRecords.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+      body: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: const Color(0xFF1E3A5F),
+                    unselectedLabelColor: const Color(0xFF71717A),
+                    indicatorColor: const Color(0xFF1E3A5F),
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.pending_actions, size: 18),
+                            const SizedBox(width: 6),
+                            const Text('Chờ duyệt'),
+                            if (_pendingRecords.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF59E0B),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${_pendingRecords.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, size: 18),
-                  SizedBox(width: 6),
-                  Text('Đã duyệt'),
-                ],
-              ),
-            ),
-            const Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cancel, size: 18),
-                  SizedBox(width: 6),
-                  Text('Từ chối'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPendingTab(),
-                _buildApprovedTab(),
-                _buildRejectedTab(),
+                      const Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle, size: 18),
+                            SizedBox(width: 6),
+                            Text('Đã duyệt'),
+                          ],
+                        ),
+                      ),
+                      const Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.cancel, size: 18),
+                            SizedBox(width: 6),
+                            Text('Từ chối'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Bộ lọc',
+                  icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
+                  onPressed: _showFilterDialog,
+                ),
+                const SizedBox(width: 4),
               ],
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPendingTab(),
+                      _buildApprovedTab(),
+                      _buildRejectedTab(),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 

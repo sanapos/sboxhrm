@@ -140,7 +140,10 @@ public static class DependencyInjectionExtensions
         
         // Register DeepSeek AI service
         services.AddSingleton<IDeepSeekAiService, DeepSeekAiService>();
-        
+
+        // Load AI keys from DB (AppSettings) at startup so they survive container restart
+        services.AddHostedService<AiConfigLoaderHostedService>();
+
         // Register background services
         services.AddHostedService<DeviceMonitorBackgroundService>();
         services.AddHostedService<KpiAutoSyncBackgroundService>();
