@@ -1,8 +1,25 @@
 using System.Text.Json;
 using ZKTecoADMS.Application.DTOs.Allowances;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Allowances;
+
+// Helper to parse the JSON-serialised employee user-id list and notify each.
+internal static class AllowanceNotificationHelper
+{
+    public static IEnumerable<Guid> ParseEmployeeUserIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) yield break;
+        List<string>? list = null;
+        try { list = JsonSerializer.Deserialize<List<string>>(json); } catch { yield break; }
+        if (list == null) yield break;
+        foreach (var s in list)
+        {
+            if (Guid.TryParse(s, out var g) && g != Guid.Empty) yield return g;
+        }
+    }
+}
 
 // Create Allowance Command
 public record CreateAllowanceCommand(
@@ -20,7 +37,8 @@ public record CreateAllowanceCommand(
     List<string>? EmployeeIds) : ICommand<AppResponse<AllowanceDto>>;
 
 public class CreateAllowanceHandler(
-    IRepository<Allowance> allowanceRepository
+    IRepository<Allowance> allowanceRepository,
+    ISystemNotificationService notificationService
 ) : ICommandHandler<CreateAllowanceCommand, AppResponse<AllowanceDto>>
 {
     public async Task<AppResponse<AllowanceDto>> Handle(CreateAllowanceCommand request, CancellationToken cancellationToken)
@@ -47,6 +65,23 @@ public class CreateAllowanceHandler(
             var created = await allowanceRepository.AddAsync(allowance, cancellationToken);
             var dto = created.Adapt<AllowanceDto>();
             dto.EmployeeIds = string.IsNullOrEmpty(created.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(created.EmployeeIds);
+
+            // Notify each targeted employee that a new allowance applies to them.
+            try
+            {
+                var userIds = AllowanceNotificationHelper.ParseEmployeeUserIds(created.EmployeeIds).ToList();
+                if (userIds.Count > 0)
+                {
+                    await notificationService.CreateAndSendToUsersAsync(
+                        userIds, NotificationType.Info,
+                        $"Phụ cấp mới: {created.Name}",
+                        $"Bạn được hưởng phụ cấp {created.Name} với số tiền {created.Amount:N0} {created.Currency}.",
+                        relatedEntityId: created.Id, relatedEntityType: "Allowance",
+                        categoryCode: "allowance", storeId: request.StoreId);
+                }
+            }
+            catch { /* best-effort */ }
+
             return AppResponse<AllowanceDto>.Success(dto);
         }
         catch (Exception ex)
@@ -74,7 +109,8 @@ public record UpdateAllowanceCommand(
     List<string>? EmployeeIds) : ICommand<AppResponse<AllowanceDto>>;
 
 public class UpdateAllowanceHandler(
-    IRepository<Allowance> allowanceRepository
+    IRepository<Allowance> allowanceRepository,
+    ISystemNotificationService notificationService
 ) : ICommandHandler<UpdateAllowanceCommand, AppResponse<AllowanceDto>>
 {
     public async Task<AppResponse<AllowanceDto>> Handle(UpdateAllowanceCommand request, CancellationToken cancellationToken)
@@ -88,6 +124,8 @@ public class UpdateAllowanceHandler(
             {
                 return AppResponse<AllowanceDto>.Error("Allowance not found");
             }
+
+            var previousUserIds = AllowanceNotificationHelper.ParseEmployeeUserIds(allowance.EmployeeIds).ToHashSet();
 
             allowance.Name = request.Name;
             allowance.Code = request.Code;
@@ -105,6 +143,24 @@ public class UpdateAllowanceHandler(
             await allowanceRepository.UpdateAsync(allowance, cancellationToken);
             var dto = allowance.Adapt<AllowanceDto>();
             dto.EmployeeIds = string.IsNullOrEmpty(allowance.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(allowance.EmployeeIds);
+
+            // Notify the union of previous + current targets that the allowance changed.
+            try
+            {
+                var currentUserIds = AllowanceNotificationHelper.ParseEmployeeUserIds(allowance.EmployeeIds);
+                var union = previousUserIds.Concat(currentUserIds).Distinct().ToList();
+                if (union.Count > 0)
+                {
+                    await notificationService.CreateAndSendToUsersAsync(
+                        union, NotificationType.Info,
+                        $"Phụ cấp được cập nhật: {allowance.Name}",
+                        $"Thông tin phụ cấp {allowance.Name} ({allowance.Amount:N0} {allowance.Currency}) đã được cập nhật.",
+                        relatedEntityId: allowance.Id, relatedEntityType: "Allowance",
+                        categoryCode: "allowance", storeId: request.StoreId);
+                }
+            }
+            catch { /* best-effort */ }
+
             return AppResponse<AllowanceDto>.Success(dto);
         }
         catch (Exception ex)
@@ -118,7 +174,8 @@ public class UpdateAllowanceHandler(
 public record DeleteAllowanceCommand(Guid StoreId, Guid Id) : ICommand<AppResponse<bool>>;
 
 public class DeleteAllowanceHandler(
-    IRepository<Allowance> allowanceRepository
+    IRepository<Allowance> allowanceRepository,
+    ISystemNotificationService notificationService
 ) : ICommandHandler<DeleteAllowanceCommand, AppResponse<bool>>
 {
     public async Task<AppResponse<bool>> Handle(DeleteAllowanceCommand request, CancellationToken cancellationToken)
@@ -133,8 +190,25 @@ public class DeleteAllowanceHandler(
                 return AppResponse<bool>.Error("Allowance not found");
             }
 
+            var affectedUserIds = AllowanceNotificationHelper.ParseEmployeeUserIds(allowance.EmployeeIds).ToList();
+            var allowanceName = allowance.Name;
             await allowanceRepository.DeleteAsync(allowance, cancellationToken);
-            
+
+            // Notify employees who were receiving this allowance that it was removed.
+            try
+            {
+                if (affectedUserIds.Count > 0)
+                {
+                    await notificationService.CreateAndSendToUsersAsync(
+                        affectedUserIds, NotificationType.Warning,
+                        $"Phụ cấp đã bị xóa: {allowanceName}",
+                        $"Phụ cấp {allowanceName} không còn được áp dụng cho bạn.",
+                        relatedEntityId: request.Id, relatedEntityType: "Allowance",
+                        categoryCode: "allowance", storeId: request.StoreId);
+                }
+            }
+            catch { /* best-effort */ }
+
             return AppResponse<bool>.Success(true);
         }
         catch (Exception ex)

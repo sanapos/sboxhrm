@@ -88,7 +88,12 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var managerDict = new Dictionary<Guid, Employee>(); // EmployeeId -> Employee
             if (managerEmployeeIds.Count > 0)
             {
-                var managers = await employeeRepo.GetAllAsync(e => managerEmployeeIds.Contains(e.Id));
+                // Only consider managers belonging to the same store as the device.
+                // This prevents notifications leaking across stores when an employee
+                // is reassigned without clearing the previous manager link.
+                var managers = await employeeRepo.GetAllAsync(
+                    e => managerEmployeeIds.Contains(e.Id)
+                         && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
                 managerDict = managers.ToDictionary(e => e.Id);
             }
 
@@ -102,7 +107,10 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var grandparentDict = new Dictionary<Guid, Employee>(); // EmployeeId -> Employee
             if (grandparentEmployeeIds.Count > 0)
             {
-                var grandparents = await employeeRepo.GetAllAsync(e => grandparentEmployeeIds.Contains(e.Id));
+                // Same store-scoping rule as direct managers above.
+                var grandparents = await employeeRepo.GetAllAsync(
+                    e => grandparentEmployeeIds.Contains(e.Id)
+                         && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
                 grandparentDict = grandparents.ToDictionary(e => e.Id);
             }
 
@@ -194,21 +202,23 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         if (employee?.ApplicationUserId != null)
             targets.Add(employee.ApplicationUserId.Value);
 
-        // 2. Direct manager (org chart)
+        // 2. Direct manager (org chart) - must belong to the same store as the device
         Employee? manager = null;
         if (employee?.DirectManagerEmployeeId != null)
         {
             manager = await employeeRepo.GetSingleAsync(
-                e => e.Id == employee.DirectManagerEmployeeId.Value);
+                e => e.Id == employee.DirectManagerEmployeeId.Value
+                     && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
             if (manager?.ApplicationUserId != null)
                 targets.Add(manager.ApplicationUserId.Value);
         }
 
-        // 3. Grandparent manager (manager's manager)
+        // 3. Grandparent manager (manager's manager) - same-store rule
         if (manager?.DirectManagerEmployeeId != null)
         {
             var grandparent = await employeeRepo.GetSingleAsync(
-                e => e.Id == manager.DirectManagerEmployeeId.Value);
+                e => e.Id == manager.DirectManagerEmployeeId.Value
+                     && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
             if (grandparent?.ApplicationUserId != null)
                 targets.Add(grandparent.ApplicationUserId.Value);
         }
@@ -273,6 +283,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         var notifications = targetUserIds.Select(uid => new Notification
         {
+            Id = Guid.NewGuid(),
             TargetUserId = uid,
             Type = NotificationType.Info,
             Title = title,
@@ -288,22 +299,33 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         await notificationRepo.AddRangeAsync(notifications);
 
-        // Send NewNotification to each targeted user for notification list update
+        // Send NewNotification to each targeted user for notification list update.
+        // Per-user push failures are isolated so one bad client doesn't break the batch.
         foreach (var n in notifications)
         {
-            var dto = new
+            try
             {
-                id = n.Id,
-                title = n.Title,
-                message = n.Message,
-                type = (int)n.Type,
-                timestamp = n.Timestamp,
-                isRead = false,
-                relatedUrl = n.RelatedUrl,
-                relatedEntityId = n.RelatedEntityId,
-                relatedEntityType = n.RelatedEntityType
-            };
-            await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
+                var dto = new
+                {
+                    id = n.Id,
+                    title = n.Title,
+                    message = n.Message,
+                    type = (int)n.Type,
+                    timestamp = n.Timestamp,
+                    isRead = false,
+                    relatedUrl = n.RelatedUrl,
+                    relatedEntityId = n.RelatedEntityId,
+                    relatedEntityType = n.RelatedEntityType,
+                    categoryCode = n.CategoryCode
+                };
+                await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
+            }
+            catch (Exception perUserEx)
+            {
+                _logger.LogError(perUserEx,
+                    "Failed to push attendance notification {NotificationId} to user {UserId}",
+                    n.Id, n.TargetUserId);
+            }
         }
 
         _logger.LogWarning("📢 Attendance notification: User={UserName}, Device={DeviceName}, Targets={TargetCount}, Groups={Groups}",

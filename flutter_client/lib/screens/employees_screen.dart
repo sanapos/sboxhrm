@@ -2110,7 +2110,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.visibility, size: 20),
                       SizedBox(width: 12),
-                      Text('View Details'),
+                      Text('Xem chi tiết'),
                     ],
                   ),
                 ),
@@ -2121,7 +2121,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.edit, size: 20),
                       SizedBox(width: 12),
-                      Text('Edit'),
+                      Text('Chỉnh sửa'),
                     ],
                   ),
                 ),
@@ -2132,7 +2132,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       children: [
                         Icon(Icons.phone, size: 20, color: Colors.green),
                         SizedBox(width: 12),
-                        Text('Call', style: TextStyle(color: Colors.green)),
+                        Text('Gọi điện', style: TextStyle(color: Colors.green)),
                       ],
                     ),
                   ),
@@ -2142,7 +2142,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.payments, size: 20, color: Colors.blue),
                       SizedBox(width: 12),
-                      Text('Salary Settings',
+                      Text('Cài đặt lương',
                           style: TextStyle(color: Colors.blue)),
                     ],
                   ),

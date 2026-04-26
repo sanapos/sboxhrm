@@ -18,16 +18,15 @@ public class AttendanceHub : Hub
     {
         var userId = Context.UserIdentifier;
         var transport = Context.Features.Get<Microsoft.AspNetCore.Http.Connections.Features.IHttpTransportFeature>()?.TransportType;
-        _logger.LogWarning("📡 Client connected: {ConnectionId}, User: {UserId}, Transport: {Transport}", 
+        _logger.LogWarning("📡 Client connected: {ConnectionId}, User: {UserId}, Transport: {Transport}",
             Context.ConnectionId, userId ?? "anonymous", transport?.ToString() ?? "unknown");
-        
-        // Auto-join user group so user-specific notifications are received immediately
-        if (!string.IsNullOrEmpty(userId))
-        {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-            _logger.LogWarning("📡 Auto-joined user group: user_{UserId}", userId);
-        }
-        
+
+        // NOTE: Do NOT auto-join the user group here.
+        // The client explicitly invokes JoinUserGroup(userId) right after connecting.
+        // Auto-joining here used to race with that call and double-registered the
+        // connection in some reconnect scenarios, contributing to duplicate
+        // NewNotification deliveries on the device.
+
         await base.OnConnectedAsync();
     }
 

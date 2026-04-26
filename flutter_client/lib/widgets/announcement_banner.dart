@@ -88,14 +88,51 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
         _ => Icons.campaign,
       };
 
+  // Bỏ marker kỹ thuật `[RENEWAL-XXD-uuid]` khỏi text hiển thị (tương thích dữ liệu cũ).
+  static final RegExp _markerRe =
+      RegExp(r'\s*\[RENEWAL-\d+D-[0-9a-fA-F]{32}\]\s*');
+
+  String _clean(String text) =>
+      text.replaceAll(_markerRe, ' ').replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
+  /// Tính lại số ngày còn lại từ `expiresAt` (chính xác theo ngày hiện tại)
+  /// và chuẩn hoá title cho thông báo gia hạn.
+  String _formatRenewalTitle(Map<String, dynamic> a, String rawTitle) {
+    final kind = AdminHelpers.parseEnumInt(
+        a['kind'], AdminHelpers.announcementKindMap);
+    if (kind != 3) return _clean(rawTitle); // chỉ áp dụng cho Renewal
+    final expiresAtStr = a['expiresAt']?.toString();
+    if (expiresAtStr == null || expiresAtStr.isEmpty) return _clean(rawTitle);
+    final expiresAt = DateTime.tryParse(expiresAtStr);
+    if (expiresAt == null) return _clean(rawTitle);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final exp = DateTime(expiresAt.year, expiresAt.month, expiresAt.day);
+    final daysLeft = exp.difference(today).inDays;
+
+    // Lấy phần tên cửa hàng: "⏰ <Name>: ..." → trích Name
+    final cleaned = _clean(rawTitle);
+    final m = RegExp(r'^[\u23F0\s]*([^:]+):').firstMatch(cleaned);
+    final storeName = m != null ? m.group(1)!.trim() : 'Cửa hàng';
+
+    if (daysLeft < 0) {
+      return '⏰ $storeName: license đã hết hạn ${-daysLeft} ngày';
+    }
+    if (daysLeft == 0) {
+      return '⏰ $storeName: license hết hạn hôm nay';
+    }
+    return '⏰ $storeName: license còn $daysLeft ngày';
+  }
+
   Widget _buildBanner(Map<String, dynamic> a) {
     final id = a['id']?.toString() ?? '';
     final severity = AdminHelpers.parseEnumInt(
         a['severity'], AdminHelpers.announcementSeverityMap);
     final kind = AdminHelpers.parseEnumInt(
         a['kind'], AdminHelpers.announcementKindMap);
-    final title = a['title']?.toString() ?? '';
-    final content = a['content']?.toString() ?? '';
+    final title = _formatRenewalTitle(a, a['title']?.toString() ?? '');
+    final content = _clean(a['content']?.toString() ?? '');
     final actionUrl = a['actionUrl']?.toString();
     final actionLabel = a['actionLabel']?.toString();
     final requireAck = (a['requireAck'] as bool?) ?? false;
@@ -124,12 +161,13 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 2),
                   Text(content,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12)),
                 ],
@@ -190,9 +228,9 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       context: context,
       barrierDismissible: !requireAck,
       builder: (_) => AlertDialog(
-        title: Text(a['title']?.toString() ?? ''),
+        title: Text(_formatRenewalTitle(a, a['title']?.toString() ?? '')),
         content: SingleChildScrollView(
-          child: Text(a['content']?.toString() ?? ''),
+          child: Text(_clean(a['content']?.toString() ?? '')),
         ),
         actions: [
           if (actionUrl != null && actionUrl.isNotEmpty)

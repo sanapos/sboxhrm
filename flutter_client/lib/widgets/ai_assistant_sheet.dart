@@ -218,127 +218,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     });
   }
 
-  Map<String, String> _parseActionParams(String action) {
-    final out = <String, String>{};
-    final parts = action.split('|');
-    for (var i = 1; i < parts.length; i++) {
-      final eq = parts[i].indexOf('=');
-      if (eq <= 0) continue;
-      final k = parts[i].substring(0, eq).trim().toLowerCase();
-      final v = parts[i].substring(eq + 1).trim();
-      if (k.isNotEmpty) out[k] = v;
-    }
-    return out;
-  }
-
-  Future<void> _handleCreateAdvance(String action) async {
-    final params = _parseActionParams(action);
-    final initialAmount = double.tryParse(
-            params['amount']?.replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ??
-        0;
-    final amountCtrl = TextEditingController(
-        text: initialAmount > 0 ? initialAmount.toStringAsFixed(0) : '');
-    final reasonCtrl = TextEditingController(text: params['reason'] ?? '');
-    final now = DateTime.now();
-    final forMonth = int.tryParse(params['month'] ?? '') ?? now.month;
-    final forYear = int.tryParse(params['year'] ?? '') ?? now.year;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.account_balance_wallet_rounded,
-                color: Color(0xFF8B5CF6)),
-            SizedBox(width: 8),
-            Expanded(child: Text('Xác nhận tạo phiếu ứng lương')),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: amountCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Số tiền (VND)',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonCtrl,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do',
-                  prefixIcon: Icon(Icons.notes),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text('Cho tháng: $forMonth/$forYear',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.check),
-            label: const Text('Tạo phiếu'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
-    if (amount <= 0) {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Số tiền không hợp lệ');
-      return;
-    }
-
-    try {
-      final res = await _api.createAdvanceRequest(
-        amount: amount,
-        reason: reasonCtrl.text.trim(),
-        forMonth: forMonth,
-        forYear: forYear,
-      );
-      final ok = (res['isSuccess'] == true) || (res['success'] == true);
-      if (ok) {
-        NotificationOverlayManager().showSuccess(
-            title: 'Thành công',
-            message: 'Đã tạo phiếu ứng lương ${amount.toStringAsFixed(0)}đ');
-        if (mounted) {
-          setState(() {
-            _messages.add(_ChatMsg('assistant',
-                '✅ Đã tạo phiếu ứng lương ${amount.toStringAsFixed(0)}đ cho tháng $forMonth/$forYear. Phiếu đang chờ duyệt.'));
-          });
-        }
-      } else {
-        NotificationOverlayManager().showError(
-            title: 'Không tạo được',
-            message: res['message']?.toString() ?? 'Lỗi không xác định');
-      }
-    } catch (e) {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: e.toString());
-    }
-  }
-
   void _handleAction(String action) {
-    // Parameterized actions: "create_advance|amount=2000000|reason=..."
-    if (action.startsWith('create_advance')) {
-      _handleCreateAdvance(action);
-      return;
-    }
     // Close sheet first so navigation target becomes visible
     Navigator.of(context).pop();
     switch (action) {
@@ -417,9 +297,6 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   (String, IconData) _actionLabelIcon(String action) {
-    if (action.startsWith('create_advance')) {
-      return ('✨ Tạo phiếu ứng lương ngay', Icons.flash_on_rounded);
-    }
     switch (action) {
       case 'nav_leave':
         return ('Xem nghỉ phép', Icons.beach_access_rounded);

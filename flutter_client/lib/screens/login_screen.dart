@@ -614,13 +614,9 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      GestureDetector(
-                        onLongPress: () => Navigator.of(context).pushNamed('/admin'),
-                        behavior: HitTestBehavior.opaque,
-                        child: Text(
-                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
-                        ),
+                      Text(
+                        '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                        style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -661,14 +657,10 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           const SizedBox(height: 6),
-                          GestureDetector(
-                            onLongPress: () => Navigator.of(context).pushNamed('/admin'),
-                            behavior: HitTestBehavior.opaque,
-                            child: Text(
-                              '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
-                              textAlign: TextAlign.center,
-                            ),
+                          Text(
+                            '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),

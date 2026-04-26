@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Leaves;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Leaves.UpdateLeave;
@@ -7,7 +8,8 @@ namespace ZKTecoADMS.Application.Commands.Leaves.UpdateLeave;
 public class UpdateLeaveHandler(
     IRepository<Leave> leaveRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
-    DbContext dbContext
+    DbContext dbContext,
+    ISystemNotificationService notificationService
     ) : ICommandHandler<UpdateLeaveCommand, AppResponse<LeaveDto>>
 {
     public async Task<AppResponse<LeaveDto>> Handle(UpdateLeaveCommand request, CancellationToken cancellationToken)
@@ -90,7 +92,34 @@ public class UpdateLeaveHandler(
             }
             
             var leaveDto = leave.Adapt<LeaveDto>();
-            
+
+            // Notify the relevant party that the leave was modified.
+            // - If a manager edited it: notify the employee owner
+            // - If the employee edited it: notify the manager
+            try
+            {
+                var dateRange = $"{leave.StartDate:dd/MM/yyyy} - {leave.EndDate:dd/MM/yyyy}";
+                if (request.IsManager && leave.EmployeeUserId != request.CurrentUserId)
+                {
+                    await notificationService.CreateAndSendAsync(
+                        leave.EmployeeUserId, NotificationType.Info,
+                        "Đơn nghỉ phép đã được cập nhật",
+                        $"Quản lý đã cập nhật đơn nghỉ phép của bạn ({dateRange}).",
+                        relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                        fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                }
+                else if (!request.IsManager && leave.ManagerId != Guid.Empty)
+                {
+                    await notificationService.CreateAndSendAsync(
+                        leave.ManagerId, NotificationType.Info,
+                        "Đơn nghỉ phép đã được sửa",
+                        $"Nhân viên đã chỉnh sửa đơn nghỉ phép ({dateRange}). Vui lòng kiểm tra lại.",
+                        relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                        fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                }
+            }
+            catch { /* notification is best-effort */ }
+
             return AppResponse<LeaveDto>.Success(leaveDto);
         }
         catch (ArgumentException ex)

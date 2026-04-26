@@ -1,10 +1,13 @@
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Communications.AddComment;
 
 public class AddCommentHandler(
     IRepository<CommunicationComment> commentRepository,
-    IRepository<InternalCommunication> communicationRepository
+    IRepository<InternalCommunication> communicationRepository,
+    ISystemNotificationService notificationService
 ) : ICommandHandler<AddCommentCommand, AppResponse<Guid>>
 {
     public async Task<AppResponse<Guid>> Handle(
@@ -45,6 +48,42 @@ public class AddCommentHandler(
             };
 
             await commentRepository.AddAsync(comment, cancellationToken);
+
+            // Notify the post author about the new comment (skip self-comments).
+            try
+            {
+                if (communication.AuthorId != Guid.Empty && communication.AuthorId != request.UserId)
+                {
+                    var preview = trimmedContent.Length > 120 ? trimmedContent.Substring(0, 120) + "…" : trimmedContent;
+                    await notificationService.CreateAndSendAsync(
+                        communication.AuthorId, NotificationType.Info,
+                        $"{request.UserName} đã bình luận bài của bạn",
+                        $"\"{communication.Title}\": {preview}",
+                        relatedEntityId: communication.Id, relatedEntityType: "Communication",
+                        fromUserId: request.UserId,
+                        categoryCode: "communication", storeId: communication.StoreId);
+                }
+
+                // If this is a reply, also notify the parent comment's author.
+                if (request.ParentCommentId.HasValue)
+                {
+                    var parent = await commentRepository.GetByIdAsync(request.ParentCommentId.Value, cancellationToken: cancellationToken);
+                    if (parent != null && parent.UserId != Guid.Empty
+                        && parent.UserId != request.UserId
+                        && parent.UserId != communication.AuthorId) // already notified above
+                    {
+                        var preview = trimmedContent.Length > 120 ? trimmedContent.Substring(0, 120) + "…" : trimmedContent;
+                        await notificationService.CreateAndSendAsync(
+                            parent.UserId, NotificationType.Info,
+                            $"{request.UserName} đã trả lời bình luận của bạn",
+                            preview,
+                            relatedEntityId: communication.Id, relatedEntityType: "Communication",
+                            fromUserId: request.UserId,
+                            categoryCode: "communication", storeId: communication.StoreId);
+                    }
+                }
+            }
+            catch { /* best-effort */ }
 
             return AppResponse<Guid>.Success(comment.Id);
         }

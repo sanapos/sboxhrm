@@ -217,12 +217,12 @@ class ApiService {
     }
   }
 
-  /// Public: Tra cứu đại lý theo mã (dùng trong trang đăng ký cửa hàng khi có ?agentCode=)
+  // Public lookup đại lý theo code (cho trang đăng ký cửa hàng)
   Future<Map<String, dynamic>> lookupAgentByCode(String code) async {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/api/agentregistration/lookup/$code'))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -234,7 +234,7 @@ class ApiService {
       String storeName, String email, String password,
       {String? phoneNumber, String? storeCode, String? agentCode}) async {
     try {
-      debugPrint('📝 Register attempt: $storeName - $email (agent: $agentCode)');
+      debugPrint('📝 Register attempt: $storeName - $email');
       final body = {
         'storeName': storeName,
         'email': email,
@@ -7396,7 +7396,7 @@ class ApiService {
         if (description != null) 'description': description,
         if (maxStores != null) 'maxStores': maxStores,
         if (tokenValidDays != null) 'tokenValidDays': tokenValidDays,
-        if (password != null && password.isNotEmpty) 'password': password,
+        if (password != null) 'password': password,
       };
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/agents'),

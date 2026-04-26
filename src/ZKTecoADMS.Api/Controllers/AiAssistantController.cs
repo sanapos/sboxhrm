@@ -72,67 +72,29 @@ public class AiAssistantController(
                 .ToList();
             var combined = string.Join("\n", history);
 
-            // Pick provider — only use providers that are ENABLED + CONFIGURED.
+            // Pick provider
             var wantGemini = string.Equals(dto.Provider, "gemini", StringComparison.OrdinalIgnoreCase);
             var wantDeepSeek = string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase);
-            var geminiOk = geminiAiService.IsEnabled;
-            var deepSeekOk = deepSeekAiService.IsEnabled;
-
-            if (!geminiOk && !deepSeekOk)
-            {
-                return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
-                {
-                    Reply = "Trợ lý AI hiện chưa được cấu hình. Vui lòng liên hệ quản trị viên để bật Gemini hoặc DeepSeek trong phần Cài đặt hệ thống.",
-                    Provider = "none",
-                    Actions = new List<string>()
-                }));
-            }
-
             string reply;
             string usedProvider;
-            // Decide order: respect explicit choice if available, otherwise prefer Gemini when both enabled.
-            var tryOrder = new List<string>();
-            if (wantDeepSeek && deepSeekOk) tryOrder.Add("deepseek");
-            if (wantGemini && geminiOk) tryOrder.Add("gemini");
-            if (geminiOk && !tryOrder.Contains("gemini")) tryOrder.Add("gemini");
-            if (deepSeekOk && !tryOrder.Contains("deepseek")) tryOrder.Add("deepseek");
-
-            reply = string.Empty;
-            usedProvider = string.Empty;
-            Exception? lastEx = null;
-            foreach (var provider in tryOrder)
+            if (wantDeepSeek)
+            {
+                reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
+                usedProvider = "deepseek";
+            }
+            else
             {
                 try
                 {
-                    if (provider == "gemini")
-                    {
-                        reply = await geminiAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                        usedProvider = "gemini";
-                    }
-                    else
-                    {
-                        reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                        usedProvider = "deepseek";
-                    }
-                    lastEx = null;
-                    break;
+                    reply = await geminiAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
+                    usedProvider = "gemini";
                 }
-                catch (Exception ex)
+                catch (Exception geminiEx) when (!wantGemini)
                 {
-                    lastEx = ex;
-                    logger.LogWarning(ex, "AI provider {Provider} failed, will try next", provider);
+                    logger.LogWarning(geminiEx, "Gemini failed, fallback to DeepSeek");
+                    reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
+                    usedProvider = "deepseek";
                 }
-            }
-
-            if (string.IsNullOrEmpty(usedProvider))
-            {
-                logger.LogError(lastEx, "All AI providers failed");
-                return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
-                {
-                    Reply = "Xin lỗi, trợ lý AI tạm thời không phản hồi. Vui lòng thử lại sau ít phút.",
-                    Provider = "error",
-                    Actions = new List<string>()
-                }));
             }
 
             // Extract [[ACTION:xxx]] tags
@@ -161,12 +123,7 @@ public class AiAssistantController(
         catch (Exception ex)
         {
             logger.LogError(ex, "AI Assistant chat failed");
-            return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
-            {
-                Reply = "Xin lỗi, đã có lỗi khi xử lý câu hỏi. Bạn thử lại nhé.",
-                Provider = "error",
-                Actions = new List<string>()
-            }));
+            return StatusCode(500, AppResponse<ChatResponse>.Fail("Lỗi trợ lý AI: " + ex.Message));
         }
     }
 
@@ -375,14 +332,6 @@ CÁC THẺ HÀNH ĐỘNG HỢP LỆ (đặt CUỐI tin nhắn, mỗi thẻ 1 dò
 - [[ACTION:nav_attendance_correction_create]] → Tạo phiếu sửa giờ / báo quên chấm công
 - [[ACTION:nav_shift_change]]            → Đổi ca / đăng ký lịch làm
 - [[ACTION:nav_feedback_create]]         → Gửi phản ánh / ý kiến
-
-— TẠO PHIẾU TRỰC TIẾP (AI tự tạo, có hộp xác nhận) —
-- [[ACTION:create_advance|amount=SO_TIEN|reason=LY_DO|month=THANG|year=NAM]]
-  → Khi người dùng nói cụ thể số tiền muốn ứng (vd: ""ứng lương 2 triệu tháng này""), HÃY emit thẻ này
-    với amount = số nguyên (đơn vị VND, KHÔNG có dấu phẩy/chấm). VD:
-    [[ACTION:create_advance|amount=2000000|reason=Ứng lương tháng 4|month=4|year=2026]]
-  → Nếu user chỉ nói ""ứng lương"" mà KHÔNG có số tiền → dùng [[ACTION:nav_advance_create]] thay thế.
-  → KHÔNG bịa số tiền. Chỉ dùng khi user nêu rõ số.
 
 — XEM/SỬA DANH SÁCH (cho quản lý) —
 - [[ACTION:nav_leave]]                   → Danh sách phiếu nghỉ

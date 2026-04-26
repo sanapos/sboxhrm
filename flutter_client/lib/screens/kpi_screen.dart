@@ -1620,7 +1620,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             OutlinedButton.icon(
               onPressed: _importExcelActuals,
               icon: Icon(Icons.upload_file_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Import Excel'),
+              label: const Text('Nhập Excel'),
               style: btnStyle,
             ),
             OutlinedButton.icon(
@@ -2149,7 +2149,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             decoration: InputDecoration(labelText: 'Loại chỉ tiêu', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
             items: const [
               DropdownMenuItem(value: 0, child: Text('Doanh thu')),
-              DropdownMenuItem(value: 1, child: Text('Point')),
+              DropdownMenuItem(value: 1, child: Text('Điểm số')),
             ],
             onChanged: (v) => ss(() {
               criteriaType = v ?? 0;
@@ -3675,7 +3675,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: selectedSourceId == null ? null : onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Copy'),
+                      child: const Text('Sao chép'),
                     ),
                   ),
                 ],
@@ -3697,7 +3697,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             FilledButton(
               onPressed: selectedSourceId == null ? null : onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Copy'),
+              child: const Text('Sao chép'),
             ),
           ],
         );

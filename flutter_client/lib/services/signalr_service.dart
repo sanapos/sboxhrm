@@ -94,12 +94,23 @@ class SignalRService {
   final _deviceStatusController = StreamController<DeviceStatusNotification>.broadcast();
   final _connectionStateController = StreamController<bool>.broadcast();
   final _communicationController = StreamController<Map<String, dynamic>>.broadcast();
-  
+  final _notificationReadController = StreamController<Map<String, dynamic>>.broadcast();
+
+  // Recent notification IDs for deduplication (id -> arrival time).
+  // Drops duplicate NewNotification events delivered within [_dedupWindow].
+  final Map<String, DateTime> _recentNotificationIds = <String, DateTime>{};
+  static const Duration _dedupWindow = Duration(minutes: 2);
+  static const int _dedupMaxEntries = 500;
+
   /// Stream of new attendance notifications
   Stream<Attendance> get onNewAttendance => _attendanceController.stream;
-  
-  /// Stream of general notifications
+
+  /// Stream of general notifications (deduplicated by id within a 2-minute window)
   Stream<Map<String, dynamic>> get onNewNotification => _notificationController.stream;
+
+  /// Stream of read-status updates broadcast from the server
+  /// (so other devices/tabs of the same user can sync the read state).
+  Stream<Map<String, dynamic>> get onNotificationRead => _notificationReadController.stream;
   
   /// Stream of device status change notifications
   Stream<DeviceStatusNotification> get onDeviceStatusChanged => _deviceStatusController.stream;
@@ -180,6 +191,7 @@ class SignalRService {
       // Register event handlers
       _hubConnection!.on('NewAttendance', _handleNewAttendance);
       _hubConnection!.on('NewNotification', _handleNewNotification);
+      _hubConnection!.on('NotificationRead', _handleNotificationRead);
       _hubConnection!.on('DeviceStatusChanged', _handleDeviceStatusChanged);
       _hubConnection!.on('CommunicationCreated', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationPublished', _handleCommunicationEvent);
@@ -285,17 +297,52 @@ class SignalRService {
     }
   }
 
-  /// Handle incoming general notification
+  /// Handle incoming general notification (with deduplication by id)
   void _handleNewNotification(List<Object?>? args) {
     try {
       if (args == null || args.isEmpty) return;
-      
+
       final data = args[0] as Map<String, dynamic>;
       debugPrint('📡 Received new notification: $data');
-      
+
+      // Deduplicate: drop if the same id was already delivered recently.
+      // The server may deliver the same notification multiple times when:
+      //  - the user is in overlapping groups (e.g. user_X and store_Y)
+      //  - the SignalR connection is briefly duplicated during reconnect
+      //  - the notification scheduler re-runs after a crash
+      final rawId = data['id'] ?? data['Id'];
+      final id = rawId?.toString();
+      if (id != null && id.isNotEmpty) {
+        final now = DateTime.now();
+        // Evict expired entries lazily.
+        if (_recentNotificationIds.length > _dedupMaxEntries) {
+          _recentNotificationIds
+              .removeWhere((_, t) => now.difference(t) > _dedupWindow);
+        }
+        final last = _recentNotificationIds[id];
+        if (last != null && now.difference(last) < _dedupWindow) {
+          debugPrint('📡 Dropping duplicate notification id=$id');
+          return;
+        }
+        _recentNotificationIds[id] = now;
+      }
+
       _notificationController.add(data);
     } catch (e) {
       debugPrint('📡 Error parsing notification: $e');
+    }
+  }
+
+  /// Handle NotificationRead event broadcast by the server when the user marks
+  /// a notification as read on another device. Payload: { id, readAt }.
+  void _handleNotificationRead(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = args[0] as Map<String, dynamic>;
+      debugPrint('📡 Received notification-read: $data');
+      _notificationReadController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing notification-read: $e');
     }
   }
 
@@ -421,6 +468,7 @@ class SignalRService {
     _deviceStatusController.close();
     _connectionStateController.close();
     _communicationController.close();
+    _notificationReadController.close();
     disconnect();
   }
 }

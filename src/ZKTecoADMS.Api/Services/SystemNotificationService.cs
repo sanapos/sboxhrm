@@ -16,17 +16,20 @@ public class SystemNotificationService : ISystemNotificationService
     private readonly ILogger<SystemNotificationService> _logger;
     private readonly IRepository<Notification> _notificationRepository;
     private readonly IRepository<NotificationPreference> _preferenceRepository;
+    private readonly ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService _push;
 
     public SystemNotificationService(
         IHubContext<AttendanceHub> hubContext,
         ILogger<SystemNotificationService> logger,
         IRepository<Notification> notificationRepository,
-        IRepository<NotificationPreference> preferenceRepository)
+        IRepository<NotificationPreference> preferenceRepository,
+        ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService push)
     {
         _hubContext = hubContext;
         _logger = logger;
         _notificationRepository = notificationRepository;
         _preferenceRepository = preferenceRepository;
+        _push = push;
     }
 
     public async Task SendToUserAsync(Guid userId, Notification notification)
@@ -39,22 +42,58 @@ public class SystemNotificationService : ISystemNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send notification to user {UserId}", userId);
+            // Log notification id so the row can be re-pushed manually or by a future
+            // retry job (the entity is already persisted by the caller before we get here).
+            _logger.LogError(ex,
+                "Failed to send notification {NotificationId} to user {UserId}; row remains in DB and will appear on next history reload",
+                notification.Id, userId);
+        }
+
+        // Best-effort FCM fan-out (silent no-op when Firebase isn't configured).
+        try
+        {
+            await _push.PushToUserAsync(userId, notification.Title ?? string.Empty, notification.Message,
+                notification.RelatedUrl,
+                new Dictionary<string, string>
+                {
+                    ["notificationId"] = notification.Id.ToString(),
+                    ["type"] = notification.Type.ToString(),
+                });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FCM push failed for notification {NotificationId}", notification.Id);
         }
     }
 
     public async Task SendToUsersAsync(IEnumerable<Guid> userIds, Notification notification)
     {
+        var idList = userIds as IList<Guid> ?? userIds.ToList();
         try
         {
             var dto = MapToDto(notification);
-            var groupNames = userIds.Select(id => $"user_{id}").ToList();
+            var groupNames = idList.Select(id => $"user_{id}").ToList();
             await _hubContext.Clients.Groups(groupNames).SendAsync("NewNotification", dto);
             _logger.LogInformation("📢 Sent notification to {Count} users: {Title}", groupNames.Count, notification.Title);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send notification to multiple users");
+        }
+
+        try
+        {
+            await _push.PushToUsersAsync(idList, notification.Title ?? string.Empty, notification.Message,
+                notification.RelatedUrl,
+                new Dictionary<string, string>
+                {
+                    ["notificationId"] = notification.Id.ToString(),
+                    ["type"] = notification.Type.ToString(),
+                });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FCM bulk push failed for notification {NotificationId}", notification.Id);
         }
     }
 
@@ -86,7 +125,11 @@ public class SystemNotificationService : ISystemNotificationService
     {
         try
         {
-            // Check user notification preference if categoryCode is provided
+            // Check user notification preference if categoryCode is provided.
+            // Both this single-user path and the batch CreateAndSendToUsersAsync
+            // skip BEFORE persisting any Notification entity to keep history
+            // consistent: a user who disabled a category should not see records
+            // for it appearing in their list later.
             if (targetUserId.HasValue && !string.IsNullOrEmpty(categoryCode))
             {
                 var pref = await _preferenceRepository.GetSingleAsync(
@@ -104,6 +147,7 @@ public class SystemNotificationService : ISystemNotificationService
             // Create notification entity
             var notification = new Notification
             {
+                Id = Guid.NewGuid(),
                 TargetUserId = targetUserId,
                 Type = type,
                 Title = title,
@@ -118,10 +162,13 @@ public class SystemNotificationService : ISystemNotificationService
                 StoreId = storeId
             };
 
-            // Save to database
+            // Save to database FIRST. We only attempt to push via SignalR after the
+            // row is committed - that way if the push fails, the user still sees the
+            // notification when they reload the history page.
             await _notificationRepository.AddAsync(notification);
-            
-            // Send via SignalR
+
+            // Send via SignalR (best-effort; failure logged but not rethrown
+            // because the row is already durable).
             if (targetUserId.HasValue)
             {
                 await SendToUserAsync(targetUserId.Value, notification);
@@ -174,6 +221,7 @@ public class SystemNotificationService : ISystemNotificationService
 
                 notifications.Add(new Notification
                 {
+                    Id = Guid.NewGuid(),
                     TargetUserId = userId,
                     Type = type,
                     Title = title,
@@ -191,7 +239,9 @@ public class SystemNotificationService : ISystemNotificationService
 
             if (notifications.Count == 0) return;
 
-            // Batch save all notifications
+            // Batch save all notifications BEFORE pushing via SignalR. The DB row
+            // is the source of truth; any push that fails after this point can be
+            // recovered by the client via /api/notifications.
             await _notificationRepository.AddRangeAsync(notifications);
 
             // Send individual notification DTOs to each user's group
@@ -200,8 +250,19 @@ public class SystemNotificationService : ISystemNotificationService
             {
                 if (notification.TargetUserId.HasValue)
                 {
-                    var dto = MapToDto(notification);
-                    await _hubContext.Clients.Group($"user_{notification.TargetUserId.Value}").SendAsync("NewNotification", dto);
+                    try
+                    {
+                        var dto = MapToDto(notification);
+                        await _hubContext.Clients.Group($"user_{notification.TargetUserId.Value}")
+                            .SendAsync("NewNotification", dto);
+                    }
+                    catch (Exception perUserEx)
+                    {
+                        // Don't let one failed user-push abort the rest of the batch.
+                        _logger.LogError(perUserEx,
+                            "Failed to push notification {NotificationId} to user {UserId}; row persisted in DB",
+                            notification.Id, notification.TargetUserId.Value);
+                    }
                 }
             }
 

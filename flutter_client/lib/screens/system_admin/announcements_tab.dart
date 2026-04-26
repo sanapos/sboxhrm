@@ -524,10 +524,10 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                 value: _severity,
                 decoration: const InputDecoration(labelText: 'Mức độ'),
                 items: const [
-                  DropdownMenuItem(value: 0, child: Text('Info')),
-                  DropdownMenuItem(value: 1, child: Text('Success')),
-                  DropdownMenuItem(value: 2, child: Text('Warning')),
-                  DropdownMenuItem(value: 3, child: Text('Critical')),
+                  DropdownMenuItem(value: 0, child: Text('Thông tin')),
+                  DropdownMenuItem(value: 1, child: Text('Thành công')),
+                  DropdownMenuItem(value: 2, child: Text('Cảnh báo')),
+                  DropdownMenuItem(value: 3, child: Text('Nghiêm trọng')),
                 ],
                 onChanged: (v) => setState(() => _severity = v ?? 0),
               ),
@@ -549,14 +549,14 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                     child: TextField(
                   controller: _actionUrl,
                   decoration: const InputDecoration(
-                      labelText: 'Action URL (tuỳ chọn)'),
+                      labelText: 'URL hành động (tuỳ chọn)'),
                 )),
                 const SizedBox(width: 8),
                 Expanded(
                     child: TextField(
                   controller: _actionLabel,
                   decoration: const InputDecoration(
-                      labelText: 'Action Label'),
+                      labelText: 'Nhãn nút hành động'),
                 )),
               ]),
               const Divider(height: 24),
@@ -564,7 +564,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(children: [
                 FilterChip(
-                    label: const Text('In-app'),
+                    label: const Text('Trong ứng dụng'),
                     selected: _channelInApp,
                     onSelected: (v) => setState(() => _channelInApp = v)),
                 const SizedBox(width: 6),

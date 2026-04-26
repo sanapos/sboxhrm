@@ -1,10 +1,8 @@
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
-using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -15,12 +13,9 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// System Administration - Quản trị toàn bộ hệ thống.
-/// SuperAdmin: full quyền. Agent: chỉ một số endpoint READ giới hạn theo phạm vi đại lý
-/// (xem <see cref="SystemAdminAgentScopeFilter"/>).
+/// System Administration - Quản trị toàn bộ hệ thống (SuperAdmin only)
 /// </summary>
-[Authorize(Roles = nameof(Roles.SuperAdmin) + "," + nameof(Roles.Agent))]
-[TypeFilter(typeof(SystemAdminAgentScopeFilter))]
+[Authorize(Roles = nameof(Roles.SuperAdmin))]
 [Route("api/system-admin")]
 public class SystemAdminController : AuthenticatedControllerBase
 {
@@ -59,24 +54,6 @@ public class SystemAdminController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Nếu user hiện tại là Agent → trả về danh sách StoreId thuộc đại lý đó (có thể rỗng).
-    /// SuperAdmin → trả về null (không filter, full scope).
-    /// </summary>
-    private async Task<List<Guid>?> GetAgentScopedStoreIdsAsync()
-    {
-        if (User.IsInRole(nameof(Roles.SuperAdmin))) return null;
-        if (!User.IsInRole(nameof(Roles.Agent))) return new List<Guid>();
-        var userId = CurrentUserId;
-        var agent = await _dbContext.Agents.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.UserId == userId);
-        if (agent == null) return new List<Guid>();
-        return await _dbContext.Stores.AsNoTracking()
-            .Where(s => s.AgentId == agent.Id)
-            .Select(s => s.Id)
-            .ToListAsync();
-    }
-
-    /// <summary>
     /// Lấy thống kê tổng quan hệ thống
     /// </summary>
     [HttpGet("dashboard")]
@@ -111,63 +88,48 @@ public class SystemAdminController : AuthenticatedControllerBase
             var periodFrom = fromDate?.Date ?? today;
             var periodTo = (toDate?.Date ?? today).AddDays(1); // inclusive end
 
-            // Agent scope: nếu là đại lý chỉ đếm dữ liệu trong các store của họ.
-            var scopedStoreIds = await GetAgentScopedStoreIdsAsync();
-            var isScoped = scopedStoreIds != null;
-            var scopedIds = scopedStoreIds ?? new List<Guid>();
-
             // Thống kê stores
-            var storesQ = _dbContext.Stores.AsQueryable();
-            if (isScoped) storesQ = storesQ.Where(s => scopedIds.Contains(s.Id));
-            var totalStores = await storesQ.CountAsync();
-            var activeStores = await storesQ.CountAsync(s => s.IsActive);
+            var totalStores = await _dbContext.Stores.CountAsync();
+            var activeStores = await _dbContext.Stores.CountAsync(s => s.IsActive);
             var inactiveStores = totalStores - activeStores;
-            var lockedStores = await storesQ.CountAsync(s => s.IsLocked);
+            var lockedStores = await _dbContext.Stores.CountAsync(s => s.IsLocked);
 
             // Thống kê users
-            var usersQ = _userManager.Users.AsQueryable();
-            if (isScoped) usersQ = usersQ.Where(u => u.StoreId != null && scopedIds.Contains(u.StoreId.Value));
-            var totalUsers = await usersQ.CountAsync();
+            var totalUsers = await _userManager.Users.CountAsync();
 
             // Thống kê devices — online nếu có heartbeat trong 90s gần nhất (thay vì dựa vào cột DeviceStatus có thể stale)
             var onlineThreshold = utcNow.AddSeconds(-90);
-            var devicesQ = _dbContext.Devices.AsQueryable();
-            if (isScoped) devicesQ = devicesQ.Where(d => d.StoreId != null && scopedIds.Contains(d.StoreId.Value));
-            var totalDevices = await devicesQ.CountAsync();
-            var onlineDevices = await devicesQ.CountAsync(d => d.LastOnline != null && d.LastOnline > onlineThreshold);
+            var totalDevices = await _dbContext.Devices.CountAsync();
+            var onlineDevices = await _dbContext.Devices.CountAsync(d => d.LastOnline != null && d.LastOnline > onlineThreshold);
             var offlineDevices = totalDevices - onlineDevices;
 
             // Chấm công hôm nay (use range instead of .Date)
-            var attendanceQ = _dbContext.AttendanceLogs.AsQueryable();
-            if (isScoped) attendanceQ = attendanceQ.Where(a => a.Device.StoreId != null && scopedIds.Contains(a.Device.StoreId.Value));
-            var totalAttendanceToday = await attendanceQ
+            var totalAttendanceToday = await _dbContext.AttendanceLogs
                 .CountAsync(a => a.AttendanceTime >= today && a.AttendanceTime < tomorrow);
 
             // License stats
-            var licenseQ = _dbContext.LicenseKeys.AsQueryable();
-            if (isScoped) licenseQ = licenseQ.Where(l => l.StoreId != null && scopedIds.Contains(l.StoreId.Value));
-            var totalLicenseKeys = await licenseQ.CountAsync();
-            var usedLicenseKeys = await licenseQ.CountAsync(l => l.IsUsed);
-            var availableLicenseKeys = await licenseQ.CountAsync(l => !l.IsUsed && l.IsActive);
+            var totalLicenseKeys = await _dbContext.LicenseKeys.CountAsync();
+            var usedLicenseKeys = await _dbContext.LicenseKeys.CountAsync(l => l.IsUsed);
+            var availableLicenseKeys = await _dbContext.LicenseKeys.CountAsync(l => !l.IsUsed && l.IsActive);
 
             // Agents
-            var totalAgents = isScoped ? 1 : await _dbContext.Agents.CountAsync();
+            var totalAgents = await _dbContext.Agents.CountAsync();
 
             // ═══ Time-filtered stats ═══
-            var storesCreatedInPeriod = await storesQ
+            var storesCreatedInPeriod = await _dbContext.Stores
                 .CountAsync(s => s.CreatedAt >= periodFrom && s.CreatedAt < periodTo);
 
-            var keysActivatedInPeriod = await licenseQ
+            var keysActivatedInPeriod = await _dbContext.LicenseKeys
                 .CountAsync(l => l.ActivatedAt != null && l.ActivatedAt >= periodFrom && l.ActivatedAt < periodTo);
 
-            var keysCreatedInPeriod = await licenseQ
+            var keysCreatedInPeriod = await _dbContext.LicenseKeys
                 .CountAsync(l => l.CreatedAt >= periodFrom && l.CreatedAt < periodTo);
 
-            var usersCreatedInPeriod = await usersQ
+            var usersCreatedInPeriod = await _userManager.Users
                 .CountAsync(u => u.CreatedAt >= periodFrom && u.CreatedAt < periodTo);
 
             // Top stores by users
-            var topStores = await storesQ
+            var topStores = await _dbContext.Stores
                 .OrderByDescending(s => s.Users.Count)
                 .Take(5)
                 .Select(s => new StoreStatDto(
@@ -181,7 +143,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 .ToListAsync();
 
             // Store attendance breakdown for today
-            var storeAttendanceData = await attendanceQ
+            var storeAttendanceData = await _dbContext.AttendanceLogs
                 .Where(a => a.AttendanceTime >= today && a.AttendanceTime < tomorrow && a.Device.StoreId != null)
                 .Select(a => new { StoreName = a.Device.Store!.Name })
                 .ToListAsync();
@@ -194,7 +156,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             var recentActivities = new List<RecentActivityDto>();
 
             // Cửa hàng được tạo gần đây
-            var recentStoresCreated = await storesQ
+            var recentStoresCreated = await _dbContext.Stores
                 .Where(s => s.CreatedAt >= periodFrom && s.CreatedAt < periodTo)
                 .OrderByDescending(s => s.CreatedAt)
                 .Take(20)
@@ -210,7 +172,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             recentActivities.AddRange(recentStoresCreated);
 
             // Key được kích hoạt gần đây
-            var recentKeysActivated = await licenseQ
+            var recentKeysActivated = await _dbContext.LicenseKeys
                 .Include(l => l.Store)
                 .Where(l => l.ActivatedAt != null && l.ActivatedAt >= periodFrom && l.ActivatedAt < periodTo)
                 .OrderByDescending(l => l.ActivatedAt)
@@ -291,13 +253,6 @@ public class SystemAdminController : AuthenticatedControllerBase
                 .Include(s => s.Devices)
                 .Include(s => s.ServicePackage)
                 .AsQueryable();
-
-            // Agent scope
-            var scopedStoreIds = await GetAgentScopedStoreIdsAsync();
-            if (scopedStoreIds != null)
-            {
-                query = query.Where(s => scopedStoreIds.Contains(s.Id));
-            }
 
             // Search by name, code, address, email
             if (!string.IsNullOrEmpty(search))
@@ -416,13 +371,6 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            // Agent scope: chỉ xem được store thuộc đại lý
-            var scopedStoreIds = await GetAgentScopedStoreIdsAsync();
-            if (scopedStoreIds != null && !scopedStoreIds.Contains(id))
-            {
-                return NotFound(AppResponse<StoreDetailDto>.Fail("Store not found"));
-            }
-
             var store = await _dbContext.Stores
                 .Include(s => s.Owner)
                 .Include(s => s.Agent)
@@ -550,13 +498,6 @@ public class SystemAdminController : AuthenticatedControllerBase
                 .Include(u => u.Store)
                 .AsQueryable();
 
-            // Agent scope
-            var scopedStoreIds = await GetAgentScopedStoreIdsAsync();
-            if (scopedStoreIds != null)
-            {
-                query = query.Where(u => u.StoreId != null && scopedStoreIds.Contains(u.StoreId.Value));
-            }
-
             if (!string.IsNullOrEmpty(search))
             {
                 var searchPattern = $"%{search}%";
@@ -624,13 +565,6 @@ public class SystemAdminController : AuthenticatedControllerBase
             var query = _dbContext.Devices
                 .Include(d => d.Store)
                 .AsQueryable();
-
-            // Agent scope
-            var scopedStoreIds = await GetAgentScopedStoreIdsAsync();
-            if (scopedStoreIds != null)
-            {
-                query = query.Where(d => d.StoreId != null && scopedStoreIds.Contains(d.StoreId.Value));
-            }
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -1089,44 +1023,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             var registrationToken = GenerateRegistrationToken();
             var tokenExpiry = DateTime.UtcNow.AddDays(request.TokenValidDays > 0 ? request.TokenValidDays : 30);
 
-            // Nếu SuperAdmin cung cấp Email + Password → tạo luôn tài khoản đăng nhập
-            Guid? agentUserId = null;
-            var hasCredentials = !string.IsNullOrWhiteSpace(request.Email) && !string.IsNullOrWhiteSpace(request.Password);
-            if (hasCredentials)
-            {
-                if (await _userManager.FindByEmailAsync(request.Email!) != null)
-                {
-                    return BadRequest(AppResponse<AgentDto>.Fail("Email đã được sử dụng cho tài khoản khác"));
-                }
-
-                var nameParts = (request.Name ?? string.Empty).Split(' ', 2);
-                var firstName = nameParts.Length > 0 && !string.IsNullOrWhiteSpace(nameParts[0]) ? nameParts[0] : "Agent";
-                var lastName = nameParts.Length > 1 ? nameParts[1] : request.Code.ToUpper();
-
-                var user = new ApplicationUser
-                {
-                    Id = Guid.NewGuid(),
-                    UserName = request.Email,
-                    Email = request.Email,
-                    FirstName = firstName,
-                    LastName = lastName,
-                    PhoneNumber = request.Phone,
-                    Role = nameof(Roles.Agent),
-                    EmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = CurrentUserId.ToString()
-                };
-                var userResult = await _userManager.CreateAsync(user, request.Password!);
-                if (!userResult.Succeeded)
-                {
-                    var err = string.Join(", ", userResult.Errors.Select(e => e.Description));
-                    return BadRequest(AppResponse<AgentDto>.Fail("Không tạo được tài khoản đăng nhập: " + err));
-                }
-                await _userManager.AddToRoleAsync(user, nameof(Roles.Agent));
-                agentUserId = user.Id;
-            }
-
-            // Create agent
+            // Create agent (without user account - agent will self-register)
             var agent = new Agent
             {
                 Id = Guid.NewGuid(),
@@ -1138,10 +1035,10 @@ public class SystemAdminController : AuthenticatedControllerBase
                 Email = request.Email,
                 IsActive = true,
                 MaxStores = request.MaxStores,
-                RegistrationToken = hasCredentials ? null : registrationToken,
-                RegistrationTokenExpiry = hasCredentials ? null : tokenExpiry,
-                IsRegistrationCompleted = hasCredentials,
-                UserId = agentUserId,
+                RegistrationToken = registrationToken,
+                RegistrationTokenExpiry = tokenExpiry,
+                IsRegistrationCompleted = false,
+                UserId = null,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = CurrentUserId.ToString()
             };
@@ -1149,9 +1046,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             _dbContext.Agents.Add(agent);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation(
-                "SuperAdmin {UserId} created Agent {AgentId} (credentials: {HasCreds})",
-                CurrentUserId, agent.Id, hasCredentials);
+            _logger.LogInformation("SuperAdmin {UserId} created Agent {AgentId} with registration token", CurrentUserId, agent.Id);
 
             return Ok(AppResponse<AgentDto>.Success(MapToAgentDto(agent)));
         }

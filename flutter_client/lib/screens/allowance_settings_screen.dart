@@ -70,7 +70,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
 
       bool matchesType = true;
       if (_selectedType != 'all') {
-        final typeValue = allowance['type'] is int ? allowance['type'] : 0;
+        final typeValue = _parseType(allowance['type']);
         if (_selectedType == '0') {
           matchesType = typeValue == 0;
         } else if (_selectedType == '1') {
@@ -88,11 +88,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
 
   int get _totalAllowances => _allowances.length;
   int get _fixedAllowances =>
-      _allowances.where((a) => (a['type'] is int ? a['type'] : 0) == 0).length;
+      _allowances.where((a) => _parseType(a['type']) == 0).length;
   int get _dailyAllowances =>
-      _allowances.where((a) => (a['type'] is int ? a['type'] : 0) == 1).length;
+      _allowances.where((a) => _parseType(a['type']) == 1).length;
   int get _hourlyAllowances =>
-      _allowances.where((a) => (a['type'] is int ? a['type'] : 0) == 2).length;
+      _allowances.where((a) => _parseType(a['type']) == 2).length;
 
   void _clearFilters() {
     setState(() {
@@ -105,6 +105,38 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     if (value == null) return [];
     if (value is List) return value.map((e) => e.toString()).toList();
     return [];
+  }
+
+  /// API trả về enum `Type` dưới dạng String ("Fixed", "Daily", "Hourly",
+  /// "PerEvent") vì server cấu hình `JsonStringEnumConverter`.
+  /// Hand lại về int 0..3 để dùng cho dropdown / counters / icons.
+  int _parseType(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      switch (value.toLowerCase()) {
+        case 'fixed':
+        case '0':
+          return 0;
+        case 'daily':
+        case '1':
+          return 1;
+        case 'hourly':
+        case '2':
+          return 2;
+        case 'perevent':
+        case 'per_event':
+        case '3':
+          return 3;
+      }
+    }
+    return 0;
+  }
+
+  num _parseAmount(dynamic value) {
+    if (value is num) return value;
+    if (value is String) return num.tryParse(value) ?? 0;
+    return 0;
   }
 
   @override
@@ -126,66 +158,117 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
           onPressed: () => SettingsHubScreen.goBack(context),
         ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: OutlinedButton.icon(
-              onPressed: () => _showAllowanceDialog(),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Thêm PC'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1E3A5F),
-                side: const BorderSide(color: Color(0xFF1E3A5F)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: OutlinedButton.icon(
-              onPressed: () {
-                appNotification.showInfo(
-                    title: 'Xuất dữ liệu',
-                    message: 'Tính năng đang phát triển');
-              },
-              icon: const Icon(Icons.download, size: 16),
-              label: const Text('Xuất'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFEF4444),
-                side: const BorderSide(color: Color(0xFFEF4444)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
-          if (Responsive.isMobile(context))
-            IconButton(
-              icon: Stack(
-                children: [
-                  Icon(
-                    _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                    color: _showMobileFilters ? Colors.orange : const Color(0xFF71717A),
+        actions: Responsive.isMobile(context)
+            ? [
+                IconButton(
+                  tooltip: 'Thêm phụ cấp',
+                  icon: const Icon(Icons.add_circle_outline,
+                      color: Color(0xFF1E3A5F)),
+                  onPressed: () => _showAllowanceDialog(),
+                ),
+                IconButton(
+                  tooltip: 'Bộ lọc',
+                  icon: Stack(
+                    children: [
+                      Icon(
+                        _showMobileFilters
+                            ? Icons.filter_alt
+                            : Icons.filter_alt_outlined,
+                        color: _showMobileFilters
+                            ? Colors.orange
+                            : const Color(0xFF71717A),
+                      ),
+                      if (_searchQuery.isNotEmpty || _selectedType != 'all')
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle),
+                          ),
+                        ),
+                    ],
                   ),
-                  if (_searchQuery.isNotEmpty || _selectedType != 'all')
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                  onPressed: () => setState(
+                      () => _showMobileFilters = !_showMobileFilters),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Thêm thao tác',
+                  icon: const Icon(Icons.more_vert,
+                      color: Color(0xFF71717A)),
+                  onSelected: (value) {
+                    if (value == 'export') {
+                      appNotification.showInfo(
+                          title: 'Xuất dữ liệu',
+                          message: 'Tính năng đang phát triển');
+                    } else if (value == 'refresh') {
+                      _loadAllowances();
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'refresh',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.refresh, size: 20),
+                        title: Text('Làm mới'),
                       ),
                     ),
-                ],
-              ),
-              onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-            ),
-        ],
+                    PopupMenuItem(
+                      value: 'export',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.download, size: 20,
+                            color: Color(0xFFEF4444)),
+                        title: Text('Xuất dữ liệu'),
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showAllowanceDialog(),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Thêm PC'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF1E3A5F),
+                      side: const BorderSide(color: Color(0xFF1E3A5F)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      appNotification.showInfo(
+                          title: 'Xuất dữ liệu',
+                          message: 'Tính năng đang phát triển');
+                    },
+                    icon: const Icon(Icons.download, size: 16),
+                    label: const Text('Xuất'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
       ),
       body: _isLoading
           ? const LoadingWidget()
@@ -547,24 +630,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
 
                             if (crossAxisCount == 1) {
                               return Column(
-                                children: List.generate(_filteredAllowances.length, (index) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: _buildAllowanceDeckItem(_filteredAllowances[index]),
+                                children: List.generate(
+                                  _filteredAllowances.length,
+                                  (index) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _buildAllowanceDeckItem(
+                                        _filteredAllowances[index]),
                                   ),
-                                )),
+                                ),
                               );
                             }
 
@@ -639,78 +712,220 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   }
 
   Widget _buildAllowanceDeckItem(Map<String, dynamic> allowance) {
-    final typeValue = allowance['type'] is int ? allowance['type'] : 0;
+    final typeValue = _parseType(allowance['type']);
     final isActive = allowance['isActive'] ?? true;
-    final amount = allowance['amount'] as num;
+    final amount = _parseAmount(allowance['amount']);
+    final empIds = _parseEmployeeIds(allowance['employeeIds']);
     String typeLabel = 'Cố định';
+    IconData typeIcon = Icons.lock_outline;
+    Color typeColor = const Color(0xFF1E3A5F);
     if (typeValue == 1) {
       typeLabel = 'Theo ngày';
+      typeIcon = Icons.calendar_today_outlined;
+      typeColor = const Color(0xFFF59E0B);
     } else if (typeValue == 2) {
       typeLabel = 'Theo giờ';
+      typeIcon = Icons.access_time;
+      typeColor = const Color(0xFF0F2340);
     } else if (typeValue == 3) {
       typeLabel = 'Theo sự kiện';
+      typeIcon = Icons.event;
+      typeColor = const Color(0xFF7C3AED);
     }
 
-    return InkWell(
-      onTap: () => _showAllowanceDialog(allowance: allowance),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : const Color(0xFFA1A1AA).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE4E4E7)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          debugPrint('[Allowance] tap card id=${allowance['id']}');
+          _showAllowanceDialog(allowance: allowance);
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? typeColor.withValues(alpha: 0.12)
+                      : const Color(0xFFA1A1AA).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  typeIcon,
+                  color: isActive ? typeColor : const Color(0xFFA1A1AA),
+                  size: 22,
+                ),
               ),
-              child: Icon(Icons.receipt_long, color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA), size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(allowance['name'] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      if (allowance['code'] != null && allowance['code'].toString().isNotEmpty) allowance['code'],
-                      typeLabel,
-                      '${_currencyFormat.format(amount)}đ',
-                    ].join(' · '),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            allowance['name'] ?? '',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF18181B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFFDCFCE7)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isActive ? 'Bật' : 'Tắt',
+                            style: TextStyle(
+                                color: isActive
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFF71717A),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(typeIcon, size: 12, color: typeColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          typeLabel,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: typeColor),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.payments_outlined,
+                            size: 12, color: Color(0xFF71717A)),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            '${_currencyFormat.format(amount)}đ',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF18181B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.people_outline,
+                            size: 11, color: Colors.grey[500]),
+                        const SizedBox(width: 3),
+                        Text(
+                          empIds.isEmpty
+                              ? 'Tất cả nhân viên'
+                              : '${empIds.length} nhân viên',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey[600]),
+                        ),
+                        if (allowance['code'] != null &&
+                            allowance['code'].toString().isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text('·',
+                              style: TextStyle(color: Colors.grey[400])),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              allowance['code'].toString(),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                  fontFamily: 'monospace'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Action buttons hiển thị rõ ràng — bảo đảm tap luôn có
+                    // tác dụng dù sự kiện InkWell ngoài có chặn hay không.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showAllowanceDialog(
+                                allowance: allowance),
+                            icon: const Icon(Icons.edit_outlined, size: 14),
+                            label: const Text('Xem / Sửa',
+                                style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1E3A5F),
+                              side: const BorderSide(
+                                  color: Color(0xFF1E3A5F)),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 6, horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => _deleteAllowance(allowance),
+                          icon: const Icon(Icons.delete_outline, size: 14),
+                          label: const Text('Xoá',
+                              style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEF4444),
+                            side: const BorderSide(
+                                color: Color(0xFFEF4444)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 6, horizontal: 12),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(isActive ? 'Bật' : 'Tắt', style: TextStyle(color: isActive ? const Color(0xFF16A34A) : const Color(0xFF71717A), fontSize: 10, fontWeight: FontWeight.w500)),
-            ),
-            IconButton(
-              onPressed: () => _deleteAllowance(allowance),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              color: const Color(0xFF71717A),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAllowanceCard(Map<String, dynamic> allowance) {
-    final typeValue = allowance['type'] is int ? allowance['type'] : 0;
+    final typeValue = _parseType(allowance['type']);
     final isDaily = typeValue == 1;
     final isHourly = typeValue == 2;
     final isPerEvent = typeValue == 3;
-    final amount = allowance['amount'] as num;
+    final amount = _parseAmount(allowance['amount']);
     final isActive = allowance['isActive'] ?? true;
     final empIds = _parseEmployeeIds(allowance['employeeIds']);
 
@@ -921,7 +1136,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         TextEditingController(text: allowance?['description'] ?? '');
     final amountController =
         TextEditingController(text: allowance?['amount']?.toString() ?? '');
-    int type = allowance?['type'] ?? 0; // 0 = Fixed, 1 = Daily, 2 = Hourly
+    int type = _parseType(allowance?['type']);
     bool isActive = allowance?['isActive'] ?? true;
     bool isTaxable = allowance?['isTaxable'] ?? true;
     bool isInsuranceApplicable = allowance?['isInsuranceApplicable'] ?? false;
@@ -958,7 +1173,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               'description': descriptionController.text.isNotEmpty
                   ? descriptionController.text
                   : null,
-              'type': type,
+              // G\u1eedi t\u00ean enum (string) \u0111\u1ec3 ch\u1eafc ch\u1eafn server parse \u0111\u00fang.\n              'type': const ['Fixed', 'Daily', 'Hourly', 'PerEvent'][type],
               'amount': parseFormattedNumber(amountController.text)?.toDouble() ??
                   0,
               'currency': 'VND',

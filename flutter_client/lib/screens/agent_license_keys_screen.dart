@@ -562,7 +562,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       ElevatedButton.icon(
         onPressed: () { _copyKey(keyStr); Navigator.pop(context); },
         icon: const Icon(Icons.copy, size: 16),
-        label: const Text('Copy Key'),
+        label: const Text('Sao chép Key'),
       ),
     ];
 

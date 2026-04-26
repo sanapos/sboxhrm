@@ -1799,7 +1799,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Import từ Excel'),
+                  title: const Text('Nhập từ Excel'),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                   backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
@@ -1807,7 +1807,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     TextButton(
                       onPressed: !isParsed || previewRows.isEmpty ? null : onImport,
                       style: TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: const Text('Import'),
+                      child: const Text('Nhập'),
                     ),
                   ],
                 ),
@@ -1824,7 +1824,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               children: [
                 Icon(Icons.table_chart, color: Color(0xFF059669), size: 24),
                 SizedBox(width: 8),
-                Text('Import từ Excel'),
+                Text('Nhập từ Excel'),
               ],
             ),
             content: SizedBox(
@@ -1835,7 +1835,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
               FilledButton(
                 onPressed: !isParsed || previewRows.isEmpty ? null : onImport,
-                child: const Text('Import'),
+                child: const Text('Nhập'),
               ),
             ],
           );

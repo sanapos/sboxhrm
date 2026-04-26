@@ -313,6 +313,7 @@ class MobileAttendanceSettings {
   final bool allowManualApproval;
   final int maxPhotosPerRegistration;
   final bool requireLivenessDetection;
+  final bool requirePhotoProof;
   final int minPunchIntervalMinutes;
 
   MobileAttendanceSettings({
@@ -321,11 +322,12 @@ class MobileAttendanceSettings {
     this.enableWifi = false,
     this.verificationMode = 'all',
     this.gpsRadiusMeters = 100,
-    this.minFaceMatchScore = 55.0,
+    this.minFaceMatchScore = 80.0,
     this.autoApproveInRange = true,
     this.allowManualApproval = true,
     this.maxPhotosPerRegistration = 5,
     this.requireLivenessDetection = true,
+    this.requirePhotoProof = false,
     this.minPunchIntervalMinutes = 5,
   });
 
@@ -336,11 +338,15 @@ class MobileAttendanceSettings {
       enableWifi: json['enableWifi'] ?? false,
       verificationMode: json['verificationMode'] ?? 'all',
       gpsRadiusMeters: json['gpsRadiusMeters'] ?? 100,
-      minFaceMatchScore: (json['minFaceMatchScore'] ?? 55.0).toDouble(),
+      minFaceMatchScore: (json['minFaceMatchScore'] ?? 80.0).toDouble(),
       autoApproveInRange: json['autoApproveInRange'] ?? true,
       allowManualApproval: json['allowManualApproval'] ?? true,
       maxPhotosPerRegistration: json['maxPhotosPerRegistration'] ?? 5,
-      requireLivenessDetection: json['requireLivenessDetection'] ?? true,
+      // Server now returns both keys; prefer the new one but fall back.
+      requireLivenessDetection: json['enableLivenessDetection'] ??
+          json['requireLivenessDetection'] ??
+          true,
+      requirePhotoProof: json['requirePhotoProof'] ?? false,
       minPunchIntervalMinutes: json['minPunchIntervalMinutes'] ?? 5,
     );
   }
@@ -357,6 +363,7 @@ class MobileAttendanceSettings {
       'allowManualApproval': allowManualApproval,
       'maxPhotosPerRegistration': maxPhotosPerRegistration,
       'requireLivenessDetection': requireLivenessDetection,
+      'requirePhotoProof': requirePhotoProof,
       'minPunchIntervalMinutes': minPunchIntervalMinutes,
     };
   }
@@ -372,6 +379,7 @@ class MobileAttendanceSettings {
     bool? allowManualApproval,
     int? maxPhotosPerRegistration,
     bool? requireLivenessDetection,
+    bool? requirePhotoProof,
     int? minPunchIntervalMinutes,
   }) {
     return MobileAttendanceSettings(
@@ -385,6 +393,7 @@ class MobileAttendanceSettings {
       allowManualApproval: allowManualApproval ?? this.allowManualApproval,
       maxPhotosPerRegistration: maxPhotosPerRegistration ?? this.maxPhotosPerRegistration,
       requireLivenessDetection: requireLivenessDetection ?? this.requireLivenessDetection,
+      requirePhotoProof: requirePhotoProof ?? this.requirePhotoProof,
       minPunchIntervalMinutes: minPunchIntervalMinutes ?? this.minPunchIntervalMinutes,
     );
   }

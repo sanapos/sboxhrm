@@ -53,18 +53,22 @@ public class RenewalReminderBackgroundService : BackgroundService
 
             foreach (var s in stores)
             {
+                // Marker được nhúng vào Content (cuối) thay vì Title để không lộ ra UI.
                 var marker = $"[RENEWAL-{d}D-{s.Id:N}]";
                 var since = DateTime.UtcNow.AddHours(-23);
                 var dup = await db.SystemAnnouncements.AsNoTracking()
-                    .AnyAsync(a => a.CreatedAt >= since && a.Title.Contains(marker), ct);
+                    .AnyAsync(a => a.CreatedAt >= since && (a.Title.Contains(marker) || a.Content.Contains(marker)), ct);
                 if (dup) continue;
 
                 try
                 {
+                    // Title: ngắn gọn, không kèm marker. Frontend sẽ tự tính lại số ngày từ ExpiresAt.
+                    var title = $"⏰ {s.Name}: license sắp hết hạn ({d} ngày)";
+                    if (title.Length > 180) title = title.Substring(0, 180) + "…";
                     await svc.CreateAsync(new CreateSystemAnnouncementDto
                     {
-                        Title = $"⏰ {s.Name}: license còn {d} ngày {marker}",
-                        Content = $"Cửa hàng \"{s.Name}\" có license sẽ hết hạn vào {s.ExpiryDate:dd/MM/yyyy}. Vui lòng liên hệ đại lý / nhà cung cấp để gia hạn.",
+                        Title = title,
+                        Content = $"Cửa hàng \"{s.Name}\" có license sẽ hết hạn vào {s.ExpiryDate:dd/MM/yyyy}. Vui lòng liên hệ đại lý / nhà cung cấp để gia hạn.\n\n{marker}",
                         Kind = AnnouncementKind.Renewal,
                         Severity = d <= 3 ? AnnouncementSeverity.Critical : AnnouncementSeverity.Warning,
                         Channels = NotificationChannel.InApp | NotificationChannel.Banner,

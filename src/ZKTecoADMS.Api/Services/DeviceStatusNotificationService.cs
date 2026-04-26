@@ -218,6 +218,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
 
             var notifications = adminUserIds.Select(uid => new Notification
             {
+                Id = Guid.NewGuid(),
                 TargetUserId = uid,
                 Type = type,
                 Title = title,
@@ -235,19 +236,29 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
 
             foreach (var n in notifications)
             {
-                var dto = new
+                try
                 {
-                    id = n.Id,
-                    title = n.Title,
-                    message = n.Message,
-                    type = (int)n.Type,
-                    timestamp = n.Timestamp,
-                    isRead = false,
-                    relatedUrl = n.RelatedUrl,
-                    relatedEntityId = n.RelatedEntityId,
-                    relatedEntityType = n.RelatedEntityType
-                };
-                await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
+                    var dto = new
+                    {
+                        id = n.Id,
+                        title = n.Title,
+                        message = n.Message,
+                        type = (int)n.Type,
+                        timestamp = n.Timestamp,
+                        isRead = false,
+                        relatedUrl = n.RelatedUrl,
+                        relatedEntityId = n.RelatedEntityId,
+                        relatedEntityType = n.RelatedEntityType,
+                        categoryCode = n.CategoryCode
+                    };
+                    await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
+                }
+                catch (Exception perUserEx)
+                {
+                    _logger.LogError(perUserEx,
+                        "Failed to push device-status notification {NotificationId} to user {UserId}",
+                        n.Id, n.TargetUserId);
+                }
             }
         }
         catch (Exception ex)

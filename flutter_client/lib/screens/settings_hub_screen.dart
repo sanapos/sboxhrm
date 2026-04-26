@@ -380,7 +380,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-                  child: const Text('HRM Settings Center', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                  child: const Text('Trung tâm thiết lập HRM', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
                 ),
                 const SizedBox(height: 14),
                 const Text(
@@ -575,7 +575,7 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('Thiet lap HRM'),
+        title: const Text('Thiết lập HRM'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF18181B),
         elevation: 0,

@@ -35,6 +35,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String? _entityFilter;
 
   StreamSubscription? _notificationSubscription;
+  StreamSubscription? _notificationReadSubscription;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -56,6 +57,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void dispose() {
     ScreenRefreshNotifier.notifications.removeListener(_onExternalRefresh);
     _notificationSubscription?.cancel();
+    _notificationReadSubscription?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -76,6 +78,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
       _notificationSubscription =
           _signalRService.onNewNotification.listen(_handleNewNotification);
+      _notificationReadSubscription =
+          _signalRService.onNotificationRead.listen(_handleNotificationRead);
     } catch (e) {
       debugPrint('Error connecting SignalR: $e');
     }
@@ -84,8 +88,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
       final notification = AppNotification.fromJson(data);
+      // Dedup is enforced at the SignalRService layer, but keep a local guard
+      // to protect against a paginated reload racing with a live event.
       final exists = _notifications.any((n) => n.id == notification.id);
       if (!exists) {
+        if (!mounted) return;
         setState(() {
           _notifications.insert(0, notification);
           if (!notification.isRead) _unreadCount++;
@@ -94,6 +101,61 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       debugPrint('Error handling notification: $e');
+    }
+  }
+
+  void _handleNotificationRead(Map<String, dynamic> data) {
+    try {
+      final id = (data['id'] ?? data['Id'])?.toString();
+      if (id == null || id.isEmpty) return;
+      final readAll = data['all'] == true || data['All'] == true;
+      if (!mounted) return;
+      setState(() {
+        if (readAll) {
+          _notifications = _notifications
+              .map((n) => n.isRead
+                  ? n
+                  : AppNotification(
+                      id: n.id,
+                      userId: n.userId,
+                      title: n.title,
+                      message: n.message,
+                      type: n.type,
+                      isRead: true,
+                      readAt: DateTime.now(),
+                      actionUrl: n.actionUrl,
+                      relatedEntityId: n.relatedEntityId,
+                      relatedEntityType: n.relatedEntityType,
+                      categoryCode: n.categoryCode,
+                      createdAt: n.createdAt,
+                    ))
+              .toList();
+          _unreadCount = 0;
+        } else {
+          final index = _notifications.indexWhere((n) => n.id == id);
+          if (index != -1 && !_notifications[index].isRead) {
+            final old = _notifications[index];
+            _notifications[index] = AppNotification(
+              id: old.id,
+              userId: old.userId,
+              title: old.title,
+              message: old.message,
+              type: old.type,
+              isRead: true,
+              readAt: DateTime.now(),
+              actionUrl: old.actionUrl,
+              relatedEntityId: old.relatedEntityId,
+              relatedEntityType: old.relatedEntityType,
+              categoryCode: old.categoryCode,
+              createdAt: old.createdAt,
+            );
+            _unreadCount = (_unreadCount - 1).clamp(0, _totalCount);
+          }
+        }
+      });
+      ScreenRefreshNotifier.refreshNotificationCount();
+    } catch (e) {
+      debugPrint('Error handling notification-read: $e');
     }
   }
 
