@@ -91,8 +91,6 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       _allowances.where((a) => _parseType(a['type']) == 0).length;
   int get _dailyAllowances =>
       _allowances.where((a) => _parseType(a['type']) == 1).length;
-  int get _hourlyAllowances =>
-      _allowances.where((a) => _parseType(a['type']) == 2).length;
 
   void _clearFilters() {
     setState(() {
@@ -303,53 +301,31 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     '$_dailyAllowances',
                                     'Theo ngày',
                                     const Color(0xFFF59E0B))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.access_time,
-                                    '$_hourlyAllowances',
-                                    'Theo giờ',
-                                    const Color(0xFF0F2340))),
                           ],
                         );
                       } else {
-                        return Column(
+                        return Row(
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.receipt_long,
-                                        '$_totalAllowances',
-                                        'Tổng phụ cấp',
-                                        const Color(0xFF1E3A5F))),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.lock,
-                                        '$_fixedAllowances',
-                                        'Cố định',
-                                        const Color(0xFF1E3A5F))),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.calendar_today,
-                                        '$_dailyAllowances',
-                                        'Theo ngày',
-                                        const Color(0xFFF59E0B))),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.access_time,
-                                        '$_hourlyAllowances',
-                                        'Theo giờ',
-                                        const Color(0xFF0F2340))),
-                              ],
-                            ),
+                            Expanded(
+                                child: _buildStatCard(
+                                    Icons.receipt_long,
+                                    '$_totalAllowances',
+                                    'Tổng',
+                                    const Color(0xFF1E3A5F))),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child: _buildStatCard(
+                                    Icons.lock,
+                                    '$_fixedAllowances',
+                                    'Cố định',
+                                    const Color(0xFF1E3A5F))),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child: _buildStatCard(
+                                    Icons.calendar_today,
+                                    '$_dailyAllowances',
+                                    'Theo ngày',
+                                    const Color(0xFFF59E0B))),
                           ],
                         );
                       }
@@ -462,10 +438,6 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                           child: Text('Cố định (theo tháng)')),
                                       DropdownMenuItem(
                                           value: '1', child: Text('Theo ngày')),
-                                      DropdownMenuItem(
-                                          value: '2', child: Text('Theo giờ')),
-                                      DropdownMenuItem(
-                                          value: '3', child: Text('Theo sự kiện')),
                                     ],
                                     onChanged: (value) => setState(
                                         () => _selectedType = value ?? 'all'),
@@ -573,10 +545,6 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                               child: Text('Cố định (theo tháng)')),
                                           DropdownMenuItem(
                                               value: '1', child: Text('Theo ngày')),
-                                          DropdownMenuItem(
-                                              value: '2', child: Text('Theo giờ')),
-                                          DropdownMenuItem(
-                                              value: '3', child: Text('Theo sự kiện')),
                                         ],
                                         onChanged: (value) => setState(
                                             () => _selectedType = value ?? 'all'),
@@ -1134,8 +1102,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         TextEditingController(text: allowance?['code'] ?? '');
     final descriptionController =
         TextEditingController(text: allowance?['description'] ?? '');
-    final amountController =
-        TextEditingController(text: allowance?['amount']?.toString() ?? '');
+    // Khởi tạo bằng chuỗi đã format hàng nghìn để khớp với
+    // ThousandSeparatorFormatter; tránh double "50000.0" bị strip dấu chấm
+    // thành "500000" khi user gõ phím đầu tiên.
+    final amountController = TextEditingController(
+      text: formatNumber(_parseAmount(allowance?['amount'])),
+    );
     int type = _parseType(allowance?['type']);
     bool isActive = allowance?['isActive'] ?? true;
     bool isTaxable = allowance?['isTaxable'] ?? true;
@@ -1173,7 +1145,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               'description': descriptionController.text.isNotEmpty
                   ? descriptionController.text
                   : null,
-              // G\u1eedi t\u00ean enum (string) \u0111\u1ec3 ch\u1eafc ch\u1eafn server parse \u0111\u00fang.\n              'type': const ['Fixed', 'Daily', 'Hourly', 'PerEvent'][type],
+              // Gửi tên enum (string) để chắc chắn server parse đúng.
+              'type': const ['Fixed', 'Daily', 'Hourly', 'PerEvent'][type],
               'amount': parseFormattedNumber(amountController.text)?.toDouble() ??
                   0,
               'currency': 'VND',
@@ -1379,15 +1352,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 6),
-                                  DropdownButtonFormField<int>(
-                                    initialValue: type,
-                                    dropdownColor: Colors.white,
-                                    style: const TextStyle(
-                                        color: Color(0xFF18181B), fontSize: 14),
+                                  InputDecorator(
                                     decoration: InputDecoration(
                                       contentPadding:
                                           const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 12),
+                                              horizontal: 12, vertical: 6),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: const BorderSide(
@@ -1404,20 +1373,29 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                             color: Color(0xFF1E3A5F)),
                                       ),
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                          value: 0,
-                                          child: Text('Cố định (theo tháng)')),
-                                      DropdownMenuItem(
-                                          value: 1,
-                                          child: Text('Theo ngày công')),
-                                      DropdownMenuItem(
-                                          value: 2, child: Text('Theo giờ')),
-                                      DropdownMenuItem(
-                                          value: 3, child: Text('Theo sự kiện')),
-                                    ],
-                                    onChanged: (value) =>
-                                        setDialogState(() => type = value!),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        isExpanded: true,
+                                        value: type,
+                                        dropdownColor: Colors.white,
+                                        style: const TextStyle(
+                                            color: Color(0xFF18181B),
+                                            fontSize: 14),
+                                        items: const [
+                                          DropdownMenuItem(
+                                              value: 0,
+                                              child: Text(
+                                                  'Cố định (theo tháng)')),
+                                          DropdownMenuItem(
+                                              value: 1,
+                                              child: Text('Theo ngày công')),
+                                        ],
+                                        onChanged: (value) {
+                                          if (value == null) return;
+                                          setDialogState(() => type = value);
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),

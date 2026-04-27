@@ -103,9 +103,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               empSalaryProfile?['benefit']?['responsibilityAllowance'] ?? 0,
           'paidDayOff':
               empSalaryProfile?['benefit']?['weeklyOffDays'] ?? 'Sunday',
-          'attendanceType': empSalaryProfile?['benefit']?['attendanceMode'] ?? 'checkin',
+          'attendanceType': empSalaryProfile?['benefit']?['attendanceMode'] ?? 'both',
           'shifts': _parseDescriptionField(empSalaryProfile?['benefit']?['description'], 'shifts'),
-          'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 1,
+          'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 2,
           'isConfigured': empSalaryProfile != null,
         });
       }
@@ -886,11 +886,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
           // Action buttons
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showViewDialog(employee),
                   icon: const Icon(Icons.visibility_outlined,
                       color: Color(0xFF71717A), size: 20),
@@ -898,11 +899,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings'))
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showEditDialog(employee),
                   icon: const Icon(Icons.edit_outlined,
                       color: Color(0xFF1E3A5F), size: 20),
                   tooltip: 'Chỉnh sửa',
                 ),
+                if (Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings'))
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showCopyDialog(employee),
+                    icon: const Icon(Icons.content_copy,
+                        color: Color(0xFF0EA5E9), size: 20),
+                    tooltip: 'Sao chép cho nhân viên khác',
+                  ),
               ],
             ),
           ),
@@ -1051,7 +1061,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               const Divider(color: Color(0xFFE4E4E7), height: 24),
               _buildDetailItem('Chấm công', _getAttendanceModeName(employee['attendanceType'])),
               _buildDetailItem('Ca làm việc', (employee['shifts']?.toString().isNotEmpty == true) ? employee['shifts'].toString() : '-'),
-              _buildDetailItem('Số ca / 1 công', (employee['shiftsPerDay'] ?? 1).toString()),
+              _buildDetailItem('Số ca / 1 công', (employee['shiftsPerDay'] ?? 2).toString()),
               _buildDetailItem('Ngày nghỉ có lương', _getPaidLeaveTypeDisplayName(employee['benefit']?['paidLeaveType'] ?? employee['paidDayOff'])),
             ],
           ),
@@ -1210,7 +1220,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       case 'both': return 'Chấm vào & Chấm ra';
       case 'any': return 'Chấm bất kỳ';
       case 'none': return 'Không chấm công';
-      default: return 'Chấm vào';
+      default: return 'Chấm vào & Chấm ra';
     }
   }
 
@@ -1404,14 +1414,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return StatefulBuilder(
           builder: (context, setPickerState) {
             final assignedAllowances = _allowances.where((a) {
-              final type = a['type'] is int ? a['type'] : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
+              final type = _parseAllowanceType(a['type']);
               final isActive = a['isActive'] ?? true;
               return type == allowanceType && isActive && _isAllowanceAssignedToEmployee(a, employeeId);
             }).toList();
 
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] as num).toDouble();
+              total += (allowance['amount'] is num
+                  ? (allowance['amount'] as num).toDouble()
+                  : double.tryParse(allowance['amount']?.toString() ?? '') ?? 0);
             }
 
             final headerRow = Row(
@@ -1761,9 +1773,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       }
     }
 
-    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'checkin';
+    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'both';
     if (!['none', 'checkin', 'checkout', 'both', 'any'].contains(attendanceMode)) {
-      attendanceMode = 'checkin';
+      attendanceMode = 'both';
     }
 
     List<String> selectedShifts = [];
@@ -1771,7 +1783,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       selectedShifts = employee['shifts'].toString().split(', ');
     }
 
-    String shiftsPerDay = (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 1).toString();
+    String shiftsPerDay = (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 2).toString();
     if (!['1', '2', '3', '4'].contains(shiftsPerDay)) shiftsPerDay = '1';
 
     final isMobileEdit = Responsive.isMobile(context);
@@ -2448,6 +2460,350 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Copy salary settings from one employee to many
+  // ---------------------------------------------------------------------------
+  void _showCopyDialog(Map<String, dynamic> source) {
+    final sourceId = source['id']?.toString() ?? '';
+    final sourceBenefit =
+        source['benefit'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    if (sourceBenefit.isEmpty) {
+      appNotification.showWarning(
+        title: 'Chưa có thiết lập',
+        message: 'Nhân viên này chưa có cấu hình lương để sao chép',
+      );
+      return;
+    }
+
+    final targets = _employeeSalaries
+        .where((e) => e['id']?.toString() != sourceId)
+        .toList();
+    final selectedIds = <String>{};
+    String search = '';
+    bool overwrite = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final filtered = targets.where((e) {
+            if (search.isEmpty) return true;
+            final q = search.toLowerCase();
+            return (e['fullName']?.toString().toLowerCase().contains(q) ??
+                    false) ||
+                (e['employeeCode']?.toString().toLowerCase().contains(q) ??
+                    false);
+          }).toList();
+          final allFilteredIds =
+              filtered.map((e) => e['id']?.toString() ?? '').toSet();
+          final allChecked = allFilteredIds.isNotEmpty &&
+              allFilteredIds.every(selectedIds.contains);
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: [
+                const Icon(Icons.content_copy, color: Color(0xFF0EA5E9)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Sao chép lương từ: ${source['fullName'] ?? ''}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Tìm theo tên hoặc mã NV...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onChanged: (v) => setDialogState(() => search = v),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: allChecked,
+                        onChanged: (v) => setDialogState(() {
+                          if (v == true) {
+                            selectedIds.addAll(allFilteredIds);
+                          } else {
+                            selectedIds.removeAll(allFilteredIds);
+                          }
+                        }),
+                      ),
+                      const Text('Chọn tất cả',
+                          style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Text('Đã chọn: ${selectedIds.length}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF71717A))),
+                    ],
+                  ),
+                  const Divider(height: 1),
+                  SizedBox(
+                    height: 320,
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text('Không có nhân viên',
+                                style: TextStyle(color: Color(0xFF71717A))))
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) {
+                              final e = filtered[i];
+                              final id = e['id']?.toString() ?? '';
+                              final isConfigured = e['isConfigured'] == true;
+                              return CheckboxListTile(
+                                dense: true,
+                                value: selectedIds.contains(id),
+                                onChanged: (v) => setDialogState(() {
+                                  if (v == true) {
+                                    selectedIds.add(id);
+                                  } else {
+                                    selectedIds.remove(id);
+                                  }
+                                }),
+                                title: Text(
+                                  e['fullName']?.toString() ?? '',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                subtitle: Text(
+                                  '${e['employeeCode'] ?? ''}'
+                                  '${isConfigured ? '  •  Đã thiết lập (sẽ ghi đè)' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isConfigured
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFF71717A),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const Divider(height: 1),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: overwrite,
+                    onChanged: (v) =>
+                        setDialogState(() => overwrite = v ?? true),
+                    title: const Text('Ghi đè cấu hình hiện có',
+                        style: TextStyle(fontSize: 13)),
+                    subtitle: const Text(
+                      'Bỏ chọn để giữ nguyên những NV đã có thiết lập',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Hủy',
+                    style: TextStyle(color: Color(0xFF71717A))),
+              ),
+              ElevatedButton.icon(
+                onPressed: selectedIds.isEmpty
+                    ? null
+                    : () async {
+                        Navigator.pop(dialogContext);
+                        await _runCopySalary(
+                          source: source,
+                          sourceBenefit: sourceBenefit,
+                          targetIds: selectedIds.toList(),
+                          overwrite: overwrite,
+                        );
+                      },
+                icon: const Icon(Icons.content_copy, size: 16),
+                label: Text('Sao chép (${selectedIds.length})'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0EA5E9),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Map<String, dynamic> _buildBenefitPayloadFromSource(
+    Map<String, dynamic> sourceBenefit,
+    Map<String, dynamic> targetEmployee,
+  ) {
+    num? n(dynamic v) => v is num ? v : num.tryParse(v?.toString() ?? '');
+    int? i(dynamic v) => v is int ? v : int.tryParse(v?.toString() ?? '');
+    return <String, dynamic>{
+      'name': 'Lương ${targetEmployee['fullName'] ?? ''}',
+      'description': sourceBenefit['description'],
+      'rateType': i(sourceBenefit['rateType']) ?? 1,
+      'rate': n(sourceBenefit['rate']) ?? 0,
+      'currency': sourceBenefit['currency'] ?? 'VND',
+      'mealAllowance': n(sourceBenefit['mealAllowance']) ?? 0,
+      'responsibilityAllowance':
+          n(sourceBenefit['responsibilityAllowance']) ?? 0,
+      'weeklyOffDays': sourceBenefit['weeklyOffDays'] ?? 'Sunday',
+      'completionSalary': n(sourceBenefit['completionSalary']) ?? 0,
+      'holidayOvertimeType': i(sourceBenefit['holidayOvertimeType']) ?? 1,
+      'holidayOvertimeDailyRate':
+          n(sourceBenefit['holidayOvertimeDailyRate']) ?? 0,
+      'hourlyOvertimeType': i(sourceBenefit['hourlyOvertimeType']) ?? 1,
+      'hourlyOvertimeFixedRate':
+          n(sourceBenefit['hourlyOvertimeFixedRate']) ?? 0,
+      'socialInsuranceType': i(sourceBenefit['socialInsuranceType']) ?? 0,
+      'insuranceSalary': n(sourceBenefit['insuranceSalary']) ?? 0,
+      'dailyFixedRate': n(sourceBenefit['dailyFixedRate']) ?? 0,
+      'shiftSalaryType': i(sourceBenefit['shiftSalaryType']) ?? 0,
+      'fixedShiftRate': n(sourceBenefit['fixedShiftRate']) ?? 0,
+      'shiftsPerDay': i(sourceBenefit['shiftsPerDay']) ?? 2,
+      'attendanceMode': sourceBenefit['attendanceMode'] ?? 'both',
+      'paidLeaveType': sourceBenefit['paidLeaveType'] ?? 'sunday',
+      'isActive': true,
+    };
+  }
+
+  Future<void> _runCopySalary({
+    required Map<String, dynamic> source,
+    required Map<String, dynamic> sourceBenefit,
+    required List<String> targetIds,
+    required bool overwrite,
+  }) async {
+    int success = 0;
+    int skipped = 0;
+    final failed = <String>[];
+
+    final progressNotifier = ValueNotifier<int>(0);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        content: ValueListenableBuilder<int>(
+          valueListenable: progressNotifier,
+          builder: (_, value, __) => SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Đang sao chép thiết lập lương...',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: targetIds.isEmpty ? 0 : value / targetIds.length,
+                ),
+                const SizedBox(height: 8),
+                Text('$value / ${targetIds.length}',
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF71717A))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      for (final targetId in targetIds) {
+        final target = _employeeSalaries.firstWhere(
+          (e) => e['id']?.toString() == targetId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (target.isEmpty) {
+          failed.add(targetId);
+          progressNotifier.value++;
+          continue;
+        }
+
+        final existingBenefitId = target['benefitId']?.toString();
+        final hasExisting =
+            existingBenefitId != null && existingBenefitId.isNotEmpty;
+        if (hasExisting && !overwrite) {
+          skipped++;
+          progressNotifier.value++;
+          continue;
+        }
+
+        final payload =
+            _buildBenefitPayloadFromSource(sourceBenefit, target);
+
+        try {
+          Map<String, dynamic> result;
+          String? benefitId;
+          if (hasExisting) {
+            result = await _apiService.updateSalaryProfile(
+                existingBenefitId, payload);
+            benefitId = existingBenefitId;
+          } else {
+            result = await _apiService.createSalaryProfile(payload);
+            if (result['isSuccess'] == true && result['data'] != null) {
+              benefitId = result['data']['id']?.toString();
+            }
+          }
+
+          if (result['isSuccess'] != true || benefitId == null) {
+            failed.add(target['fullName']?.toString() ?? targetId);
+          } else if (!hasExisting) {
+            final assignResult = await _apiService.assignSalaryProfile({
+              'employeeId': target['id'],
+              'benefitId': benefitId,
+              'effectiveDate': DateTime.now().toIso8601String(),
+            });
+            if (assignResult['isSuccess'] != true) {
+              failed.add(target['fullName']?.toString() ?? targetId);
+            } else {
+              success++;
+            }
+          } else {
+            success++;
+          }
+        } catch (_) {
+          failed.add(target['fullName']?.toString() ?? targetId);
+        }
+        progressNotifier.value++;
+      }
+    } finally {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      progressNotifier.dispose();
+    }
+
+    if (failed.isEmpty) {
+      appNotification.showSuccess(
+        title: 'Thành công',
+        message: skipped > 0
+            ? 'Đã sao chép $success NV, bỏ qua $skipped NV đã có thiết lập'
+            : 'Đã sao chép thiết lập lương cho $success nhân viên',
+      );
+    } else {
+      appNotification.showWarning(
+        title: 'Hoàn tất với lỗi',
+        message:
+            'Thành công: $success • Bỏ qua: $skipped • Lỗi: ${failed.length}',
+      );
+    }
+    await _loadData();
+  }
+
   Widget _buildShiftSalaryLevelsInfo() {
     // Show info about configured shift salary levels
     return Container(
@@ -2617,15 +2973,35 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   }
 
   // Calculate total allowances for an employee by type
+  /// API trả về enum `Type` dưới dạng String ("Fixed", "Daily", "Hourly",
+  /// "PerEvent") vì server cấu hình `JsonStringEnumConverter`. Hand lại
+  /// về int 0..3 để dùng cho lọc & tính tổng.
+  int _parseAllowanceType(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final s = value.toLowerCase();
+      if (s == 'fixed' || s == '0') return 0;
+      if (s == 'daily' || s == '1') return 1;
+      if (s == 'hourly' || s == '2') return 2;
+      if (s == 'perevent' || s == 'per_event' || s == '3') return 3;
+      final parsed = int.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
   double _calculateEmployeeAllowanceTotal(String employeeId, int allowanceType) {
     double total = 0;
     for (final a in _allowances) {
-      final type = a['type'] is int ? a['type'] : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
+      final type = _parseAllowanceType(a['type']);
       final isActive = a['isActive'] ?? true;
       if (type != allowanceType || !isActive) continue;
 
       if (_isAllowanceAssignedToEmployee(a, employeeId)) {
-        total += (a['amount'] as num?)?.toDouble() ?? 0;
+        total += (a['amount'] is num
+                ? (a['amount'] as num).toDouble()
+                : double.tryParse(a['amount']?.toString() ?? '') ?? 0);
       }
     }
     return total;
@@ -2665,7 +3041,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           builder: (context, setPickerState) {
             // Filter allowances by type and assigned to this employee
             final assignedAllowances = _allowances.where((a) {
-              final type = a['type'] is int ? a['type'] : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
+              final type = _parseAllowanceType(a['type']);
               final isActive = a['isActive'] ?? true;
               return type == allowanceType && isActive && _isAllowanceAssignedToEmployee(a, employeeId);
             }).toList();
@@ -2673,7 +3049,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             // Calculate total
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] as num).toDouble();
+              total += (allowance['amount'] is num
+                  ? (allowance['amount'] as num).toDouble()
+                  : double.tryParse(allowance['amount']?.toString() ?? '') ?? 0);
             }
 
             final headerRow = Row(
