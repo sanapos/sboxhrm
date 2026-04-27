@@ -22,7 +22,8 @@ public class CreateAdvanceRequestHandler(
     IRepository<AdvanceApprovalRecord> approvalRecordRepository,
     IRepository<AppSettings> appSettingsRepository,
     UserManager<ApplicationUser> userManager,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    ZKTecoADMS.Application.Interfaces.INotificationTargetResolver targetResolver
 ) : ICommandHandler<CreateAdvanceRequestCommand, AppResponse<AdvanceRequestDto>>
 {
     public async Task<AppResponse<AdvanceRequestDto>> Handle(CreateAdvanceRequestCommand request, CancellationToken cancellationToken)
@@ -126,18 +127,30 @@ public class CreateAdvanceRequestHandler(
                 [nameof(AdvanceRequest.EmployeeUser), nameof(AdvanceRequest.Employee)],
                 cancellationToken: cancellationToken);
 
-            // Notify first-level approver only
+            // Notify first-level approver, dept managers (2 levels) and store admins.
             try
             {
                 var employeeName = result?.EmployeeUser != null
                     ? $"{result.EmployeeUser.LastName} {result.EmployeeUser.FirstName}".Trim()
                     : "Nhân viên";
 
+                // Per the org chart: dept managers up to 2 levels + admins of the store.
+                var hierarchyTargets = await targetResolver.ResolveManagersAsync(
+                    employeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                var targetSet = new HashSet<Guid>(hierarchyTargets);
+
+                // Plus the explicitly assigned first-level approver if any.
                 var firstApprover = approvalRecords.FirstOrDefault();
                 if (firstApprover?.AssignedUserId != null)
+                    targetSet.Add(firstApprover.AssignedUserId.Value);
+
+                // Exclude the requester themselves.
+                if (employeeUserId.HasValue) targetSet.Remove(employeeUserId.Value);
+
+                if (targetSet.Count > 0)
                 {
-                    await notificationService.CreateAndSendAsync(
-                        firstApprover.AssignedUserId.Value, NotificationType.ApprovalRequired,
+                    await notificationService.CreateAndSendToUsersAsync(
+                        targetSet, NotificationType.ApprovalRequired,
                         "Yêu cầu ứng lương mới",
                         $"{employeeName} yêu cầu ứng lương {request.Amount:N0}đ" +
                         (totalLevels > 1 ? $" (Bước 1/{totalLevels})" : ""),
@@ -146,7 +159,7 @@ public class CreateAdvanceRequestHandler(
                 }
                 else
                 {
-                    // Fallback: broadcast to all managers
+                    // Last-resort fallback (no dept managers and no admins): broadcast to managers role.
                     var managers = await userManager.GetUsersInRoleAsync(nameof(Roles.Manager));
                     var admins = await userManager.GetUsersInRoleAsync(nameof(Roles.Admin));
                     var targetUsers = managers.Concat(admins)

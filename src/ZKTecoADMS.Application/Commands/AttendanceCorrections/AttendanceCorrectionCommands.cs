@@ -27,7 +27,8 @@ public class CreateAttendanceCorrectionHandler(
     IRepository<Attendance> attendanceRepository,
     IRepository<Employee> employeeRepository,
     IRepository<AppSettings> appSettingsRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    ZKTecoADMS.Application.Interfaces.INotificationTargetResolver targetResolver
 ) : ICommandHandler<CreateAttendanceCorrectionCommand, AppResponse<AttendanceCorrectionRequestDto>>
 {
     public async Task<AppResponse<AttendanceCorrectionRequestDto>> Handle(CreateAttendanceCorrectionCommand request, CancellationToken cancellationToken)
@@ -103,9 +104,15 @@ public class CreateAttendanceCorrectionHandler(
                 var firstLevelTargets = approvalChain
                     .Where(r => r.StepOrder == 1 && r.AssignedUserId.HasValue)
                     .Select(r => r.AssignedUserId!.Value)
-                    .Where(id => id != request.EmployeeUserId)
-                    .Distinct()
-                    .ToList();
+                    .ToHashSet();
+
+                // Per the org chart: dept managers up to 2 levels + store admins.
+                var hierarchyTargets = await targetResolver.ResolveManagersAsync(
+                    request.EmployeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                foreach (var t in hierarchyTargets)
+                    firstLevelTargets.Add(t);
+
+                firstLevelTargets.Remove(request.EmployeeUserId);
 
                 if (firstLevelTargets.Count > 0)
                 {

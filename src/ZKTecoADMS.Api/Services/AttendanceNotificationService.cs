@@ -60,6 +60,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             using var scope = _serviceScopeFactory.CreateScope();
             var userRepository = scope.ServiceProvider.GetRequiredService<IRepository<DeviceUser>>();
             var employeeRepo = scope.ServiceProvider.GetRequiredService<IRepository<Employee>>();
+            var departmentRepo = scope.ServiceProvider.GetRequiredService<IRepository<Department>>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var notificationRepo = scope.ServiceProvider.GetRequiredService<IRepository<Notification>>();
             var preferenceRepo = scope.ServiceProvider.GetRequiredService<IRepository<NotificationPreference>>();
@@ -72,66 +73,26 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             );
             var userDict = users.GroupBy(u => u.Pin).ToDictionary(g => g.Key, g => g.First());
 
-            // Pre-load: admin users for this store (SuperAdmin excluded - manages system, not individual stores)
+            // Admins in store receive ALL attendance notifications (SuperAdmin excluded - system-wide).
             var adminUsers = await userManager.Users
                 .Where(u => u.IsActive && u.Role == "Admin" && device.StoreId.HasValue && u.StoreId == device.StoreId)
                 .ToListAsync();
             var adminUserIds = adminUsers.Select(u => u.Id).ToHashSet();
 
-            // Pre-load: direct manager employees (level 1)
-            var managerEmployeeIds = users
-                .Where(u => u.Employee?.DirectManagerEmployeeId != null)
-                .Select(u => u.Employee!.DirectManagerEmployeeId!.Value)
-                .Distinct()
-                .ToList();
-
-            var managerDict = new Dictionary<Guid, Employee>(); // EmployeeId -> Employee
-            if (managerEmployeeIds.Count > 0)
-            {
-                // Only consider managers belonging to the same store as the device.
-                // This prevents notifications leaking across stores when an employee
-                // is reassigned without clearing the previous manager link.
-                var managers = await employeeRepo.GetAllAsync(
-                    e => managerEmployeeIds.Contains(e.Id)
-                         && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
-                managerDict = managers.ToDictionary(e => e.Id);
-            }
-
-            // Pre-load: grandparent managers (level 2 - manager's manager)
-            var grandparentEmployeeIds = managerDict.Values
-                .Where(m => m.DirectManagerEmployeeId != null && !managerDict.ContainsKey(m.DirectManagerEmployeeId.Value))
-                .Select(m => m.DirectManagerEmployeeId!.Value)
-                .Distinct()
-                .ToList();
-
-            var grandparentDict = new Dictionary<Guid, Employee>(); // EmployeeId -> Employee
-            if (grandparentEmployeeIds.Count > 0)
-            {
-                // Same store-scoping rule as direct managers above.
-                var grandparents = await employeeRepo.GetAllAsync(
-                    e => grandparentEmployeeIds.Contains(e.Id)
-                         && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
-                grandparentDict = grandparents.ToDictionary(e => e.Id);
-            }
+            // Build the department hierarchy lookup once for the whole store so we can
+            // walk up two levels per attendance without per-row queries.
+            var deptManagerMap = await BuildDeptManagerMapAsync(
+                departmentRepo, employeeRepo, device.StoreId);
 
             // Pre-load: users who disabled "attendance" notification category
             var allCandidateUserIds = new HashSet<Guid>(adminUserIds);
             foreach (var u in users)
             {
                 if (u.Employee?.ApplicationUserId != null) allCandidateUserIds.Add(u.Employee.ApplicationUserId.Value);
-                // Direct manager
-                if (u.Employee?.DirectManagerEmployeeId != null &&
-                    managerDict.TryGetValue(u.Employee.DirectManagerEmployeeId.Value, out var m))
+                if (u.Employee?.DepartmentId != null)
                 {
-                    if (m.ApplicationUserId != null)
-                        allCandidateUserIds.Add(m.ApplicationUserId.Value);
-                    // Grandparent manager (manager's manager)
-                    if (m.DirectManagerEmployeeId != null)
-                    {
-                        var gpDict = managerDict.ContainsKey(m.DirectManagerEmployeeId.Value) ? managerDict : grandparentDict;
-                        if (gpDict.TryGetValue(m.DirectManagerEmployeeId.Value, out var gp) && gp.ApplicationUserId != null)
-                            allCandidateUserIds.Add(gp.ApplicationUserId.Value);
-                    }
+                    foreach (var mgrUserId in ResolveDeptHierarchyManagers(deptManagerMap, u.Employee.DepartmentId.Value, levels: 2))
+                        allCandidateUserIds.Add(mgrUserId);
                 }
             }
             var disabledUserIds = await GetDisabledUserIdsAsync(preferenceRepo, allCandidateUserIds, "attendance", device.StoreId);
@@ -148,22 +109,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 if (user?.Employee?.ApplicationUserId != null)
                     targetUserIds.Add(user.Employee.ApplicationUserId.Value);
 
-                if (user?.Employee?.DirectManagerEmployeeId != null &&
-                    managerDict.TryGetValue(user.Employee.DirectManagerEmployeeId.Value, out var mgr))
+                if (user?.Employee?.DepartmentId != null)
                 {
-                    if (mgr.ApplicationUserId != null)
-                        targetUserIds.Add(mgr.ApplicationUserId.Value);
-
-                    // 4. Grandparent manager (manager's manager)
-                    if (mgr.DirectManagerEmployeeId != null)
-                    {
-                        var gpLookup = managerDict.ContainsKey(mgr.DirectManagerEmployeeId.Value) ? managerDict : grandparentDict;
-                        if (gpLookup.TryGetValue(mgr.DirectManagerEmployeeId.Value, out var grandparent) &&
-                            grandparent.ApplicationUserId != null)
-                        {
-                            targetUserIds.Add(grandparent.ApplicationUserId.Value);
-                        }
-                    }
+                    foreach (var mgrUserId in ResolveDeptHierarchyManagers(
+                        deptManagerMap, user.Employee.DepartmentId.Value, levels: 2))
+                        targetUserIds.Add(mgrUserId);
                 }
 
                 // Remove users who disabled attendance notifications
@@ -188,7 +138,9 @@ public class AttendanceNotificationService : IAttendanceNotificationService
     }
 
     /// <summary>
-    /// Resolve notification targets: employee → direct manager → manager's manager → admins
+    /// Resolve notification targets via DEPARTMENT HIERARCHY (Sơ đồ tổ chức phòng ban):
+    /// employee → manager of employee's department → manager of parent department → admins.
+    /// Walks up to 2 levels of parent departments so notifications match the org chart.
     /// </summary>
     private async Task<HashSet<Guid>> ResolveTargetUsersAsync(
         IRepository<Employee> employeeRepo,
@@ -202,25 +154,14 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         if (employee?.ApplicationUserId != null)
             targets.Add(employee.ApplicationUserId.Value);
 
-        // 2. Direct manager (org chart) - must belong to the same store as the device
-        Employee? manager = null;
-        if (employee?.DirectManagerEmployeeId != null)
+        // 2. + 3. Department managers up to 2 levels (current dept + 2 parents)
+        if (employee?.DepartmentId != null)
         {
-            manager = await employeeRepo.GetSingleAsync(
-                e => e.Id == employee.DirectManagerEmployeeId.Value
-                     && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
-            if (manager?.ApplicationUserId != null)
-                targets.Add(manager.ApplicationUserId.Value);
-        }
-
-        // 3. Grandparent manager (manager's manager) - same-store rule
-        if (manager?.DirectManagerEmployeeId != null)
-        {
-            var grandparent = await employeeRepo.GetSingleAsync(
-                e => e.Id == manager.DirectManagerEmployeeId.Value
-                     && (!device.StoreId.HasValue || e.StoreId == device.StoreId));
-            if (grandparent?.ApplicationUserId != null)
-                targets.Add(grandparent.ApplicationUserId.Value);
+            using var scope = _serviceScopeFactory.CreateScope();
+            var departmentRepo = scope.ServiceProvider.GetRequiredService<IRepository<Department>>();
+            var deptManagerMap = await BuildDeptManagerMapAsync(departmentRepo, employeeRepo, device.StoreId);
+            foreach (var mgrUserId in ResolveDeptHierarchyManagers(deptManagerMap, employee.DepartmentId.Value, levels: 2))
+                targets.Add(mgrUserId);
         }
 
         // 4. Admin users in the same store (SuperAdmin excluded - manages system, not individual stores)
@@ -231,6 +172,67 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             targets.Add(admin.Id);
 
         return targets;
+    }
+
+    /// <summary>
+    /// Build a per-store map of department -> (parent dept id, manager ApplicationUserId)
+    /// so we can walk the hierarchy without round-trips per row.
+    /// </summary>
+    private static async Task<Dictionary<Guid, (Guid? ParentId, Guid? ManagerUserId)>> BuildDeptManagerMapAsync(
+        IRepository<Department> departmentRepo,
+        IRepository<Employee> employeeRepo,
+        Guid? storeId)
+    {
+        var depts = await departmentRepo.GetAllAsync(
+            d => !storeId.HasValue || d.StoreId == storeId);
+        var managerEmployeeIds = depts
+            .Where(d => d.ManagerId.HasValue && d.ManagerId.Value != Guid.Empty)
+            .Select(d => d.ManagerId!.Value)
+            .Distinct()
+            .ToList();
+
+        var managerEmpToUserId = new Dictionary<Guid, Guid>();
+        if (managerEmployeeIds.Count > 0)
+        {
+            var managers = await employeeRepo.GetAllAsync(e => managerEmployeeIds.Contains(e.Id));
+            foreach (var m in managers)
+            {
+                if (m.ApplicationUserId.HasValue && m.ApplicationUserId.Value != Guid.Empty)
+                    managerEmpToUserId[m.Id] = m.ApplicationUserId.Value;
+            }
+        }
+
+        var map = new Dictionary<Guid, (Guid? ParentId, Guid? ManagerUserId)>();
+        foreach (var d in depts)
+        {
+            Guid? mgrUserId = null;
+            if (d.ManagerId.HasValue && managerEmpToUserId.TryGetValue(d.ManagerId.Value, out var uid))
+                mgrUserId = uid;
+            map[d.Id] = (d.ParentDepartmentId, mgrUserId);
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Walk the department hierarchy up to <paramref name="levels"/> parents (so 3 dept managers max:
+    /// current dept + parent + grandparent). Returns each level's manager ApplicationUserId.
+    /// Cycle-safe (visited set) and silently stops when a parent is missing from the map.
+    /// </summary>
+    private static IEnumerable<Guid> ResolveDeptHierarchyManagers(
+        Dictionary<Guid, (Guid? ParentId, Guid? ManagerUserId)> map,
+        Guid startDeptId,
+        int levels)
+    {
+        var visited = new HashSet<Guid>();
+        var currentId = (Guid?)startDeptId;
+        // Inclusive of starting dept: walk up `levels` parents ⇒ yield up to (levels+1) managers.
+        for (int i = 0; i <= levels && currentId.HasValue; i++)
+        {
+            if (!visited.Add(currentId.Value)) yield break;
+            if (!map.TryGetValue(currentId.Value, out var entry)) yield break;
+            if (entry.ManagerUserId.HasValue) yield return entry.ManagerUserId.Value;
+            currentId = entry.ParentId;
+        }
     }
 
     /// <summary>

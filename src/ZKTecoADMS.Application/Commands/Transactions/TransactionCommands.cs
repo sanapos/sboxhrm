@@ -23,7 +23,8 @@ public record CreatePaymentTransactionCommand(
 public class CreatePaymentTransactionHandler(
     IRepository<PaymentTransaction> transactionRepository,
     IRepository<Employee> employeeRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    INotificationTargetResolver targetResolver
 ) : ICommandHandler<CreatePaymentTransactionCommand, AppResponse<PaymentTransactionDto>>
 {
     public async Task<AppResponse<PaymentTransactionDto>> Handle(CreatePaymentTransactionCommand request, CancellationToken cancellationToken)
@@ -69,17 +70,22 @@ public class CreatePaymentTransactionHandler(
                 [nameof(PaymentTransaction.Employee), nameof(PaymentTransaction.EmployeeUser)], 
                 cancellationToken: cancellationToken);
 
-            // Notify the recipient employee that a transaction was recorded for them.
+            // Notify the recipient employee + 2-level dept managers + store admins.
             try
             {
                 if (created.EmployeeUserId.HasValue && created.EmployeeUserId != Guid.Empty)
                 {
-                    await notificationService.CreateAndSendAsync(
-                        created.EmployeeUserId, NotificationType.Info,
-                        $"Giao dịch mới: {created.Type}",
-                        $"Giao dịch {created.Type} số tiền {created.Amount:N0} VNĐ ngày {created.TransactionDate:dd/MM/yyyy} đã được ghi nhận.",
-                        relatedEntityId: created.Id, relatedEntityType: "PaymentTransaction",
-                        fromUserId: request.PerformedById, categoryCode: "transaction", storeId: employee.StoreId);
+                    var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
+                        created.EmployeeUserId.Value, employee.StoreId, hierarchyLevels: 2, cancellationToken);
+                    if (targets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targets, NotificationType.Info,
+                            $"Giao dịch mới: {created.Type}",
+                            $"Giao dịch {created.Type} số tiền {created.Amount:N0} VNĐ ngày {created.TransactionDate:dd/MM/yyyy} đã được ghi nhận.",
+                            relatedEntityId: created.Id, relatedEntityType: "PaymentTransaction",
+                            fromUserId: request.PerformedById, categoryCode: "transaction", storeId: employee.StoreId);
+                    }
                 }
             }
             catch { /* notification is best-effort */ }
@@ -101,7 +107,8 @@ public record UpdateTransactionStatusCommand(
 
 public class UpdateTransactionStatusHandler(
     IRepository<PaymentTransaction> transactionRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    INotificationTargetResolver targetResolver
 ) : ICommandHandler<UpdateTransactionStatusCommand, AppResponse<PaymentTransactionDto>>
 {
     public async Task<AppResponse<PaymentTransactionDto>> Handle(UpdateTransactionStatusCommand request, CancellationToken cancellationToken)
@@ -123,7 +130,7 @@ public class UpdateTransactionStatusHandler(
 
             await transactionRepository.UpdateAsync(transaction, cancellationToken);
 
-            // Notify employee on meaningful status transitions (Pending -> Completed/Cancelled).
+            // Notify employee + dept managers (2 levels) + store admins on status change.
             try
             {
                 if (transaction.EmployeeUserId.HasValue && transaction.EmployeeUserId != Guid.Empty
@@ -135,13 +142,19 @@ public class UpdateTransactionStatusHandler(
                         "Cancelled" => (NotificationType.Warning, "đã bị huỷ"),
                         _ => (NotificationType.Info, $"chuyển sang trạng thái {request.Status}"),
                     };
-                    await notificationService.CreateAndSendAsync(
-                        transaction.EmployeeUserId, notifType,
-                        $"Giao dịch {transaction.Type} {statusText}",
-                        $"Giao dịch số tiền {transaction.Amount:N0} VNĐ ngày {transaction.TransactionDate:dd/MM/yyyy} {statusText}.",
-                        relatedEntityId: transaction.Id, relatedEntityType: "PaymentTransaction",
-                        fromUserId: request.PerformedById, categoryCode: "transaction",
-                        storeId: transaction.Employee?.StoreId);
+                    var storeId = transaction.Employee?.StoreId;
+                    var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
+                        transaction.EmployeeUserId.Value, storeId, hierarchyLevels: 2, cancellationToken);
+                    if (targets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targets, notifType,
+                            $"Giao dịch {transaction.Type} {statusText}",
+                            $"Giao dịch số tiền {transaction.Amount:N0} VNĐ ngày {transaction.TransactionDate:dd/MM/yyyy} {statusText}.",
+                            relatedEntityId: transaction.Id, relatedEntityType: "PaymentTransaction",
+                            fromUserId: request.PerformedById, categoryCode: "transaction",
+                            storeId: storeId);
+                    }
                 }
             }
             catch { /* notification is best-effort */ }

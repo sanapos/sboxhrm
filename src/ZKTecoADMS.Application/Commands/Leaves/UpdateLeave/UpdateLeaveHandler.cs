@@ -9,7 +9,8 @@ public class UpdateLeaveHandler(
     IRepository<Leave> leaveRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
     DbContext dbContext,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    INotificationTargetResolver targetResolver
     ) : ICommandHandler<UpdateLeaveCommand, AppResponse<LeaveDto>>
 {
     public async Task<AppResponse<LeaveDto>> Handle(UpdateLeaveCommand request, CancellationToken cancellationToken)
@@ -93,29 +94,40 @@ public class UpdateLeaveHandler(
             
             var leaveDto = leave.Adapt<LeaveDto>();
 
-            // Notify the relevant party that the leave was modified.
-            // - If a manager edited it: notify the employee owner
-            // - If the employee edited it: notify the manager
+            // Notify per the org chart so managers/admins in the chain stay in the loop.
+            // - Manager edited it: notify the employee + admin chain (so other approvers know)
+            // - Employee edited it: notify dept managers (2 levels) + admins
             try
             {
                 var dateRange = $"{leave.StartDate:dd/MM/yyyy} - {leave.EndDate:dd/MM/yyyy}";
                 if (request.IsManager && leave.EmployeeUserId != request.CurrentUserId)
                 {
-                    await notificationService.CreateAndSendAsync(
-                        leave.EmployeeUserId, NotificationType.Info,
-                        "Đơn nghỉ phép đã được cập nhật",
-                        $"Quản lý đã cập nhật đơn nghỉ phép của bạn ({dateRange}).",
-                        relatedEntityId: leave.Id, relatedEntityType: "Leave",
-                        fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                    var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
+                        leave.EmployeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                    targets = targets.Where(id => id != request.CurrentUserId).ToList();
+                    if (targets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targets, NotificationType.Info,
+                            "Đơn nghỉ phép đã được cập nhật",
+                            $"Quản lý đã cập nhật đơn nghỉ phép ({dateRange}).",
+                            relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                            fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                    }
                 }
-                else if (!request.IsManager && leave.ManagerId != Guid.Empty)
+                else if (!request.IsManager)
                 {
-                    await notificationService.CreateAndSendAsync(
-                        leave.ManagerId, NotificationType.Info,
-                        "Đơn nghỉ phép đã được sửa",
-                        $"Nhân viên đã chỉnh sửa đơn nghỉ phép ({dateRange}). Vui lòng kiểm tra lại.",
-                        relatedEntityId: leave.Id, relatedEntityType: "Leave",
-                        fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                    var targets = await targetResolver.ResolveManagersAsync(
+                        leave.EmployeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                    if (targets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targets, NotificationType.Info,
+                            "Đơn nghỉ phép đã được sửa",
+                            $"Nhân viên đã chỉnh sửa đơn nghỉ phép ({dateRange}). Vui lòng kiểm tra lại.",
+                            relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                            fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                    }
                 }
             }
             catch { /* notification is best-effort */ }

@@ -5,7 +5,8 @@ namespace ZKTecoADMS.Application.Commands.Shifts.DeleteShift;
 
 public class DeleteShiftHandler(
     IRepository<Shift> repository,
-    ISystemNotificationService notificationService)
+    ISystemNotificationService notificationService,
+    INotificationTargetResolver targetResolver)
     : ICommandHandler<DeleteShiftCommand, AppResponse<bool>>
 {
     public async Task<AppResponse<bool>> Handle(DeleteShiftCommand request, CancellationToken cancellationToken)
@@ -31,17 +32,22 @@ public class DeleteShiftHandler(
             var shiftDate = shift.StartTime;
             await repository.DeleteAsync(shift, cancellationToken);
 
-            // Notify the assigned employee that their pending shift was removed.
+            // Notify employee + 2-level dept managers + store admins per the org chart.
             try
             {
                 if (employeeUserId != Guid.Empty)
                 {
-                    await notificationService.CreateAndSendAsync(
-                        employeeUserId, NotificationType.Warning,
-                        "Ca làm việc đã bị xóa",
-                        $"Ca làm việc ngày {shiftDate:dd/MM/yyyy} của bạn đã bị xóa.",
-                        relatedEntityId: request.Id, relatedEntityType: "Shift",
-                        categoryCode: "shift", storeId: request.StoreId);
+                    var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
+                        employeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                    if (targets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targets, NotificationType.Warning,
+                            "Ca làm việc đã bị xóa",
+                            $"Ca làm việc ngày {shiftDate:dd/MM/yyyy} đã bị xóa.",
+                            relatedEntityId: request.Id, relatedEntityType: "Shift",
+                            categoryCode: "shift", storeId: request.StoreId);
+                    }
                 }
             }
             catch { /* notification is best-effort */ }

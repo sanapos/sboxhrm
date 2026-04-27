@@ -1,5 +1,6 @@
 using ZKTecoADMS.Application.Settings;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Api.Middlewares;
@@ -121,6 +122,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
         services.AddScoped<ISystemNotificationService, SystemNotificationService>();
         services.AddScoped<IDeviceStatusNotificationService, DeviceStatusNotificationService>();
+        services.AddScoped<INotificationTargetResolver, NotificationTargetResolver>();
 
         // SuperAdmin announcements (Phase 1)
         services.AddScoped<IAudienceResolver, AudienceResolver>();
