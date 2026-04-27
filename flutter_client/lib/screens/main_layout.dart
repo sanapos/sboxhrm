@@ -595,20 +595,27 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     switch (entityType?.toLowerCase()) {
       case 'attendance':
       case 'attendancecorrection':
+      case 'correction':
       case 'overtime':
       case 'newattendance':
         return NavigationNotifier.attendance;
       case 'leave':
+      case 'leaverequest':
         return NavigationNotifier.leaves;
       case 'device':
       case 'devicestatus':
       case 'admsdevice':
         return NavigationNotifier.deviceUsers;
+      case 'schedule':
       case 'workschedule':
       case 'scheduleregistration':
+      case 'shift':
+      case 'shiftswap':
         return NavigationNotifier.workSchedule;
       case 'employee':
         return NavigationNotifier.employees;
+      case 'department':
+        return NavigationNotifier.departments;
       case 'payroll':
       case 'payslip':
         return NavigationNotifier.payroll;
@@ -617,6 +624,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return NavigationNotifier.taskManagement;
       case 'communication':
         return NavigationNotifier.communication;
+      case 'advance':
       case 'advancerequest':
         return NavigationNotifier.advanceRequests;
       case 'asset':
@@ -625,11 +633,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'kpisalary':
         return NavigationNotifier.kpi;
       case 'bonuspenalty':
+      case 'allowance':
+      case 'benefit':
         return NavigationNotifier.bonusPenalty;
       case 'cashtransaction':
+      case 'paymenttransaction':
+      case 'transaction':
         return NavigationNotifier.cashTransaction;
       case 'penaltytickets':
         return NavigationNotifier.penaltyTickets;
+      case 'mealrecord':
+      case 'mealsession':
+      case 'mealmenu':
+        return NavigationNotifier.meals;
+      case 'account':
+      case 'store':
+        return NavigationNotifier.settings;
       default:
         return _notificationsIndex;
     }

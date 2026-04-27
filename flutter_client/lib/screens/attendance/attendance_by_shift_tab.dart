@@ -65,6 +65,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Map<String, String> _employeeCodeToWeeklyOffDays = {}; // empCode → 'Sunday' | 'Saturday,Sunday' etc.
   Map<String, double> _employeeCodeToHolidayMultiplier = {}; // empCode → 2.0 (x2) etc.
   Map<String, int> _employeeCodeToHolidayOvertimeType = {}; // empCode → 0=fixed, 1=legal coefficient
+  Map<String, String> _employeeCodeToAttendanceMode = {}; // empCode → 'checkin'|'checkout'|'both'|'any'|'none'
 
   @override
   void initState() {
@@ -96,11 +97,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _employeeCodeToWeeklyOffDays = {};
     _employeeCodeToHolidayMultiplier = {};
     _employeeCodeToHolidayOvertimeType = {};
+    _employeeCodeToAttendanceMode = {};
     for (final profile in widget.salaryProfiles) {
       final shiftsPerDay = profile['shiftsPerDay'] as int? ?? 1;
       final weeklyOffDays = profile['weeklyOffDays']?.toString() ?? 'Sunday';
       final holidayMultiplier = (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
       final holidayOvertimeType = (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
+      final attendanceMode = profile['attendanceMode']?.toString() ?? 'both';
       final employees = profile['employees'] as List? ?? [];
       for (final emp in employees) {
         if (emp is Map<String, dynamic>) {
@@ -112,6 +115,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             _employeeCodeToWeeklyOffDays[code] = weeklyOffDays;
             _employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             _employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
+            _employeeCodeToAttendanceMode[code] = attendanceMode;
           }
         }
       }
@@ -245,8 +249,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   /// Get unique employees from all attendances
   List<_EmployeeOption> get _allEmployees {
     final Map<String, _EmployeeOption> map = {};
+    final validIds = <String>{
+      ..._employeeCodeToGuid.keys,
+      ..._employeeCodeToGuid.values,
+    };
     for (final att in widget.attendances) {
       final id = att.employeeId ?? att.enrollNumber ?? 'unknown';
+      // Loại bỏ NV chưa thiết lập bảng lương khỏi danh sách lọc.
+      if (validIds.isNotEmpty &&
+          !validIds.contains(att.enrollNumber ?? '') &&
+          !validIds.contains(att.employeeId ?? '')) {
+        continue;
+      }
       if (!map.containsKey(id)) {
         map[id] = _EmployeeOption(
           id: id,
@@ -308,7 +322,20 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return att.punchTime.isAfter(range.start.subtract(const Duration(seconds: 1))) &&
              att.punchTime.isBefore(range.end.add(const Duration(seconds: 1)));
     }).toList();
-    
+
+    // Loại bỏ NV chưa thiết lập bảng lương khỏi tổng hợp theo ca.
+    final validIds = <String>{
+      ..._employeeCodeToGuid.keys,
+      ..._employeeCodeToGuid.values,
+    };
+    if (validIds.isNotEmpty) {
+      result = result.where((att) {
+        final code = att.enrollNumber ?? '';
+        final guid = att.employeeId ?? '';
+        return validIds.contains(code) || validIds.contains(guid);
+      }).toList();
+    }
+
     // Filter theo selected employees
     if (_selectedEmployeeIds.isNotEmpty) {
       result = result.where((att) {
@@ -352,12 +379,45 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         final empGuid = _employeeCodeToGuid[employeeCode] ?? '';
         final assignedShiftIds = _employeeGuidToShiftTemplateIds[empGuid] ?? [];
         final shiftsPerDay = _employeeGuidToShiftsPerDay[empGuid] ?? 1;
+        final attendanceMode = _employeeCodeToAttendanceMode[employeeCode] ?? 'both';
         final candidateIds = assignedShiftIds.isNotEmpty
             ? assignedShiftIds
             : _shiftTemplateMap.keys.toList();
 
-        // Pair punches: odd=IN, even=OUT, each pair = 1 shift
-        // Then aggregate totals across all pairs
+        // ─── Pair punches: prefer attendanceState (0=IN, 1=OUT), fallback chronological ───
+        final ins = dayAttendances.where((a) => a.attendanceState == 0).toList();
+        final outs = dayAttendances.where((a) => a.attendanceState == 1).toList();
+        final List<List<DateTime?>> pairs = []; // [punchIn, punchOut]
+
+        if (ins.isNotEmpty && outs.isNotEmpty &&
+            (ins.length + outs.length) == dayAttendances.length) {
+          // State-based pairing: pair each IN with next OUT after it
+          final remainingOuts = List<Attendance>.from(outs);
+          for (final inP in ins) {
+            final idx = remainingOuts.indexWhere(
+                (o) => !o.punchTime.isBefore(inP.punchTime));
+            if (idx >= 0) {
+              pairs.add([inP.punchTime, remainingOuts[idx].punchTime]);
+              remainingOuts.removeAt(idx);
+            } else {
+              pairs.add([inP.punchTime, null]);
+            }
+          }
+          // Lonely OUTs left → pair as (null, out)
+          for (final o in remainingOuts) {
+            pairs.add([null, o.punchTime]);
+          }
+        } else {
+          // Fallback chronological: (i, i+1)
+          for (int i = 0; i < dayAttendances.length; i += 2) {
+            final inT = dayAttendances[i].punchTime;
+            final outT = (i + 1 < dayAttendances.length)
+                ? dayAttendances[i + 1].punchTime
+                : null;
+            pairs.add([inT, outT]);
+          }
+        }
+
         int totalLate = 0;
         int totalEarly = 0;
         int totalOT = 0;
@@ -365,15 +425,33 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         double totalDecimalHours = 0;
         double totalWorkCount = 0;
         bool hasMissingPunch = false;
+        bool exceededMaxLate = false;
+        bool exceededMaxEarly = false;
         final shiftNames = <String>[];
 
-        for (int i = 0; i < dayAttendances.length; i += 2) {
-          final punchIn = dayAttendances[i].punchTime;
-          final punchOut = (i + 1 < dayAttendances.length) ? dayAttendances[i + 1].punchTime : null;
+        for (final pair in pairs) {
+          final punchIn = pair[0];
+          final punchOut = pair[1];
 
-          final punchInMinutes = _dateTimeToMinutes(punchIn);
-          final matchedShift = _findMatchingShift(punchInMinutes, candidateIds);
-          
+          // Determine pair validity according to attendanceMode
+          final hasIn = punchIn != null;
+          final hasOut = punchOut != null;
+          bool pairValid;
+          switch (attendanceMode) {
+            case 'checkin':  pairValid = hasIn; break;
+            case 'checkout': pairValid = hasOut; break;
+            case 'both':     pairValid = hasIn && hasOut; break;
+            case 'any':      pairValid = hasIn || hasOut; break;
+            case 'none':
+            default:         pairValid = true;
+          }
+
+          // Use whichever punch is available to match a shift
+          final refTime = punchIn ?? punchOut;
+          if (refTime == null) continue;
+          final refMinutes = _dateTimeToMinutes(refTime);
+          final matchedShift = _findMatchingShift(refMinutes, candidateIds);
+
           if (matchedShift != null) {
             final name = matchedShift['name']?.toString() ?? '';
             if (name.isNotEmpty && !shiftNames.contains(name)) {
@@ -381,11 +459,29 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             }
           }
 
-          if (punchOut == null) {
+          if (!hasIn || !hasOut) {
             hasMissingPunch = true;
+            // Nếu attendanceMode chỉ yêu cầu 1 punch và shift xác định được:
+            // tính 1 ca công đầy đủ = (shiftDuration - break).
+            if (pairValid && matchedShift != null) {
+              final shiftStartMin = _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+              final shiftEndMin = _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+              final isCross = shiftStartMin > shiftEndMin;
+              final shiftDur = isCross
+                  ? (1440 - shiftStartMin + shiftEndMin)
+                  : (shiftEndMin - shiftStartMin);
+              final breakMin = (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+              final paid = (shiftDur - breakMin) / 60.0;
+              totalWorkHours += paid > 0 ? paid : 0;
+              totalDecimalHours += paid > 0 ? paid : 0;
+              totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+            }
             continue;
           }
 
+          if (!pairValid) continue;
+
+          final punchInMinutes = _dateTimeToMinutes(punchIn);
           final punchOutMinutes = _dateTimeToMinutes(punchOut);
           final actualWorkedMinutes = punchOut.difference(punchIn).inMinutes;
 
@@ -396,6 +492,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             final shiftDurationMin = isCrossMidnight
                 ? (1440 - shiftStartMin + shiftEndMin)
                 : (shiftEndMin - shiftStartMin);
+            final breakMin = (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+            final overtimeThreshold = (matchedShift['overtimeMinutesThreshold'] as num?)?.toInt() ?? 30;
+            final lateGrace = (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+            final earlyGrace = (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+            final maxLate = (matchedShift['maximumAllowedLateMinutes'] as num?)?.toInt() ?? 0;
+            final maxEarly = (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)?.toInt() ?? 0;
 
             // Late
             int lateCalc = 0;
@@ -410,6 +512,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 lateCalc = punchInMinutes - shiftStartMin;
               }
             }
+            // Áp dụng grace period: ≤ grace thì bỏ qua
+            if (lateCalc <= lateGrace) lateCalc = 0;
+            if (maxLate > 0 && lateCalc > maxLate) exceededMaxLate = true;
             if (lateCalc > 0) totalLate += lateCalc;
 
             // Early
@@ -425,10 +530,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 earlyCalc = shiftEndMin - punchOutMinutes;
               }
             }
+            if (earlyCalc <= earlyGrace) earlyCalc = 0;
+            if (maxEarly > 0 && earlyCalc > maxEarly) exceededMaxEarly = true;
 
-            // Overtime – only count if extra minutes exceed shift's "Tính tăng ca" threshold
+            // Overtime – chỉ tính khi vượt overtimeMinutesThreshold (đúng field).
             int extraMin = 0;
-            final overtimeThreshold = (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
             if (isCrossMidnight) {
               if (punchOutMinutes > shiftEndMin && punchOutMinutes < shiftStartMin) {
                 extraMin = punchOutMinutes - shiftEndMin;
@@ -440,21 +546,29 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             }
             if (extraMin > overtimeThreshold) {
               totalOT += extraMin;
-              earlyCalc = 0;
+              earlyCalc = 0; // có OT thì không tính early
             } else {
               extraMin = 0;
             }
             if (earlyCalc > 0) totalEarly += earlyCalc;
 
-            // Hours
+            // Hours: trừ giờ nghỉ giữa ca (breakMin) khỏi công.
+            // Khi worked đủ ca (>= shiftDuration) → công = shiftDur - break.
+            // Khi worked < shiftDuration → công = max(0, worked - break) (nếu worked > break).
+            double paidMin;
             if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
-              totalWorkHours += shiftDurationMin / 60.0;
+              paidMin = (shiftDurationMin - breakMin).toDouble();
             } else {
-              totalWorkHours += actualWorkedMinutes / 60.0;
+              final reduced = actualWorkedMinutes -
+                  (actualWorkedMinutes > breakMin ? breakMin : 0);
+              paidMin = reduced.toDouble();
             }
+            if (paidMin < 0) paidMin = 0;
+            totalWorkHours += paidMin / 60.0;
             totalDecimalHours += actualWorkedMinutes / 60.0;
             totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
           } else {
+            // Không match shift — không có break/threshold để áp dụng
             totalWorkHours += actualWorkedMinutes / 60.0;
             totalDecimalHours += actualWorkedMinutes / 60.0;
             totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
@@ -493,6 +607,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (hasMissingPunch && totalWorkCount == 0) {
           status = 'Thiếu chấm';
           statusColor = Colors.grey;
+        } else if (exceededMaxLate || exceededMaxEarly) {
+          // Vượt mức trễ/sớm tối đa cho phép → coi như vắng cả ca.
+          status = exceededMaxLate ? 'Vắng (trễ quá quy định)' : 'Vắng (về sớm quá quy định)';
+          statusColor = Colors.red.shade900;
+          totalWorkCount = 0;
+          totalWorkHours = 0;
         } else if (isHoliday && totalWorkCount > 0) {
           // Ngày lễ mà có chấm công → Tăng ca ngày lễ
           status = 'Tăng ca ngày lễ';

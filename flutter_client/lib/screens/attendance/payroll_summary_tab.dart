@@ -68,7 +68,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Map<String, dynamic> _salarySettings = {};
   Map<String, dynamic> _penaltySettings = {};
   Map<String, dynamic> _taxSettings = {};
-  // ignore: unused_field
   List<Map<String, dynamic>> _allowanceSettings = [];
   List<Map<String, dynamic>> _transactions = [];
   List<Map<String, dynamic>> _advanceRequests = [];
@@ -224,6 +223,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           if (eid.isNotEmpty) profileMap[eid] = p;
         }
       }
+      // Loại bỏ NV chưa thiết lập bảng lương khỏi tổng hợp lương.
+      _employees = _employees.where((e) => profileMap.containsKey(e.id)).toList();
       for (final emp in _employees) {
         _employeeSalaryProfiles.add({
           'employeeId': emp.id,
@@ -606,6 +607,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double mealAllowancePerDay = _toDouble(benefit?['mealAllowance']);
     final double responsibilityAllowance = _toDouble(benefit?['responsibilityAllowance']);
     final int shiftsPerDay = _toInt(benefit?['shiftsPerDay'], 1);
+    // Chế độ chấm công: 'checkin' = chỉ cần chấm vào, 'checkout' = chỉ cần chấm ra,
+    // 'both' = phải có cả vào và ra mới tính công, 'any' = chỉ cần 1 punch, 'none' = không yêu cầu.
+    final String attendanceMode = (benefit?['attendanceMode'] ?? 'both').toString();
     final String socialInsType = (benefit?['socialInsuranceType'] ?? 0).toString();
     final double customInsuranceSalary = _toDouble(benefit?['insuranceSalary']);
     final bool hasHealthInsurance = benefit?['hasHealthInsurance'] == true;
@@ -702,6 +706,27 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       if (checkIns.isEmpty && checkOuts.isEmpty) continue;
 
+      // Áp dụng attendanceMode: ngày không thoả điều kiện thì không tính công.
+      bool dayValid;
+      switch (attendanceMode) {
+        case 'checkin':
+          dayValid = checkIns.isNotEmpty;
+          break;
+        case 'checkout':
+          dayValid = checkOuts.isNotEmpty;
+          break;
+        case 'both':
+          dayValid = checkIns.isNotEmpty && checkOuts.isNotEmpty;
+          break;
+        case 'any':
+          dayValid = checkIns.isNotEmpty || checkOuts.isNotEmpty;
+          break;
+        case 'none':
+        default:
+          dayValid = true;
+      }
+      if (!dayValid) continue;
+
       double dayHours = 0;
       if (checkIns.isNotEmpty && checkOuts.isNotEmpty) {
         final firstIn = checkIns.first.attendanceTime;
@@ -731,8 +756,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
       }
 
+      // Đếm số ca thực tế trong ngày: số cặp IN-OUT, tối đa shiftsPerDay.
+      // Giảm tình trạng nhân máy móc shiftsPerDay khi NV chỉ chấm 1 ca.
       if (checkIns.isNotEmpty) {
-        totalShifts += shiftsPerDay;
+        final pairs = math.min(checkIns.length, math.max(checkOuts.length, 1));
+        final actualShifts = math.min(pairs, shiftsPerDay);
+        totalShifts += actualShifts > 0 ? actualShifts : 1;
       }
 
       // Late/early detection using scheduled times from Benefit
@@ -865,8 +894,42 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     otSalary += holidayDaySalary;
 
     // ═══ Allowances ═══
-    // Per-day allowances × actual work days
-    final double totalAllowance = (mealAllowancePerDay + responsibilityAllowance) * workDays;
+    // Per-day allowances × actual work days (built-in từ Benefit)
+    double totalAllowance = (mealAllowancePerDay + responsibilityAllowance) * workDays;
+
+    // Cộng thêm phụ cấp từ AllowanceSettings (Fixed = cố định/kỳ, Daily = theo ngày công)
+    // Lọc theo EmployeeIds và StartDate/EndDate.
+    final empIdForAllowance = emp?.id;
+    for (final al in _allowanceSettings) {
+      // Filter EmployeeIds (JSON array). null/empty = áp dụng tất cả.
+      final empIdsRaw = al['employeeIds'];
+      if (empIdsRaw != null && empIdsRaw.toString().isNotEmpty) {
+        try {
+          final ids = jsonDecode(empIdsRaw.toString()) as List;
+          if (empIdForAllowance == null || !ids.contains(empIdForAllowance)) continue;
+        } catch (_) { continue; }
+      }
+      // Filter ngày hiệu lực
+      final startStr = al['startDate']?.toString();
+      final endStr = al['endDate']?.toString();
+      if (startStr != null && startStr.isNotEmpty) {
+        final s = DateTime.tryParse(startStr);
+        if (s != null && s.isAfter(_toDate)) continue;
+      }
+      if (endStr != null && endStr.isNotEmpty) {
+        final e = DateTime.tryParse(endStr);
+        if (e != null && e.isBefore(_fromDate)) continue;
+      }
+      final amount = _toDouble(al['amount']);
+      if (amount <= 0) continue;
+      final type = al['type']?.toString().toLowerCase() ?? '';
+      // Type: 'fixed'/'0' = cố định toàn kỳ, 'daily'/'1' = nhân workDays.
+      if (type == 'daily' || type == '1') {
+        totalAllowance += amount * workDays;
+      } else {
+        totalAllowance += amount;
+      }
+    }
 
     // ═══ Bonuses & penalties from transactions ═══
     double bonusTotal = 0;

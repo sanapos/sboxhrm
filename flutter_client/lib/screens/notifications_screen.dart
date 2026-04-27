@@ -384,6 +384,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (entityType) {
       case 'attendance':
       case 'newattendance':
+      case 'overtime':
         NavigationNotifier.goToAttendance();
       case 'device':
       case 'devicestatus':
@@ -400,6 +401,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         NavigationNotifier.goToAttendanceCorrections();
       case 'employee':
         NavigationNotifier.goToEmployees();
+      case 'department':
+        NavigationNotifier.goToDepartments();
       case 'schedule':
       case 'workschedule':
       case 'shift':
@@ -408,22 +411,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         NavigationNotifier.goToWorkSchedule();
       case 'worktask':
         NavigationNotifier.goToTaskManagement();
-      case 'overtime':
-        NavigationNotifier.goToAttendance();
+      case 'asset':
+        NavigationNotifier.goToAssetManagement();
+      case 'payroll':
       case 'payslip':
         NavigationNotifier.goToPayroll();
+      case 'kpi':
       case 'kpisalary':
         NavigationNotifier.goToKpi();
       case 'penaltytickets':
         NavigationNotifier.goTo(NavigationNotifier.penaltyTickets);
       case 'cashtransaction':
+      case 'paymenttransaction':
+      case 'transaction':
         NavigationNotifier.goToCashTransaction();
       case 'bonuspenalty':
+      case 'allowance':
+      case 'benefit':
         NavigationNotifier.goToBonusPenalty();
       case 'communication':
         NavigationNotifier.goToCommunication();
+      case 'mealrecord':
+      case 'mealsession':
+      case 'mealmenu':
+        NavigationNotifier.goTo(NavigationNotifier.meals);
+      case 'account':
+        NavigationNotifier.goTo(NavigationNotifier.settings);
+      case 'store':
+        NavigationNotifier.goTo(NavigationNotifier.settings);
       default:
         debugPrint('Unknown entity type: $entityType');
+        NavigationNotifier.goToNotifications();
     }
   }
 

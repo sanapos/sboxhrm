@@ -94,46 +94,83 @@ class SystemNotificationService {
     // Luôn refresh count sau khi tap
     ScreenRefreshNotifier.refreshNotificationCount();
 
-    // payload = relatedEntityType
-    switch (entityType) {
-      case 'Device':
-      case 'DeviceStatus':
+    // payload = relatedEntityType (case-insensitive)
+    switch (entityType.toLowerCase()) {
+      case 'device':
+      case 'devicestatus':
+      case 'admsdevice':
         NavigationNotifier.goToDeviceSettings();
         break;
-      case 'Attendance':
+      case 'attendance':
+      case 'newattendance':
+      case 'overtime':
         NavigationNotifier.goToAttendance();
         break;
-      case 'Leave':
+      case 'attendancecorrection':
+      case 'correction':
+        NavigationNotifier.goToAttendanceCorrections();
+        break;
+      case 'leave':
+      case 'leaverequest':
         NavigationNotifier.goToLeaves();
         break;
-      case 'WorkSchedule':
-      case 'ScheduleRegistration':
+      case 'workschedule':
+      case 'scheduleregistration':
+      case 'shift':
+      case 'shiftswap':
+      case 'schedule':
         NavigationNotifier.goToWorkSchedule();
         break;
-      case 'Employee':
+      case 'employee':
         NavigationNotifier.goToEmployees();
         break;
-      case 'Payroll':
-      case 'Payslip':
+      case 'department':
+        NavigationNotifier.goToDepartments();
+        break;
+      case 'payroll':
+      case 'payslip':
         NavigationNotifier.goToPayroll();
         break;
-      case 'WorkTask':
+      case 'worktask':
+      case 'task':
         NavigationNotifier.goToTaskManagement();
         break;
-      case 'AdvanceRequest':
+      case 'asset':
+        NavigationNotifier.goToAssetManagement();
+        break;
+      case 'advance':
+      case 'advancerequest':
         NavigationNotifier.goToAdvanceRequests();
         break;
-      case 'Communication':
+      case 'communication':
         NavigationNotifier.goToCommunication();
         break;
-      case 'BonusPenalty':
+      case 'bonuspenalty':
+      case 'allowance':
+      case 'benefit':
         NavigationNotifier.goToBonusPenalty();
         break;
-      case 'CashTransaction':
+      case 'cashtransaction':
+      case 'paymenttransaction':
+      case 'transaction':
         NavigationNotifier.goToCashTransaction();
         break;
-      case 'PenaltyTicket':
+      case 'kpi':
+      case 'kpisalary':
+        NavigationNotifier.goToKpi();
+        break;
+      case 'penaltyticket':
+      case 'penaltytickets':
         NavigationNotifier.goTo(NavigationNotifier.penaltyTickets);
+        break;
+      case 'mealrecord':
+      case 'mealsession':
+      case 'mealmenu':
+        NavigationNotifier.goTo(NavigationNotifier.meals);
+        break;
+      case 'account':
+      case 'store':
+        NavigationNotifier.goTo(NavigationNotifier.settings);
         break;
       default:
         NavigationNotifier.goToNotifications();

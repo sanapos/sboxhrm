@@ -1066,23 +1066,40 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             ],
           ),
         );
-        final actionButtons = [
+        final canEditSalary = Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings');
+        final actionButtons = <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showEditDialog(employee);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          if (canEditSalary) ...[
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _showCopyDialog(employee);
+              },
+              icon: const Icon(Icons.content_copy, size: 16),
+              label: const Text('Sao chép'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0EA5E9),
+                side: const BorderSide(color: Color(0xFF0EA5E9)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
             ),
-            child: const Text('Chỉnh sửa'),
-          ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showEditDialog(employee);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A5F),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Chỉnh sửa'),
+            ),
+          ],
         ];
         if (isMobile) {
           return Dialog(
