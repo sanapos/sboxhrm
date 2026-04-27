@@ -4103,15 +4103,18 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
     _initScanner();
   }
 
-  void _initScanner() {
+  void _initScanner() async {
     try {
       _scannerController = MobileScannerController(
-        detectionSpeed: DetectionSpeed.noDuplicates,
+        detectionSpeed: DetectionSpeed.normal,
         facing: CameraFacing.back,
-        formats: [BarcodeFormat.qrCode],
+        // Không filter formats: trên iOS mobile_scanner 7.x bị bổ sung bài toán
+        // đọc QR khi formats bị giới hạn. Để mặc định (all formats).
       );
+      // mobile_scanner 7.x: phải gọi start() để iOS khởi camera.
+      await _scannerController!.start();
     } catch (e) {
-      setState(() => _cameraError = 'Không thể khởi tạo camera: $e');
+      if (mounted) setState(() => _cameraError = 'Không thể khởi tạo camera: $e');
     }
   }
 
@@ -4182,20 +4185,29 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               onDetect: (capture) {
                                 if (_hasScanned) return;
                                 final barcodes = capture.barcodes;
-                                if (barcodes.isNotEmpty &&
-                                    barcodes.first.rawValue != null) {
-                                  final code = barcodes.first.rawValue!;
-                                  if (code.contains('|')) {
-                                    setState(() {
-                                      _hasScanned = true;
-                                      _scannedPreview = code;
-                                    });
-                                    Future.delayed(const Duration(milliseconds: 300),
-                                        () {
-                                      if (context.mounted) Navigator.pop(context, code);
-                                    });
+                                if (barcodes.isEmpty) return;
+                                // Tìm mã đúng format CCCD (có dấu '|' và ít nhất 6 trường).
+                                String? validCode;
+                                String? anyCode;
+                                for (final b in barcodes) {
+                                  final v = b.rawValue;
+                                  if (v == null || v.isEmpty) continue;
+                                  anyCode ??= v;
+                                  if (v.contains('|') && v.split('|').length >= 6) {
+                                    validCode = v;
+                                    break;
                                   }
                                 }
+                                final code = validCode ?? anyCode;
+                                if (code == null) return;
+                                setState(() {
+                                  _hasScanned = true;
+                                  _scannedPreview = code;
+                                });
+                                Future.delayed(const Duration(milliseconds: 300),
+                                    () {
+                                  if (context.mounted) Navigator.pop(context, code);
+                                });
                               },
                             ),
                           )
