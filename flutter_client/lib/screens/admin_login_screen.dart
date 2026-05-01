@@ -115,7 +115,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       if (success && mounted) {
         await _saveCredentials();
         final role = authProvider.userRole;
-        if (role != 'SuperAdmin' && role != 'Agent') {
+        if (role != 'SuperAdmin' && role != 'Agent' && role != 'Admin' && role != 'Director') {
           await authProvider.logout();
           setState(() {
             _errorMessage = 'Tài khoản không có quyền truy cập quản trị hệ thống';

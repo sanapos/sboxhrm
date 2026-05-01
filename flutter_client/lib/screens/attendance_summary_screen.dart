@@ -24,6 +24,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
   List<Attendance> _attendances = [];
   List<Device> _devices = [];
+  List<dynamic> _holidays = [];
+  List<dynamic> _salaryProfiles = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
@@ -98,12 +100,28 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         debugPrint('Load day end time error: $e');
       }
 
+      // Load holidays + salary profiles (for holiday/restday coefficients)
+      List<dynamic> holidays = [];
+      List<dynamic> salaryProfiles = [];
+      try {
+        holidays = await _apiService.getHolidaySettings(0);
+      } catch (e) {
+        debugPrint('Load holidays error: $e');
+      }
+      try {
+        salaryProfiles = await _apiService.getSalaryProfiles();
+      } catch (e) {
+        debugPrint('Load salary profiles error: $e');
+      }
+
       if (mounted) {
         setState(() {
           _devices = devices;
           _attendances = attendances;
           _dayEndHour = deh;
           _dayEndMinute = dem;
+          _holidays = holidays;
+          _salaryProfiles = salaryProfiles;
           _isLoading = false;
         });
       }
@@ -211,6 +229,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     onCorrectionRequest: _handleCorrectionRequest,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
+                    holidays: _holidays,
+                    salaryProfiles: _salaryProfiles,
                   ),
           ),
         ],

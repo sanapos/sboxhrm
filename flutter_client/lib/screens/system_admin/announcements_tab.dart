@@ -34,7 +34,12 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
     4: 'Đã huỷ',
     5: 'Lỗi',
   };
-  static const _severityLabels = {0: 'Info', 1: 'Success', 2: 'Warning', 3: 'Critical'};
+  static const _severityLabels = {
+    0: 'Info',
+    1: 'Success',
+    2: 'Warning',
+    3: 'Critical'
+  };
 
   @override
   void initState() {
@@ -58,9 +63,9 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
 
   Color _kindColor(int kind) => switch (kind) {
         1 => AdminHelpers.warning, // maintenance
-        2 => AdminHelpers.info,    // upgrade
-        3 => AdminHelpers.danger,  // renewal
-        4 => Colors.purple,        // marketing
+        2 => AdminHelpers.info, // upgrade
+        3 => AdminHelpers.danger, // renewal
+        4 => Colors.purple, // marketing
         _ => AdminHelpers.primary,
       };
 
@@ -104,11 +109,12 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
           // Quick action chips
           Wrap(spacing: 8, runSpacing: 8, children: [
             _quickChip('Bảo trì hệ thống', Icons.build_circle_outlined,
-                AdminHelpers.warning, kind: 1, severity: 2),
+                AdminHelpers.warning,
+                kind: 1, severity: 2),
             _quickChip('Nâng cấp phiên bản', Icons.system_update_alt,
-                AdminHelpers.info, kind: 2, severity: 0),
-            _quickChip('Nhắc gia hạn', Icons.event_repeat,
-                AdminHelpers.danger,
+                AdminHelpers.info,
+                kind: 2, severity: 0),
+            _quickChip('Nhắc gia hạn', Icons.event_repeat, AdminHelpers.danger,
                 kind: 3, severity: 2, licenseStatus: 'expiring_soon'),
             _quickChip('Khuyến mãi', Icons.campaign, Colors.purple,
                 kind: 4, severity: 1),
@@ -138,9 +144,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
   }
 
   Widget _quickChip(String label, IconData icon, Color color,
-      {required int kind,
-      required int severity,
-      String? licenseStatus}) {
+      {required int kind, required int severity, String? licenseStatus}) {
     return ActionChip(
       avatar: Icon(icon, size: 18, color: color),
       label: Text(label),
@@ -152,8 +156,8 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
   }
 
   Widget _buildItem(Map<String, dynamic> a) {
-    final kind = AdminHelpers.parseEnumInt(
-        a['kind'], AdminHelpers.announcementKindMap);
+    final kind =
+        AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
     final status = AdminHelpers.parseEnumInt(
         a['status'], AdminHelpers.announcementStatusMap);
     final severity = AdminHelpers.parseEnumInt(
@@ -176,12 +180,11 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(a['title']?.toString() ?? '',
-                        style:
-                            const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 2),
                     Wrap(spacing: 6, runSpacing: 4, children: [
-                      AdminHelpers.statusChip(
-                          _kindLabels[kind] ?? '?', color),
+                      AdminHelpers.statusChip(_kindLabels[kind] ?? '?', color),
                       AdminHelpers.statusChip(
                           _severityLabels[severity] ?? '?',
                           severity == 3
@@ -204,9 +207,12 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                 onSelected: (v) => _onAction(v, a),
                 itemBuilder: (_) => [
                   if (status != 3 && status != 4)
-                    const PopupMenuItem(value: 'send', child: Text('📤 Gửi ngay')),
-                  const PopupMenuItem(value: 'stats', child: Text('📊 Thống kê')),
-                  const PopupMenuItem(value: 'resend', child: Text('🔁 Gửi lại lỗi')),
+                    const PopupMenuItem(
+                        value: 'send', child: Text('📤 Gửi ngay')),
+                  const PopupMenuItem(
+                      value: 'stats', child: Text('📊 Thống kê')),
+                  const PopupMenuItem(
+                      value: 'resend', child: Text('🔁 Gửi lại lỗi')),
                   const PopupMenuItem(value: 'cancel', child: Text('🚫 Huỷ')),
                   const PopupMenuItem(
                       value: 'delete',
@@ -420,10 +426,14 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
       };
 
   String _defaultContent() => switch (_kind) {
-        1 => 'Hệ thống sẽ bảo trì từ ... đến ... Vui lòng lưu công việc trước thời điểm trên.',
-        2 => 'Phiên bản mới đã được phát hành với nhiều cải tiến. Vui lòng cập nhật ứng dụng.',
-        3 => 'Gói dịch vụ của bạn sắp hết hạn. Vui lòng liên hệ để gia hạn sớm.',
-        4 => 'Ưu đãi đặc biệt dành cho cửa hàng của bạn — liên hệ ngay để biết chi tiết.',
+        1 =>
+          'Hệ thống sẽ bảo trì từ ... đến ... Vui lòng lưu công việc trước thời điểm trên.',
+        2 =>
+          'Phiên bản mới đã được phát hành với nhiều cải tiến. Vui lòng cập nhật ứng dụng.',
+        3 =>
+          'Gói dịch vụ của bạn sắp hết hạn. Vui lòng liên hệ để gia hạn sớm.',
+        4 =>
+          'Ưu đãi đặc biệt dành cho cửa hàng của bạn — liên hệ ngay để biết chi tiết.',
         _ => '',
       };
 
@@ -461,8 +471,8 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
 
   Future<void> _submit() async {
     if (_title.text.trim().isEmpty || _content.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tiêu đề và nội dung không được trống')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tiêu đề và nội dung không được trống')));
       return;
     }
     setState(() => _loading = true);
@@ -476,7 +486,8 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
       'expiresAt': _expiresAt?.toUtc().toIso8601String(),
       'requireAck': _requireAck,
       'allowDismiss': _allowDismiss,
-      'actionUrl': _actionUrl.text.trim().isEmpty ? null : _actionUrl.text.trim(),
+      'actionUrl':
+          _actionUrl.text.trim().isEmpty ? null : _actionUrl.text.trim(),
       'actionLabel':
           _actionLabel.text.trim().isEmpty ? null : _actionLabel.text.trim(),
       'sendNow': _sendNow,
@@ -555,8 +566,8 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                 Expanded(
                     child: TextField(
                   controller: _actionLabel,
-                  decoration: const InputDecoration(
-                      labelText: 'Nhãn nút hành động'),
+                  decoration:
+                      const InputDecoration(labelText: 'Nhãn nút hành động'),
                 )),
               ]),
               const Divider(height: 24),
@@ -644,9 +655,12 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                   value: _licenseStatus ?? 'expiring_soon',
                   items: const [
                     DropdownMenuItem(
-                        value: 'expiring_soon', child: Text('Sắp hết hạn (≤30 ngày)')),
-                    DropdownMenuItem(value: 'expired', child: Text('Đã hết hạn')),
-                    DropdownMenuItem(value: 'active', child: Text('Đang hoạt động')),
+                        value: 'expiring_soon',
+                        child: Text('Sắp hết hạn (≤30 ngày)')),
+                    DropdownMenuItem(
+                        value: 'expired', child: Text('Đã hết hạn')),
+                    DropdownMenuItem(
+                        value: 'active', child: Text('Đang hoạt động')),
                   ],
                   onChanged: (v) {
                     setState(() => _licenseStatus = v);
@@ -695,11 +709,14 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                   onPressed: () async {
                     final d = await showDatePicker(
                         context: context,
-                        initialDate: DateTime.now().add(const Duration(days: 7)),
+                        initialDate:
+                            DateTime.now().add(const Duration(days: 7)),
                         firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)));
+                        lastDate:
+                            DateTime.now().add(const Duration(days: 365)));
                     if (d != null) {
-                      setState(() => _expiresAt = d.add(const Duration(hours: 23, minutes: 59)));
+                      setState(() => _expiresAt =
+                          d.add(const Duration(hours: 23, minutes: 59)));
                     }
                   },
                   child: const Text('Chọn'),

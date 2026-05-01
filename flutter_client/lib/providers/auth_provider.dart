@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/fcm_service_stub.dart'
+    if (dart.library.io) '../services/fcm_service.dart';
 import '../services/global_location_reporter.dart';
 import '../models/user.dart';
 
@@ -140,6 +142,9 @@ class AuthProvider extends ChangeNotifier {
           await _fetchAllowedModules();
           // Resume global location reporting for persisted sessions.
           GlobalLocationReporter.instance.start();
+          // Re-register FCM token (handles app updates / new install).
+          // ignore: discarded_futures
+          FcmService.instance.registerForCurrentUser();
         }
       }
     } catch (e) {
@@ -215,6 +220,10 @@ class AuthProvider extends ChangeNotifier {
           // manager map can see real-time positions.
           GlobalLocationReporter.instance.start();
 
+          // Register FCM device token (push notifications). Best-effort.
+          // ignore: discarded_futures
+          FcmService.instance.registerForCurrentUser();
+
           _isLoading = false;
           notifyListeners();
           return true;
@@ -275,6 +284,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     GlobalLocationReporter.instance.stop();
+
+    // Unregister FCM token before clearing access token.
+    try {
+      await FcmService.instance.unregisterForLogout();
+    } catch (e) {
+      debugPrint('FCM unregister error: $e');
+    }
 
     await _apiService.clearToken();
 

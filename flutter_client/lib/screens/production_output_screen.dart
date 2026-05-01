@@ -67,8 +67,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     try {
       final empRes = await _apiService.getEmployees(pageSize: 9999);
       _employees = (empRes as List?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList() ?? [];
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
@@ -88,7 +89,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       debugPrint('Loaded ${_groups.length} groups, ${_items.length} items');
     } catch (e) {
       debugPrint('Load product data error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản phẩm');
+      if (mounted)
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản phẩm');
     }
     _loadEntries();
   }
@@ -112,7 +115,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       }
     } catch (e) {
       debugPrint('Load entries error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản lượng');
+      if (mounted)
+        NotificationOverlayManager().showError(
+            title: 'Lỗi', message: 'Không thể tải dữ liệu sản lượng');
     }
     setState(() => _isLoading = false);
   }
@@ -131,7 +136,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       }
     } catch (e) {
       debugPrint('Load summary error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải tổng hợp sản lượng');
+      if (mounted)
+        NotificationOverlayManager().showError(
+            title: 'Lỗi', message: 'Không thể tải tổng hợp sản lượng');
     }
     setState(() => _isLoading = false);
   }
@@ -141,7 +148,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     final isMobile = Responsive.isMobile(context);
     const primary = Color(0xFF059669);
     return Scaffold(
-      floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Production')
+      floatingActionButton: isMobile &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Production')
           ? FloatingActionButton.extended(
               onPressed: () {
                 if (_items.isEmpty) {
@@ -164,11 +173,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         children: [
           // ═══════ GRADIENT HEADER ═══════
           Container(
-            padding: EdgeInsets.fromLTRB(
-                isMobile ? 14 : 24,
-                isMobile ? 12 : 18,
-                isMobile ? 14 : 24,
-                isMobile ? 12 : 14),
+            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
+                isMobile ? 14 : 24, isMobile ? 12 : 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primary, primary.withValues(alpha: 0.85)],
@@ -211,8 +217,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               'Quản lý sản lượng nhân viên',
                               style: TextStyle(
                                   fontSize: 13,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.8)),
+                                  color: Colors.white.withValues(alpha: 0.8)),
                             ),
                         ],
                       ),
@@ -300,28 +305,31 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         ],
                       ),
                       const SizedBox(width: 4),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Production'))
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          if (_items.isEmpty) {
-                            NotificationOverlayManager().showError(
-                              title: 'Chưa có sản phẩm',
-                              message: 'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
-                            );
-                            return;
-                          }
-                          _showAddEntryDialog();
-                        },
-                        icon: const Icon(Icons.add,
-                            size: 18, color: Colors.white),
-                        label: const Text('Nhập sản lượng',
-                            style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Colors.white.withValues(alpha: 0.2),
-                          elevation: 0,
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canCreate('Production'))
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (_items.isEmpty) {
+                              NotificationOverlayManager().showError(
+                                title: 'Chưa có sản phẩm',
+                                message:
+                                    'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                              );
+                              return;
+                            }
+                            _showAddEntryDialog();
+                          },
+                          icon: const Icon(Icons.add,
+                              size: 18, color: Colors.white),
+                          label: const Text('Nhập sản lượng',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.2),
+                            elevation: 0,
+                          ),
                         ),
-                      ),
                     ],
                   ],
                 ),
@@ -333,8 +341,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           if (!isMobile || _showMobileFilters)
             Container(
               padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 12 : 24,
-                  vertical: isMobile ? 10 : 12),
+                  horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -520,20 +527,46 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             child: SizedBox(
               width: double.infinity,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 20,
                 columns: const [
-                  DataColumn(label: Text('STT', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Ngày', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Nhân viên', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Mã NV', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Nhóm SP', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Số lượng', style: TextStyle(fontWeight: FontWeight.w600)), numeric: true),
-                  DataColumn(label: Text('Đơn giá', style: TextStyle(fontWeight: FontWeight.w600)), numeric: true),
-                  DataColumn(label: Text('Thành tiền', style: TextStyle(fontWeight: FontWeight.w600)), numeric: true),
-                  DataColumn(label: Text('Ghi chú', style: TextStyle(fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('', style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('STT',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Ngày',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Nhân viên',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Mã NV',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Nhóm SP',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Sản phẩm',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('Số lượng',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      numeric: true),
+                  DataColumn(
+                      label: Text('Đơn giá',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      numeric: true),
+                  DataColumn(
+                      label: Text('Thành tiền',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      numeric: true),
+                  DataColumn(
+                      label: Text('Ghi chú',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
+                  DataColumn(
+                      label: Text('',
+                          style: TextStyle(fontWeight: FontWeight.w600))),
                 ],
                 rows: _entries.asMap().entries.map((e) {
                   final i = e.key;
@@ -549,38 +582,44 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     DataCell(Text(entry['productGroupName'] ?? '')),
                     DataCell(Text(entry['productItemName'] ?? '')),
                     DataCell(Text('${entry['quantity'] ?? 0}')),
-                    DataCell(Text(_currencyFormat.format(
-                        (entry['unitPrice'] ?? 0).toDouble()))),
-                    DataCell(Text(_currencyFormat.format(
-                        (entry['amount'] ?? 0).toDouble()))),
+                    DataCell(Text(_currencyFormat
+                        .format((entry['unitPrice'] ?? 0).toDouble()))),
+                    DataCell(Text(_currencyFormat
+                        .format((entry['amount'] ?? 0).toDouble()))),
                     DataCell(Text(entry['note'] ?? '',
                         overflow: TextOverflow.ellipsis)),
                     DataCell(Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (Provider.of<PermissionProvider>(context, listen: false).canEdit('Production'))
-                        SizedBox(
-                          width: 28, height: 28,
-                          child: IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            color: const Color(0xFF64748B),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _showEditEntryDialog(entry),
+                        if (Provider.of<PermissionProvider>(context,
+                                listen: false)
+                            .canEdit('Production'))
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              color: const Color(0xFF64748B),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _showEditEntryDialog(entry),
+                            ),
                           ),
-                        ),
                         const SizedBox(width: 4),
-                        if (Provider.of<PermissionProvider>(context, listen: false).canDelete('Production'))
-                        SizedBox(
-                          width: 28, height: 28,
-                          child: IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 16),
-                            color: const Color(0xFFEF4444),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _confirmDeleteEntry(entry),
+                        if (Provider.of<PermissionProvider>(context,
+                                listen: false)
+                            .canDelete('Production'))
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 16),
+                              color: const Color(0xFFEF4444),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _confirmDeleteEntry(entry),
+                            ),
                           ),
-                        ),
                       ],
                     )),
                   ]);
@@ -698,8 +737,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   ),
                   Text(
                     'ĐG: ${_currencyFormat.format((entry['unitPrice'] ?? 0).toDouble())}',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF64748B)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
               ),
@@ -718,13 +757,15 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (Provider.of<PermissionProvider>(context, listen: false).canEdit('Production'))
-                  _miniBtn(Icons.edit_outlined, const Color(0xFF3B82F6),
-                      'Sửa', () => _showEditEntryDialog(entry)),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canEdit('Production'))
+                    _miniBtn(Icons.edit_outlined, const Color(0xFF3B82F6),
+                        'Sửa', () => _showEditEntryDialog(entry)),
                   const SizedBox(width: 8),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canDelete('Production'))
-                  _miniBtn(Icons.delete_outline, const Color(0xFFEF4444),
-                      'Xóa', () => _confirmDeleteEntry(entry)),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canDelete('Production'))
+                    _miniBtn(Icons.delete_outline, const Color(0xFFEF4444),
+                        'Xóa', () => _confirmDeleteEntry(entry)),
                 ],
               ),
             ],
@@ -805,8 +846,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       child: Column(
         children: _summaries.asMap().entries.map((e) {
           final summary = e.value;
-          final items =
-              List<Map<String, dynamic>>.from(summary['items'] ?? []);
+          final items = List<Map<String, dynamic>>.from(summary['items'] ?? []);
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             elevation: 0,
@@ -925,21 +965,24 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('$label: ',
-                style:
-                    const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
             Text(DateFormat('dd/MM/yyyy').format(value),
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500)),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             const SizedBox(width: 4),
-            const Icon(Icons.calendar_today, size: 14, color: Color(0xFF71717A)),
+            const Icon(Icons.calendar_today,
+                size: 14, color: Color(0xFF71717A)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDropdown(String label, String? value,
-      List<DropdownMenuItem<String>> dropdownItems, ValueChanged<String?> onChanged) {
+  Widget _buildDropdown(
+      String label,
+      String? value,
+      List<DropdownMenuItem<String>> dropdownItems,
+      ValueChanged<String?> onChanged) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -1032,11 +1075,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               .trim();
                       return DropdownMenuItem(
                           value: e['id']?.toString(),
-                          child:
-                              Text('$name (${e['employeeCode'] ?? ''})'));
+                          child: Text('$name (${e['employeeCode'] ?? ''})'));
                     }).toList(),
-                    onChanged: (v) =>
-                        setDlgState(() => selEmployeeId = v),
+                    onChanged: (v) => setDlgState(() => selEmployeeId = v),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1059,8 +1100,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           labelText: 'Ngày *',
                           border: OutlineInputBorder(),
                           isDense: true),
-                      child: Text(
-                          DateFormat('dd/MM/yyyy').format(workDate),
+                      child: Text(DateFormat('dd/MM/yyyy').format(workDate),
                           style: const TextStyle(fontSize: 14)),
                     ),
                   ),
@@ -1072,8 +1112,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           Row(
             children: [
               const Text('Danh sách sản phẩm',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               const Spacer(),
               TextButton.icon(
                 onPressed: () {
@@ -1114,24 +1153,22 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             isExpanded: true,
                             items: _items.map((item) {
                               final gn = item['productGroupName'] ??
-                                  item['groupName'] ?? '';
+                                  item['groupName'] ??
+                                  '';
                               return DropdownMenuItem(
                                   value: item['id']?.toString(),
                                   child: Text('${item['name']} ($gn)',
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: 13)));
+                                      style: const TextStyle(fontSize: 13)));
                             }).toList(),
-                            onChanged: (v) => setDlgState(
-                                () => line.productItemId = v),
+                            onChanged: (v) =>
+                                setDlgState(() => line.productItemId = v),
                           ),
                         ),
                         if (lines.length > 1)
                           IconButton(
-                            icon: const Icon(
-                                Icons.remove_circle_outline,
-                                size: 18,
-                                color: Colors.red),
+                            icon: const Icon(Icons.remove_circle_outline,
+                                size: 18, color: Colors.red),
                             padding: const EdgeInsets.only(left: 4),
                             constraints: const BoxConstraints(),
                             onPressed: () =>
@@ -1191,15 +1228,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               horizontal: 10, vertical: 10)),
                       isExpanded: true,
                       items: _items.map((item) {
-                        final gn = item['productGroupName'] ??
-                            item['groupName'] ?? '';
+                        final gn =
+                            item['productGroupName'] ?? item['groupName'] ?? '';
                         return DropdownMenuItem(
                             value: item['id']?.toString(),
-                            child: Text(
-                                '${item['name']} ($gn)',
+                            child: Text('${item['name']} ($gn)',
                                 overflow: TextOverflow.ellipsis,
-                                style:
-                                    const TextStyle(fontSize: 13)));
+                                style: const TextStyle(fontSize: 13)));
                       }).toList(),
                       onChanged: (v) =>
                           setDlgState(() => line.productItemId = v),
@@ -1238,10 +1273,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     width: 32,
                     child: lines.length > 1
                         ? IconButton(
-                            icon: const Icon(
-                                Icons.remove_circle_outline,
-                                size: 18,
-                                color: Colors.red),
+                            icon: const Icon(Icons.remove_circle_outline,
+                                size: 18, color: Colors.red),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () =>
@@ -1259,8 +1292,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
     Future<void> onSubmit() async {
       if (selEmployeeId == null) return;
-      final validLines = lines.where((l) =>
-          l.productItemId != null && l.qtyCtl.text.trim().isNotEmpty);
+      final validLines = lines.where(
+          (l) => l.productItemId != null && l.qtyCtl.text.trim().isNotEmpty);
       if (validLines.isEmpty) return;
       Navigator.pop(context);
 
@@ -1291,8 +1324,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   'note': l.noteCtl.text.trim(),
                 })
             .toList();
-        final res =
-            await _apiService.createProductionEntryBatch(entries);
+        final res = await _apiService.createProductionEntryBatch(entries);
         if (res['isSuccess'] == true) {
           appNotification.showSuccess(
               title: 'Thành công',
@@ -1323,7 +1355,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   actions: [
                     TextButton(
                       onPressed: onSubmit,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      style:
+                          TextButton.styleFrom(foregroundColor: Colors.white),
                       child: const Text('Lưu'),
                     ),
                   ],
@@ -1364,14 +1397,15 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     String? selItemId = entry['productItemId']?.toString();
     DateTime workDate =
         DateTime.tryParse(entry['workDate'] ?? '') ?? DateTime.now();
-    final qtyCtl =
-        TextEditingController(text: '${entry['quantity'] ?? ''}');
+    final qtyCtl = TextEditingController(text: '${entry['quantity'] ?? ''}');
     final noteCtl = TextEditingController(text: entry['note'] ?? '');
 
-    if (selEmployeeId != null && !_employees.any((e) => e['id']?.toString() == selEmployeeId)) {
+    if (selEmployeeId != null &&
+        !_employees.any((e) => e['id']?.toString() == selEmployeeId)) {
       selEmployeeId = null;
     }
-    if (selItemId != null && !_items.any((item) => item['id']?.toString() == selItemId)) {
+    if (selItemId != null &&
+        !_items.any((item) => item['id']?.toString() == selItemId)) {
       selItemId = null;
     }
 
@@ -1447,8 +1481,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         return;
       }
       Navigator.pop(context);
-      final res = await _apiService.updateProductionEntry(
-          entry['id'].toString(), {
+      final res =
+          await _apiService.updateProductionEntry(entry['id'].toString(), {
         'employeeId': selEmployeeId,
         'productItemId': selItemId,
         'workDate': workDate.toIso8601String(),
@@ -1483,7 +1517,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   actions: [
                     TextButton(
                       onPressed: onSubmit,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      style:
+                          TextButton.styleFrom(foregroundColor: Colors.white),
                       child: const Text('Lưu'),
                     ),
                   ],
@@ -1534,7 +1569,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
       // Sample data rows
       final today = DateFormat('dd/MM/yyyy').format(DateTime.now());
-      final yesterday = DateFormat('dd/MM/yyyy').format(DateTime.now().subtract(const Duration(days: 1)));
+      final yesterday = DateFormat('dd/MM/yyyy')
+          .format(DateTime.now().subtract(const Duration(days: 1)));
       sheet.appendRow([
         xl.TextCellValue(today),
         xl.TextCellValue('NV001'),
@@ -1561,7 +1597,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
       final bytes = excel.encode();
       if (bytes != null) {
-        await file_saver.saveFileBytes(Uint8List.fromList(bytes), 'mau_san_luong.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await file_saver.saveFileBytes(
+            Uint8List.fromList(bytes),
+            'mau_san_luong.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Thành công', message: 'Đã tải file mẫu');
       }
@@ -1596,10 +1635,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               final errors = List<String>.from(data?['errors'] ?? []);
               appNotification.showSuccess(
                   title: 'Import thành công',
-                  message: 'Đã tạo $created bản ghi${errors.isNotEmpty ? '\n${errors.length} lỗi' : ''}');
+                  message:
+                      'Đã tạo $created bản ghi${errors.isNotEmpty ? '\n${errors.length} lỗi' : ''}');
               _reloadCurrentTab();
             } else {
-              appNotification.showError(title: 'Lỗi import', message: res['message'] ?? 'Lỗi');
+              appNotification.showError(
+                  title: 'Lỗi import', message: res['message'] ?? 'Lỗi');
             }
           }
 
@@ -1607,207 +1648,298 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                  // Instructions
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Định dạng Excel:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        SizedBox(height: 4),
-                        Text('• Cột A: Ngày (dd/MM/yyyy) — nếu không có sẽ dùng ngày mặc định', style: TextStyle(fontSize: 12)),
-                        Text('• Cột B: Mã nhân viên', style: TextStyle(fontSize: 12)),
-                        Text('• Cột C: Mã sản phẩm', style: TextStyle(fontSize: 12)),
-                        Text('• Cột D: Số lượng', style: TextStyle(fontSize: 12)),
-                        Text('• Cột E: Ghi chú (tùy chọn)', style: TextStyle(fontSize: 12)),
-                        Text('• Dòng 1 là tiêu đề (bỏ qua)', style: TextStyle(fontSize: 12)),
-                      ],
+              // Instructions
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Định dạng Excel:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    SizedBox(height: 4),
+                    Text(
+                        '• Cột A: Ngày (dd/MM/yyyy) — nếu không có sẽ dùng ngày mặc định',
+                        style: TextStyle(fontSize: 12)),
+                    Text('• Cột B: Mã nhân viên',
+                        style: TextStyle(fontSize: 12)),
+                    Text('• Cột C: Mã sản phẩm',
+                        style: TextStyle(fontSize: 12)),
+                    Text('• Cột D: Số lượng', style: TextStyle(fontSize: 12)),
+                    Text('• Cột E: Ghi chú (tùy chọn)',
+                        style: TextStyle(fontSize: 12)),
+                    Text('• Dòng 1 là tiêu đề (bỏ qua)',
+                        style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Download sample + Date picker row
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _downloadSampleExcel,
+                    icon: const Icon(Icons.download, size: 16),
+                    label: const Text('Tải file mẫu',
+                        style: TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF059669),
+                      side: const BorderSide(color: Color(0xFF059669)),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // Download sample + Date picker row
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _downloadSampleExcel,
-                        icon: const Icon(Icons.download, size: 16),
-                        label: const Text('Tải file mẫu', style: TextStyle(fontSize: 13)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF059669),
-                          side: const BorderSide(color: Color(0xFF059669)),
-                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: defaultDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null)
+                          setDlgState(() => defaultDate = picked);
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                            labelText: 'Ngày mặc định (khi cột Ngày trống)',
+                            border: OutlineInputBorder(),
+                            isDense: true),
+                        child:
+                            Text(DateFormat('dd/MM/yyyy').format(defaultDate)),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: defaultDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                            );
-                            if (picked != null) setDlgState(() => defaultDate = picked);
-                          },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                                labelText: 'Ngày mặc định (khi cột Ngày trống)',
-                                border: OutlineInputBorder(),
-                                isDense: true),
-                            child: Text(DateFormat('dd/MM/yyyy').format(defaultDate)),
-                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Pick file button
+              Center(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['xlsx', 'xls'],
+                      withData: true,
+                    );
+                    if (result == null || result.files.single.bytes == null)
+                      return;
+                    try {
+                      final excel =
+                          xl.Excel.decodeBytes(result.files.single.bytes!);
+                      final sheet = excel.tables.values.first;
+                      final rows = <Map<String, dynamic>>[];
+                      bool detectedDateCol = false;
+
+                      // Detect if column A is a date column by checking header
+                      if (sheet.maxRows > 0) {
+                        final header = sheet.row(0);
+                        final headerA = header.isNotEmpty
+                            ? header[0]
+                                    ?.value
+                                    ?.toString()
+                                    .trim()
+                                    .toLowerCase() ??
+                                ''
+                            : '';
+                        detectedDateCol = headerA.contains('ngày') ||
+                            headerA.contains('date') ||
+                            headerA.contains('ngay');
+                      }
+
+                      for (int i = 1; i < sheet.maxRows; i++) {
+                        final row = sheet.row(i);
+                        if (row.isEmpty) continue;
+
+                        if (detectedDateCol) {
+                          // Format: Date | EmpCode | ProdCode | Qty | Note
+                          final dateStr = row.isNotEmpty
+                              ? row[0]?.value?.toString().trim() ?? ''
+                              : '';
+                          final empCode = row.length > 1
+                              ? row[1]?.value?.toString().trim() ?? ''
+                              : '';
+                          final prodCode = row.length > 2
+                              ? row[2]?.value?.toString().trim() ?? ''
+                              : '';
+                          final qty = row.length > 3
+                              ? double.tryParse(
+                                      row[3]?.value?.toString() ?? '') ??
+                                  0.0
+                              : 0.0;
+                          final note = row.length > 4
+                              ? row[4]?.value?.toString().trim() ?? ''
+                              : '';
+                          if (empCode.isNotEmpty &&
+                              prodCode.isNotEmpty &&
+                              qty > 0) {
+                            rows.add({
+                              'workDate': dateStr,
+                              'employeeCode': empCode,
+                              'productCode': prodCode,
+                              'quantity': qty,
+                              'note': note,
+                            });
+                          }
+                        } else {
+                          // Legacy format: EmpCode | ProdCode | Qty | Note
+                          final empCode = row.isNotEmpty
+                              ? row[0]?.value?.toString().trim() ?? ''
+                              : '';
+                          final prodCode = row.length > 1
+                              ? row[1]?.value?.toString().trim() ?? ''
+                              : '';
+                          final qty = row.length > 2
+                              ? double.tryParse(
+                                      row[2]?.value?.toString() ?? '') ??
+                                  0.0
+                              : 0.0;
+                          final note = row.length > 3
+                              ? row[3]?.value?.toString().trim() ?? ''
+                              : '';
+                          if (empCode.isNotEmpty &&
+                              prodCode.isNotEmpty &&
+                              qty > 0) {
+                            rows.add({
+                              'employeeCode': empCode,
+                              'productCode': prodCode,
+                              'quantity': qty,
+                              'note': note,
+                            });
+                          }
+                        }
+                      }
+                      setDlgState(() {
+                        previewRows = rows;
+                        isParsed = true;
+                        hasDateColumn = detectedDateCol;
+                      });
+                    } catch (e) {
+                      appNotification.showError(
+                          title: 'Lỗi',
+                          message: 'Không đọc được file Excel: $e');
+                    }
+                  },
+                  icon: const Icon(Icons.upload_file),
+                  label: Text(
+                      isParsed ? 'Chọn file khác' : 'Chọn file Excel (.xlsx)'),
+                ),
+              ),
+              // Preview
+              if (isParsed) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text('Xem trước: ${previewRows.length} dòng hợp lệ',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    if (hasDateColumn) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
                         ),
+                        child: const Text('Có cột Ngày',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF059669),
+                                fontWeight: FontWeight.w500)),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Pick file button
-                  Center(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final result = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['xlsx', 'xls'],
-                          withData: true,
-                        );
-                        if (result == null || result.files.single.bytes == null) return;
-                        try {
-                          final excel = xl.Excel.decodeBytes(result.files.single.bytes!);
-                          final sheet = excel.tables.values.first;
-                          final rows = <Map<String, dynamic>>[];
-                          bool detectedDateCol = false;
-
-                          // Detect if column A is a date column by checking header
-                          if (sheet.maxRows > 0) {
-                            final header = sheet.row(0);
-                            final headerA = header.isNotEmpty ? header[0]?.value?.toString().trim().toLowerCase() ?? '' : '';
-                            detectedDateCol = headerA.contains('ngày') || headerA.contains('date') || headerA.contains('ngay');
-                          }
-
-                          for (int i = 1; i < sheet.maxRows; i++) {
-                            final row = sheet.row(i);
-                            if (row.isEmpty) continue;
-
-                            if (detectedDateCol) {
-                              // Format: Date | EmpCode | ProdCode | Qty | Note
-                              final dateStr = row.isNotEmpty ? row[0]?.value?.toString().trim() ?? '' : '';
-                              final empCode = row.length > 1 ? row[1]?.value?.toString().trim() ?? '' : '';
-                              final prodCode = row.length > 2 ? row[2]?.value?.toString().trim() ?? '' : '';
-                              final qty = row.length > 3 ? double.tryParse(row[3]?.value?.toString() ?? '') ?? 0.0 : 0.0;
-                              final note = row.length > 4 ? row[4]?.value?.toString().trim() ?? '' : '';
-                              if (empCode.isNotEmpty && prodCode.isNotEmpty && qty > 0) {
-                                rows.add({
-                                  'workDate': dateStr,
-                                  'employeeCode': empCode,
-                                  'productCode': prodCode,
-                                  'quantity': qty,
-                                  'note': note,
-                                });
-                              }
-                            } else {
-                              // Legacy format: EmpCode | ProdCode | Qty | Note
-                              final empCode = row.isNotEmpty ? row[0]?.value?.toString().trim() ?? '' : '';
-                              final prodCode = row.length > 1 ? row[1]?.value?.toString().trim() ?? '' : '';
-                              final qty = row.length > 2 ? double.tryParse(row[2]?.value?.toString() ?? '') ?? 0.0 : 0.0;
-                              final note = row.length > 3 ? row[3]?.value?.toString().trim() ?? '' : '';
-                              if (empCode.isNotEmpty && prodCode.isNotEmpty && qty > 0) {
-                                rows.add({
-                                  'employeeCode': empCode,
-                                  'productCode': prodCode,
-                                  'quantity': qty,
-                                  'note': note,
-                                });
-                              }
-                            }
-                          }
-                          setDlgState(() {
-                            previewRows = rows;
-                            isParsed = true;
-                            hasDateColumn = detectedDateCol;
-                          });
-                        } catch (e) {
-                          appNotification.showError(title: 'Lỗi', message: 'Không đọc được file Excel: $e');
-                        }
-                      },
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(isParsed ? 'Chọn file khác' : 'Chọn file Excel (.xlsx)'),
-                    ),
-                  ),
-                  // Preview
-                  if (isParsed) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text('Xem trước: ${previewRows.length} dòng hợp lệ',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        if (hasDateColumn) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text('Có cột Ngày', style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.w500)),
-                          ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        headingRowHeight: 36,
+                        dataRowMinHeight: 32,
+                        dataRowMaxHeight: 36,
+                        columnSpacing: 16,
+                        columns: [
+                          if (hasDateColumn)
+                            const DataColumn(
+                                label: Text('Ngày',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600))),
+                          const DataColumn(
+                              label: Text('Mã NV',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600))),
+                          const DataColumn(
+                              label: Text('Mã SP',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600))),
+                          const DataColumn(
+                              label: Text('SL',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600))),
+                          const DataColumn(
+                              label: Text('Ghi chú',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600))),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          child: DataTable(
-                            headingRowHeight: 36,
-                            dataRowMinHeight: 32, dataRowMaxHeight: 36,
-                            columnSpacing: 16,
-                            columns: [
-                              if (hasDateColumn)
-                                const DataColumn(label: Text('Ngày', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                              const DataColumn(label: Text('Mã NV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                              const DataColumn(label: Text('Mã SP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                              const DataColumn(label: Text('SL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                              const DataColumn(label: Text('Ghi chú', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                            ],
-                            rows: previewRows.take(10).map((r) => DataRow(cells: [
-                              if (hasDateColumn)
-                                DataCell(Text('${r['workDate'] ?? ''}', style: const TextStyle(fontSize: 12))),
-                              DataCell(Text('${r['employeeCode']}', style: const TextStyle(fontSize: 12))),
-                              DataCell(Text('${r['productCode']}', style: const TextStyle(fontSize: 12))),
-                              DataCell(Text('${r['quantity']}', style: const TextStyle(fontSize: 12))),
-                              DataCell(Text('${r['note'] ?? ''}', style: const TextStyle(fontSize: 12))),
-                            ])).toList(),
-                          ),
-                        ),
+                        rows: previewRows
+                            .take(10)
+                            .map((r) => DataRow(cells: [
+                                  if (hasDateColumn)
+                                    DataCell(Text('${r['workDate'] ?? ''}',
+                                        style: const TextStyle(fontSize: 12))),
+                                  DataCell(Text('${r['employeeCode']}',
+                                      style: const TextStyle(fontSize: 12))),
+                                  DataCell(Text('${r['productCode']}',
+                                      style: const TextStyle(fontSize: 12))),
+                                  DataCell(Text('${r['quantity']}',
+                                      style: const TextStyle(fontSize: 12))),
+                                  DataCell(Text('${r['note'] ?? ''}',
+                                      style: const TextStyle(fontSize: 12))),
+                                ]))
+                            .toList(),
                       ),
                     ),
-                    if (previewRows.length > 10)
-                      Text('... và ${previewRows.length - 10} dòng nữa',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-                  ],
-                ],
-              );
+                  ),
+                ),
+                if (previewRows.length > 10)
+                  Text('... và ${previewRows.length - 10} dòng nữa',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF71717A))),
+              ],
+            ],
+          );
 
           if (isMobile) {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Nhập từ Excel'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  title: const Text('Import từ Excel'),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                   backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(
-                      onPressed: !isParsed || previewRows.isEmpty ? null : onImport,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: const Text('Nhập'),
+                      onPressed:
+                          !isParsed || previewRows.isEmpty ? null : onImport,
+                      style:
+                          TextButton.styleFrom(foregroundColor: Colors.white),
+                      child: const Text('Import'),
                     ),
                   ],
                 ),
@@ -1824,7 +1956,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               children: [
                 Icon(Icons.table_chart, color: Color(0xFF059669), size: 24),
                 SizedBox(width: 8),
-                Text('Nhập từ Excel'),
+                Text('Import từ Excel'),
               ],
             ),
             content: SizedBox(
@@ -1832,10 +1964,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               child: SingleChildScrollView(child: formContent),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy')),
               FilledButton(
                 onPressed: !isParsed || previewRows.isEmpty ? null : onImport,
-                child: const Text('Nhập'),
+                child: const Text('Import'),
               ),
             ],
           );
@@ -1857,7 +1991,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
     DateTime tryParseTabDate(String tabName) {
       // Try common date formats in tab names
-      for (final fmt in ['dd-MM-yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd', 'd-M-yyyy', 'd/M/yyyy', 'ddMMyyyy']) {
+      for (final fmt in [
+        'dd-MM-yyyy',
+        'dd/MM/yyyy',
+        'yyyy-MM-dd',
+        'd-M-yyyy',
+        'd/M/yyyy',
+        'ddMMyyyy'
+      ]) {
         try {
           return DateFormat(fmt).parseStrict(tabName.trim());
         } catch (_) {}
@@ -1866,7 +2007,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     }
 
     bool looksLikeDate(String tabName) {
-      for (final fmt in ['dd-MM-yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd', 'd-M-yyyy', 'd/M/yyyy', 'ddMMyyyy']) {
+      for (final fmt in [
+        'dd-MM-yyyy',
+        'dd/MM/yyyy',
+        'yyyy-MM-dd',
+        'd-M-yyyy',
+        'd/M/yyyy',
+        'ddMMyyyy'
+      ]) {
         try {
           DateFormat(fmt).parseStrict(tabName.trim());
           return true;
@@ -1882,7 +2030,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           final isMobile = Responsive.isMobile(ctx);
 
           Future<void> onSync() async {
-            if (!isConnected || isSyncing || !tabConfig.values.any((c) => c['selected'] == true)) return;
+            if (!isConnected ||
+                isSyncing ||
+                !tabConfig.values.any((c) => c['selected'] == true)) return;
             setDlgState(() => isSyncing = true);
 
             final tabs = <Map<String, dynamic>>[];
@@ -1916,7 +2066,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               final errors = List<String>.from(data?['errors'] ?? []);
               appNotification.showSuccess(
                   title: 'Đồng bộ thành công',
-                  message: 'Đã tạo $created bản ghi từ ${tabs.length} sheet${errors.isNotEmpty ? ' (${errors.length} lỗi)' : ''}');
+                  message:
+                      'Đã tạo $created bản ghi từ ${tabs.length} sheet${errors.isNotEmpty ? ' (${errors.length} lỗi)' : ''}');
               _reloadCurrentTab();
             } else {
               appNotification.showError(
@@ -1924,208 +2075,263 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             }
           }
 
-          final syncEnabled = isConnected && !isSyncing && tabConfig.values.any((c) => c['selected'] == true);
+          final syncEnabled = isConnected &&
+              !isSyncing &&
+              tabConfig.values.any((c) => c['selected'] == true);
 
           final formContent = Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                  // Instructions
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Định dạng Google Sheet:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        SizedBox(height: 4),
-                        Text('• Cột đầu tiên: Mã nhân viên', style: TextStyle(fontSize: 12)),
-                        Text('• Các cột tiếp theo: Tên hoặc mã sản phẩm → giá trị = số lượng', style: TextStyle(fontSize: 12)),
-                        Text('• Mỗi tab sheet = 1 ngày (đặt tên tab theo ngày dd-MM-yyyy để tự nhận)', style: TextStyle(fontSize: 12)),
-                        Text('• Chọn nhiều tab để đồng bộ nhiều ngày cùng lúc', style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Spreadsheet URL
-                  TextField(
-                    controller: urlCtl,
-                    decoration: InputDecoration(
-                      labelText: 'URL Google Sheet *',
-                      hintText: 'https://docs.google.com/spreadsheets/d/...',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      suffixIcon: isTesting
-                          ? const SizedBox(width: 20, height: 20, child: Padding(
+              // Instructions
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Định dạng Google Sheet:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    SizedBox(height: 4),
+                    Text('• Cột đầu tiên: Mã nhân viên',
+                        style: TextStyle(fontSize: 12)),
+                    Text(
+                        '• Các cột tiếp theo: Tên hoặc mã sản phẩm → giá trị = số lượng',
+                        style: TextStyle(fontSize: 12)),
+                    Text(
+                        '• Mỗi tab sheet = 1 ngày (đặt tên tab theo ngày dd-MM-yyyy để tự nhận)',
+                        style: TextStyle(fontSize: 12)),
+                    Text('• Chọn nhiều tab để đồng bộ nhiều ngày cùng lúc',
+                        style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Spreadsheet URL
+              TextField(
+                controller: urlCtl,
+                decoration: InputDecoration(
+                  labelText: 'URL Google Sheet *',
+                  hintText: 'https://docs.google.com/spreadsheets/d/...',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: isTesting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Padding(
                               padding: EdgeInsets.all(12),
                               child: CircularProgressIndicator(strokeWidth: 2)))
-                          : IconButton(
-                              icon: const Icon(Icons.link, size: 20),
-                              tooltip: 'Kiểm tra kết nối',
-                              onPressed: () async {
-                                if (urlCtl.text.trim().isEmpty) return;
-                                setDlgState(() { isTesting = true; isConnected = false; });
-                                final res = await _apiService.testProductionGSheetConnection({
-                                  'spreadsheetUrl': urlCtl.text.trim(),
-                                  'sheetName': '',
-                                  'workDate': DateTime.now().toIso8601String(),
-                                });
-                                if (res['isSuccess'] == true && res['data']?['connected'] == true) {
-                                  final names = List<String>.from(res['data']?['sheetNames'] ?? []);
-                                  final config = <String, Map<String, dynamic>>{};
-                                  for (final name in names) {
-                                    config[name] = {
-                                      'selected': names.length == 1, // auto-select if single sheet
-                                      'date': tryParseTabDate(name),
-                                      'isDateName': looksLikeDate(name),
-                                    };
-                                  }
-                                  setDlgState(() {
-                                    sheetNames = names;
-                                    tabConfig = config;
-                                    isConnected = true;
-                                    isTesting = false;
-                                  });
-                                } else {
-                                  setDlgState(() { isTesting = false; });
-                                  appNotification.showError(
-                                      title: 'Lỗi kết nối',
-                                      message: res['message'] ?? 'Không thể kết nối Google Sheet');
-                                }
-                              },
-                            ),
-                    ),
-                  ),
-                  if (isConnected) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Color(0xFF059669), size: 16),
-                        const SizedBox(width: 4),
-                        Text('Đã kết nối (${sheetNames.length} sheets)',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF059669))),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
+                      : IconButton(
+                          icon: const Icon(Icons.link, size: 20),
+                          tooltip: 'Kiểm tra kết nối',
+                          onPressed: () async {
+                            if (urlCtl.text.trim().isEmpty) return;
                             setDlgState(() {
-                              for (final name in sheetNames) {
-                                tabConfig[name]!['selected'] = true;
-                              }
+                              isTesting = true;
+                              isConnected = false;
                             });
+                            final res = await _apiService
+                                .testProductionGSheetConnection({
+                              'spreadsheetUrl': urlCtl.text.trim(),
+                              'sheetName': '',
+                              'workDate': DateTime.now().toIso8601String(),
+                            });
+                            if (res['isSuccess'] == true &&
+                                res['data']?['connected'] == true) {
+                              final names = List<String>.from(
+                                  res['data']?['sheetNames'] ?? []);
+                              final config = <String, Map<String, dynamic>>{};
+                              for (final name in names) {
+                                config[name] = {
+                                  'selected': names.length ==
+                                      1, // auto-select if single sheet
+                                  'date': tryParseTabDate(name),
+                                  'isDateName': looksLikeDate(name),
+                                };
+                              }
+                              setDlgState(() {
+                                sheetNames = names;
+                                tabConfig = config;
+                                isConnected = true;
+                                isTesting = false;
+                              });
+                            } else {
+                              setDlgState(() {
+                                isTesting = false;
+                              });
+                              appNotification.showError(
+                                  title: 'Lỗi kết nối',
+                                  message: res['message'] ??
+                                      'Không thể kết nối Google Sheet');
+                            }
                           },
-                          child: const Text('Chọn tất cả', style: TextStyle(fontSize: 12)),
                         ),
-                      ],
+                ),
+              ),
+              if (isConnected) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: Color(0xFF059669), size: 16),
+                    const SizedBox(width: 4),
+                    Text('Đã kết nối (${sheetNames.length} sheets)',
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF059669))),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        setDlgState(() {
+                          for (final name in sheetNames) {
+                            tabConfig[name]!['selected'] = true;
+                          }
+                        });
+                      },
+                      child: const Text('Chọn tất cả',
+                          style: TextStyle(fontSize: 12)),
                     ),
-                    const SizedBox(height: 8),
-                    // Sheet tabs list
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 280),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: sheetNames.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, idx) {
-                          final name = sheetNames[idx];
-                          final cfg = tabConfig[name]!;
-                          final isSelected = cfg['selected'] as bool;
-                          final date = cfg['date'] as DateTime;
-                          final isDateName = cfg['isDateName'] as bool;
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Sheet tabs list
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: sheetNames.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, idx) {
+                      final name = sheetNames[idx];
+                      final cfg = tabConfig[name]!;
+                      final isSelected = cfg['selected'] as bool;
+                      final date = cfg['date'] as DateTime;
+                      final isDateName = cfg['isDateName'] as bool;
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: isSelected,
-                                  activeColor: const Color(0xFF1A73E8),
-                                  onChanged: (v) => setDlgState(() => cfg['selected'] = v ?? false),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(name, style: TextStyle(
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: isSelected,
+                              activeColor: const Color(0xFF1A73E8),
+                              onChanged: (v) => setDlgState(
+                                  () => cfg['selected'] = v ?? false),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name,
+                                      style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                                        color: isSelected
+                                            ? const Color(0xFF0F172A)
+                                            : const Color(0xFF94A3B8),
                                       )),
-                                      if (isDateName)
-                                        const Text('Tự nhận ngày từ tên tab',
-                                            style: TextStyle(fontSize: 10, color: Color(0xFF059669))),
+                                  if (isDateName)
+                                    const Text('Tự nhận ngày từ tên tab',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF059669))),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: InkWell(
+                                onTap: isSelected
+                                    ? () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: date,
+                                          firstDate: DateTime(2020),
+                                          lastDate: DateTime(2030),
+                                        );
+                                        if (picked != null)
+                                          setDlgState(
+                                              () => cfg['date'] = picked);
+                                      }
+                                    : null,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFFE2E8F0)),
+                                    borderRadius: BorderRadius.circular(6),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFFF8FAFC),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_today,
+                                          size: 12,
+                                          color: isSelected
+                                              ? const Color(0xFF64748B)
+                                              : const Color(0xFFCBD5E1)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat('dd/MM/yyyy').format(date),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isSelected
+                                              ? const Color(0xFF0F172A)
+                                              : const Color(0xFFCBD5E1),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 2,
-                                  child: InkWell(
-                                    onTap: isSelected ? () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: date,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (picked != null) setDlgState(() => cfg['date'] = picked);
-                                    } : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: isSelected ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0)),
-                                        borderRadius: BorderRadius.circular(6),
-                                        color: isSelected ? Colors.white : const Color(0xFFF8FAFC),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.calendar_today, size: 12,
-                                              color: isSelected ? const Color(0xFF64748B) : const Color(0xFFCBD5E1)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            DateFormat('dd/MM/yyyy').format(date),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              );
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          );
 
           if (isMobile) {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Đồng bộ Google Sheet'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                   backgroundColor: const Color(0xFF1A73E8),
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(
                       onPressed: syncEnabled ? onSync : null,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      style:
+                          TextButton.styleFrom(foregroundColor: Colors.white),
                       child: isSyncing
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
                           : const Text('Đồng bộ'),
                     ),
                   ],
@@ -2151,12 +2357,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               child: SingleChildScrollView(child: formContent),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy')),
               FilledButton(
                 onPressed: syncEnabled ? onSync : null,
                 child: isSyncing
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Text('Đồng bộ'),
               ),
             ],
@@ -2191,7 +2402,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         _reloadCurrentTab();
       } else {
         appNotification.showError(
-            title: 'Lỗi xóa', message: res['message'] ?? 'Không thể xóa bản ghi');
+            title: 'Lỗi xóa',
+            message: res['message'] ?? 'Không thể xóa bản ghi');
       }
     }
   }

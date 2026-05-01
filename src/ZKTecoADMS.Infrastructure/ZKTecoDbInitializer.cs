@@ -46,6 +46,9 @@ public class ZKTecoDbInitializer(
                     "ALTER TABLE \"Employees\" ADD COLUMN IF NOT EXISTS \"DirectManagerEmployeeId\" uuid NULL;");
 
                 await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE \"Employees\" ADD COLUMN IF NOT EXISTS \"ContractEndDate\" timestamp without time zone NULL;");
+
+                await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Leaves\" ADD COLUMN IF NOT EXISTS \"EmployeeId\" uuid NULL;");
 
                 await context.Database.ExecuteSqlRawAsync(

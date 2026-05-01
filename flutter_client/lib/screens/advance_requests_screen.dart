@@ -14,9 +14,11 @@ import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../providers/auth_provider.dart';
 
 class AdvanceRequestsScreen extends StatefulWidget {
-  const AdvanceRequestsScreen({super.key});
+  final String? highlightId;
+  const AdvanceRequestsScreen({super.key, this.highlightId});
 
   @override
   State<AdvanceRequestsScreen> createState() => _AdvanceRequestsScreenState();
@@ -27,6 +29,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   List<AdvanceRequest> _allRequests = [];
   List<Employee> _employees = [];
   bool _isLoading = true;
+  Employee? _myEmployee; // loaded for employee-role users
 
   AppLocalizations get _l10n => AppLocalizations.of(context);
 
@@ -58,6 +61,31 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     super.initState();
     _loadData();
     _loadEmployees();
+    // Load own employee info for employee-role auto-selection in create dialog
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMyEmployee());
+  }
+
+  bool get _isEmployeeRole {
+    final role = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
+    return role == 'employee';
+  }
+
+  bool get _isManagerOrAbove {
+    final role = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
+    return role == 'admin' || role == 'manager' || role == 'director' || role == 'superadmin' || role == 'departmenthead' || role == 'agent';
+  }
+
+  Future<void> _loadMyEmployee() async {
+    try {
+      final result = await _apiService.getMyEmployee();
+      if (result['isSuccess'] == true && result['data'] != null && mounted) {
+        setState(() {
+          _myEmployee = Employee.fromJson(result['data'] as Map<String, dynamic>);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading my employee: $e');
+    }
   }
 
   Future<void> _loadEmployees() async {
@@ -171,7 +199,25 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       debugPrint('Error loading advance requests: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    AdvanceRequest? match;
+    for (final r in _allRequests) {
+      if (r.id == id) { match = r; break; }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showDetailDialog(match!);
+    });
   }
 
   // ==================== FILTERED DATA ====================
@@ -618,7 +664,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final now = DateTime.now();
     int selectedMonth = now.month;
     int selectedYear = now.year;
-    Employee? selectedEmployee;
+    // For employee role: pre-select their own profile; for manager/admin: let them pick
+    Employee? selectedEmployee = _isEmployeeRole ? _myEmployee : null;
+    final isEmployeeMode = _isEmployeeRole;
 
     showDialog(
       context: context,
@@ -659,102 +707,130 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Autocomplete<Employee>(
-                  displayStringForOption: (e) => '${e.lastName} ${e.firstName} (${e.employeeCode})',
-                  optionsBuilder: (textEditingValue) {
-                    if (textEditingValue.text.isEmpty) return _employees.take(20);
-                    final q = textEditingValue.text.toLowerCase();
-                    return _employees.where((e) {
-                      final fullName = '${e.lastName} ${e.firstName}'.toLowerCase();
-                      return fullName.contains(q) || e.employeeCode.toLowerCase().contains(q);
-                    }).take(20);
-                  },
-                  onSelected: (e) => setDialogState(() => selectedEmployee = e),
-                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                    return TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      decoration: InputDecoration(
-                        labelText: 'Chọn nhân viên *',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.person_search),
-                        hintText: 'Tìm theo tên hoặc mã NV...',
-                        suffixIcon: selectedEmployee != null
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  controller.clear();
-                                  setDialogState(() => selectedEmployee = null);
-                                },
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                  optionsViewBuilder: (context, onSelected, options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4,
-                        borderRadius: BorderRadius.circular(8),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: 250, maxWidth: isMobile ? MediaQuery.of(context).size.width - 32 : Responsive.dialogWidth(context)),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (context, index) {
-                              final employee = options.elementAt(index);
-                              return ListTile(
-                                dense: true,
-                                leading: CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Colors.blue.shade100,
-                                  child: Icon(
-                                    employee.gender?.toLowerCase() == 'female' || employee.gender?.toLowerCase() == 'nữ'
-                                        ? Icons.woman_rounded
-                                        : Icons.man_rounded,
-                                    size: 18,
-                                    color: Colors.blue.shade700,
+                // ── Employee selection: read-only for employee role, autocomplete for manager/admin ──
+                if (isEmployeeMode) ...[
+                  // Employee role: show their own info as read-only
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.person, size: 18, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(child: selectedEmployee != null
+                          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${selectedEmployee!.lastName} ${selectedEmployee!.firstName}',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue.shade800)),
+                              if (selectedEmployee!.employeeCode.isNotEmpty)
+                                Text('${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}',
+                                    style: TextStyle(fontSize: 12, color: Colors.blue.shade600)),
+                            ])
+                          : Text('Chưa tìm thấy hồ sơ nhân viên',
+                              style: TextStyle(fontSize: 13, color: Colors.orange.shade700))),
+                    ]),
+                  ),
+                ] else ...[
+                  // Manager/Admin role: autocomplete to pick any employee
+                  Autocomplete<Employee>(
+                    displayStringForOption: (e) => '${e.lastName} ${e.firstName} (${e.employeeCode})',
+                    optionsBuilder: (textEditingValue) {
+                      if (textEditingValue.text.isEmpty) return _employees.take(20);
+                      final q = textEditingValue.text.toLowerCase();
+                      return _employees.where((e) {
+                        final fullName = '${e.lastName} ${e.firstName}'.toLowerCase();
+                        return fullName.contains(q) || e.employeeCode.toLowerCase().contains(q);
+                      }).take(20);
+                    },
+                    onSelected: (e) => setDialogState(() => selectedEmployee = e),
+                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          labelText: 'Chọn nhân viên *',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_search),
+                          hintText: 'Tìm theo tên hoặc mã NV...',
+                          suffixIcon: selectedEmployee != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    controller.clear();
+                                    setDialogState(() => selectedEmployee = null);
+                                  },
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(8),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: 250, maxWidth: isMobile ? MediaQuery.of(context).size.width - 32 : Responsive.dialogWidth(context)),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final employee = options.elementAt(index);
+                                return ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Colors.blue.shade100,
+                                    child: Icon(
+                                      employee.gender?.toLowerCase() == 'female' || employee.gender?.toLowerCase() == 'nữ'
+                                          ? Icons.woman_rounded
+                                          : Icons.man_rounded,
+                                      size: 18,
+                                      color: Colors.blue.shade700,
+                                    ),
                                   ),
-                                ),
-                                title: Text('${employee.lastName} ${employee.firstName}', style: const TextStyle(fontSize: 14)),
-                                subtitle: Text(
-                                  '${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                ),
-                                onTap: () => onSelected(employee),
-                              );
-                            },
+                                  title: Text('${employee.lastName} ${employee.firstName}', style: const TextStyle(fontSize: 14)),
+                                  subtitle: Text(
+                                    '${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  ),
+                                  onTap: () => onSelected(employee),
+                                );
+                              },
+                            ),
                           ),
                         ),
+                      );
+                    },
+                  ),
+                  if (selectedEmployee != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
                       ),
-                    );
-                  },
-                ),
-                if (selectedEmployee != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})',
-                            style: TextStyle(fontSize: 13, color: Colors.green.shade700, fontWeight: FontWeight.w500),
-                          ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})',
+                              style: TextStyle(fontSize: 13, color: Colors.green.shade700, fontWeight: FontWeight.w500),
+                            ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ], // end if selectedEmployee != null
+                ], // end else (manager/admin block)
                 const SizedBox(height: 16),
                 TextField(
                   controller: amountController,

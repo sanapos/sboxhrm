@@ -16,6 +16,7 @@ class Employee {
   final String? cardNumber;
   final String? workStatus;
   final DateTime? joinDate;
+  final DateTime? contractEndDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   
@@ -79,6 +80,7 @@ class Employee {
     this.cardNumber,
     this.workStatus,
     this.joinDate,
+    this.contractEndDate,
     this.createdAt,
     this.updatedAt,
     this.permanentAddress,
@@ -148,6 +150,9 @@ class Employee {
         workStatus: json['workStatus']?.toString(),
         joinDate: json['joinDate'] != null
             ? DateTime.tryParse(json['joinDate'])
+            : null,
+        contractEndDate: json['contractEndDate'] != null
+            ? DateTime.tryParse(json['contractEndDate'])
             : null,
         createdAt: json['createdAt'] != null
             ? DateTime.tryParse(json['createdAt'])
@@ -243,6 +248,7 @@ class Employee {
       'idCardFrontUrl': idCardFrontUrl,
       'idCardBackUrl': idCardBackUrl,
       'managerId': managerId,
+      'contractEndDate': contractEndDate?.toIso8601String(),
     };
   }
   

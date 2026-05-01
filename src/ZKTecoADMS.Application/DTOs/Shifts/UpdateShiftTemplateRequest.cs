@@ -14,6 +14,7 @@ public class UpdateShiftTemplateRequest
     public int EarlyLeaveGraceMinutes { get; set; } = 5;
     public int OvertimeMinutesThreshold { get; set; } = 30;
     public string? ShiftType { get; set; }
+    public TimeSpan? OvernightCutoffTime { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
 }

@@ -22,6 +22,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     }
     // Authentication & Identity
     public DbSet<UserRefreshToken> UserRefreshTokens => Set<UserRefreshToken>();
+    public DbSet<UserDeviceToken> UserDeviceTokens => Set<UserDeviceToken>();
     
     // Devices & Biometrics
     public DbSet<DeviceUser> DeviceUsers => Set<DeviceUser>();
@@ -74,7 +75,6 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationCategory> NotificationCategories => Set<NotificationCategory>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
-    public DbSet<UserDeviceToken> UserDeviceTokens => Set<UserDeviceToken>();
 
     // SuperAdmin Announcements / Maintenance / Marketing campaigns
     public DbSet<SystemAnnouncement> SystemAnnouncements => Set<SystemAnnouncement>();

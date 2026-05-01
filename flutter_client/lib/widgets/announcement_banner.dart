@@ -54,16 +54,15 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     }
   }
 
-  List<Map<String, dynamic>> get _visible => _items
-      .where((a) => !_hidden.contains(a['id']?.toString()))
-      .toList()
-    ..sort((a, b) {
-      final sa = AdminHelpers.parseEnumInt(
-          a['severity'], AdminHelpers.announcementSeverityMap);
-      final sb = AdminHelpers.parseEnumInt(
-          b['severity'], AdminHelpers.announcementSeverityMap);
-      return sb.compareTo(sa);
-    });
+  List<Map<String, dynamic>> get _visible =>
+      _items.where((a) => !_hidden.contains(a['id']?.toString())).toList()
+        ..sort((a, b) {
+          final sa = AdminHelpers.parseEnumInt(
+              a['severity'], AdminHelpers.announcementSeverityMap);
+          final sb = AdminHelpers.parseEnumInt(
+              b['severity'], AdminHelpers.announcementSeverityMap);
+          return sb.compareTo(sa);
+        });
 
   @override
   Widget build(BuildContext context) {
@@ -98,8 +97,8 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
   /// Tính lại số ngày còn lại từ `expiresAt` (chính xác theo ngày hiện tại)
   /// và chuẩn hoá title cho thông báo gia hạn.
   String _formatRenewalTitle(Map<String, dynamic> a, String rawTitle) {
-    final kind = AdminHelpers.parseEnumInt(
-        a['kind'], AdminHelpers.announcementKindMap);
+    final kind =
+        AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
     if (kind != 3) return _clean(rawTitle); // chỉ áp dụng cho Renewal
     final expiresAtStr = a['expiresAt']?.toString();
     if (expiresAtStr == null || expiresAtStr.isEmpty) return _clean(rawTitle);
@@ -129,8 +128,8 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     final id = a['id']?.toString() ?? '';
     final severity = AdminHelpers.parseEnumInt(
         a['severity'], AdminHelpers.announcementSeverityMap);
-    final kind = AdminHelpers.parseEnumInt(
-        a['kind'], AdminHelpers.announcementKindMap);
+    final kind =
+        AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
     final title = _formatRenewalTitle(a, a['title']?.toString() ?? '');
     final content = _clean(a['content']?.toString() ?? '');
     final actionUrl = a['actionUrl']?.toString();
@@ -177,9 +176,8 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
               TextButton(
                 style: TextButton.styleFrom(foregroundColor: color),
                 onPressed: () => _onAction(id, actionUrl),
-                child: Text(actionLabel?.isNotEmpty == true
-                    ? actionLabel!
-                    : 'Xem'),
+                child: Text(
+                    actionLabel?.isNotEmpty == true ? actionLabel! : 'Xem'),
               ),
             if (requireAck)
               ElevatedButton(

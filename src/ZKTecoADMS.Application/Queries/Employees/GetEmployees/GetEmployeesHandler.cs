@@ -59,6 +59,7 @@ public class GetEmployeesHandler(
                 EmploymentType = e.EmploymentType,
                 JoinDate = e.JoinDate,
                 ProbationEndDate = e.ProbationEndDate,
+                ContractEndDate = e.ContractEndDate,
                 WorkStatus = e.WorkStatus,
                 DirectManagerEmployeeId = e.DirectManagerEmployeeId,
                 DirectManagerName = e.DirectManagerEmployee != null

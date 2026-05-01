@@ -97,15 +97,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           'benefit': empSalaryProfile?['benefit'],
           'salaryType': empSalaryProfile?['benefit']?['rateType'] ?? 1,
           'baseSalary': empSalaryProfile?['benefit']?['rate'] ?? 0,
-          'fixedAllowance':
-              empSalaryProfile?['benefit']?['mealAllowance'] ?? 0,
+          'fixedAllowance': empSalaryProfile?['benefit']?['mealAllowance'] ?? 0,
           'dailyAllowance':
               empSalaryProfile?['benefit']?['responsibilityAllowance'] ?? 0,
           'paidDayOff':
               empSalaryProfile?['benefit']?['weeklyOffDays'] ?? 'Sunday',
-          'attendanceType': empSalaryProfile?['benefit']?['attendanceMode'] ?? 'both',
-          'shifts': _parseDescriptionField(empSalaryProfile?['benefit']?['description'], 'shifts'),
-          'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 2,
+          'attendanceType':
+              empSalaryProfile?['benefit']?['attendanceMode'] ?? 'checkin',
+          'shifts': _parseDescriptionField(
+              empSalaryProfile?['benefit']?['description'], 'shifts'),
+          'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 1,
           'isConfigured': empSalaryProfile != null,
         });
       }
@@ -148,20 +149,26 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
     // Apply salary type filter
     if (_filterSalaryType != 'all') {
-      list = list.where((emp) => emp['salaryType']?.toString() == _filterSalaryType).toList();
+      list = list
+          .where((emp) => emp['salaryType']?.toString() == _filterSalaryType)
+          .toList();
     }
 
     // Apply insurance filter
     if (_filterInsurance != 'all') {
       list = list.where((emp) {
         final benefit = emp['benefit'] as Map<String, dynamic>?;
-        return (benefit?['socialInsuranceType'] ?? 0).toString() == _filterInsurance;
+        return (benefit?['socialInsuranceType'] ?? 0).toString() ==
+            _filterInsurance;
       }).toList();
     }
 
     // Apply attendance filter
     if (_filterAttendance != 'all') {
-      list = list.where((emp) => emp['attendanceType']?.toString() == _filterAttendance).toList();
+      list = list
+          .where(
+              (emp) => emp['attendanceType']?.toString() == _filterAttendance)
+          .toList();
     }
 
     return list;
@@ -183,7 +190,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         children: [
           // Modern gradient header
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, isMobile ? 12 : 18, isMobile ? 12 : 24, isMobile ? 10 : 14),
+            padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, isMobile ? 12 : 18,
+                isMobile ? 12 : 24, isMobile ? 10 : 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primary, primary.withValues(alpha: 0.85)],
@@ -209,7 +217,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        child: const Icon(Icons.arrow_back, size: 20, color: Colors.white),
+                        child: const Icon(Icons.arrow_back,
+                            size: 20, color: Colors.white),
                       ),
                     ),
                   ),
@@ -222,7 +231,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.payments_outlined, size: 22, color: Colors.white),
+                    child: const Icon(Icons.payments_outlined,
+                        size: 22, color: Colors.white),
                   ),
                 if (!isMobile) const SizedBox(width: 14),
                 Expanded(
@@ -231,38 +241,56 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     children: [
                       Text(
                         'Thiết lập Lương',
-                        style: TextStyle(fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(
+                            fontSize: isMobile ? 16 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                       ),
                       if (!isMobile)
                         Text(
                           'Quản lý cấu hình lương nhân viên',
-                          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.8)),
                         ),
                     ],
                   ),
                 ),
                 if (isMobile)
                   GestureDetector(
-                    onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                    onTap: () => setState(
+                        () => _showMobileFilters = !_showMobileFilters),
                     child: Container(
                       padding: const EdgeInsets.all(7),
                       margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
                       child: Stack(
                         children: [
                           Icon(
-                            _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
+                            _showMobileFilters
+                                ? Icons.filter_alt
+                                : Icons.filter_alt_outlined,
                             size: 18,
-                            color: _showMobileFilters ? Colors.orange : Colors.white,
+                            color: _showMobileFilters
+                                ? Colors.orange
+                                : Colors.white,
                           ),
-                          if (_searchQuery.isNotEmpty || _filterType != 'all' || _filterSalaryType != 'all' || _filterInsurance != 'all' || _filterAttendance != 'all')
+                          if (_searchQuery.isNotEmpty ||
+                              _filterType != 'all' ||
+                              _filterSalaryType != 'all' ||
+                              _filterInsurance != 'all' ||
+                              _filterAttendance != 'all')
                             Positioned(
                               right: 0,
                               top: 0,
                               child: Container(
                                 width: 8,
                                 height: 8,
-                                decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                                decoration: const BoxDecoration(
+                                    color: Colors.orange,
+                                    shape: BoxShape.circle),
                               ),
                             ),
                         ],
@@ -273,57 +301,84 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   PopupMenuButton<String>(
                     icon: Container(
                       padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert, size: 18, color: Colors.white),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.more_vert,
+                          size: 18, color: Colors.white),
                     ),
                     onSelected: (v) {
                       if (v == 'add') _showAddEmployeeDialog();
                       if (v == 'allowance') {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const AllowanceSettingsScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const AllowanceSettingsScreen()),
                         );
                       }
                     },
                     itemBuilder: (_) => [
-                      if (Provider.of<PermissionProvider>(context, listen: false).canCreate('SalarySettings'))
-                      const PopupMenuItem(value: 'add', child: Row(children: [Icon(Icons.add, size: 18), SizedBox(width: 10), Text('Thêm mới')])),
-                      const PopupMenuItem(value: 'allowance', child: Row(children: [Icon(Icons.card_giftcard, size: 18), SizedBox(width: 10), Text('Thêm phụ cấp')])),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canCreate('SalarySettings'))
+                        const PopupMenuItem(
+                            value: 'add',
+                            child: Row(children: [
+                              Icon(Icons.add, size: 18),
+                              SizedBox(width: 10),
+                              Text('Thêm mới')
+                            ])),
+                      const PopupMenuItem(
+                          value: 'allowance',
+                          child: Row(children: [
+                            Icon(Icons.card_giftcard, size: 18),
+                            SizedBox(width: 10),
+                            Text('Thêm phụ cấp')
+                          ])),
                     ],
                   )
                 else ...[
-                  _buildHeaderActionBtn(Icons.card_giftcard, 'Thêm phụ cấp', () {
+                  _buildHeaderActionBtn(Icons.card_giftcard, 'Thêm phụ cấp',
+                      () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AllowanceSettingsScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const AllowanceSettingsScreen()),
                     );
                   }),
                   const SizedBox(width: 8),
-                  _buildHeaderActionBtn(Icons.file_download_outlined, 'Xuất', () {
+                  _buildHeaderActionBtn(Icons.file_download_outlined, 'Xuất',
+                      () {
                     appNotification.showInfo(
                       title: 'Thông báo',
                       message: 'Chức năng xuất dữ liệu đang được phát triển',
                     );
                   }),
                   const SizedBox(width: 8),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('SalarySettings'))
-                  Material(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      onTap: () => _showAddEmployeeDialog(),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canCreate('SalarySettings'))
+                    Material(
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add, size: 20, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text('Thêm mới', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                          ],
+                      child: InkWell(
+                        onTap: () => _showAddEmployeeDialog(),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add, size: 20, color: Colors.white),
+                              SizedBox(width: 6),
+                              Text('Thêm mới',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ],
             ),
@@ -335,12 +390,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 : RefreshIndicator(
                     onRefresh: _loadData,
                     child: ListView(
-                      padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+                      padding: EdgeInsets.all(
+                          Responsive.isMobile(context) ? 12 : 24),
                       children: [
                         _buildStatisticsRow(),
                         const SizedBox(height: 24),
                         if (!Responsive.isMobile(context) || _showMobileFilters)
-                        _buildSearchAndFilter(),
+                          _buildSearchAndFilter(),
                         const SizedBox(height: 24),
                         if (_filteredEmployees.isEmpty)
                           const EmptyState(
@@ -359,7 +415,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -381,19 +438,24 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final isMobile = Responsive.isMobile(context);
     return Row(
       children: [
-        _buildStatCard('Tổng nhân viên', '$_totalEmployees', Icons.groups, const Color(0xFF1E3A5F), isMobile),
+        _buildStatCard('Tổng nhân viên', '$_totalEmployees', Icons.groups,
+            const Color(0xFF1E3A5F), isMobile),
         SizedBox(width: isMobile ? 8 : 16),
-        _buildStatCard('Đã thiết lập', '$_configuredCount', Icons.check_circle, const Color(0xFF1E3A5F), isMobile),
+        _buildStatCard('Đã thiết lập', '$_configuredCount', Icons.check_circle,
+            const Color(0xFF1E3A5F), isMobile),
         SizedBox(width: isMobile ? 8 : 16),
-        _buildStatCard('Chưa thiết lập', '$_notConfiguredCount', Icons.warning_amber, const Color(0xFFF59E0B), isMobile),
+        _buildStatCard('Chưa thiết lập', '$_notConfiguredCount',
+            Icons.warning_amber, const Color(0xFFF59E0B), isMobile),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color, bool isMobile) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color, bool isMobile) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 20, vertical: isMobile ? 10 : 16),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 20, vertical: isMobile ? 10 : 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -411,8 +473,17 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 children: [
                   Icon(icon, color: color, size: 20),
                   const SizedBox(height: 6),
-                  Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
-                  Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+                  Text(value,
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
+                  Text(label,
+                      style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500),
+                      textAlign: TextAlign.center),
                 ],
               )
             : Row(
@@ -429,8 +500,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(value, style: TextStyle(color: color, fontSize: 28, fontWeight: FontWeight.bold)),
-                      Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500)),
+                      Text(value,
+                          style: TextStyle(
+                              color: color,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold)),
+                      Text(label,
+                          style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ],
@@ -441,7 +520,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   Widget _buildSearchAndFilter() {
     final isMobile = Responsive.isMobile(context);
-    final hasFilters = _searchQuery.isNotEmpty || _filterType != 'all' || _filterSalaryType != 'all' || _filterInsurance != 'all' || _filterAttendance != 'all';
+    final hasFilters = _searchQuery.isNotEmpty ||
+        _filterType != 'all' ||
+        _filterSalaryType != 'all' ||
+        _filterInsurance != 'all' ||
+        _filterAttendance != 'all';
 
     final searchBox = SizedBox(
       height: 40,
@@ -465,9 +548,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+            borderSide:
+                BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         ),
       ),
     );
@@ -497,13 +582,19 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               }),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.filter_alt_off, size: 16, color: Colors.red.shade700),
+                    Icon(Icons.filter_alt_off,
+                        size: 16, color: Colors.red.shade700),
                     const SizedBox(width: 4),
-                    Text('Xóa lọc', style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w500)),
+                    Text('Xóa lọc',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
@@ -629,7 +720,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF71717A), size: 18),
+          icon: const Icon(Icons.keyboard_arrow_down,
+              color: Color(0xFF71717A), size: 18),
           style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
           dropdownColor: Colors.white,
           items: items,
@@ -652,24 +744,27 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
         if (crossAxisCount == 1) {
           return Column(
-            children: List.generate(_filteredEmployees.length, (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 10, left: 12, right: 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: _buildEmpDeckItem(_filteredEmployees[i]),
-              ),
-            )),
+            children: List.generate(
+                _filteredEmployees.length,
+                (i) => Padding(
+                      padding: const EdgeInsets.only(
+                          bottom: 10, left: 12, right: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildEmpDeckItem(_filteredEmployees[i]),
+                      ),
+                    )),
           );
         }
 
@@ -704,11 +799,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   String _getSalaryTypeName(dynamic type) {
     switch (type?.toString()) {
-      case '1': return 'Lương tháng';
-      case '2': return 'Lương ngày';
-      case '3': return 'Lương ca';
-      case '0': return 'Lương giờ';
-      default: return 'Lương tháng';
+      case '1':
+        return 'Lương tháng';
+      case '2':
+        return 'Lương ngày';
+      case '3':
+        return 'Lương ca';
+      case '0':
+        return 'Lương giờ';
+      default:
+        return 'Lương tháng';
     }
   }
 
@@ -728,16 +828,29 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           _buildAvatar(employee),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(
+                    child: Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: isConfigured ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                    color: isConfigured
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(isConfigured ? salaryType : 'Chưa TL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isConfigured ? Colors.green : Colors.orange)),
+                  child: Text(isConfigured ? salaryType : 'Chưa TL',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: isConfigured ? Colors.green : Colors.orange)),
                 ),
               ]),
               const SizedBox(height: 2),
@@ -747,7 +860,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   '${formatter.format(baseSalary)} đ',
                 ].join(' · '),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
@@ -853,21 +967,27 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 _buildInfoRow(Icons.attach_money, 'Lương cơ bản',
                     _formatCurrency(baseSalary), const Color(0xFF1E3A5F)),
                 const SizedBox(height: 8),
-                _buildTappableInfoRow(Icons.card_giftcard, 'Phụ cấp cố định',
-                    _formatCurrency(fixedAllowance), const Color(0xFFEC4899),
+                _buildTappableInfoRow(
+                    Icons.card_giftcard,
+                    'Phụ cấp cố định',
+                    _formatCurrency(fixedAllowance),
+                    const Color(0xFFEC4899),
                     () => _showViewAllowanceDetail(
-                      allowanceType: 0,
-                      employeeId: employeeId,
-                      onChanged: () => setState(() {}),
-                    )),
+                          allowanceType: 0,
+                          employeeId: employeeId,
+                          onChanged: () => setState(() {}),
+                        )),
                 const SizedBox(height: 8),
-                _buildTappableInfoRow(Icons.calendar_view_day, 'Phụ cấp theo ngày',
-                    _formatCurrency(dailyAllowance), const Color(0xFFF59E0B),
+                _buildTappableInfoRow(
+                    Icons.calendar_view_day,
+                    'Phụ cấp theo ngày',
+                    _formatCurrency(dailyAllowance),
+                    const Color(0xFFF59E0B),
                     () => _showViewAllowanceDetail(
-                      allowanceType: 1,
-                      employeeId: employeeId,
-                      onChanged: () => setState(() {}),
-                    )),
+                          allowanceType: 1,
+                          employeeId: employeeId,
+                          onChanged: () => setState(() {}),
+                        )),
                 const SizedBox(height: 8),
                 _buildInfoRow(
                   Icons.access_time,
@@ -886,32 +1006,23 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
           // Action buttons
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  visualDensity: VisualDensity.compact,
                   onPressed: () => _showViewDialog(employee),
                   icon: const Icon(Icons.visibility_outlined,
                       color: Color(0xFF71717A), size: 20),
                   tooltip: 'Xem chi tiết',
                 ),
-                if (Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings'))
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _showEditDialog(employee),
-                  icon: const Icon(Icons.edit_outlined,
-                      color: Color(0xFF1E3A5F), size: 20),
-                  tooltip: 'Chỉnh sửa',
-                ),
-                if (Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings'))
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canEdit('SalarySettings'))
                   IconButton(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _showCopyDialog(employee),
-                    icon: const Icon(Icons.content_copy,
-                        color: Color(0xFF0EA5E9), size: 20),
-                    tooltip: 'Sao chép cho nhân viên khác',
+                    onPressed: () => _showEditDialog(employee),
+                    icon: const Icon(Icons.edit_outlined,
+                        color: Color(0xFF1E3A5F), size: 20),
+                    tooltip: 'Chỉnh sửa',
                   ),
               ],
             ),
@@ -940,7 +1051,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       radius: 24,
       backgroundColor: color,
       child: Icon(
-        gender == 'female' || gender == 'nữ' ? Icons.woman_rounded : Icons.man_rounded,
+        gender == 'female' || gender == 'nữ'
+            ? Icons.woman_rounded
+            : Icons.man_rounded,
         color: Colors.white,
         size: 26,
       ),
@@ -984,8 +1097,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
-  Widget _buildTappableInfoRow(
-      IconData icon, String label, String value, Color valueColor, VoidCallback onTap) {
+  Widget _buildTappableInfoRow(IconData icon, String label, String value,
+      Color valueColor, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
@@ -1008,7 +1121,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             ),
           ),
           const SizedBox(width: 4),
-          Icon(Icons.chevron_right, size: 16, color: valueColor.withValues(alpha: 0.5)),
+          Icon(Icons.chevron_right,
+              size: 16, color: valueColor.withValues(alpha: 0.5)),
         ],
       ),
     );
@@ -1030,124 +1144,129 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setViewState) {
-        final formContent = SingleChildScrollView(
-          padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailItem('Mã nhân viên', employee['employeeCode'] ?? '-'),
-              _buildDetailItem('Loại lương', _getSalaryTypeName(employee['salaryType'])),
-              _buildDetailItem('Lương cơ bản', _formatCurrency((employee['baseSalary'] as num?)?.toDouble() ?? 0)),
-              _buildTappableDetailItem(
-                'Phụ cấp cố định',
-                _formatCurrency(_calculateEmployeeAllowanceTotal(employeeId, 0)),
-                () => _showViewAllowanceDetail(
-                  allowanceType: 0,
-                  employeeId: employeeId,
-                  onChanged: () => setViewState(() {}),
+            final formContent = SingleChildScrollView(
+              padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDetailItem(
+                      'Mã nhân viên', employee['employeeCode'] ?? '-'),
+                  _buildDetailItem(
+                      'Loại lương', _getSalaryTypeName(employee['salaryType'])),
+                  _buildDetailItem(
+                      'Lương cơ bản',
+                      _formatCurrency(
+                          (employee['baseSalary'] as num?)?.toDouble() ?? 0)),
+                  _buildTappableDetailItem(
+                    'Phụ cấp cố định',
+                    _formatCurrency(
+                        _calculateEmployeeAllowanceTotal(employeeId, 0)),
+                    () => _showViewAllowanceDetail(
+                      allowanceType: 0,
+                      employeeId: employeeId,
+                      onChanged: () => setViewState(() {}),
+                    ),
+                  ),
+                  _buildTappableDetailItem(
+                    'Phụ cấp theo ngày',
+                    _formatCurrency(
+                        _calculateEmployeeAllowanceTotal(employeeId, 1)),
+                    () => _showViewAllowanceDetail(
+                      allowanceType: 1,
+                      employeeId: employeeId,
+                      onChanged: () => setViewState(() {}),
+                    ),
+                  ),
+                  ..._buildSalaryTypeDetails(employee),
+                  const Divider(color: Color(0xFFE4E4E7), height: 24),
+                  _buildDetailItem('Chấm công',
+                      _getAttendanceModeName(employee['attendanceType'])),
+                  _buildDetailItem(
+                      'Ca làm việc',
+                      (employee['shifts']?.toString().isNotEmpty == true)
+                          ? employee['shifts'].toString()
+                          : '-'),
+                  _buildDetailItem('Số ca / 1 công',
+                      (employee['shiftsPerDay'] ?? 1).toString()),
+                  _buildDetailItem(
+                      'Ngày nghỉ có lương',
+                      _getPaidLeaveTypeDisplayName(employee['benefit']
+                              ?['paidLeaveType'] ??
+                          employee['paidDayOff'])),
+                ],
+              ),
+            );
+            final actionButtons = [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Đóng',
+                    style: TextStyle(color: Color(0xFF71717A))),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showEditDialog(employee);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
+                child: const Text('Chỉnh sửa'),
               ),
-              _buildTappableDetailItem(
-                'Phụ cấp theo ngày',
-                _formatCurrency(_calculateEmployeeAllowanceTotal(employeeId, 1)),
-                () => _showViewAllowanceDetail(
-                  allowanceType: 1,
-                  employeeId: employeeId,
-                  onChanged: () => setViewState(() {}),
-                ),
-              ),
-              ..._buildSalaryTypeDetails(employee),
-              const Divider(color: Color(0xFFE4E4E7), height: 24),
-              _buildDetailItem('Chấm công', _getAttendanceModeName(employee['attendanceType'])),
-              _buildDetailItem('Ca làm việc', (employee['shifts']?.toString().isNotEmpty == true) ? employee['shifts'].toString() : '-'),
-              _buildDetailItem('Số ca / 1 công', (employee['shiftsPerDay'] ?? 2).toString()),
-              _buildDetailItem('Ngày nghỉ có lương', _getPaidLeaveTypeDisplayName(employee['benefit']?['paidLeaveType'] ?? employee['paidDayOff'])),
-            ],
-          ),
-        );
-        final canEditSalary = Provider.of<PermissionProvider>(context, listen: false).canEdit('SalarySettings');
-        final actionButtons = <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A))),
-          ),
-          if (canEditSalary) ...[
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _showCopyDialog(employee);
-              },
-              icon: const Icon(Icons.content_copy, size: 16),
-              label: const Text('Sao chép'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0EA5E9),
-                side: const BorderSide(color: Color(0xFF0EA5E9)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showEditDialog(employee);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Chỉnh sửa'),
-            ),
-          ],
-        ];
-        if (isMobile) {
-          return Dialog(
-            insetPadding: EdgeInsets.zero,
-            child: SizedBox(
-              width: double.infinity,
-              height: double.infinity,
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(employee['fullName'] ?? 'Chi tiết'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                ),
-                body: formContent,
-                bottomNavigationBar: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: actionButtons,
+            ];
+            if (isMobile) {
+              return Dialog(
+                insetPadding: EdgeInsets.zero,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: Scaffold(
+                    appBar: AppBar(
+                      title: Text(employee['fullName'] ?? 'Chi tiết'),
+                      leading: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context)),
+                    ),
+                    body: formContent,
+                    bottomNavigationBar: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: actionButtons,
+                      ),
+                    ),
                   ),
                 ),
+              );
+            }
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.person, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      employee['fullName'] ?? 'Chi tiết',
+                      style: const TextStyle(
+                          color: Color(0xFF18181B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          );
-        }
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.person, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  employee['fullName'] ?? 'Chi tiết',
-                  style: const TextStyle(
-                      color: Color(0xFF18181B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18),
-                ),
+              content: SizedBox(
+                width: math.min(500, MediaQuery.of(context).size.width - 32),
+                child: formContent,
               ),
-            ],
-          ),
-          content: SizedBox(
-            width: math.min(500, MediaQuery.of(context).size.width - 32),
-            child: formContent,
-          ),
-          actions: actionButtons,
-        );
+              actions: actionButtons,
+            );
           },
         );
       },
@@ -1159,7 +1278,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final salaryType = (employee['salaryType'] ?? 1).toString();
     final widgets = <Widget>[];
     final socialInsType = (benefit?['socialInsuranceType'] ?? 0).toString();
-    final rawInsuranceSalary = (benefit?['insuranceSalary'] as num?)?.toDouble() ?? 0;
+    final rawInsuranceSalary =
+        (benefit?['insuranceSalary'] as num?)?.toDouble() ?? 0;
     // For type 3 (regional min wage), compute from insurance settings
     final insuranceSalaryVal = socialInsType == '3'
         ? _calculateInsuranceSalary('3', 0, 0, 0)
@@ -1167,63 +1287,131 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
     if (salaryType == '1') {
       // Lương tháng
-      widgets.add(_buildDetailItem('Lương hoàn thành CV', _formatCurrency((benefit?['completionSalary'] as num?)?.toDouble() ?? 0)));
-      widgets.add(_buildDetailItem('Đóng BHXH', _getSocialInsuranceName(socialInsType)));
+      widgets.add(_buildDetailItem(
+          'Lương hoàn thành CV',
+          _formatCurrency(
+              (benefit?['completionSalary'] as num?)?.toDouble() ?? 0)));
+      widgets.add(_buildDetailItem(
+          'Đóng BHXH', _getSocialInsuranceName(socialInsType)));
       if (socialInsType != '0') {
-        widgets.add(_buildDetailItem('Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
+        widgets.add(_buildDetailItem(
+            'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
-      widgets.add(_buildDetailItem('Tăng ca ngày nghỉ', _getOvertimeDisplayName((benefit?['holidayOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Tăng ca ngày nghỉ',
+          _getOvertimeDisplayName(
+              (benefit?['holidayOvertimeType'] ?? 1).toString())));
       if ((benefit?['holidayOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền công ngày tăng ca', _formatCurrency((benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền công ngày tăng ca',
+            _formatCurrency(
+                (benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Tăng ca làm thêm giờ', _getHourlyOvertimeDisplayName((benefit?['hourlyOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Tăng ca làm thêm giờ',
+          _getHourlyOvertimeDisplayName(
+              (benefit?['hourlyOvertimeType'] ?? 1).toString())));
       if ((benefit?['hourlyOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền giờ tăng ca', _formatCurrency((benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền giờ tăng ca',
+            _formatCurrency(
+                (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
+                    0)));
       }
     } else if (salaryType == '2') {
       // Lương ngày
-      widgets.add(_buildDetailItem('Lương cố định ngày', _formatCurrency((benefit?['dailyFixedRate'] as num?)?.toDouble() ?? 0)));
-      widgets.add(_buildDetailItem('Tăng ca ngày nghỉ', _getOvertimeDisplayName((benefit?['holidayOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Lương cố định ngày',
+          _formatCurrency(
+              (benefit?['dailyFixedRate'] as num?)?.toDouble() ?? 0)));
+      widgets.add(_buildDetailItem(
+          'Tăng ca ngày nghỉ',
+          _getOvertimeDisplayName(
+              (benefit?['holidayOvertimeType'] ?? 1).toString())));
       if ((benefit?['holidayOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền công ngày tăng ca', _formatCurrency((benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền công ngày tăng ca',
+            _formatCurrency(
+                (benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Tăng ca làm thêm giờ', _getHourlyOvertimeDisplayName((benefit?['hourlyOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Tăng ca làm thêm giờ',
+          _getHourlyOvertimeDisplayName(
+              (benefit?['hourlyOvertimeType'] ?? 1).toString())));
       if ((benefit?['hourlyOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền giờ tăng ca', _formatCurrency((benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền giờ tăng ca',
+            _formatCurrency(
+                (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Đóng BHXH', _getSocialInsuranceName(socialInsType)));
+      widgets.add(_buildDetailItem(
+          'Đóng BHXH', _getSocialInsuranceName(socialInsType)));
       if (socialInsType != '0') {
-        widgets.add(_buildDetailItem('Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
+        widgets.add(_buildDetailItem(
+            'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
     } else if (salaryType == '3') {
       // Lương ca
       final shiftSalaryType = (benefit?['shiftSalaryType'] ?? 0).toString();
-      widgets.add(_buildDetailItem('Kiểu tính lương', shiftSalaryType == '0' ? 'Lương ca cố định' : 'Lương theo ca'));
+      widgets.add(_buildDetailItem('Kiểu tính lương',
+          shiftSalaryType == '0' ? 'Lương ca cố định' : 'Lương theo ca'));
       if (shiftSalaryType == '0') {
-        widgets.add(_buildDetailItem('Tiền lương mỗi ca', _formatCurrency((benefit?['fixedShiftRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền lương mỗi ca',
+            _formatCurrency(
+                (benefit?['fixedShiftRate'] as num?)?.toDouble() ?? 0)));
       }
-      widgets.add(_buildDetailItem('Tăng ca ngày nghỉ', _getOvertimeDisplayName((benefit?['holidayOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Tăng ca ngày nghỉ',
+          _getOvertimeDisplayName(
+              (benefit?['holidayOvertimeType'] ?? 1).toString())));
       if ((benefit?['holidayOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền công ngày tăng ca', _formatCurrency((benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền công ngày tăng ca',
+            _formatCurrency(
+                (benefit?['holidayOvertimeDailyRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Tăng ca làm thêm giờ', _getHourlyOvertimeDisplayName((benefit?['hourlyOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem(
+          'Tăng ca làm thêm giờ',
+          _getHourlyOvertimeDisplayName(
+              (benefit?['hourlyOvertimeType'] ?? 1).toString())));
       if ((benefit?['hourlyOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền giờ tăng ca', _formatCurrency((benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền giờ tăng ca',
+            _formatCurrency(
+                (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Đóng BHXH', _getSocialInsuranceName(socialInsType)));
+      widgets.add(_buildDetailItem(
+          'Đóng BHXH', _getSocialInsuranceName(socialInsType)));
       if (socialInsType != '0') {
-        widgets.add(_buildDetailItem('Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
+        widgets.add(_buildDetailItem(
+            'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
     } else if (salaryType == '0') {
       // Lương giờ
-      widgets.add(_buildDetailItem('Lương theo giờ', _formatCurrency((benefit?['rate'] as num?)?.toDouble() ?? 0)));
-      widgets.add(_buildDetailItem('Tăng ca làm thêm giờ', _getHourlyOvertimeDisplayName((benefit?['hourlyOvertimeType'] ?? 1).toString())));
+      widgets.add(_buildDetailItem('Lương theo giờ',
+          _formatCurrency((benefit?['rate'] as num?)?.toDouble() ?? 0)));
+      widgets.add(_buildDetailItem(
+          'Tăng ca làm thêm giờ',
+          _getHourlyOvertimeDisplayName(
+              (benefit?['hourlyOvertimeType'] ?? 1).toString())));
       if ((benefit?['hourlyOvertimeType'] ?? 1).toString() == '0') {
-        widgets.add(_buildDetailItem('Tiền giờ tăng ca', _formatCurrency((benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0)));
+        widgets.add(_buildDetailItem(
+            'Tiền giờ tăng ca',
+            _formatCurrency(
+                (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
+                    0)));
       }
-      widgets.add(_buildDetailItem('Đóng BHXH', _getSocialInsuranceName(socialInsType)));
+      widgets.add(_buildDetailItem(
+          'Đóng BHXH', _getSocialInsuranceName(socialInsType)));
       if (socialInsType != '0') {
-        widgets.add(_buildDetailItem('Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
+        widgets.add(_buildDetailItem(
+            'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
     }
 
@@ -1232,40 +1420,59 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   String _getAttendanceModeName(dynamic mode) {
     switch (mode?.toString()) {
-      case 'checkin': return 'Chấm vào';
-      case 'checkout': return 'Chấm ra';
-      case 'both': return 'Chấm vào & Chấm ra';
-      case 'any': return 'Chấm bất kỳ';
-      case 'none': return 'Không chấm công';
-      default: return 'Chấm vào & Chấm ra';
+      case 'checkin':
+        return 'Chấm vào';
+      case 'checkout':
+        return 'Chấm ra';
+      case 'both':
+        return 'Chấm vào & Chấm ra';
+      case 'any':
+        return 'Chấm bất kỳ';
+      case 'none':
+        return 'Không chấm công';
+      default:
+        return 'Chấm vào';
     }
   }
 
   String _getOvertimeDisplayName(String type) {
     switch (type) {
-      case '0': return 'Cố định ngày';
-      case '1': return 'Hệ số tăng ca theo luật';
-      default: return 'Hệ số tăng ca theo luật';
+      case '0':
+        return 'Cố định ngày';
+      case '1':
+        return 'Hệ số tăng ca theo luật';
+      default:
+        return 'Hệ số tăng ca theo luật';
     }
   }
 
   String _getHourlyOvertimeDisplayName(String type) {
     switch (type) {
-      case '0': return 'Cố định giờ';
-      case '1': return 'Hệ số tăng ca theo luật';
-      case '2': return 'Không tính tăng ca';
-      default: return 'Hệ số tăng ca theo luật';
+      case '0':
+        return 'Cố định giờ';
+      case '1':
+        return 'Hệ số tăng ca theo luật';
+      case '2':
+        return 'Không tính tăng ca';
+      default:
+        return 'Hệ số tăng ca theo luật';
     }
   }
 
   String _getSocialInsuranceName(String type) {
     switch (type) {
-      case '0': return 'Chưa đóng BHXH';
-      case '1': return 'Đóng lương cơ bản';
-      case '2': return 'Lương cơ bản và Lương hoàn thành';
-      case '3': return 'Lương tối thiểu vùng';
-      case '4': return 'Mức lương khác';
-      default: return 'Chưa đóng BHXH';
+      case '0':
+        return 'Chưa đóng BHXH';
+      case '1':
+        return 'Đóng lương cơ bản';
+      case '2':
+        return 'Lương cơ bản và Lương hoàn thành';
+      case '3':
+        return 'Lương tối thiểu vùng';
+      case '4':
+        return 'Mức lương khác';
+      default:
+        return 'Chưa đóng BHXH';
     }
   }
 
@@ -1279,46 +1486,63 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     String amount;
     switch (socialInsuranceType) {
       case '1':
-        final base = double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
+        final base =
+            double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
         label = 'Mức lương đóng BHXH (Lương CB)';
         amount = _formatNumber(base);
         break;
       case '2':
-        final base = double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
-        final comp = double.tryParse(completionSalaryController.text.replaceAll('.', '')) ?? 0;
+        final base =
+            double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
+        final comp = double.tryParse(
+                completionSalaryController.text.replaceAll('.', '')) ??
+            0;
         label = 'Mức lương đóng BHXH (CB + HT)';
         amount = _formatNumber(base + comp);
         break;
       case '3':
-        final region = (_insuranceSettings['defaultRegion'] as num?)?.toInt() ?? 1;
+        final region =
+            (_insuranceSettings['defaultRegion'] as num?)?.toInt() ?? 1;
         double regionSalary;
         String regionName;
         switch (region) {
           case 1:
-            regionSalary = (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ?? 4960000;
+            regionSalary =
+                (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ??
+                    4960000;
             regionName = 'Vùng I';
             break;
           case 2:
-            regionSalary = (_insuranceSettings['minSalaryRegion2'] as num?)?.toDouble() ?? 4410000;
+            regionSalary =
+                (_insuranceSettings['minSalaryRegion2'] as num?)?.toDouble() ??
+                    4410000;
             regionName = 'Vùng II';
             break;
           case 3:
-            regionSalary = (_insuranceSettings['minSalaryRegion3'] as num?)?.toDouble() ?? 3860000;
+            regionSalary =
+                (_insuranceSettings['minSalaryRegion3'] as num?)?.toDouble() ??
+                    3860000;
             regionName = 'Vùng III';
             break;
           case 4:
-            regionSalary = (_insuranceSettings['minSalaryRegion4'] as num?)?.toDouble() ?? 3450000;
+            regionSalary =
+                (_insuranceSettings['minSalaryRegion4'] as num?)?.toDouble() ??
+                    3450000;
             regionName = 'Vùng IV';
             break;
           default:
-            regionSalary = (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ?? 4960000;
+            regionSalary =
+                (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ??
+                    4960000;
             regionName = 'Vùng I';
         }
         label = 'Mức lương đóng BHXH ($regionName)';
         amount = _formatNumber(regionSalary);
         break;
       case '4':
-        final custom = double.tryParse(insuranceSalaryController.text.replaceAll('.', '')) ?? 0;
+        final custom = double.tryParse(
+                insuranceSalaryController.text.replaceAll('.', '')) ??
+            0;
         label = 'Mức lương đóng BHXH';
         amount = _formatNumber(custom);
         break;
@@ -1330,57 +1554,98 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+        border:
+            Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           const Icon(Icons.info_outline, size: 16, color: Color(0xFF1E3A5F)),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
           const Spacer(),
-          Text(amount, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+          Text(amount,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF18181B))),
         ],
       ),
     );
   }
 
-  double _calculateInsuranceSalary(String socialInsType, double baseSalary, double completionSalary, double customAmount) {
+  double _calculateInsuranceSalary(String socialInsType, double baseSalary,
+      double completionSalary, double customAmount) {
     switch (socialInsType) {
-      case '1': return baseSalary;
-      case '2': return baseSalary + completionSalary;
+      case '1':
+        return baseSalary;
+      case '2':
+        return baseSalary + completionSalary;
       case '3':
-        final region = (_insuranceSettings['defaultRegion'] as num?)?.toInt() ?? 1;
+        final region =
+            (_insuranceSettings['defaultRegion'] as num?)?.toInt() ?? 1;
         switch (region) {
-          case 1: return (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ?? 4960000;
-          case 2: return (_insuranceSettings['minSalaryRegion2'] as num?)?.toDouble() ?? 4410000;
-          case 3: return (_insuranceSettings['minSalaryRegion3'] as num?)?.toDouble() ?? 3860000;
-          case 4: return (_insuranceSettings['minSalaryRegion4'] as num?)?.toDouble() ?? 3450000;
-          default: return (_insuranceSettings['minSalaryRegion1'] as num?)?.toDouble() ?? 4960000;
+          case 1:
+            return (_insuranceSettings['minSalaryRegion1'] as num?)
+                    ?.toDouble() ??
+                4960000;
+          case 2:
+            return (_insuranceSettings['minSalaryRegion2'] as num?)
+                    ?.toDouble() ??
+                4410000;
+          case 3:
+            return (_insuranceSettings['minSalaryRegion3'] as num?)
+                    ?.toDouble() ??
+                3860000;
+          case 4:
+            return (_insuranceSettings['minSalaryRegion4'] as num?)
+                    ?.toDouble() ??
+                3450000;
+          default:
+            return (_insuranceSettings['minSalaryRegion1'] as num?)
+                    ?.toDouble() ??
+                4960000;
         }
-      case '4': return customAmount;
-      default: return 0;
+      case '4':
+        return customAmount;
+      default:
+        return 0;
     }
   }
 
   String _getPaidLeaveTypeDisplayName(dynamic value) {
     switch (value?.toString()) {
-      case 'sunday': return 'Chủ nhật';
-      case 'saturday': return 'Thứ bảy';
-      case 'sat-sun': return 'Thứ 7 & Chủ nhật';
-      case 'sat-afternoon-sun': return 'Chiều thứ 7 & Chủ nhật';
-      case 'off-1': return 'Nghỉ 1 ngày/tháng';
-      case 'off-2': return 'Nghỉ 2 ngày/tháng';
-      case 'off-3': return 'Nghỉ 3 ngày/tháng';
-      case 'off-4': return 'Nghỉ 4 ngày/tháng';
-      case 'Sunday': return 'Chủ nhật';
-      case 'Saturday': return 'Thứ bảy';
-      case 'Saturday,Sunday': return 'Thứ 7 & Chủ nhật';
-      case 'leave': return 'Theo nghỉ phép';
-      default: return value?.toString() ?? 'Chủ nhật';
+      case 'sunday':
+        return 'Chủ nhật';
+      case 'saturday':
+        return 'Thứ bảy';
+      case 'sat-sun':
+        return 'Thứ 7 & Chủ nhật';
+      case 'sat-afternoon-sun':
+        return 'Chiều thứ 7 & Chủ nhật';
+      case 'off-1':
+        return 'Nghỉ 1 ngày/tháng';
+      case 'off-2':
+        return 'Nghỉ 2 ngày/tháng';
+      case 'off-3':
+        return 'Nghỉ 3 ngày/tháng';
+      case 'off-4':
+        return 'Nghỉ 4 ngày/tháng';
+      case 'Sunday':
+        return 'Chủ nhật';
+      case 'Saturday':
+        return 'Thứ bảy';
+      case 'Saturday,Sunday':
+        return 'Thứ 7 & Chủ nhật';
+      case 'leave':
+        return 'Theo nghỉ phép';
+      default:
+        return value?.toString() ?? 'Chủ nhật';
     }
   }
 
-  Widget _buildTappableDetailItem(String label, String value, VoidCallback onTap) {
+  Widget _buildTappableDetailItem(
+      String label, String value, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1409,7 +1674,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.open_in_new, size: 14, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.open_in_new,
+                      size: 14, color: Color(0xFF1E3A5F)),
                 ],
               ),
             ),
@@ -1431,16 +1697,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return StatefulBuilder(
           builder: (context, setPickerState) {
             final assignedAllowances = _allowances.where((a) {
-              final type = _parseAllowanceType(a['type']);
+              final type = a['type'] is int
+                  ? a['type']
+                  : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
               final isActive = a['isActive'] ?? true;
-              return type == allowanceType && isActive && _isAllowanceAssignedToEmployee(a, employeeId);
+              return type == allowanceType &&
+                  isActive &&
+                  _isAllowanceAssignedToEmployee(a, employeeId);
             }).toList();
 
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] is num
-                  ? (allowance['amount'] as num).toDouble()
-                  : double.tryParse(allowance['amount']?.toString() ?? '') ?? 0);
+              total += (allowance['amount'] as num).toDouble();
             }
 
             final headerRow = Row(
@@ -1494,7 +1762,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
+                          Icon(Icons.inbox_outlined,
+                              size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
                           Text(
                             'Chưa có phụ cấp ${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán',
@@ -1516,7 +1785,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -1538,16 +1808,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        subtitle: allowance['code'] != null && allowance['code'].toString().isNotEmpty
+                        subtitle: allowance['code'] != null &&
+                                allowance['code'].toString().isNotEmpty
                             ? Text(
                                 'Mã: ${allowance['code']}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 12),
                               )
                             : null,
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1573,11 +1847,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color:
+                              const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1609,7 +1886,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           onPressed: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const AllowanceSettingsScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const AllowanceSettingsScreen()),
                             );
                           },
                           icon: const Icon(Icons.add, size: 18),
@@ -1618,7 +1897,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             foregroundColor: const Color(0xFF1E3A5F),
                             side: const BorderSide(color: Color(0xFF1E3A5F)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -1630,7 +1910,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             backgroundColor: const Color(0xFF1E3A5F),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('Đóng'),
                         ),
@@ -1649,12 +1930,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: Text(allowanceType == 0 ? 'Phụ cấp cố định' : 'Phụ cấp theo ngày'),
-                      leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                      title: Text(allowanceType == 0
+                          ? 'Phụ cấp cố định'
+                          : 'Phụ cấp theo ngày'),
+                      leading: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context)),
                     ),
                     body: Column(
                       children: [
-                        Padding(padding: const EdgeInsets.all(16), child: headerRow),
+                        Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: headerRow),
                         Expanded(child: listContent),
                       ],
                     ),
@@ -1666,14 +1953,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
             return AlertDialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               contentPadding: EdgeInsets.zero,
               content: SizedBox(
                 width: math.min(500, MediaQuery.of(context).size.width - 32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(padding: const EdgeInsets.all(20), child: headerRow),
+                    Padding(
+                        padding: const EdgeInsets.all(20), child: headerRow),
                     const Divider(height: 1, color: Color(0xFFE4E4E7)),
                     Flexible(child: listContent),
                     totalFooter,
@@ -1723,42 +2012,54 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final benefit = employee['benefit'] as Map<String, dynamic>? ?? {};
 
     // Salary type: 0=Hourly, 1=Monthly, 2=Daily, 3=Shift
-    String salaryType = (benefit['rateType'] ?? employee['salaryType'] ?? 1).toString();
+    String salaryType =
+        (benefit['rateType'] ?? employee['salaryType'] ?? 1).toString();
     if (!['0', '1', '2', '3'].contains(salaryType)) salaryType = '1';
 
     // Monthly fields
     final baseSalaryController = TextEditingController(
-        text: _formatNumber((benefit['rate'] as num?)?.toDouble() ?? (employee['baseSalary'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber((benefit['rate'] as num?)?.toDouble() ??
+            (employee['baseSalary'] as num?)?.toDouble() ??
+            0));
     final completionSalaryController = TextEditingController(
-        text: _formatNumber((benefit['completionSalary'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['completionSalary'] as num?)?.toDouble() ?? 0));
 
     // Holiday overtime
-    String holidayOvertimeType = (benefit['holidayOvertimeType'] ?? 1).toString();
+    String holidayOvertimeType =
+        (benefit['holidayOvertimeType'] ?? 1).toString();
     final holidayOvertimeDailyRateController = TextEditingController(
-        text: _formatNumber((benefit['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0));
 
     // Hourly overtime
     String hourlyOvertimeType = (benefit['hourlyOvertimeType'] ?? 1).toString();
     final hourlyOvertimeFixedRateController = TextEditingController(
-        text: _formatNumber((benefit['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0));
 
     // Social insurance
-    String socialInsuranceType = (benefit['socialInsuranceType'] ?? 0).toString();
+    String socialInsuranceType =
+        (benefit['socialInsuranceType'] ?? 0).toString();
     // Validate socialInsuranceType for non-Monthly salary types
-    if (salaryType != '1' && (socialInsuranceType == '1' || socialInsuranceType == '2')) {
+    if (salaryType != '1' &&
+        (socialInsuranceType == '1' || socialInsuranceType == '2')) {
       socialInsuranceType = '0';
     }
     final insuranceSalaryController = TextEditingController(
-        text: _formatNumber((benefit['insuranceSalary'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['insuranceSalary'] as num?)?.toDouble() ?? 0));
 
     // Daily fields
     final dailyFixedRateController = TextEditingController(
-        text: _formatNumber((benefit['dailyFixedRate'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['dailyFixedRate'] as num?)?.toDouble() ?? 0));
 
     // Shift fields
     String shiftSalaryType = (benefit['shiftSalaryType'] ?? 0).toString();
     final fixedShiftRateController = TextEditingController(
-        text: _formatNumber((benefit['fixedShiftRate'] as num?)?.toDouble() ?? 0));
+        text: _formatNumber(
+            (benefit['fixedShiftRate'] as num?)?.toDouble() ?? 0));
 
     // Hourly fields
     final hourlyRateController = TextEditingController(
@@ -1772,16 +2073,28 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     // Always use calculated total from assigned allowances (fields are read-only)
     final fixedVal = calcFixedTotal;
     final dailyVal = calcDailyTotal;
-    final fixedAllowanceController = TextEditingController(
-        text: _formatNumber(fixedVal));
-    final dailyAllowanceController = TextEditingController(
-        text: _formatNumber(dailyVal));
+    final fixedAllowanceController =
+        TextEditingController(text: _formatNumber(fixedVal));
+    final dailyAllowanceController =
+        TextEditingController(text: _formatNumber(dailyVal));
 
     String paidLeaveType = benefit['paidLeaveType']?.toString() ?? 'sunday';
-    if (!['sunday', 'saturday', 'sat-sun', 'sat-afternoon-sun', 'off-1', 'off-2', 'off-3', 'off-4'].contains(paidLeaveType)) {
+    if (![
+      'sunday',
+      'saturday',
+      'sat-sun',
+      'sat-afternoon-sun',
+      'off-1',
+      'off-2',
+      'off-3',
+      'off-4'
+    ].contains(paidLeaveType)) {
       // Map old WeeklyOffDays to new PaidLeaveType
-      final oldPaidDayOff = benefit['weeklyOffDays']?.toString() ?? employee['paidDayOff']?.toString() ?? '';
-      if (oldPaidDayOff.contains('Saturday') && oldPaidDayOff.contains('Sunday')) {
+      final oldPaidDayOff = benefit['weeklyOffDays']?.toString() ??
+          employee['paidDayOff']?.toString() ??
+          '';
+      if (oldPaidDayOff.contains('Saturday') &&
+          oldPaidDayOff.contains('Sunday')) {
         paidLeaveType = 'sat-sun';
       } else if (oldPaidDayOff.contains('Saturday')) {
         paidLeaveType = 'saturday';
@@ -1790,17 +2103,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       }
     }
 
-    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'both';
-    if (!['none', 'checkin', 'checkout', 'both', 'any'].contains(attendanceMode)) {
-      attendanceMode = 'both';
+    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'checkin';
+    if (!['none', 'checkin', 'checkout', 'both', 'any']
+        .contains(attendanceMode)) {
+      attendanceMode = 'checkin';
     }
 
     List<String> selectedShifts = [];
-    if (employee['shifts'] != null && employee['shifts'].toString().isNotEmpty) {
+    if (employee['shifts'] != null &&
+        employee['shifts'].toString().isNotEmpty) {
       selectedShifts = employee['shifts'].toString().split(', ');
     }
 
-    String shiftsPerDay = (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 2).toString();
+    String shiftsPerDay =
+        (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 1).toString();
     if (!['1', '2', '3', '4'].contains(shiftsPerDay)) shiftsPerDay = '1';
 
     final isMobileEdit = Responsive.isMobile(context);
@@ -1811,589 +2127,784 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           final formContent = SingleChildScrollView(
             padding: isMobileEdit ? const EdgeInsets.all(16) : EdgeInsets.zero,
             child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Employee info (read-only)
-                  Row(
-                    children: [
-                      Expanded(child: _buildReadOnlyField('Tên nhân viên:', nameController.text)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildReadOnlyField('Mã nhân viên:', codeController.text)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Employee info (read-only)
+                Row(
+                  children: [
+                    Expanded(
+                        child: _buildReadOnlyField(
+                            'Tên nhân viên:', nameController.text)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                        child: _buildReadOnlyField(
+                            'Mã nhân viên:', codeController.text)),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                  // === LOẠI LƯƠNG ===
-                  _buildDropdownField(
-                    label: 'Loại lương:',
-                    value: salaryType,
-                    items: const [
-                      DropdownMenuItem(value: '1', child: Text('Lương tháng')),
-                      DropdownMenuItem(value: '2', child: Text('Lương ngày')),
-                      DropdownMenuItem(value: '3', child: Text('Lương ca')),
-                      DropdownMenuItem(value: '0', child: Text('Lương giờ')),
-                    ],
-                    onChanged: (value) => setDialogState(() {
-                      final oldType = salaryType;
-                      salaryType = value ?? '1';
-                      // Reset socialInsuranceType if switching away from Monthly
-                      // Monthly supports '0','1','2','3','4' but others only '0','3','4'
-                      if (oldType == '1' && salaryType != '1') {
-                        if (socialInsuranceType == '1' || socialInsuranceType == '2') {
-                          socialInsuranceType = '0';
-                        }
+                // === LOẠI LƯƠNG ===
+                _buildDropdownField(
+                  label: 'Loại lương:',
+                  value: salaryType,
+                  items: const [
+                    DropdownMenuItem(value: '1', child: Text('Lương tháng')),
+                    DropdownMenuItem(value: '2', child: Text('Lương ngày')),
+                    DropdownMenuItem(value: '3', child: Text('Lương ca')),
+                    DropdownMenuItem(value: '0', child: Text('Lương giờ')),
+                  ],
+                  onChanged: (value) => setDialogState(() {
+                    final oldType = salaryType;
+                    salaryType = value ?? '1';
+                    // Reset socialInsuranceType if switching away from Monthly
+                    // Monthly supports '0','1','2','3','4' but others only '0','3','4'
+                    if (oldType == '1' && salaryType != '1') {
+                      if (socialInsuranceType == '1' ||
+                          socialInsuranceType == '2') {
+                        socialInsuranceType = '0';
                       }
-                    }),
+                    }
+                  }),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Color(0xFFE4E4E7)),
+                const SizedBox(height: 8),
+
+                // === DYNAMIC FIELDS BY SALARY TYPE ===
+
+                // ====== LƯƠNG THÁNG ======
+                if (salaryType == '1') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildTextField(
+                              label: 'Lương cơ bản:',
+                              controller: baseSalaryController,
+                              keyboardType: TextInputType.number)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                          child: _buildTextField(
+                              label: 'Lương hoàn thành:',
+                              controller: completionSalaryController,
+                              keyboardType: TextInputType.number)),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  const Divider(color: Color(0xFFE4E4E7)),
-                  const SizedBox(height: 8),
 
-                  // === DYNAMIC FIELDS BY SALARY TYPE ===
-
-                  // ====== LƯƠNG THÁNG ======
-                  if (salaryType == '1') ...[
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(label: 'Lương cơ bản:', controller: baseSalaryController, keyboardType: TextInputType.number)),
+                  // Tăng ca ngày nghỉ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca ngày nghỉ:',
+                          value: holidayOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định ngày')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => holidayOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (holidayOvertimeType == '0') ...[
                         const SizedBox(width: 16),
-                        Expanded(child: _buildTextField(label: 'Lương hoàn thành:', controller: completionSalaryController, keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca ngày nghỉ
-                    Row(
-                      children: [
                         Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca ngày nghỉ:',
-                            value: holidayOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định ngày')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                            ],
-                            onChanged: (value) => setDialogState(() => holidayOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (holidayOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền công ngày tăng ca:', controller: holidayOvertimeDailyRateController, keyboardType: TextInputType.number)),
-                        ],
+                            child: _buildTextField(
+                                label: 'Tiền công ngày tăng ca:',
+                                controller: holidayOvertimeDailyRateController,
+                                keyboardType: TextInputType.number)),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca làm thêm giờ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca làm thêm giờ:',
-                            value: hourlyOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định giờ')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                              DropdownMenuItem(value: '2', child: Text('Không tính tăng ca')),
-                            ],
-                            onChanged: (value) => setDialogState(() => hourlyOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (hourlyOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền giờ tăng ca:', controller: hourlyOvertimeFixedRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Đóng BHXH
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Đóng bảo hiểm xã hội:',
-                            value: socialInsuranceType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Chưa đóng BHXH')),
-                              DropdownMenuItem(value: '1', child: Text('Đóng lương cơ bản')),
-                              DropdownMenuItem(value: '2', child: Text('Lương cơ bản và Lương hoàn thành')),
-                              DropdownMenuItem(value: '3', child: Text('Lương tối thiểu vùng')),
-                              DropdownMenuItem(value: '4', child: Text('Mức lương khác')),
-                            ],
-                            onChanged: (value) => setDialogState(() => socialInsuranceType = value ?? '0'),
-                          ),
-                        ),
-                        if (socialInsuranceType == '4') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Mức lương đóng BHXH:', controller: insuranceSalaryController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    if (socialInsuranceType != '0') ...[
-                      const SizedBox(height: 8),
-                      _buildInsuranceSalaryDisplay(socialInsuranceType, baseSalaryController, completionSalaryController, insuranceSalaryController),
-                    ],
-                  ],
-
-                  // ====== LƯƠNG NGÀY ======
-                  if (salaryType == '2') ...[
-                    _buildTextField(label: 'Lương cố định ngày:', controller: dailyFixedRateController, keyboardType: TextInputType.number),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca ngày nghỉ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca ngày nghỉ:',
-                            value: holidayOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định ngày')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                            ],
-                            onChanged: (value) => setDialogState(() => holidayOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (holidayOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền công ngày tăng ca:', controller: holidayOvertimeDailyRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca làm thêm giờ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca làm thêm giờ:',
-                            value: hourlyOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định giờ')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                              DropdownMenuItem(value: '2', child: Text('Không tính tăng ca')),
-                            ],
-                            onChanged: (value) => setDialogState(() => hourlyOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (hourlyOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền giờ tăng ca:', controller: hourlyOvertimeFixedRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Đóng BHXH cho lương ngày
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Đóng bảo hiểm xã hội:',
-                            value: socialInsuranceType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Chưa đóng BHXH')),
-                              DropdownMenuItem(value: '3', child: Text('Lương tối thiểu vùng')),
-                              DropdownMenuItem(value: '4', child: Text('Mức lương khác')),
-                            ],
-                            onChanged: (value) => setDialogState(() => socialInsuranceType = value ?? '0'),
-                          ),
-                        ),
-                        if (socialInsuranceType == '4') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Mức lương đóng BHXH:', controller: insuranceSalaryController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    if (socialInsuranceType != '0') ...[                      const SizedBox(height: 8),
-                      _buildInsuranceSalaryDisplay(socialInsuranceType, baseSalaryController, completionSalaryController, insuranceSalaryController),
-                    ],
-                  ],
-
-                  // ====== LƯƠNG CA ======
-                  if (salaryType == '3') ...[
-                    _buildDropdownField(
-                      label: 'Kiểu tính lương:',
-                      value: shiftSalaryType,
-                      items: const [
-                        DropdownMenuItem(value: '0', child: Text('Lương ca cố định')),
-                        DropdownMenuItem(value: '1', child: Text('Lương theo ca')),
-                      ],
-                      onChanged: (value) => setDialogState(() => shiftSalaryType = value ?? '0'),
-                    ),
-                    const SizedBox(height: 16),
-                    if (shiftSalaryType == '0')
-                      _buildTextField(label: 'Tiền lương mỗi ca:', controller: fixedShiftRateController, keyboardType: TextInputType.number),
-                    if (shiftSalaryType == '1')
-                      _buildShiftSalaryLevelsInfo(),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca ngày nghỉ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca ngày nghỉ:',
-                            value: holidayOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định ngày')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                            ],
-                            onChanged: (value) => setDialogState(() => holidayOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (holidayOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền công ngày tăng ca:', controller: holidayOvertimeDailyRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca làm thêm giờ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca làm thêm giờ:',
-                            value: hourlyOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định giờ')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                              DropdownMenuItem(value: '2', child: Text('Không tính tăng ca')),
-                            ],
-                            onChanged: (value) => setDialogState(() => hourlyOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (hourlyOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền giờ tăng ca:', controller: hourlyOvertimeFixedRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Đóng BHXH cho lương ca
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Đóng bảo hiểm xã hội:',
-                            value: socialInsuranceType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Chưa đóng BHXH')),
-                              DropdownMenuItem(value: '3', child: Text('Lương tối thiểu vùng')),
-                              DropdownMenuItem(value: '4', child: Text('Mức lương khác')),
-                            ],
-                            onChanged: (value) => setDialogState(() => socialInsuranceType = value ?? '0'),
-                          ),
-                        ),
-                        if (socialInsuranceType == '4') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Mức lương đóng BHXH:', controller: insuranceSalaryController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    if (socialInsuranceType != '0') ...[                      const SizedBox(height: 8),
-                      _buildInsuranceSalaryDisplay(socialInsuranceType, baseSalaryController, completionSalaryController, insuranceSalaryController),
-                    ],
-                  ],
-
-                  // ====== LƯƠNG GIỜ ======
-                  if (salaryType == '0') ...[
-                    _buildTextField(label: 'Lương theo giờ:', controller: hourlyRateController, keyboardType: TextInputType.number),
-                    const SizedBox(height: 16),
-
-                    // Tăng ca làm thêm giờ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Tăng ca làm thêm giờ:',
-                            value: hourlyOvertimeType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Cố định giờ')),
-                              DropdownMenuItem(value: '1', child: Text('Hệ số tăng ca theo luật')),
-                              DropdownMenuItem(value: '2', child: Text('Không tính tăng ca')),
-                            ],
-                            onChanged: (value) => setDialogState(() => hourlyOvertimeType = value ?? '1'),
-                          ),
-                        ),
-                        if (hourlyOvertimeType == '0') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Tiền giờ tăng ca:', controller: hourlyOvertimeFixedRateController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Đóng BHXH cho lương giờ
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: 'Đóng bảo hiểm xã hội:',
-                            value: socialInsuranceType,
-                            items: const [
-                              DropdownMenuItem(value: '0', child: Text('Chưa đóng BHXH')),
-                              DropdownMenuItem(value: '3', child: Text('Lương tối thiểu vùng')),
-                              DropdownMenuItem(value: '4', child: Text('Mức lương khác')),
-                            ],
-                            onChanged: (value) => setDialogState(() => socialInsuranceType = value ?? '0'),
-                          ),
-                        ),
-                        if (socialInsuranceType == '4') ...[
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildTextField(label: 'Mức lương đóng BHXH:', controller: insuranceSalaryController, keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-                    if (socialInsuranceType != '0') ...[                      const SizedBox(height: 8),
-                      _buildInsuranceSalaryDisplay(socialInsuranceType, baseSalaryController, completionSalaryController, insuranceSalaryController),
-                    ],
-                  ],
-
-                  const SizedBox(height: 16),
-                  const Divider(color: Color(0xFFE4E4E7)),
-                  const SizedBox(height: 8),
-
-                  // === COMMON FIELDS ===
-
-                  // Phụ cấp
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextFieldWithIcon(
-                          label: 'Phụ cấp cố định:',
-                          controller: fixedAllowanceController,
-                          keyboardType: TextInputType.number,
-                          readOnly: true,
-                          onCalculatePressed: () => _showAllowancePickerDialog(
-                            allowanceType: 0,
-                            controller: fixedAllowanceController,
-                            setDialogState: setDialogState,
-                            employeeId: employeeId,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTextFieldWithIcon(
-                          label: 'Phụ cấp theo ngày:',
-                          controller: dailyAllowanceController,
-                          keyboardType: TextInputType.number,
-                          readOnly: true,
-                          onCalculatePressed: () => _showAllowancePickerDialog(
-                            allowanceType: 1,
-                            controller: dailyAllowanceController,
-                            setDialogState: setDialogState,
-                            employeeId: employeeId,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // Ngày nghỉ có lương & Chấm công
+                  // Tăng ca làm thêm giờ
                   Row(
                     children: [
                       Expanded(
                         child: _buildDropdownField(
-                          label: 'Ngày nghỉ có lương:',
-                          value: paidLeaveType,
+                          label: 'Tăng ca làm thêm giờ:',
+                          value: hourlyOvertimeType,
                           items: const [
-                            DropdownMenuItem(value: 'sunday', child: Text('Chủ nhật')),
-                            DropdownMenuItem(value: 'saturday', child: Text('Thứ bảy')),
-                            DropdownMenuItem(value: 'sat-sun', child: Text('Thứ bảy & Chủ nhật')),
-                            DropdownMenuItem(value: 'sat-afternoon-sun', child: Text('Chiều thứ 7 & Chủ nhật')),
-                            DropdownMenuItem(value: 'off-1', child: Text('Nghỉ 1 ngày/tháng')),
-                            DropdownMenuItem(value: 'off-2', child: Text('Nghỉ 2 ngày/tháng')),
-                            DropdownMenuItem(value: 'off-3', child: Text('Nghỉ 3 ngày/tháng')),
-                            DropdownMenuItem(value: 'off-4', child: Text('Nghỉ 4 ngày/tháng')),
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định giờ')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                            DropdownMenuItem(
+                                value: '2', child: Text('Không tính tăng ca')),
                           ],
-                          onChanged: (value) => setDialogState(() => paidLeaveType = value ?? 'sunday'),
+                          onChanged: (value) => setDialogState(
+                              () => hourlyOvertimeType = value ?? '1'),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildDropdownField(
-                          label: 'Chấm công:',
-                          value: attendanceMode,
-                          items: const [
-                            DropdownMenuItem(value: 'none', child: Text('Không chấm công')),
-                            DropdownMenuItem(value: 'checkin', child: Text('Chấm vào')),
-                            DropdownMenuItem(value: 'checkout', child: Text('Chấm ra')),
-                            DropdownMenuItem(value: 'both', child: Text('Chấm vào & Chấm ra')),
-                            DropdownMenuItem(value: 'any', child: Text('Chấm bất kỳ trong ca')),
-                          ],
-                          onChanged: (value) => setDialogState(() => attendanceMode = value ?? 'checkin'),
-                        ),
-                      ),
+                      if (hourlyOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền giờ tăng ca:',
+                                controller: hourlyOvertimeFixedRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // Ca làm việc & Số ca / 1 công
+                  // Đóng BHXH
                   Row(
                     children: [
                       Expanded(
-                        child: _buildShiftSelector(
-                          selectedShifts: selectedShifts,
-                          onChanged: (shifts) => setDialogState(() => selectedShifts = shifts),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
                         child: _buildDropdownField(
-                          label: 'Số ca / 1 công:',
-                          value: shiftsPerDay,
+                          label: 'Đóng bảo hiểm xã hội:',
+                          value: socialInsuranceType,
                           items: const [
-                            DropdownMenuItem(value: '1', child: Text('1')),
-                            DropdownMenuItem(value: '2', child: Text('2')),
-                            DropdownMenuItem(value: '3', child: Text('3')),
-                            DropdownMenuItem(value: '4', child: Text('4')),
+                            DropdownMenuItem(
+                                value: '0', child: Text('Chưa đóng BHXH')),
+                            DropdownMenuItem(
+                                value: '1', child: Text('Đóng lương cơ bản')),
+                            DropdownMenuItem(
+                                value: '2',
+                                child:
+                                    Text('Lương cơ bản và Lương hoàn thành')),
+                            DropdownMenuItem(
+                                value: '3',
+                                child: Text('Lương tối thiểu vùng')),
+                            DropdownMenuItem(
+                                value: '4', child: Text('Mức lương khác')),
                           ],
-                          onChanged: (value) => setDialogState(() => shiftsPerDay = value ?? '1'),
+                          onChanged: (value) => setDialogState(
+                              () => socialInsuranceType = value ?? '0'),
                         ),
                       ),
+                      if (socialInsuranceType == '4') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Mức lương đóng BHXH:',
+                                controller: insuranceSalaryController,
+                                keyboardType: TextInputType.number)),
+                      ],
                     ],
                   ),
+                  if (socialInsuranceType != '0') ...[
+                    const SizedBox(height: 8),
+                    _buildInsuranceSalaryDisplay(
+                        socialInsuranceType,
+                        baseSalaryController,
+                        completionSalaryController,
+                        insuranceSalaryController),
+                  ],
                 ],
-              ),
-            );
-          Future<void> onSave() async {
-                Navigator.pop(dialogContext);
 
-                try {
-                  // Build benefit data based on salary type
-                  final rateType = int.parse(salaryType);
-                  double rate = 0;
+                // ====== LƯƠNG NGÀY ======
+                if (salaryType == '2') ...[
+                  _buildTextField(
+                      label: 'Lương cố định ngày:',
+                      controller: dailyFixedRateController,
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 16),
 
-                  if (rateType == 1) {
-                    rate = double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
-                  } else if (rateType == 0) {
-                    rate = double.tryParse(hourlyRateController.text.replaceAll('.', '')) ?? 0;
-                  } else if (rateType == 2) {
-                    rate = double.tryParse(dailyFixedRateController.text.replaceAll('.', '')) ?? 0;
-                  } else if (rateType == 3) {
-                    final shiftType = int.parse(shiftSalaryType);
-                    if (shiftType == 0) {
-                      rate = double.tryParse(fixedShiftRateController.text.replaceAll('.', '')) ?? 0;
-                    } else {
-                      // Shift template: use 1 as placeholder to pass validation
-                      rate = 1;
-                    }
-                  }
+                  // Tăng ca ngày nghỉ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca ngày nghỉ:',
+                          value: holidayOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định ngày')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => holidayOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (holidayOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền công ngày tăng ca:',
+                                controller: holidayOvertimeDailyRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                  final fixedAllowance = double.tryParse(fixedAllowanceController.text.replaceAll('.', '')) ?? 0;
-                  final dailyAllowance = double.tryParse(dailyAllowanceController.text.replaceAll('.', '')) ?? 0;
+                  // Tăng ca làm thêm giờ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca làm thêm giờ:',
+                          value: hourlyOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định giờ')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                            DropdownMenuItem(
+                                value: '2', child: Text('Không tính tăng ca')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => hourlyOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (hourlyOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền giờ tăng ca:',
+                                controller: hourlyOvertimeFixedRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Đóng BHXH cho lương ngày
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Đóng bảo hiểm xã hội:',
+                          value: socialInsuranceType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Chưa đóng BHXH')),
+                            DropdownMenuItem(
+                                value: '3',
+                                child: Text('Lương tối thiểu vùng')),
+                            DropdownMenuItem(
+                                value: '4', child: Text('Mức lương khác')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => socialInsuranceType = value ?? '0'),
+                        ),
+                      ),
+                      if (socialInsuranceType == '4') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Mức lương đóng BHXH:',
+                                controller: insuranceSalaryController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  if (socialInsuranceType != '0') ...[
+                    const SizedBox(height: 8),
+                    _buildInsuranceSalaryDisplay(
+                        socialInsuranceType,
+                        baseSalaryController,
+                        completionSalaryController,
+                        insuranceSalaryController),
+                  ],
+                ],
 
-                  // Map paidLeaveType to weeklyOffDays for backward compatibility
-                  String weeklyOffDays = 'Sunday';
-                  if (paidLeaveType == 'saturday') {
-                    weeklyOffDays = 'Saturday';
-                  } else if (paidLeaveType == 'sat-sun') {
-                    weeklyOffDays = 'Saturday,Sunday';
-                  } else if (paidLeaveType == 'sat-afternoon-sun') {
-                    weeklyOffDays = 'Saturday,Sunday';
-                  }
+                // ====== LƯƠNG CA ======
+                if (salaryType == '3') ...[
+                  _buildDropdownField(
+                    label: 'Kiểu tính lương:',
+                    value: shiftSalaryType,
+                    items: const [
+                      DropdownMenuItem(
+                          value: '0', child: Text('Lương ca cố định')),
+                      DropdownMenuItem(
+                          value: '1', child: Text('Lương theo ca')),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => shiftSalaryType = value ?? '0'),
+                  ),
+                  const SizedBox(height: 16),
+                  if (shiftSalaryType == '0')
+                    _buildTextField(
+                        label: 'Tiền lương mỗi ca:',
+                        controller: fixedShiftRateController,
+                        keyboardType: TextInputType.number),
+                  if (shiftSalaryType == '1') _buildShiftSalaryLevelsInfo(),
+                  const SizedBox(height: 16),
 
-                  // Build description with shifts info
-                  final descParts = <String>[];
-                  descParts.add('attendanceType:$attendanceMode');
-                  if (selectedShifts.isNotEmpty) {
-                    descParts.add('shifts:${selectedShifts.join(', ')}');
-                  }
-                  descParts.add('shiftsPerDay:$shiftsPerDay');
-                  final description = descParts.join('|');
+                  // Tăng ca ngày nghỉ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca ngày nghỉ:',
+                          value: holidayOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định ngày')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => holidayOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (holidayOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền công ngày tăng ca:',
+                                controller: holidayOvertimeDailyRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                  final benefitData = {
-                    'name': 'Lương ${employee['fullName']}',
-                    'description': description,
-                    'rateType': rateType,
-                    'rate': rate,
-                    'currency': 'VND',
-                    'mealAllowance': fixedAllowance,
-                    'responsibilityAllowance': dailyAllowance,
-                    'weeklyOffDays': weeklyOffDays,
-                    // New fields
-                    'completionSalary': double.tryParse(completionSalaryController.text.replaceAll('.', '')) ?? 0,
-                    'holidayOvertimeType': int.parse(holidayOvertimeType),
-                    'holidayOvertimeDailyRate': double.tryParse(holidayOvertimeDailyRateController.text.replaceAll('.', '')) ?? 0,
-                    'hourlyOvertimeType': int.parse(hourlyOvertimeType),
-                    'hourlyOvertimeFixedRate': double.tryParse(hourlyOvertimeFixedRateController.text.replaceAll('.', '')) ?? 0,
-                    'socialInsuranceType': int.parse(socialInsuranceType),
-                    'insuranceSalary': _calculateInsuranceSalary(
-                      socialInsuranceType,
-                      rate,
-                      double.tryParse(completionSalaryController.text.replaceAll('.', '')) ?? 0,
-                      double.tryParse(insuranceSalaryController.text.replaceAll('.', '')) ?? 0,
+                  // Tăng ca làm thêm giờ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca làm thêm giờ:',
+                          value: hourlyOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định giờ')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                            DropdownMenuItem(
+                                value: '2', child: Text('Không tính tăng ca')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => hourlyOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (hourlyOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền giờ tăng ca:',
+                                controller: hourlyOvertimeFixedRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Đóng BHXH cho lương ca
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Đóng bảo hiểm xã hội:',
+                          value: socialInsuranceType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Chưa đóng BHXH')),
+                            DropdownMenuItem(
+                                value: '3',
+                                child: Text('Lương tối thiểu vùng')),
+                            DropdownMenuItem(
+                                value: '4', child: Text('Mức lương khác')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => socialInsuranceType = value ?? '0'),
+                        ),
+                      ),
+                      if (socialInsuranceType == '4') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Mức lương đóng BHXH:',
+                                controller: insuranceSalaryController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  if (socialInsuranceType != '0') ...[
+                    const SizedBox(height: 8),
+                    _buildInsuranceSalaryDisplay(
+                        socialInsuranceType,
+                        baseSalaryController,
+                        completionSalaryController,
+                        insuranceSalaryController),
+                  ],
+                ],
+
+                // ====== LƯƠNG GIỜ ======
+                if (salaryType == '0') ...[
+                  _buildTextField(
+                      label: 'Lương theo giờ:',
+                      controller: hourlyRateController,
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 16),
+
+                  // Tăng ca làm thêm giờ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Tăng ca làm thêm giờ:',
+                          value: hourlyOvertimeType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Cố định giờ')),
+                            DropdownMenuItem(
+                                value: '1',
+                                child: Text('Hệ số tăng ca theo luật')),
+                            DropdownMenuItem(
+                                value: '2', child: Text('Không tính tăng ca')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => hourlyOvertimeType = value ?? '1'),
+                        ),
+                      ),
+                      if (hourlyOvertimeType == '0') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Tiền giờ tăng ca:',
+                                controller: hourlyOvertimeFixedRateController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Đóng BHXH cho lương giờ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          label: 'Đóng bảo hiểm xã hội:',
+                          value: socialInsuranceType,
+                          items: const [
+                            DropdownMenuItem(
+                                value: '0', child: Text('Chưa đóng BHXH')),
+                            DropdownMenuItem(
+                                value: '3',
+                                child: Text('Lương tối thiểu vùng')),
+                            DropdownMenuItem(
+                                value: '4', child: Text('Mức lương khác')),
+                          ],
+                          onChanged: (value) => setDialogState(
+                              () => socialInsuranceType = value ?? '0'),
+                        ),
+                      ),
+                      if (socialInsuranceType == '4') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildTextField(
+                                label: 'Mức lương đóng BHXH:',
+                                controller: insuranceSalaryController,
+                                keyboardType: TextInputType.number)),
+                      ],
+                    ],
+                  ),
+                  if (socialInsuranceType != '0') ...[
+                    const SizedBox(height: 8),
+                    _buildInsuranceSalaryDisplay(
+                        socialInsuranceType,
+                        baseSalaryController,
+                        completionSalaryController,
+                        insuranceSalaryController),
+                  ],
+                ],
+
+                const SizedBox(height: 16),
+                const Divider(color: Color(0xFFE4E4E7)),
+                const SizedBox(height: 8),
+
+                // === COMMON FIELDS ===
+
+                // Phụ cấp
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextFieldWithIcon(
+                        label: 'Phụ cấp cố định:',
+                        controller: fixedAllowanceController,
+                        keyboardType: TextInputType.number,
+                        readOnly: true,
+                        onCalculatePressed: () => _showAllowancePickerDialog(
+                          allowanceType: 0,
+                          controller: fixedAllowanceController,
+                          setDialogState: setDialogState,
+                          employeeId: employeeId,
+                        ),
+                      ),
                     ),
-                    'dailyFixedRate': double.tryParse(dailyFixedRateController.text.replaceAll('.', '')) ?? 0,
-                    'shiftSalaryType': int.parse(shiftSalaryType),
-                    'fixedShiftRate': double.tryParse(fixedShiftRateController.text.replaceAll('.', '')) ?? 0,
-                    'shiftsPerDay': int.parse(shiftsPerDay),
-                    'attendanceMode': attendanceMode,
-                    'paidLeaveType': paidLeaveType,
-                    'isActive': true,
-                  };
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextFieldWithIcon(
+                        label: 'Phụ cấp theo ngày:',
+                        controller: dailyAllowanceController,
+                        keyboardType: TextInputType.number,
+                        readOnly: true,
+                        onCalculatePressed: () => _showAllowancePickerDialog(
+                          allowanceType: 1,
+                          controller: dailyAllowanceController,
+                          setDialogState: setDialogState,
+                          employeeId: employeeId,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                  Map<String, dynamic> result;
-                  String? benefitId = employee['benefitId']?.toString();
+                // Ngày nghỉ có lương & Chấm công
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDropdownField(
+                        label: 'Ngày nghỉ có lương:',
+                        value: paidLeaveType,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'sunday', child: Text('Chủ nhật')),
+                          DropdownMenuItem(
+                              value: 'saturday', child: Text('Thứ bảy')),
+                          DropdownMenuItem(
+                              value: 'sat-sun',
+                              child: Text('Thứ bảy & Chủ nhật')),
+                          DropdownMenuItem(
+                              value: 'sat-afternoon-sun',
+                              child: Text('Chiều thứ 7 & Chủ nhật')),
+                          DropdownMenuItem(
+                              value: 'off-1', child: Text('Nghỉ 1 ngày/tháng')),
+                          DropdownMenuItem(
+                              value: 'off-2', child: Text('Nghỉ 2 ngày/tháng')),
+                          DropdownMenuItem(
+                              value: 'off-3', child: Text('Nghỉ 3 ngày/tháng')),
+                          DropdownMenuItem(
+                              value: 'off-4', child: Text('Nghỉ 4 ngày/tháng')),
+                        ],
+                        onChanged: (value) => setDialogState(
+                            () => paidLeaveType = value ?? 'sunday'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDropdownField(
+                        label: 'Chấm công:',
+                        value: attendanceMode,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'none', child: Text('Không chấm công')),
+                          DropdownMenuItem(
+                              value: 'checkin', child: Text('Chấm vào')),
+                          DropdownMenuItem(
+                              value: 'checkout', child: Text('Chấm ra')),
+                          DropdownMenuItem(
+                              value: 'both', child: Text('Chấm vào & Chấm ra')),
+                          DropdownMenuItem(
+                              value: 'any',
+                              child: Text('Chấm bất kỳ trong ca')),
+                        ],
+                        onChanged: (value) => setDialogState(
+                            () => attendanceMode = value ?? 'checkin'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                  if (benefitId != null && benefitId.isNotEmpty) {
-                    result = await _apiService.updateSalaryProfile(benefitId, benefitData);
-                  } else {
-                    result = await _apiService.createSalaryProfile(benefitData);
-                    if (result['isSuccess'] == true && result['data'] != null) {
-                      benefitId = result['data']['id']?.toString();
-                    }
-                  }
+                // Ca làm việc & Số ca / 1 công
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildShiftSelector(
+                        selectedShifts: selectedShifts,
+                        onChanged: (shifts) =>
+                            setDialogState(() => selectedShifts = shifts),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDropdownField(
+                        label: 'Số ca / 1 công:',
+                        value: shiftsPerDay,
+                        items: const [
+                          DropdownMenuItem(value: '1', child: Text('1')),
+                          DropdownMenuItem(value: '2', child: Text('2')),
+                          DropdownMenuItem(value: '3', child: Text('3')),
+                          DropdownMenuItem(value: '4', child: Text('4')),
+                        ],
+                        onChanged: (value) =>
+                            setDialogState(() => shiftsPerDay = value ?? '1'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+          Future<void> onSave() async {
+            Navigator.pop(dialogContext);
 
-                  if (result['isSuccess'] == true && benefitId != null) {
-                    // Only assign if not already assigned to this benefit
-                    final existingBenefitId = employee['benefitId']?.toString();
-                    if (existingBenefitId != null && existingBenefitId == benefitId) {
-                      // Already assigned, just reload
-                      appNotification.showSuccess(
-                        title: 'Thành công',
-                        message: 'Đã cập nhật thiết lập lương',
-                      );
-                      _loadData();
-                    } else {
-                    final assignResult = await _apiService.assignSalaryProfile({
-                      'employeeId': employee['id'],
-                      'benefitId': benefitId,
-                      'effectiveDate': DateTime.now().toIso8601String(),
-                    });
+            try {
+              // Build benefit data based on salary type
+              final rateType = int.parse(salaryType);
+              double rate = 0;
 
-                    if (assignResult['isSuccess'] == true) {
-                      appNotification.showSuccess(
-                        title: 'Thành công',
-                        message: 'Đã cập nhật thiết lập lương',
-                      );
-                      _loadData();
-                    } else {
-                      appNotification.showError(
-                        title: 'Lỗi',
-                        message: assignResult['message'] ?? 'Không thể gán profile lương',
-                      );
-                    }
-                    }
+              if (rateType == 1) {
+                rate = double.tryParse(
+                        baseSalaryController.text.replaceAll('.', '')) ??
+                    0;
+              } else if (rateType == 0) {
+                rate = double.tryParse(
+                        hourlyRateController.text.replaceAll('.', '')) ??
+                    0;
+              } else if (rateType == 2) {
+                rate = double.tryParse(
+                        dailyFixedRateController.text.replaceAll('.', '')) ??
+                    0;
+              } else if (rateType == 3) {
+                final shiftType = int.parse(shiftSalaryType);
+                if (shiftType == 0) {
+                  rate = double.tryParse(
+                          fixedShiftRateController.text.replaceAll('.', '')) ??
+                      0;
+                } else {
+                  // Shift template: use 1 as placeholder to pass validation
+                  rate = 1;
+                }
+              }
+
+              final fixedAllowance = double.tryParse(
+                      fixedAllowanceController.text.replaceAll('.', '')) ??
+                  0;
+              final dailyAllowance = double.tryParse(
+                      dailyAllowanceController.text.replaceAll('.', '')) ??
+                  0;
+
+              // Map paidLeaveType to weeklyOffDays for backward compatibility
+              String weeklyOffDays = 'Sunday';
+              if (paidLeaveType == 'saturday') {
+                weeklyOffDays = 'Saturday';
+              } else if (paidLeaveType == 'sat-sun') {
+                weeklyOffDays = 'Saturday,Sunday';
+              } else if (paidLeaveType == 'sat-afternoon-sun') {
+                weeklyOffDays = 'Saturday,Sunday';
+              }
+
+              // Build description with shifts info
+              final descParts = <String>[];
+              descParts.add('attendanceType:$attendanceMode');
+              if (selectedShifts.isNotEmpty) {
+                descParts.add('shifts:${selectedShifts.join(', ')}');
+              }
+              descParts.add('shiftsPerDay:$shiftsPerDay');
+              final description = descParts.join('|');
+
+              final benefitData = {
+                'name': 'Lương ${employee['fullName']}',
+                'description': description,
+                'rateType': rateType,
+                'rate': rate,
+                'currency': 'VND',
+                'mealAllowance': fixedAllowance,
+                'responsibilityAllowance': dailyAllowance,
+                'weeklyOffDays': weeklyOffDays,
+                // New fields
+                'completionSalary': double.tryParse(
+                        completionSalaryController.text.replaceAll('.', '')) ??
+                    0,
+                'holidayOvertimeType': int.parse(holidayOvertimeType),
+                'holidayOvertimeDailyRate': double.tryParse(
+                        holidayOvertimeDailyRateController.text
+                            .replaceAll('.', '')) ??
+                    0,
+                'hourlyOvertimeType': int.parse(hourlyOvertimeType),
+                'hourlyOvertimeFixedRate': double.tryParse(
+                        hourlyOvertimeFixedRateController.text
+                            .replaceAll('.', '')) ??
+                    0,
+                'socialInsuranceType': int.parse(socialInsuranceType),
+                'insuranceSalary': _calculateInsuranceSalary(
+                  socialInsuranceType,
+                  rate,
+                  double.tryParse(completionSalaryController.text
+                          .replaceAll('.', '')) ??
+                      0,
+                  double.tryParse(
+                          insuranceSalaryController.text.replaceAll('.', '')) ??
+                      0,
+                ),
+                'dailyFixedRate': double.tryParse(
+                        dailyFixedRateController.text.replaceAll('.', '')) ??
+                    0,
+                'shiftSalaryType': int.parse(shiftSalaryType),
+                'fixedShiftRate': double.tryParse(
+                        fixedShiftRateController.text.replaceAll('.', '')) ??
+                    0,
+                'shiftsPerDay': int.parse(shiftsPerDay),
+                'attendanceMode': attendanceMode,
+                'paidLeaveType': paidLeaveType,
+                'isActive': true,
+              };
+
+              Map<String, dynamic> result;
+              String? benefitId = employee['benefitId']?.toString();
+
+              if (benefitId != null && benefitId.isNotEmpty) {
+                result = await _apiService.updateSalaryProfile(
+                    benefitId, benefitData);
+              } else {
+                result = await _apiService.createSalaryProfile(benefitData);
+                if (result['isSuccess'] == true && result['data'] != null) {
+                  benefitId = result['data']['id']?.toString();
+                }
+              }
+
+              if (result['isSuccess'] == true && benefitId != null) {
+                // Only assign if not already assigned to this benefit
+                final existingBenefitId = employee['benefitId']?.toString();
+                if (existingBenefitId != null &&
+                    existingBenefitId == benefitId) {
+                  // Already assigned, just reload
+                  appNotification.showSuccess(
+                    title: 'Thành công',
+                    message: 'Đã cập nhật thiết lập lương',
+                  );
+                  _loadData();
+                } else {
+                  final assignResult = await _apiService.assignSalaryProfile({
+                    'employeeId': employee['id'],
+                    'benefitId': benefitId,
+                    'effectiveDate': DateTime.now().toIso8601String(),
+                  });
+
+                  if (assignResult['isSuccess'] == true) {
+                    appNotification.showSuccess(
+                      title: 'Thành công',
+                      message: 'Đã cập nhật thiết lập lương',
+                    );
+                    _loadData();
                   } else {
                     appNotification.showError(
                       title: 'Lỗi',
-                      message: result['message'] ?? 'Không thể lưu thiết lập',
+                      message: assignResult['message'] ??
+                          'Không thể gán profile lương',
                     );
                   }
-                } catch (e) {
-                  appNotification.showError(
-                    title: 'Lỗi',
-                    message: 'Có lỗi xảy ra: $e',
-                  );
                 }
+              } else {
+                appNotification.showError(
+                  title: 'Lỗi',
+                  message: result['message'] ?? 'Không thể lưu thiết lập',
+                );
               }
+            } catch (e) {
+              appNotification.showError(
+                title: 'Lỗi',
+                message: 'Có lỗi xảy ra: $e',
+              );
+            }
+          }
+
           if (isMobileEdit) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
@@ -2403,7 +2914,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 child: Scaffold(
                   appBar: AppBar(
                     title: const Text('Chỉnh sửa thiết lập lương'),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogContext)),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(dialogContext)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
@@ -2411,7 +2924,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Hủy')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: const Text('Hủy')),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: onSave,
@@ -2420,7 +2935,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1E3A5F),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ],
@@ -2432,7 +2948,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           }
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
                 const Icon(Icons.edit, color: Color(0xFF1E3A5F)),
@@ -2458,7 +2975,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                child: const Text('Hủy',
+                    style: TextStyle(color: Color(0xFF71717A))),
               ),
               ElevatedButton.icon(
                 onPressed: onSave,
@@ -2466,193 +2984,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 label: const Text('Lưu'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Copy salary settings from one employee to many
-  // ---------------------------------------------------------------------------
-  void _showCopyDialog(Map<String, dynamic> source) {
-    final sourceId = source['id']?.toString() ?? '';
-    final sourceBenefit =
-        source['benefit'] as Map<String, dynamic>? ?? <String, dynamic>{};
-    if (sourceBenefit.isEmpty) {
-      appNotification.showWarning(
-        title: 'Chưa có thiết lập',
-        message: 'Nhân viên này chưa có cấu hình lương để sao chép',
-      );
-      return;
-    }
-
-    final targets = _employeeSalaries
-        .where((e) => e['id']?.toString() != sourceId)
-        .toList();
-    final selectedIds = <String>{};
-    String search = '';
-    bool overwrite = true;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final filtered = targets.where((e) {
-            if (search.isEmpty) return true;
-            final q = search.toLowerCase();
-            return (e['fullName']?.toString().toLowerCase().contains(q) ??
-                    false) ||
-                (e['employeeCode']?.toString().toLowerCase().contains(q) ??
-                    false);
-          }).toList();
-          final allFilteredIds =
-              filtered.map((e) => e['id']?.toString() ?? '').toSet();
-          final allChecked = allFilteredIds.isNotEmpty &&
-              allFilteredIds.every(selectedIds.contains);
-
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            title: Row(
-              children: [
-                const Icon(Icons.content_copy, color: Color(0xFF0EA5E9)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Sao chép lương từ: ${source['fullName'] ?? ''}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Tìm theo tên hoặc mã NV...',
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onChanged: (v) => setDialogState(() => search = v),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: allChecked,
-                        onChanged: (v) => setDialogState(() {
-                          if (v == true) {
-                            selectedIds.addAll(allFilteredIds);
-                          } else {
-                            selectedIds.removeAll(allFilteredIds);
-                          }
-                        }),
-                      ),
-                      const Text('Chọn tất cả',
-                          style: TextStyle(fontSize: 13)),
-                      const Spacer(),
-                      Text('Đã chọn: ${selectedIds.length}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A))),
-                    ],
-                  ),
-                  const Divider(height: 1),
-                  SizedBox(
-                    height: 320,
-                    child: filtered.isEmpty
-                        ? const Center(
-                            child: Text('Không có nhân viên',
-                                style: TextStyle(color: Color(0xFF71717A))))
-                        : ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (_, i) {
-                              final e = filtered[i];
-                              final id = e['id']?.toString() ?? '';
-                              final isConfigured = e['isConfigured'] == true;
-                              return CheckboxListTile(
-                                dense: true,
-                                value: selectedIds.contains(id),
-                                onChanged: (v) => setDialogState(() {
-                                  if (v == true) {
-                                    selectedIds.add(id);
-                                  } else {
-                                    selectedIds.remove(id);
-                                  }
-                                }),
-                                title: Text(
-                                  e['fullName']?.toString() ?? '',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                subtitle: Text(
-                                  '${e['employeeCode'] ?? ''}'
-                                  '${isConfigured ? '  •  Đã thiết lập (sẽ ghi đè)' : ''}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isConfigured
-                                        ? const Color(0xFFF59E0B)
-                                        : const Color(0xFF71717A),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                  const Divider(height: 1),
-                  CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    value: overwrite,
-                    onChanged: (v) =>
-                        setDialogState(() => overwrite = v ?? true),
-                    title: const Text('Ghi đè cấu hình hiện có',
-                        style: TextStyle(fontSize: 13)),
-                    subtitle: const Text(
-                      'Bỏ chọn để giữ nguyên những NV đã có thiết lập',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Hủy',
-                    style: TextStyle(color: Color(0xFF71717A))),
-              ),
-              ElevatedButton.icon(
-                onPressed: selectedIds.isEmpty
-                    ? null
-                    : () async {
-                        Navigator.pop(dialogContext);
-                        await _runCopySalary(
-                          source: source,
-                          sourceBenefit: sourceBenefit,
-                          targetIds: selectedIds.toList(),
-                          overwrite: overwrite,
-                        );
-                      },
-                icon: const Icon(Icons.content_copy, size: 16),
-                label: Text('Sao chép (${selectedIds.length})'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0EA5E9),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -2665,162 +2996,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
-  Map<String, dynamic> _buildBenefitPayloadFromSource(
-    Map<String, dynamic> sourceBenefit,
-    Map<String, dynamic> targetEmployee,
-  ) {
-    num? n(dynamic v) => v is num ? v : num.tryParse(v?.toString() ?? '');
-    int? i(dynamic v) => v is int ? v : int.tryParse(v?.toString() ?? '');
-    return <String, dynamic>{
-      'name': 'Lương ${targetEmployee['fullName'] ?? ''}',
-      'description': sourceBenefit['description'],
-      'rateType': i(sourceBenefit['rateType']) ?? 1,
-      'rate': n(sourceBenefit['rate']) ?? 0,
-      'currency': sourceBenefit['currency'] ?? 'VND',
-      'mealAllowance': n(sourceBenefit['mealAllowance']) ?? 0,
-      'responsibilityAllowance':
-          n(sourceBenefit['responsibilityAllowance']) ?? 0,
-      'weeklyOffDays': sourceBenefit['weeklyOffDays'] ?? 'Sunday',
-      'completionSalary': n(sourceBenefit['completionSalary']) ?? 0,
-      'holidayOvertimeType': i(sourceBenefit['holidayOvertimeType']) ?? 1,
-      'holidayOvertimeDailyRate':
-          n(sourceBenefit['holidayOvertimeDailyRate']) ?? 0,
-      'hourlyOvertimeType': i(sourceBenefit['hourlyOvertimeType']) ?? 1,
-      'hourlyOvertimeFixedRate':
-          n(sourceBenefit['hourlyOvertimeFixedRate']) ?? 0,
-      'socialInsuranceType': i(sourceBenefit['socialInsuranceType']) ?? 0,
-      'insuranceSalary': n(sourceBenefit['insuranceSalary']) ?? 0,
-      'dailyFixedRate': n(sourceBenefit['dailyFixedRate']) ?? 0,
-      'shiftSalaryType': i(sourceBenefit['shiftSalaryType']) ?? 0,
-      'fixedShiftRate': n(sourceBenefit['fixedShiftRate']) ?? 0,
-      'shiftsPerDay': i(sourceBenefit['shiftsPerDay']) ?? 2,
-      'attendanceMode': sourceBenefit['attendanceMode'] ?? 'both',
-      'paidLeaveType': sourceBenefit['paidLeaveType'] ?? 'sunday',
-      'isActive': true,
-    };
-  }
-
-  Future<void> _runCopySalary({
-    required Map<String, dynamic> source,
-    required Map<String, dynamic> sourceBenefit,
-    required List<String> targetIds,
-    required bool overwrite,
-  }) async {
-    int success = 0;
-    int skipped = 0;
-    final failed = <String>[];
-
-    final progressNotifier = ValueNotifier<int>(0);
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        content: ValueListenableBuilder<int>(
-          valueListenable: progressNotifier,
-          builder: (_, value, __) => SizedBox(
-            width: 320,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Đang sao chép thiết lập lương...',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                LinearProgressIndicator(
-                  value: targetIds.isEmpty ? 0 : value / targetIds.length,
-                ),
-                const SizedBox(height: 8),
-                Text('$value / ${targetIds.length}',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    try {
-      for (final targetId in targetIds) {
-        final target = _employeeSalaries.firstWhere(
-          (e) => e['id']?.toString() == targetId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (target.isEmpty) {
-          failed.add(targetId);
-          progressNotifier.value++;
-          continue;
-        }
-
-        final existingBenefitId = target['benefitId']?.toString();
-        final hasExisting =
-            existingBenefitId != null && existingBenefitId.isNotEmpty;
-        if (hasExisting && !overwrite) {
-          skipped++;
-          progressNotifier.value++;
-          continue;
-        }
-
-        final payload =
-            _buildBenefitPayloadFromSource(sourceBenefit, target);
-
-        try {
-          Map<String, dynamic> result;
-          String? benefitId;
-          if (hasExisting) {
-            result = await _apiService.updateSalaryProfile(
-                existingBenefitId, payload);
-            benefitId = existingBenefitId;
-          } else {
-            result = await _apiService.createSalaryProfile(payload);
-            if (result['isSuccess'] == true && result['data'] != null) {
-              benefitId = result['data']['id']?.toString();
-            }
-          }
-
-          if (result['isSuccess'] != true || benefitId == null) {
-            failed.add(target['fullName']?.toString() ?? targetId);
-          } else if (!hasExisting) {
-            final assignResult = await _apiService.assignSalaryProfile({
-              'employeeId': target['id'],
-              'benefitId': benefitId,
-              'effectiveDate': DateTime.now().toIso8601String(),
-            });
-            if (assignResult['isSuccess'] != true) {
-              failed.add(target['fullName']?.toString() ?? targetId);
-            } else {
-              success++;
-            }
-          } else {
-            success++;
-          }
-        } catch (_) {
-          failed.add(target['fullName']?.toString() ?? targetId);
-        }
-        progressNotifier.value++;
-      }
-    } finally {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      progressNotifier.dispose();
-    }
-
-    if (failed.isEmpty) {
-      appNotification.showSuccess(
-        title: 'Thành công',
-        message: skipped > 0
-            ? 'Đã sao chép $success NV, bỏ qua $skipped NV đã có thiết lập'
-            : 'Đã sao chép thiết lập lương cho $success nhân viên',
-      );
-    } else {
-      appNotification.showWarning(
-        title: 'Hoàn tất với lỗi',
-        message:
-            'Thành công: $success • Bỏ qua: $skipped • Lỗi: ${failed.length}',
-      );
-    }
-    await _loadData();
-  }
-
   Widget _buildShiftSalaryLevelsInfo() {
     // Show info about configured shift salary levels
     return Container(
@@ -2828,7 +3003,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+        border:
+            Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2839,25 +3015,33 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               SizedBox(width: 8),
               Text(
                 'Mức lương theo ca đã thiết lập',
-                style: TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600, fontSize: 13),
+                style: TextStyle(
+                    color: Color(0xFF1E3A5F),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 8),
           if (_shifts.isEmpty)
-            const Text('Chưa có ca làm việc nào', style: TextStyle(color: Color(0xFF71717A), fontSize: 12))
+            const Text('Chưa có ca làm việc nào',
+                style: TextStyle(color: Color(0xFF71717A), fontSize: 12))
           else
             ..._shifts.map((shift) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                '• ${shift['name']} (${shift['startTime']} - ${shift['endTime']})',
-                style: const TextStyle(color: Color(0xFF18181B), fontSize: 12),
-              ),
-            )),
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    '• ${shift['name']} (${shift['startTime']} - ${shift['endTime']})',
+                    style:
+                        const TextStyle(color: Color(0xFF18181B), fontSize: 12),
+                  ),
+                )),
           const SizedBox(height: 4),
           const Text(
             'Cấu hình mức lương theo ca tại mục Thiết lập ca',
-            style: TextStyle(color: Color(0xFF71717A), fontSize: 11, fontStyle: FontStyle.italic),
+            style: TextStyle(
+                color: Color(0xFF71717A),
+                fontSize: 11,
+                fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -2899,7 +3083,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           controller: controller,
           keyboardType: keyboardType,
           style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
-          onChanged: isNumeric ? (_) => _formatControllerNumber(controller) : null,
+          onChanged:
+              isNumeric ? (_) => _formatControllerNumber(controller) : null,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
@@ -2947,10 +3132,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 keyboardType: keyboardType,
                 readOnly: readOnly,
                 style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
-                onChanged: (isNumeric && !readOnly) ? (_) => _formatControllerNumber(controller) : null,
+                onChanged: (isNumeric && !readOnly)
+                    ? (_) => _formatControllerNumber(controller)
+                    : null,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: readOnly ? const Color(0xFFEEF2F6) : const Color(0xFFFAFAFA),
+                  fillColor: readOnly
+                      ? const Color(0xFFEEF2F6)
+                      : const Color(0xFFFAFAFA),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -2974,8 +3163,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
               ),
               child: IconButton(
                 icon: const Icon(Icons.calculate, color: Color(0xFF1E3A5F)),
@@ -2990,42 +3179,26 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   }
 
   // Calculate total allowances for an employee by type
-  /// API trả về enum `Type` dưới dạng String ("Fixed", "Daily", "Hourly",
-  /// "PerEvent") vì server cấu hình `JsonStringEnumConverter`. Hand lại
-  /// về int 0..3 để dùng cho lọc & tính tổng.
-  int _parseAllowanceType(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) {
-      final s = value.toLowerCase();
-      if (s == 'fixed' || s == '0') return 0;
-      if (s == 'daily' || s == '1') return 1;
-      if (s == 'hourly' || s == '2') return 2;
-      if (s == 'perevent' || s == 'per_event' || s == '3') return 3;
-      final parsed = int.tryParse(value);
-      if (parsed != null) return parsed;
-    }
-    return 0;
-  }
-
-  double _calculateEmployeeAllowanceTotal(String employeeId, int allowanceType) {
+  double _calculateEmployeeAllowanceTotal(
+      String employeeId, int allowanceType) {
     double total = 0;
     for (final a in _allowances) {
-      final type = _parseAllowanceType(a['type']);
+      final type = a['type'] is int
+          ? a['type']
+          : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
       final isActive = a['isActive'] ?? true;
       if (type != allowanceType || !isActive) continue;
 
       if (_isAllowanceAssignedToEmployee(a, employeeId)) {
-        total += (a['amount'] is num
-                ? (a['amount'] as num).toDouble()
-                : double.tryParse(a['amount']?.toString() ?? '') ?? 0);
+        total += (a['amount'] as num?)?.toDouble() ?? 0;
       }
     }
     return total;
   }
 
   // Check if an allowance is assigned to an employee
-  bool _isAllowanceAssignedToEmployee(Map<String, dynamic> allowance, String employeeId) {
+  bool _isAllowanceAssignedToEmployee(
+      Map<String, dynamic> allowance, String employeeId) {
     final employeeIdsRaw = allowance['employeeIds'];
     if (employeeIdsRaw == null) return true; // null = all employees
 
@@ -3058,17 +3231,19 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           builder: (context, setPickerState) {
             // Filter allowances by type and assigned to this employee
             final assignedAllowances = _allowances.where((a) {
-              final type = _parseAllowanceType(a['type']);
+              final type = a['type'] is int
+                  ? a['type']
+                  : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
               final isActive = a['isActive'] ?? true;
-              return type == allowanceType && isActive && _isAllowanceAssignedToEmployee(a, employeeId);
+              return type == allowanceType &&
+                  isActive &&
+                  _isAllowanceAssignedToEmployee(a, employeeId);
             }).toList();
 
             // Calculate total
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] is num
-                  ? (allowance['amount'] as num).toDouble()
-                  : double.tryParse(allowance['amount']?.toString() ?? '') ?? 0);
+              total += (allowance['amount'] as num).toDouble();
             }
 
             final headerRow = Row(
@@ -3121,7 +3296,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
+                          Icon(Icons.inbox_outlined,
+                              size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
                           Text(
                             'Chưa có phụ cấp ${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán',
@@ -3144,7 +3320,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -3166,16 +3343,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        subtitle: allowance['code'] != null && allowance['code'].toString().isNotEmpty
+                        subtitle: allowance['code'] != null &&
+                                allowance['code'].toString().isNotEmpty
                             ? Text(
                                 'Mã: ${allowance['code']}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 12),
                               )
                             : null,
                         trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -3200,11 +3381,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color:
+                              const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3236,7 +3420,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           onPressed: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const AllowanceSettingsScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const AllowanceSettingsScreen()),
                             );
                           },
                           icon: const Icon(Icons.add, size: 18),
@@ -3245,7 +3431,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             foregroundColor: const Color(0xFF1E3A5F),
                             side: const BorderSide(color: Color(0xFF1E3A5F)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -3257,7 +3444,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             backgroundColor: const Color(0xFF1E3A5F),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('Đóng'),
                         ),
@@ -3275,12 +3463,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: Text(allowanceType == 0 ? 'Phụ cấp cố định' : 'Phụ cấp theo ngày'),
-                      leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                      title: Text(allowanceType == 0
+                          ? 'Phụ cấp cố định'
+                          : 'Phụ cấp theo ngày'),
+                      leading: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context)),
                     ),
                     body: Column(
                       children: [
-                        Padding(padding: const EdgeInsets.all(16), child: headerRow),
+                        Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: headerRow),
                         Expanded(child: listContent),
                       ],
                     ),
@@ -3291,7 +3485,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             }
             return Dialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               child: Container(
                 width: math.min(450, MediaQuery.of(context).size.width - 32),
                 constraints: BoxConstraints(
@@ -3302,7 +3497,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                        border: Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7))),
                       ),
                       child: headerRow,
                     ),
@@ -3338,13 +3534,17 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             return AlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.add_circle_outline, color: Color(0xFF1E3A5F), size: 24),
+                  const Icon(Icons.add_circle_outline,
+                      color: Color(0xFF1E3A5F), size: 24),
                   const SizedBox(width: 8),
                   Text(
                     allowanceType != null
-                        ? (allowanceType == 0 ? 'Thêm phụ cấp cố định' : 'Thêm phụ cấp theo ngày')
+                        ? (allowanceType == 0
+                            ? 'Thêm phụ cấp cố định'
+                            : 'Thêm phụ cấp theo ngày')
                         : 'Thêm phụ cấp mới',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -3358,16 +3558,23 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         initialValue: selectedType,
                         decoration: InputDecoration(
                           labelText: 'Loại phụ cấp *',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 0, child: Text('Phụ cấp cố định')),
-                          DropdownMenuItem(value: 1, child: Text('Phụ cấp theo ngày')),
-                          DropdownMenuItem(value: 2, child: Text('Phụ cấp theo giờ')),
-                          DropdownMenuItem(value: 3, child: Text('Phụ cấp khác')),
+                          DropdownMenuItem(
+                              value: 0, child: Text('Phụ cấp cố định')),
+                          DropdownMenuItem(
+                              value: 1, child: Text('Phụ cấp theo ngày')),
+                          DropdownMenuItem(
+                              value: 2, child: Text('Phụ cấp theo giờ')),
+                          DropdownMenuItem(
+                              value: 3, child: Text('Phụ cấp khác')),
                         ],
-                        onChanged: (v) => setAddState(() => selectedType = v ?? 0),
+                        onChanged: (v) =>
+                            setAddState(() => selectedType = v ?? 0),
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -3376,10 +3583,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       decoration: InputDecoration(
                         labelText: 'Tên phụ cấp *',
                         hintText: 'VD: Phụ cấp ăn trưa',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên phụ cấp' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Vui lòng nhập tên phụ cấp'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -3387,15 +3598,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       decoration: InputDecoration(
                         labelText: 'Số tiền (VNĐ) *',
                         hintText: 'VD: 500000',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                         suffixText: 'đ',
                       ),
                       keyboardType: TextInputType.number,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Vui lòng nhập số tiền';
-                        final amount = double.tryParse(v.replaceAll('.', '').replaceAll(',', ''));
-                        if (amount == null || amount <= 0) return 'Số tiền không hợp lệ';
+                        if (v == null || v.trim().isEmpty)
+                          return 'Vui lòng nhập số tiền';
+                        final amount = double.tryParse(
+                            v.replaceAll('.', '').replaceAll(',', ''));
+                        if (amount == null || amount <= 0)
+                          return 'Số tiền không hợp lệ';
                         return null;
                       },
                     ),
@@ -3415,7 +3631,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           setAddState(() => isSubmitting = true);
                           try {
                             final amount = double.parse(
-                              amountController.text.replaceAll('.', '').replaceAll(',', ''),
+                              amountController.text
+                                  .replaceAll('.', '')
+                                  .replaceAll(',', ''),
                             );
                             final data = {
                               'name': nameController.text.trim(),
@@ -3423,21 +3641,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               'amount': amount,
                               'currency': 'VND',
                               'isActive': true,
-                              'employeeIds': employeeId.isNotEmpty ? [employeeId] : [],
+                              'employeeIds':
+                                  employeeId.isNotEmpty ? [employeeId] : [],
                             };
-                            final result = await _apiService.createAllowanceSetting(data);
+                            final result =
+                                await _apiService.createAllowanceSetting(data);
                             if (result['isSuccess'] == true) {
                               if (context.mounted) Navigator.pop(context);
                               onCreated();
                               appNotification.showSuccess(
                                 title: 'Thành công',
-                                message: 'Đã thêm phụ cấp "${nameController.text.trim()}"',
+                                message:
+                                    'Đã thêm phụ cấp "${nameController.text.trim()}"',
                               );
                             } else {
                               setAddState(() => isSubmitting = false);
                               appNotification.showError(
                                 title: 'Lỗi',
-                                message: result['message'] ?? 'Không thể tạo phụ cấp',
+                                message: result['message'] ??
+                                    'Không thể tạo phụ cấp',
                               );
                             }
                           } catch (e) {
@@ -3453,7 +3675,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     foregroundColor: Colors.white,
                   ),
                   child: isSubmitting
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
                       : const Text('Tạo phụ cấp'),
                 ),
               ],
@@ -3590,7 +3816,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           final actionButtons = [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+              child:
+                  const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
             ),
             ElevatedButton(
               onPressed: () {
@@ -3613,7 +3840,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 child: Scaffold(
                   appBar: AppBar(
                     title: const Text('Chọn ca làm việc'),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context)),
                   ),
                   body: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -3664,7 +3893,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       final oldLength = controller.text.length;
       controller.text = formatted;
       final newLength = formatted.length;
-      final newOffset = (cursorOffset + (newLength - oldLength)).clamp(0, newLength);
+      final newOffset =
+          (cursorOffset + (newLength - oldLength)).clamp(0, newLength);
       controller.selection = TextSelection.collapsed(offset: newOffset);
     }
   }

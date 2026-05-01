@@ -105,6 +105,7 @@ services:
       - Email__ResetPasswordBaseUrl=http://${SERVER_HOST}:${FLUTTER_PORT:-3000}
       - DatabaseTools__PgDumpPath=pg_dump
       - DatabaseTools__PgRestorePath=pg_restore
+      - Fcm__CredentialPath=/app/secrets/fcm-service-account.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,6 +116,7 @@ services:
     restart: unless-stopped
     volumes:
       - api_uploads:/app/wwwroot
+      - /opt/zkteco/secrets/fcm-service-account.json:/app/secrets/fcm-service-account.json:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:7070/health || exit 1"]
       interval: 30s

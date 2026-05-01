@@ -14,12 +14,13 @@ using Mapster;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class EmployeesController(IMediator mediator, IDataScopeService dataScopeService) : AuthenticatedControllerBase
+public class EmployeesController(IMediator mediator, IDataScopeService dataScopeService, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -61,7 +62,67 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         return Ok(result);
     }
 
-    [HttpGet("{id}")]
+    /// <summary>
+    /// Birthday list for the whole company (toàn store, KHÔNG bị giới hạn
+    /// theo phân quyền phòng ban). Trả về dữ liệu nhẹ để dashboard hiển thị
+    /// "Sinh nhật hôm nay" và "Sinh nhật trong tháng".
+    /// </summary>
+    [HttpGet("birthdays")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public async Task<IActionResult> GetBirthdays()
+    {
+        var items = await dbContext.Employees
+            .AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId
+                && e.DateOfBirth != null
+                && e.ResignationDate == null)
+            .Select(e => new
+            {
+                id = e.Id,
+                employeeCode = e.EmployeeCode,
+                firstName = e.FirstName,
+                lastName = e.LastName,
+                department = e.Department,
+                departmentId = e.DepartmentId,
+                dateOfBirth = e.DateOfBirth,
+                photoUrl = e.PhotoUrl,
+            })
+            .ToListAsync();
+        return Ok(AppResponse<object>.Success(items));
+    }
+
+    [HttpGet("expiring-contracts")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public async Task<IActionResult> GetExpiringContracts([FromQuery] int daysAhead = 30)
+    {
+        var today = DateTime.UtcNow.Date;
+        var futureDate = today.AddDays(daysAhead);
+        var items = await dbContext.Employees
+            .AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId
+                && e.ResignationDate == null
+                && e.ContractEndDate.HasValue)
+            .OrderBy(e => e.ContractEndDate)
+            .Select(e => new
+            {
+                id = e.Id,
+                employeeCode = e.EmployeeCode,
+                firstName = e.FirstName,
+                lastName = e.LastName,
+                department = e.Department,
+                departmentId = e.DepartmentId,
+                photoUrl = e.PhotoUrl,
+                contractEndDate = e.ContractEndDate,
+                daysUntilExpiry = (int)(e.ContractEndDate!.Value.Date - today).TotalDays,
+            })
+            .ToListAsync();
+        // Split: expiring (within daysAhead) vs already expired
+        var expiring = items.Where(x => x.daysUntilExpiry >= 0 && x.daysUntilExpiry <= daysAhead).ToList();
+        var expired  = items.Where(x => x.daysUntilExpiry < 0).ToList();
+        return Ok(AppResponse<object>.Success(new { expiring, expired }));
+    }
+
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetEmployeeById(Guid id)
     {
         var result = await mediator.Send(new GetEmployeeByIdQuery { StoreId = RequiredStoreId, Id = id });
@@ -96,7 +157,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         }
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     public async Task<IActionResult> UpdateEmployee(Guid id, [FromBody] UpdateEmployeeCommand command)
     {
@@ -106,7 +167,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         return Ok(result);
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     public async Task<IActionResult> DeleteEmployee(Guid id)
     {

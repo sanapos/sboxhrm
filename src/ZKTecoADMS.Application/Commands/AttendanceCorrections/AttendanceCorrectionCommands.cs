@@ -249,6 +249,8 @@ public class ApproveAttendanceCorrectionHandler(
     IRepository<Employee> employeeRepository,
     IRepository<Device> deviceRepository,
     IRepository<DeviceUser> deviceUserRepository,
+    IRepository<PenaltyTicket> penaltyTicketRepository,
+    IRepository<PaymentTransaction> paymentTransactionRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
 ) : ICommandHandler<ApproveAttendanceCorrectionCommand, AppResponse<AttendanceCorrectionRequestDto>>
@@ -492,6 +494,9 @@ public class ApproveAttendanceCorrectionHandler(
                         attendance.AttendanceTime = correction.NewDate.Value.Date.Add(correction.NewTime.Value);
                         attendance.Note = $"Điều chỉnh giờ chấm công [YC:{correction.Id}]";
                         await attendanceRepository.UpdateAsync(attendance, cancellationToken);
+
+                        // Hủy các phiếu phạt liên quan tới chấm công này; manager có thể tạo lại nếu giờ mới vẫn vi phạm
+                        await CancelRelatedPenaltiesAsync(correction.AttendanceId.Value, correction.Id, cancellationToken);
                     }
                 }
                 break;
@@ -499,6 +504,9 @@ public class ApproveAttendanceCorrectionHandler(
             case CorrectionAction.Delete:
                 if (correction.AttendanceId.HasValue)
                 {
+                    // Hủy phiếu phạt trước khi xóa attendance để giữ lại tham chiếu lịch sử
+                    await CancelRelatedPenaltiesAsync(correction.AttendanceId.Value, correction.Id, cancellationToken);
+
                     var attendance = await attendanceRepository.GetByIdAsync(correction.AttendanceId.Value, cancellationToken: cancellationToken);
                     if (attendance != null)
                     {
@@ -506,6 +514,41 @@ public class ApproveAttendanceCorrectionHandler(
                     }
                 }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Khi yêu cầu chỉnh sửa/xóa chấm công được duyệt, hủy các phiếu phạt và giao dịch trừ lương
+    /// đã sinh tự động từ chấm công đó. Đảm bảo nhân viên không bị phạt sau khi đã được duyệt sửa giờ.
+    /// </summary>
+    private async Task CancelRelatedPenaltiesAsync(Guid attendanceId, Guid correctionId, CancellationToken cancellationToken)
+    {
+        var tickets = (await penaltyTicketRepository.GetAllAsync(
+            filter: t => t.AttendanceId == attendanceId && t.Status == PenaltyTicketStatus.Pending,
+            cancellationToken: cancellationToken)).ToList();
+
+        foreach (var ticket in tickets)
+        {
+            ticket.Status = PenaltyTicketStatus.Cancelled;
+            ticket.ProcessedDate = DateTime.UtcNow;
+            ticket.CancellationReason = $"Tự động hủy do duyệt chỉnh sửa chấm công [YC:{correctionId}]";
+            await penaltyTicketRepository.UpdateAsync(ticket, cancellationToken);
+
+            // Tìm và hủy PaymentTransaction tương ứng (cùng ngày + Description khớp)
+            var txs = (await paymentTransactionRepository.GetAllAsync(
+                filter: tx => tx.EmployeeId == ticket.EmployeeId
+                    && tx.Type == "Penalty"
+                    && tx.TransactionDate.Date == ticket.ViolationDate.Date
+                    && tx.Status == "Pending"
+                    && tx.Description == ticket.Description,
+                cancellationToken: cancellationToken)).ToList();
+
+            foreach (var tx in txs)
+            {
+                tx.Status = "Cancelled";
+                tx.Note = (tx.Note ?? string.Empty) + $" | Hủy do chỉnh sửa chấm công [YC:{correctionId}]";
+                await paymentTransactionRepository.UpdateAsync(tx, cancellationToken);
+            }
         }
     }
 }

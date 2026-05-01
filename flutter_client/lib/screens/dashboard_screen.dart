@@ -1,15 +1,29 @@
 import 'dart:async';
+import 'dart:collection';
 // ignore_for_file: unused_import
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../models/attendance.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/shift_records_calculator.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import 'main_layout.dart';
+import 'leave_screen.dart';
+import 'attendance_corrections_screen.dart';
+import 'attendance_approval_screen.dart';
+import 'attendance_by_shift_screen.dart';
+import 'advance_requests_screen.dart';
+import 'hr_documents_screen.dart';
+import 'employees_screen.dart';
+import 'overtime_screen.dart';
+import 'task_management_screen.dart';
+import 'penalty_tickets_screen.dart';
+import 'cash_transaction_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -42,6 +56,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _devices = [];
   List<dynamic> _communications = [];
   List<dynamic> _employees = [];
+  List<dynamic> _birthdayEmployees = []; // Full-store, unfiltered birthday list
+  List<dynamic> _shiftTemplates = []; // Store shift templates (for overnight detection)
+
+  // Inputs cho thuật toán "Tổng hợp theo ca" — dùng để tính KPI "Đi trễ / Về
+  // sớm" trên Dashboard đồng nhất với tab. Dashboard không nhề logic này
+  // trên backend daily report nữa.
+  List<Attendance> _rawAttendances = [];
+  List<Map<String, dynamic>> _shiftTemplatesTyped = [];
+  List<Map<String, dynamic>> _shiftSalaryLevels = [];
+  List<Map<String, dynamic>> _salaryProfiles = [];
+  List<dynamic> _holidaysSettings = [];
+  int _dayEndHour = 0;
+  int _dayEndMinute = 0;
+  List<DailyShiftRecord> _shiftRecords = const [];
+  // Per-shift late/early entries — KHÔNG gộp theo ngày, mỗi ca riêng 1 dòng.
+  List<DailyShiftLateEntry> _lateShiftEntries = const [];
+  // Tất cả các cặp ca trong ngày — dùng cho realtime attendance card
+  // để hiển thị mỗi ca mỗi dòng (không gộp theo nhân viên).
+  List<DailyShiftPair> _shiftPairs = const [];
+
+  // Rolling banner
+  int _bannerIndex = 0;
+  Timer? _bannerTimer;
   List<dynamic> _kpiResults = [];
   Map<String, dynamic> _kpiDashboard = {};
   List<dynamic> _todaySchedules = [];
@@ -56,7 +93,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _penaltyStats = {};
   Map<String, dynamic> _cashSummary = {};
   Map<String, dynamic> _monthlyReport = {};
-  List<dynamic> _expiringDocs = [];
+  List<dynamic> _expiringDocs = []; // sắp hết hạn (≤30 ngày)
+  List<dynamic> _expiredContracts = []; // đã hết hạn
 
   @override
   void initState() {
@@ -79,7 +117,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _clockTimer?.cancel();
+    _bannerTimer?.cancel();
     super.dispose();
+  }
+
+  void _startBannerTimer() {
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      final items = _bannerItems;
+      if (items.length > 1) {
+        setState(() => _bannerIndex = (_bannerIndex + 1) % items.length);
+      }
+    });
   }
 
   Future<void> _loadEmployeeData() async {
@@ -116,7 +166,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _memoNotScheduled = const [];
   int _memoCheckIns = 0;
   int _memoCheckOuts = 0;
+  int _memoPresentCount = 0;  // distinct employees with ≥1 punch (from raw)
+  int _memoCurrentShiftPresentCount = 0; // present in currently-active shift(s)
+  List<String> _memoCurrentShiftNames = const []; // name(s) of the active shift right now
+  int _memoAbsentCount = 0;  // scheduled employees with no punch (daily report − raw)
   int _memoOnlineDevices = 0;
+  int _touchedDonutIndex = -1; // index of tapped pie section (-1 = none)
 
   /// Safely run an API call; log and return [fallback] on error so one failing
   /// endpoint never takes down the entire dashboard batch.
@@ -131,12 +186,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
-    final target = _selectedDate ?? DateTime.now();
+    final now = DateTime.now();
+    DateTime target = _selectedDate ?? now;
+
+    // Overnight shift adjustment: if current time is before the overnight cutoff,
+    // the "working day" started yesterday — use yesterday as the report date.
+    if (_selectedDate == null && _shiftTemplates.isNotEmpty) {
+      final cutoff = _activeOvernightCutoff;
+      if (cutoff != null) {
+        final cutoffMinutes = cutoff.hour * 60 + cutoff.minute;
+        final nowMinutes = now.hour * 60 + now.minute;
+        if (nowMinutes < cutoffMinutes) {
+          // We haven't crossed the cutoff yet → today's punches belong to yesterday's shift
+          target = now.subtract(const Duration(days: 1));
+        }
+      }
+    }
+
     final todayStr =
         '${target.year}-${target.month.toString().padLeft(2, '0')}-${target.day.toString().padLeft(2, '0')}';
     final dayStart = DateTime(target.year, target.month, target.day);
     final dayEnd = DateTime(target.year, target.month, target.day, 23, 59, 59);
-    final now = DateTime.now();
     final monthStart =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
     final lastDay = DateTime(now.year, now.month + 1, 0).day;
@@ -181,8 +251,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _safe(() => _api.getPenaltyTicketStats(month: now.month, year: now.year), emptyMap, 'penalty'), // 11
       _safe(() => _api.getCashTransactionSummary(fromDate: monthStart, toDate: monthEnd), emptyMap, 'cash'), // 12
       _safe(() => _api.getMonthlyAttendanceReport(month: now.month, year: now.year), emptyMap, 'monthly'), // 13
-      _safe(() => _api.getExpiringDocuments(), emptyMap, 'docs'),                   // 14
+      _safe(() => _api.getExpiringContracts(), emptyMap, 'contracts'),              // 14
       _safe(() => _api.getAdvanceRequests(status: 0, pageSize: 100), emptyMap, 'advances'), // 15
+      _safe(() => _api.getBirthdays(), emptyList, 'birthdays'), // 16
+      _safe(() => _api.getShifts(), emptyList, 'shifts'),       // 17
+      // 18..22: inputs cho thuật toán "Tổng hợp theo ca".
+      _safe(
+          () => _api.getAttendances(
+              deviceIds: _devices
+                  .map((d) => (d is Map ? d['id']?.toString() ?? '' : ''))
+                  .where((s) => s.isNotEmpty)
+                  .toList(),
+              fromDate: dayStart,
+              toDate: dayEnd,
+              page: 1,
+              pageSize: 1000),
+          emptyMap,
+          'attendances'), // 18
+      _safe(() => _api.getShiftSalaryLevels(), emptyMap, 'shift-salary-levels'), // 19
+      _safe(() => _api.getSalaryProfiles(), emptyList, 'salary-profiles'),       // 20
+      _safe(() => _api.getHolidaySettings(0), emptyList, 'holidays'),            // 21
+      _safe(() => _api.getAppSetting('day_end_time'), emptyMap, 'day-end'),      // 22
     ]);
 
     if (!mounted) return;
@@ -202,9 +291,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _penaltyStats = (asMap(11)['data'] as Map<String, dynamic>?) ?? asMap(11);
       _cashSummary = (asMap(12)['data'] as Map<String, dynamic>?) ?? asMap(12);
       _monthlyReport = (asMap(13)['data'] as Map<String, dynamic>?) ?? asMap(13);
-      _expiringDocs = _extractList(asMap(14));
+      final contractsMap = asMap(14);
+      _expiringDocs = (contractsMap['expiring'] as List?) ?? [];
+      _expiredContracts = (contractsMap['expired'] as List?) ?? [];
       _pendingAdvances = _extractList(asMap(15));
+      _birthdayEmployees = batch[16] as List<dynamic>;
+      _shiftTemplates = batch[17] as List<dynamic>;
+
+      // Tổng hợp theo ca — raw inputs
+      final attMap = batch[18] as Map<String, dynamic>;
+      final attItems = (attMap['items'] as List?) ?? const [];
+      _rawAttendances = attItems
+          .map((it) {
+            try {
+              return Attendance.fromJson(it as Map<String, dynamic>);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<Attendance>()
+          .toList();
+      _shiftTemplatesTyped = _shiftTemplates
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final sslMap = batch[19] as Map<String, dynamic>;
+      final sslData = sslMap['data'];
+      final sslList = sslData is Map
+          ? (sslData['items'] as List? ?? const [])
+          : (sslData is List ? sslData : const []);
+      _shiftSalaryLevels =
+          sslList.whereType<Map<String, dynamic>>().toList();
+      final spList = batch[20] as List<dynamic>;
+      _salaryProfiles =
+          spList.whereType<Map<String, dynamic>>().toList();
+      _holidaysSettings = batch[21] as List<dynamic>;
+      final dayEndResp = batch[22] as Map<String, dynamic>;
+      if (dayEndResp['isSuccess'] == true && dayEndResp['data'] is Map) {
+        final dv = (dayEndResp['data'] as Map)['value']?.toString() ?? '00:00:00';
+        final parts = dv.split(':');
+        if (parts.length >= 2) {
+          _dayEndHour = int.tryParse(parts[0]) ?? 0;
+          _dayEndMinute = int.tryParse(parts[1]) ?? 0;
+        }
+      }
+      _recomputeMemoized();
     });
+
+    // After loading shifts, if there is an active overnight cutoff we MUST refetch
+    // the daily attendance report so the backend uses the cutoff window
+    // [date+cutoff, date+1+cutoff). The phase-1 fetch was done before we knew
+    // the cutoff so the window was [00:00, 24:00) which leaks yesterday's
+    // overnight punches into today's report.
+    if (_selectedDate == null) {
+      final cutoff = _activeOvernightCutoff;
+      if (cutoff != null) {
+        final nowNow = DateTime.now();
+        final cutoffMinutes = cutoff.hour * 60 + cutoff.minute;
+        final nowMinutes = nowNow.hour * 60 + nowNow.minute;
+        // If we're before the cutoff, today's punches still belong to yesterday's working day.
+        final correctedDate = nowMinutes < cutoffMinutes
+            ? nowNow.subtract(const Duration(days: 1))
+            : nowNow;
+        final cStr = '${correctedDate.year}-${correctedDate.month.toString().padLeft(2, '0')}-${correctedDate.day.toString().padLeft(2, '0')}';
+        final cutoffStr = '${cutoff.hour.toString().padLeft(2, '0')}:${cutoff.minute.toString().padLeft(2, '0')}:00';
+        final corrected = await _safe(
+            () => _api.getDailyAttendanceReport(date: cStr, overnightCutoff: cutoffStr),
+            <String, dynamic>{},
+            'daily-overnight');
+        if (mounted) {
+          final cData = (corrected['data'] as Map<String, dynamic>?) ?? {};
+          setState(() {
+            _dailyReport = cData;
+            _dailyReportItems = (cData['items'] as List<dynamic>?) ?? [];
+            _recomputeMemoized();
+          });
+        }
+      }
+    }
+
+    _startBannerTimer();
   }
 
   /// Recompute all list-scanning derived values in O(n) once per refresh,
@@ -215,28 +380,206 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final notSched = <Map<String, dynamic>>[];
     var ins = 0;
     var outs = 0;
+
+    // ─── Tính "Đi trễ / Về sớm" theo cùng thuật toán với tab "Tổng hợp
+    // theo ca". Dashboard không còn nhờ backend daily report cho con số
+    // này nữa (backend daily report dùng dữ liệu khác → mismatch).
+    final target = _selectedDate ?? DateTime.now();
+    final dayStart = DateTime(target.year, target.month, target.day);
+    final dayEnd =
+        DateTime(target.year, target.month, target.day, 23, 59, 59);
+    final shiftRecords = computeDailyShiftRecords(
+      attendances: _rawAttendances,
+      fromDate: dayStart,
+      toDate: dayEnd,
+      shiftTemplates: _shiftTemplatesTyped,
+      shiftSalaryLevels: _shiftSalaryLevels,
+      salaryProfiles: _salaryProfiles,
+      holidays: _holidaysSettings,
+      dayEndHour: _dayEndHour,
+      dayEndMinute: _dayEndMinute,
+    );
+    _shiftRecords = shiftRecords;
+    _lateShiftEntries = computeDailyShiftLateEntries(
+      attendances: _rawAttendances,
+      fromDate: dayStart,
+      toDate: dayEnd,
+      shiftTemplates: _shiftTemplatesTyped,
+      shiftSalaryLevels: _shiftSalaryLevels,
+      salaryProfiles: _salaryProfiles,
+      dayEndHour: _dayEndHour,
+      dayEndMinute: _dayEndMinute,
+    );
+    _shiftPairs = computeDailyShiftPairs(
+      attendances: _rawAttendances,
+      fromDate: dayStart,
+      toDate: dayEnd,
+      shiftTemplates: _shiftTemplatesTyped,
+      shiftSalaryLevels: _shiftSalaryLevels,
+      salaryProfiles: _salaryProfiles,
+      dayEndHour: _dayEndHour,
+      dayEndMinute: _dayEndMinute,
+    );
+    // empCode → record (để map ngược về _dailyReportItems khi click vào KPI)
+    final lateCodes = <String>{};
+    for (final r in shiftRecords) {
+      if (r.lateMinutes > 0 || r.earlyMinutes > 0) {
+        lateCodes.add(r.employeeId);
+      }
+    }
+
     for (final raw in _dailyReportItems) {
       if (raw is! Map<String, dynamic>) continue;
       final status = (raw['status'] ?? '').toString().toLowerCase();
-      if (raw['checkInTime'] != null) ins++;
-      if (raw['checkOutTime'] != null) outs++;
-      if (status.contains('muộn') || status.contains('trễ') ||
-          status.contains('late') || status.contains('sớm') ||
-          status.contains('early')) {
+      // Map record về _dailyReportItems theo employeeCode để giữ payload
+      // gốc cho UI (giữ giao diện danh sách click vào card không đổi).
+      final code = (raw['employeeCode'] ?? '').toString();
+      if (lateCodes.contains(code)) {
         late.add(raw);
       }
       if (status.contains('vắng') || status.contains('absent')) {
         absent.add(raw);
       }
-      if (status.contains('không có lịch') || status.contains('ngày nghỉ')) {
+      if (status.contains('không có lịch') ||
+          status.contains('ngày nghỉ') ||
+          status.contains('nghỉ lễ')) {
         notSched.add(raw);
       }
     }
+
+    // ─── Vào / Ra: đếm trực tiếp từ raw attendances trong cửa sổ "ngày làm
+    // việc". Khi có overnight cutoff (ví dụ 04:00), window của ngày D là
+    // [D 04:00, D+1 04:00) — bao gồm toàn bộ giờ làm trong ngày.
+    // Khi không có cutoff (00:00), window là [D 00:00, D 23:59].
+    final hasCutoff = _dayEndHour != 0 || _dayEndMinute != 0;
+    final windowStart = hasCutoff
+        ? DateTime(target.year, target.month, target.day,
+            _dayEndHour, _dayEndMinute)
+        : dayStart;
+    final windowEnd = hasCutoff
+        ? DateTime(target.year, target.month, target.day + 1,
+            _dayEndHour, _dayEndMinute)
+        : dayEnd;
+    final byEmp = <String, List<DateTime>>{};
+    // presentKeys: tất cả các mã định danh của nhân viên đã chấm công
+    // trong cửa sổ ngày. Dùng nhiều key để cross-match với daily report.
+    final presentKeys = <String>{};
+    for (final a in _rawAttendances) {
+      final t = a.attendanceTime;
+      if (t.isBefore(windowStart) || !t.isBefore(windowEnd)) continue;
+      final empKey = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+      if (empKey.isEmpty) continue;
+      presentKeys.add(empKey);
+      // Also add PIN separately for cross-matching with daily report
+      if (a.pin != null && a.pin!.isNotEmpty) presentKeys.add(a.pin!);
+      if (a.employeeName != null && a.employeeName!.isNotEmpty) presentKeys.add(a.employeeName!);
+      (byEmp[empKey] ??= <DateTime>[]).add(t);
+    }
+    for (final times in byEmp.values) {
+      times.sort();
+      for (var i = 0; i < times.length; i++) {
+        if (i.isEven) {
+          ins++; // 1st, 3rd, ...
+        } else {
+          outs++; // 2nd, 4th, ...
+        }
+      }
+    }
+
+    // Fallback: nếu shiftRecords có người mà _dailyReportItems chưa có
+    // (vd raw attendances đã load nhưng daily report chưa kịp fetch xong),
+    // vẫn đẩy dữ liệu cơ bản vào late list để KPI không bị 0.
+    if (late.isEmpty && lateCodes.isNotEmpty) {
+      for (final r in shiftRecords) {
+        if (r.lateMinutes > 0 || r.earlyMinutes > 0) {
+          late.add({
+            'employeeCode': r.employeeId,
+            'employeeName': r.employeeName,
+            'lateMinutes': r.lateMinutes,
+            'earlyLeaveMinutes': r.earlyMinutes,
+            'status': r.status,
+          });
+        }
+      }
+    }
+
     _memoLate = late;
     _memoAbsent = absent;
     _memoNotScheduled = notSched;
     _memoCheckIns = ins;
     _memoCheckOuts = outs;
+
+    // ─── Có mặt = distinct employees from raw (real-time, consistent với Vào/Ra)
+    _memoPresentCount = byEmp.length;
+
+    // ─── Có mặt theo ca hiện tại (realtime): tìm các ca đang active lúc now,
+    // rồi đếm distinct NV trong _shiftPairs có checkIn và shiftName khớp.
+    // Chỉ tính khi đang xem ngày hôm nay (không áp dụng cho ngày lịch sử).
+    if (_selectedDate == null && _shiftTemplatesTyped.isNotEmpty) {
+      final nowMin = DateTime.now().hour * 60 + DateTime.now().minute;
+      final activeNames = <String>{};
+      for (final st in _shiftTemplatesTyped) {
+        final name = st['name']?.toString() ?? '';
+        if (name.isEmpty) continue;
+        final sMin = _parseShiftTime(st['startTime']?.toString());
+        final eMin = _parseShiftTime(st['endTime']?.toString());
+        if (sMin == 0 && eMin == 0) continue;
+        // Cho phép cửa sổ rộng ±30 phút trước start để NV vừa vào được tính
+        final windowStart = (sMin - 30).clamp(0, 1439);
+        final bool active;
+        if (sMin <= eMin) {
+          // Ca không qua đêm
+          active = nowMin >= windowStart && nowMin < eMin;
+        } else {
+          // Ca qua đêm (ví dụ 22:00-06:00)
+          active = nowMin >= windowStart || nowMin < eMin;
+        }
+        if (active) activeNames.add(name);
+      }
+      _memoCurrentShiftNames = activeNames.toList();
+      if (activeNames.isNotEmpty) {
+        final seen = <String>{};
+        for (final p in _shiftPairs) {
+          if (p.checkIn == null) continue;
+          if (!activeNames.contains(p.shiftName)) continue;
+          final key = p.employeeCode.isNotEmpty ? p.employeeCode : p.employeeId;
+          seen.add(key);
+        }
+        _memoCurrentShiftPresentCount = seen.length;
+      } else {
+        // Ngoài giờ làm: hiển thị tổng ngày
+        _memoCurrentShiftPresentCount = _memoPresentCount;
+      }
+    } else {
+      // Ngày lịch sử hoặc chưa load shift template: dùng tổng ngày
+      _memoCurrentShiftPresentCount = _memoPresentCount;
+      _memoCurrentShiftNames = const [];
+    }
+
+    // ─── Vắng = nhân viên trong daily report (có lịch) mà KHÔNG có trong raw.
+    // Dùng nhiều identifier để cross-match (employeeCode, pin, employeeName).
+    if (_rawAttendances.isNotEmpty) {
+      var absCnt = 0;
+      for (final raw in _dailyReportItems) {
+        if (raw is! Map<String, dynamic>) continue;
+        final s = (raw['status'] ?? '').toString().toLowerCase();
+        // Bỏ qua nhân viên không có lịch / ngày nghỉ / nghỉ lễ
+        if (s.contains('không có lịch') ||
+            s.contains('ngày nghỉ') ||
+            s.contains('nghỉ lễ')) continue;
+        // Kiểm tra xem nhân viên này có trong raw không
+        final code = (raw['employeeCode'] ?? raw['employeeId'] ?? raw['employeeName'] ?? '').toString();
+        if (!presentKeys.contains(code)) absCnt++;
+      }
+      _memoAbsentCount = absCnt;
+    } else {
+      // Fallback khi raw chưa load: dùng daily report status
+      _memoAbsentCount = _dailyReportItems.whereType<Map>().where((r) {
+        final s = (r['status'] ?? '').toString().toLowerCase();
+        if (s.contains('không có lịch') || s.contains('ngày nghỉ') || s.contains('nghỉ lễ')) return false;
+        return r['checkInTime'] == null;
+      }).length;
+    }
 
     // Online device count — cached (recomputed when _devices changes).
     var online = 0;
@@ -292,15 +635,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ((_dailyReport['totalEmployees'] ?? 0) as num).toInt();
     return fromReport > 0 ? fromReport : _employees.length;
   }
-  int get _presentCount => _kpiDetailData('present').length;
-  int get _absentCount => _kpiDetailData('absent').length;
-  int get _lateCount => _memoLate.length;
+  // Chip counts từ raw attendances (nhất quán với Vào/Ra)
+  // Khi xem hôm nay: ưu tiên đếm theo ca đang active (realtime).
+  // Khi xem ngày lịch sử: tổng toàn ngày.
+  int get _presentCount => _rawAttendances.isNotEmpty
+      ? _memoCurrentShiftPresentCount
+      : _kpiDetailData('present').length;
+
+  /// Label phụ cho chip "Có mặt" — tên ca đang active (nếu có).
+  String get _presentShiftLabel {
+    if (_memoCurrentShiftNames.isEmpty) return 'Có mặt';
+    if (_memoCurrentShiftNames.length == 1) return _memoCurrentShiftNames.first;
+    // Nhiều ca active (hiếm): lấy 2 tên đầu
+    return _memoCurrentShiftNames.take(2).join(' · ');
+  }
+  int get _absentCount => _dailyReportItems.isNotEmpty
+      ? _memoAbsentCount
+      : _kpiDetailData('absent').length;
+  int get _lateCount => _lateShiftEntries.isNotEmpty
+      ? _lateShiftEntries.length
+      : _memoLate.length;
   int get _checkIns => _memoCheckIns;
   int get _checkOuts => _memoCheckOuts;
   double get _attendanceRate {
-    final total = _totalEmployees;
-    if (total <= 0) return 0;
-    return (_presentCount / total) * 100.0;
+    // Tỉ lệ có mặt = có mặt / tổng NV × 100%
+    final denom = _totalEmployees;
+    if (denom <= 0) {
+      final fromReport = _dailyReport['attendanceRate'];
+      if (fromReport is num && fromReport > 0) return fromReport.toDouble();
+      return 0;
+    }
+    return (_presentCount / denom).clamp(0.0, 1.0) * 100.0;
   }
   int get _onlineDevices => _memoOnlineDevices;
   int get _totalDevices => _devices.length;
@@ -308,7 +673,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> get _todayBirthdays {
     final today = DateTime.now();
     final bdays = <Map<String, dynamic>>[];
-    for (final e in _employees) {
+    final src = _birthdayEmployees.isNotEmpty ? _birthdayEmployees : _employees;
+    for (final e in src) {
       if (e is Map<String, dynamic>) {
         final dob = e['dateOfBirth'] ?? e['birthday'];
         if (dob != null) {
@@ -327,7 +693,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> get _monthlyBirthdays {
     final today = DateTime.now();
     final monthly = <Map<String, dynamic>>[];
-    for (final e in _employees) {
+    final src = _birthdayEmployees.isNotEmpty ? _birthdayEmployees : _employees;
+    for (final e in src) {
       if (e is Map<String, dynamic>) {
         final dob = e['dateOfBirth'] ?? e['birthday'];
         if (dob != null) {
@@ -346,12 +713,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return monthly;
   }
 
+  /// Items shown in the rotating top banner: birthday + doc expiry + pending counts
+  List<Map<String, dynamic>> get _bannerItems {
+    final items = <Map<String, dynamic>>[];
+
+    // Today's birthdays
+    for (final e in _todayBirthdays) {
+      final ln = (e['lastName'] ?? '').toString().trim();
+      final fn = (e['firstName'] ?? '').toString().trim();
+      final full = (e['fullName'] ?? '').toString().trim();
+      final name = full.isNotEmpty ? full : ([ln, fn].where((s) => s.isNotEmpty).join(' '));
+      items.add({'icon': '🎂', 'color': 0xFFEC4899, 'text': 'Sinh nhật hôm nay: $name'});
+    }
+
+    // Expiring documents (≤ 30 days)
+    final now = DateTime.now();
+    for (final d in _expiringDocs) {
+      final expStr = (d['expiryDate'] ?? d['endDate'] ?? '').toString();
+      final exp = DateTime.tryParse(expStr);
+      if (exp != null) {
+        final days = exp.difference(now).inDays;
+        if (days >= 0 && days <= 30) {
+          final empName = (d['employeeName'] ?? d['fullName'] ?? d['name'] ?? '').toString();
+          final docType = (d['contractType'] ?? d['documentType'] ?? d['type'] ?? 'HĐ').toString();
+          items.add({'icon': '📄', 'color': 0xFFEA580C, 'text': 'Sắp hết hạn ($days ngày): $docType${empName.isNotEmpty ? ' – $empName' : ''}'});
+        }
+      }
+    }
+
+    // Pending approvals summary
+    final pendingTotal = _pendingLeaves.length + _pendingCorrections.length + _pendingSwaps.length + _pendingAdvances.length;
+    if (pendingTotal > 0) {
+      items.add({'icon': '⏳', 'color': 0xFFEF4444, 'text': 'Có $pendingTotal yêu cầu chờ duyệt'});
+    }
+
+    return items;
+  }
+
+  /// Returns the overnight cutoff time (as TimeOfDay) if any active overnight shift exists.
+  /// Used to determine the report boundary for "today": from startTime to overnightCutoff the next day.
+  TimeOfDay? get _activeOvernightCutoff {
+    for (final s in _shiftTemplates) {
+      if (s is! Map) continue;
+      final type = (s['shiftType'] ?? '').toString();
+      final active = s['isActive'];
+      final cutoffStr = (s['overnightCutoffTime'] ?? '').toString();
+      if (type == 'Qua đêm' && active == true && cutoffStr.isNotEmpty) {
+        final parts = cutoffStr.split(':');
+        if (parts.length >= 2) {
+          final h = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          if (h != null && m != null) return TimeOfDay(hour: h, minute: m);
+        }
+      }
+    }
+    return null;
+  }
+
   List<Map<String, dynamic>> get _absentWithPermission {
     // On-leave employees from daily report (status = "Nghỉ phép")
     final fromReport = _dailyReportItems.whereType<Map<String, dynamic>>().where((e) {
-      final status = (e['status'] ?? '').toString().toLowerCase();
-      // Match "Nghỉ phép" but NOT "Ngày nghỉ" (day off)
-      return status == 'nghỉ phép' || status.contains('leave') || (status.contains('phép') && !status.contains('ngày nghỉ'));
+      final status = (e['status'] ?? '').toString().toLowerCase().trim();
+      // Match "Nghỉ phép" / "leave" — but EXCLUDE:
+      //   - "Ngày nghỉ" (day off, not a leave application)
+      //   - "Vắng không phép" / "Vắng mặt" (absent WITHOUT permission, even though
+      //     the literal text contains "phép" / "không phép")
+      if (status.contains('vắng') || status.contains('không phép') ||
+          status.contains('ngày nghỉ') || status.contains('nghỉ lễ') ||
+          status.contains('absent')) {
+        return false;
+      }
+      return status == 'nghỉ phép' || status.contains('leave') || status.contains('phép');
     }).toList();
     // Also include from leave API if report has none
     final source = fromReport.isNotEmpty
@@ -399,9 +831,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 14),
+                  if (_bannerItems.isNotEmpty) ...[
+                    _buildRollingBanner(),
+                    const SizedBox(height: 10),
+                  ],
                   _buildQuickActions(),
                   const SizedBox(height: 16),
                   _buildHeroOverview(),
+                  const SizedBox(height: 14),
+                  _buildTodayShiftSchedule(),
                   const SizedBox(height: 20),
                   _buildMainGrid(),
                 ],
@@ -645,10 +1083,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ===================== ROLLING BANNER =====================
+  Widget _buildRollingBanner() {
+    final items = _bannerItems;
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    final idx = _bannerIndex.clamp(0, items.length - 1);
+    final item = items[idx];
+    final color = Color(item['color'] as int);
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      transitionBuilder: (child, anim) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+          CurvedAnimation(parent: anim, curve: Curves.easeOut),
+        ),
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+      child: Container(
+        key: ValueKey(idx),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
+        ),
+        child: Row(
+          children: [
+            Text(item['icon'] as String, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                item['text'] as String,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (items.length > 1) ...[
+              const SizedBox(width: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(items.length, (i) => Container(
+                  width: i == idx ? 12 : 5,
+                  height: 5,
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                  decoration: BoxDecoration(
+                    color: i == idx ? color : color.withValues(alpha: 0.30),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                )),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   // ===================== QUICK ACTIONS =====================
   Widget _buildQuickActions() {
     final actions = <_QuickAction>[
-      _QuickAction(Icons.fingerprint_rounded, 'Chấm công', const Color(0xFF22C55E), () => NavigationNotifier.goToAttendance()),
       _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ', const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
       _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6), () => NavigationNotifier.goToWorkSchedule()),
       _QuickAction(Icons.payments_rounded, 'Phiếu lương', const Color(0xFF06B6D4), () => NavigationNotifier.goToPayroll()),
@@ -869,16 +1369,387 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ===================== TODAY SHIFT SCHEDULE =====================
+  Widget _buildTodayShiftSchedule() {
+    // ── 1. scheduleByShift: shiftName → List of schedule rows ───────────────
+    final scheduledByShift = <String, List<Map<String, dynamic>>>{};
+    for (final s in _todaySchedules.whereType<Map<String, dynamic>>()) {
+      if (s['isDayOff'] == true) continue;
+      final shiftName = (s['shiftName'] ?? '').toString();
+      if (shiftName.isEmpty) continue;
+      (scheduledByShift[shiftName] ??= []).add(s);
+    }
+
+    // ── 2. attendedByShift: shiftName → List<DailyShiftPair> (checked-in) ───
+    // Dedup: 1 NV chấm nhiều lần → nhiều pairs cùng shift → chỉ giữ pair đầu tiên
+    final attendedByShift = <String, List<DailyShiftPair>>{};
+    final _seenEmpPerShift = <String, Set<String>>{};
+    for (final p in _shiftPairs) {
+      if (p.checkIn == null) continue;
+      final shiftKey = p.shiftName.isNotEmpty ? p.shiftName : 'Không rõ';
+      final empKey = p.employeeId.isNotEmpty ? p.employeeId : p.employeeCode;
+      final seenSet = (_seenEmpPerShift[shiftKey] ??= <String>{});
+      if (!seenSet.add(empKey)) continue; // đã có → bỏ qua duplicate
+      (attendedByShift[shiftKey] ??= []).add(p);
+    }
+
+    // ── 3. Union of shifts to display ───────────────────────────────────────
+    final allShiftNames = LinkedHashSet<String>()
+      ..addAll(scheduledByShift.keys)
+      ..addAll(attendedByShift.keys);
+
+    if (allShiftNames.isEmpty) return const SizedBox.shrink();
+
+    // ── 4. Dept lookup from _dailyReportItems (by name + code) ───────────────
+    final nameToReport = <String, Map<String, dynamic>>{};
+    final codeToReport = <String, Map<String, dynamic>>{};
+    for (final r in _dailyReportItems.whereType<Map<String, dynamic>>()) {
+      final nm = (r['employeeName'] ?? '').toString().toLowerCase().trim();
+      if (nm.isNotEmpty) nameToReport.putIfAbsent(nm, () => r);
+      final cd = (r['employeeCode'] ?? r['employeeId'] ?? '').toString();
+      if (cd.isNotEmpty) codeToReport.putIfAbsent(cd, () => r);
+    }
+
+    // Helper: build employee card list from schedule rows (for "Lịch"/"Vắng")
+    List<Map<String, dynamic>> _scheduleEmpCards(List<Map<String, dynamic>> rows) {
+      return rows.map((s) {
+        final name = (s['employeeName'] ?? s['fullName'] ?? '').toString();
+        final code = (s['employeeCode'] ?? s['employeeUserId'] ?? '').toString();
+        // Try to enrich with dept from daily report
+        final r = codeToReport[code] ?? nameToReport[name.toLowerCase().trim()] ?? s;
+        final dept = (r['departmentName'] ?? r['department'] ?? '').toString();
+        return {
+          'name': name.isNotEmpty ? name : code,
+          'dept': dept.isNotEmpty ? dept : 'Không có phòng ban',
+        };
+      }).toList();
+    }
+
+    // Helper: build employee card list from shiftPairs (for "Có mặt")
+    List<Map<String, dynamic>> _attendedEmpCards(List<DailyShiftPair> pairs) {
+      return pairs.map((p) {
+        final name = p.employeeName.isNotEmpty && p.employeeName != '-' ? p.employeeName : '';
+        final code = p.employeeCode.isNotEmpty ? p.employeeCode : p.employeeId;
+        final r = nameToReport[name.toLowerCase().trim()] ?? codeToReport[code] ?? {};
+        final dept = (r['departmentName'] ?? r['department'] ?? '').toString();
+        return {
+          'name': name.isNotEmpty ? name : code,
+          'dept': dept.isNotEmpty ? dept : 'Không có phòng ban',
+          'checkIn': p.checkIn != null ? _formatTime(p.checkIn!) : '',
+        };
+      }).toList();
+    }
+
+    void showShiftEmpList(String title, Color color, List<Map<String, dynamic>> empCards) {
+      final deptOrder = <String>[];
+      final byDept = <String, List<Map<String, dynamic>>>{};
+      for (final e in empCards) {
+        final dept = e['dept'] as String;
+        if (!byDept.containsKey(dept)) {
+          deptOrder.add(dept);
+          byDept[dept] = [];
+        }
+        byDept[dept]!.add(e);
+      }
+      deptOrder.sort((a, b) => byDept[b]!.length.compareTo(byDept[a]!.length));
+      for (final list in byDept.values) {
+        list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+      }
+
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          builder: (_, sc) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.groups_rounded, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      Text('${empCards.length} NV · ${deptOrder.length} phòng ban',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  )),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: empCards.isEmpty
+                    ? Center(child: Text('Không có nhân viên', style: TextStyle(color: Colors.grey.shade500)))
+                    : ListView.builder(
+                        controller: sc,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        itemCount: deptOrder.length,
+                        itemBuilder: (_, di) {
+                          final dept = deptOrder[di];
+                          final emps = byDept[dept]!;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: color.withValues(alpha: 0.25)),
+                                ),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(Icons.business_rounded, size: 12, color: color),
+                                  const SizedBox(width: 4),
+                                  Text(dept, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                                    child: Text('${emps.length}',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+                                  ),
+                                ]),
+                              ),
+                              const SizedBox(height: 6),
+                              ...emps.map((e) => Container(
+                                margin: const EdgeInsets.only(bottom: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: color.withValues(alpha: 0.12)),
+                                ),
+                                child: Row(children: [
+                                  CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: color.withValues(alpha: 0.15),
+                                    child: Text(
+                                      (e['name'] as String).isNotEmpty ? (e['name'] as String)[0].toUpperCase() : '?',
+                                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(e['name'] as String,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ),
+                                  if ((e['checkIn'] as String? ?? '').isNotEmpty) ...[
+                                    const Icon(Icons.login, size: 11, color: Color(0xFF22C55E)),
+                                    const SizedBox(width: 2),
+                                    Text(e['checkIn'] as String,
+                                        style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                                  ],
+                                ]),
+                              )),
+                            ]),
+                          );
+                        },
+                      ),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    // ── 5. Sort shifts: most scheduled first, then most attended ─────────────
+    final shiftNames = allShiftNames.toList()
+      ..sort((a, b) {
+        final sa = scheduledByShift[a]?.length ?? 0;
+        final sb = scheduledByShift[b]?.length ?? 0;
+        if (sb != sa) return sb.compareTo(sa);
+        return (attendedByShift[b]?.length ?? 0).compareTo(attendedByShift[a]?.length ?? 0);
+      });
+
+    const palette = [
+      Color(0xFF22C55E),
+      Color(0xFF3B82F6),
+      Color(0xFF8B5CF6),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+      Color(0xFFEC4899),
+    ];
+
+    Widget _chip(IconData icon, String label, int count, Color color, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Text('$count', style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E9F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFF1E3A5F)),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text('Lịch làm việc hôm nay',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F))),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('${shiftNames.length} ca',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          ...List.generate(shiftNames.length, (i) {
+            final shiftName = shiftNames[i];
+            final shiftColor = palette[i % palette.length];
+            final schedRows = scheduledByShift[shiftName] ?? [];
+            final attendedPairs = attendedByShift[shiftName] ?? [];
+
+            final schedCount = schedRows.length;
+            final presentCount = attendedPairs.length;
+            final absentCount = (schedCount - presentCount).clamp(0, schedCount);
+
+            // Absent = scheduled employees NOT in attended (match by name since codes differ)
+            final attendedNames = attendedPairs
+                .map((p) => p.employeeName.toLowerCase().trim())
+                .toSet();
+            final absentRows = schedRows.where((s) {
+              final nm = (s['employeeName'] ?? '').toString().toLowerCase().trim();
+              return nm.isEmpty || !attendedNames.contains(nm);
+            }).toList();
+
+            // Shift time: prefer schedule record's shiftStartTime/shiftEndTime, fallback to template
+            String timeStr = '';
+            if (schedRows.isNotEmpty) {
+              final first = schedRows.first;
+              final st = (first['shiftStartTime'] ?? first['startTime'] ?? '').toString();
+              final et = (first['shiftEndTime'] ?? first['endTime'] ?? '').toString();
+              if (st.isNotEmpty && et.isNotEmpty) {
+                timeStr = '${st.substring(0, math.min(5, st.length))} – ${et.substring(0, math.min(5, et.length))}';
+              }
+            }
+            if (timeStr.isEmpty) {
+              final tmpl = _shiftTemplatesTyped.firstWhere(
+                (t) => (t['name'] ?? '').toString().toLowerCase() == shiftName.toLowerCase(),
+                orElse: () => <String, dynamic>{},
+              );
+              final st = (tmpl['startTime'] ?? '').toString();
+              final et = (tmpl['endTime'] ?? '').toString();
+              if (st.isNotEmpty && et.isNotEmpty) {
+                timeStr = '${st.substring(0, math.min(5, st.length))} – ${et.substring(0, math.min(5, et.length))}';
+              }
+            }
+
+            final schedCards = _scheduleEmpCards(schedRows);
+            final attendedCards = _attendedEmpCards(attendedPairs);
+            final absentCards = _scheduleEmpCards(absentRows);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: shiftColor.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: shiftColor.withValues(alpha: 0.18)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(width: 6, height: 6,
+                      decoration: BoxDecoration(color: shiftColor, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text(shiftName,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: shiftColor)),
+                  if (timeStr.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(timeStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ]),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _chip(Icons.event_available_rounded, 'Lịch', schedCount, const Color(0xFF1E3A5F),
+                        () => showShiftEmpList('Lịch – $shiftName', const Color(0xFF1E3A5F), schedCards)),
+                    _chip(Icons.how_to_reg_rounded, 'Có mặt', presentCount, const Color(0xFF22C55E),
+                        () => showShiftEmpList('Có mặt – $shiftName', const Color(0xFF22C55E), attendedCards)),
+                    _chip(Icons.person_off_rounded, 'Vắng', absentCards.length, const Color(0xFFEF4444),
+                        () => showShiftEmpList('Vắng – $shiftName', const Color(0xFFEF4444), absentCards)),
+                  ],
+                ),
+              ]),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   // ===================== INSIGHT CHIPS ROW =====================
   Widget _buildInsightChipsRow() {
     final pendingTotal = _pendingLeaves.length + _pendingCorrections.length +
         _pendingSwaps.length + _pendingAdvances.length;
-    final otCount = _toInt(_overtimeStats['totalOvertimeCount'] ??
+    // Backend OvertimeStatistics returns: totalRequests, pendingCount, approvedCount,
+    // rejectedCount, completedCount, totalPlannedHours, totalActualHours.
+    final otCount = _toInt(_overtimeStats['totalRequests'] ??
+        _overtimeStats['totalOvertimeCount'] ??
         _overtimeStats['employeesWithOvertime'] ?? _overtimeStats['count'] ?? 0);
     final taskTotal = _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
     final taskDone = _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? _taskStats['done'] ?? 0);
-    final penaltyCount = _toInt(_penaltyStats['totalTickets'] ??
-        _penaltyStats['count'] ?? _penaltyStats['total'] ?? 0);
+    // Backend PenaltyTicketStats returns: totalPending, totalApproved, totalAutoApproved,
+    // totalCancelled, pendingAmount, approvedAmount.
+    final penaltyCount = _toInt(_penaltyStats['totalPending'] ?? 0) +
+        _toInt(_penaltyStats['totalApproved'] ?? 0) +
+        _toInt(_penaltyStats['totalAutoApproved'] ?? 0) +
+        _toInt(_penaltyStats['totalCancelled'] ?? 0);
     final cashIn = ((_cashSummary['totalIncome'] ?? _cashSummary['totalIn'] ?? 0) as num).toDouble();
     final cashOut = ((_cashSummary['totalExpense'] ?? _cashSummary['totalOut'] ?? 0) as num).toDouble();
     final cashNet = cashIn - cashOut;
@@ -894,7 +1765,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _InsightChipData(Icons.task_alt_outlined, 'Công việc', taskTotal > 0 ? '$taskDone/$taskTotal' : '0', const Color(0xFF2D5F8B), 'task_detail'),
       _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount', const Color(0xFFDC2626), 'penalty_detail'),
       // Row 3
-      _InsightChipData(Icons.description_outlined, 'HĐ hết hạn', '${_expiringDocs.length}', const Color(0xFFEA580C), 'docs_detail'),
+      _InsightChipData(Icons.assignment_late_outlined, 'HĐ hết hạn', '${_expiringDocs.length + _expiredContracts.length}', const Color(0xFFEA580C), 'docs_detail'),
       _InsightChipData(Icons.account_balance_wallet_outlined, 'Ứng lương', '${_pendingAdvances.length}', const Color(0xFF10B981), 'advance_detail'),
       _InsightChipData(Icons.groups_outlined, 'NV mới', '${_newHiresThisMonth()}', const Color(0xFF0F2340), 'newhires_detail'),
       // Row 4 — full width
@@ -978,7 +1849,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   int _newHiresThisMonth() {
-    final now = DateTime.now();
+    final cutoff = DateTime.now().subtract(const Duration(days: 90));
     var count = 0;
     for (final e in _employees) {
       if (e is Map) {
@@ -986,7 +1857,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (join != null) {
           try {
             final d = DateTime.parse(join.toString());
-            if (d.year == now.year && d.month == now.month) count++;
+            if (d.isAfter(cutoff)) count++;
           } catch (_) {}
         }
       }
@@ -1008,19 +1879,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     switch (c.kind) {
       case 'leave_today':
-        items = _absentWithPermission;
+        items = [];
+        customContent = _buildLeaveTodayDetailContent();
         break;
       case 'pending_all':
-        // Combine all pending lists
-        items = [
-          ..._pendingLeaves.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Đơn nghỉ phép'}),
-          ..._pendingCorrections.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Chỉnh sửa CC'}),
-          ..._pendingSwaps.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Đổi ca'}),
-          ..._pendingAdvances.whereType<Map<String, dynamic>>().map((e) => {...e, '_type': 'Ứng lương'}),
-        ];
+        items = [];
+        customContent = _buildPendingAllDetailContent(c.color);
         break;
       case 'birthday_detail':
-        items = [..._todayBirthdays, ..._monthlyBirthdays];
+        items = [];
+        customContent = _buildBirthdayDetailContent();
         break;
       case 'overtime_detail':
         items = [];
@@ -1035,7 +1903,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         customContent = _buildPenaltyDetailContent();
         break;
       case 'docs_detail':
-        items = _expiringDocs.whereType<Map<String, dynamic>>().toList();
+        items = [];
+        customContent = _buildContractDetailContent();
         break;
       case 'advance_detail':
         items = _pendingAdvances.whereType<Map<String, dynamic>>().toList();
@@ -1045,15 +1914,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         customContent = _buildFinanceDetailContent();
         break;
       case 'newhires_detail':
-        final now = DateTime.now();
+        final cutoff = DateTime.now().subtract(const Duration(days: 90));
         items = _employees.whereType<Map<String, dynamic>>().where((e) {
           final join = e['joinDate'] ?? e['hireDate'] ?? e['startDate'];
           if (join == null) return false;
           try {
             final d = DateTime.parse(join.toString());
-            return d.year == now.year && d.month == now.month;
+            return d.isAfter(cutoff);
           } catch (_) { return false; }
         }).toList();
+        items.sort((a, b) {
+          final da = DateTime.tryParse((a['joinDate'] ?? a['hireDate'] ?? a['startDate'] ?? '').toString()) ?? DateTime(2000);
+          final db = DateTime.tryParse((b['joinDate'] ?? b['hireDate'] ?? b['startDate'] ?? '').toString()) ?? DateTime(2000);
+          return db.compareTo(da);
+        });
         break;
       default:
         items = [];
@@ -1128,6 +2002,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             itemBuilder: (_, i) => _buildInsightDetailRow(c.kind, items[i], c.color),
                           ),
               ),
+              // CTA: open the source management screen
+              Builder(builder: (_) {
+                final cta = _ctaForKind(c.kind);
+                if (cta == null) return const SizedBox.shrink();
+                return SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: c.color,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => cta.screen));
+                        },
+                        icon: Icon(cta.icon, size: 18),
+                        label: Text(cta.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ],
           ),
         ),
@@ -1136,7 +2038,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildInsightDetailRow(String kind, Map<String, dynamic> item, Color accent) {
-    final name = (item['fullName'] ?? item['employeeName'] ?? item['name'] ?? '-').toString();
+    final _ln = (item['lastName'] ?? '').toString().trim();
+    final _fn = (item['firstName'] ?? '').toString().trim();
+    final _fullFromParts = [_ln, _fn].where((s) => s.isNotEmpty).join(' ');
+    final name = (item['fullName'] ?? item['employeeName'] ?? item['name'] ?? '').toString().trim().isNotEmpty
+        ? (item['fullName'] ?? item['employeeName'] ?? item['name']).toString().trim()
+        : (_fullFromParts.isNotEmpty ? _fullFromParts : '-');
     final sub1 = (item['departmentName'] ?? item['department'] ?? item['_type'] ?? '').toString();
     final sub2 = (item['leaveType'] ?? item['type'] ?? item['contractType'] ?? '').toString();
 
@@ -1144,66 +2051,927 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (kind == 'birthday_detail') {
       final dob = item['dateOfBirth'] ?? item['birthday'];
       badge = dob != null ? _fmtDate(dob) : '';
+    } else if (kind == 'newhires_detail') {
+      final join = item['joinDate'] ?? item['hireDate'] ?? item['startDate'];
+      if (join != null) {
+        try {
+          final d = DateTime.parse(join.toString());
+          final diff = DateTime.now().difference(d).inDays;
+          badge = diff == 0 ? 'Hôm nay' : '$diff ngày';
+        } catch (_) {}
+      }
     } else if (kind == 'pending_all') {
       badge = (item['_type'] ?? '').toString();
     } else if (kind == 'docs_detail') {
-      badge = (item['expiryDate'] ?? item['endDate'] ?? '').toString().isNotEmpty
-          ? _fmtDate(item['expiryDate'] ?? item['endDate'])
-          : '';
+      final contractEnd = item['contractEndDate'] ?? item['expiryDate'] ?? item['endDate'];
+      final daysLeft = (item['daysUntilExpiry'] as num?)?.toInt();
+      if (daysLeft != null) {
+        badge = daysLeft == 0 ? 'Hôm nay' : '$daysLeft ngày';
+      } else if (contractEnd != null) {
+        badge = _fmtDate(contractEnd);
+      }
     } else if (kind == 'advance_detail') {
       final amt = (item['requestedAmount'] ?? item['amount'] ?? 0) as num;
       badge = '${_fmtMoney(amt.toDouble())}đ';
     }
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blueGrey.shade100),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: accent.withValues(alpha: .12),
-            child: Text(name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
-                style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (sub1.isNotEmpty || sub2.isNotEmpty)
-                  Text([sub1, sub2].where((s) => s.isNotEmpty).join(' • '),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
+    return InkWell(
+      onTap: () => _navigateFromInsightRow(kind, item),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.blueGrey.shade100),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: accent.withValues(alpha: .12),
+              child: Text(name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
+                  style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
-          ),
-          if (badge.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
-              child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: accent)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (sub1.isNotEmpty || sub2.isNotEmpty)
+                    Text([sub1, sub2].where((s) => s.isNotEmpty).join(' • '),
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
             ),
-        ],
+            if (badge.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
+                child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: accent)),
+              ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade400),
+          ],
+        ),
       ),
     );
   }
 
+  /// Navigate from an insight-detail row to the source screen so the user can
+  /// review / approve / edit the underlying record.
+  void _navigateFromInsightRow(String kind, Map<String, dynamic> item) {
+    // Close the bottom sheet first.
+    Navigator.of(context, rootNavigator: false).maybePop();
+    final type = (item['_type'] ?? '').toString();
+    final itemId = (item['id'] ?? item['Id'] ?? '').toString();
+
+    Widget? target;
+    String resolved = kind;
+    final hi = itemId.isEmpty ? null : itemId;
+    if (kind == 'pending_all') {
+      // Pick the right screen based on the kind embedded in the row (_type).
+      switch (type) {
+        case 'Đơn nghỉ phép':
+          target = LeaveScreen(highlightId: hi);
+          resolved = 'leave';
+          break;
+        case 'Chỉnh sửa CC':
+          target = AttendanceCorrectionsScreen(highlightId: hi);
+          resolved = 'corrections';
+          break;
+        case 'Đổi ca':
+          target = AttendanceApprovalScreen(highlightId: hi);
+          resolved = 'swap';
+          break;
+        case 'Ứng lương':
+          target = AdvanceRequestsScreen(highlightId: hi);
+          resolved = 'advance';
+          break;
+      }
+    } else {
+      switch (kind) {
+        case 'leave_today':
+          target = LeaveScreen(highlightId: hi);
+          break;
+        case 'advance_detail':
+          target = AdvanceRequestsScreen(highlightId: hi);
+          break;
+        case 'docs_detail':
+          target = HrDocumentsScreen(highlightId: hi);
+          break;
+        case 'birthday_detail':
+        case 'newhires_detail':
+          // For these kinds the row id is the employee id.
+          target = EmployeesScreen(highlightId: hi);
+          break;
+      }
+    }
+
+    if (target == null) return;
+    final empName = (item['employeeName'] ?? item['fullName'] ?? item['name'] ?? '').toString();
+    if (empName.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mở $resolved cho: $empName'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => target!));
+  }
+
+  /// Returns CTA configuration mapping a chip kind to the management screen
+  /// the user should be taken to from the insight bottom sheet.
+  _InsightCta? _ctaForKind(String kind) {
+    switch (kind) {
+      case 'leave_today':
+        return _InsightCta('Mở quản lý nghỉ phép', Icons.event_busy, const LeaveScreen());
+      case 'pending_all':
+        return _InsightCta('Mở duyệt chấm công', Icons.fact_check_outlined, const AttendanceApprovalScreen());
+      case 'birthday_detail':
+      case 'newhires_detail':
+        return _InsightCta('Mở danh sách nhân viên', Icons.people_alt_outlined, const EmployeesScreen());
+      case 'overtime_detail':
+        return _InsightCta('Mở quản lý tăng ca', Icons.access_time, const OvertimeScreen());
+      case 'task_detail':
+        return _InsightCta('Mở quản lý công việc', Icons.checklist, const TaskManagementScreen());
+      case 'penalty_detail':
+        return _InsightCta('Mở phiếu vi phạm', Icons.report_gmailerrorred, const PenaltyTicketsScreen());
+      case 'docs_detail':
+        return _InsightCta('Mở danh sách nhân viên', Icons.people_alt_outlined, const EmployeesScreen());
+      case 'advance_detail':
+        return _InsightCta('Mở phiếu ứng lương', Icons.payments_outlined, const AdvanceRequestsScreen());
+      case 'finance_detail':
+        return _InsightCta('Mở thu chi', Icons.account_balance_wallet_outlined, const CashTransactionScreen());
+    }
+    return null;
+  }
+
+  Widget _buildPendingAllDetailContent(Color accentColor) {
+    final leaves      = _pendingLeaves.whereType<Map<String, dynamic>>().toList();
+    final corrections = _pendingCorrections.whereType<Map<String, dynamic>>().toList();
+    final swaps       = _pendingSwaps.whereType<Map<String, dynamic>>().toList();
+    final advances    = _pendingAdvances.whereType<Map<String, dynamic>>().toList();
+
+    if (leaves.isEmpty && corrections.isEmpty && swaps.isEmpty && advances.isEmpty) {
+      return _emptyState('Không có phiếu chờ duyệt');
+    }
+
+    // Local state for loading indicators per item
+    final loadingIds = <String>{};
+
+    Future<void> doApprove(String type, Map<String, dynamic> item,
+        {bool approve = true, String? reason}) async {
+      final id = (item['id'] ?? item['Id'] ?? '').toString();
+      if (id.isEmpty) return;
+      try {
+        Map<String, dynamic> result;
+        switch (type) {
+          case 'leave':
+            result = approve
+                ? await _api.approveLeave(id)
+                : await _api.rejectLeave(id, reason);
+            break;
+          case 'correction':
+            result = await _api.approveAttendanceCorrection(
+                requestId: id, isApproved: approve,
+                approverNote: reason);
+            break;
+          case 'swap':
+            result = approve
+                ? await _api.approveShiftSwap(id)
+                : await _api.cancelShiftSwap(id);
+            break;
+          case 'advance':
+            result = await _api.approveAdvanceRequest(
+                requestId: id, isApproved: approve,
+                rejectionReason: reason);
+            break;
+          default:
+            return;
+        }
+        final ok = result['isSuccess'] == true || result['isSuccess'] == 'true';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(ok
+                ? (approve ? 'Đã duyệt thành công' : 'Đã từ chối')
+                : (result['message'] ?? 'Thao tác thất bại').toString()),
+            backgroundColor: ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+            duration: const Duration(seconds: 2),
+          ));
+          if (ok) _loadAllData(); // refresh
+        }
+      } catch (_) {}
+    }
+
+    Widget pendingCard({
+      required Map<String, dynamic> item,
+      required String typeKey,
+      required String typeLabel,
+      required Color color,
+      required String title,
+      required String subtitle,
+      String? extraInfo,
+      String? dateStr,
+    }) {
+      final id = (item['id'] ?? item['Id'] ?? '').toString();
+      return StatefulBuilder(builder: (ctx, setS) {
+        final isLoading = loadingIds.contains(id);
+
+        Future<void> approve() async {
+          setS(() => loadingIds.add(id));
+          await doApprove(typeKey, item, approve: true);
+          setS(() => loadingIds.remove(id));
+        }
+
+        Future<void> reject() async {
+          // For leave/advance/correction, show a quick reason dialog
+          String? reason;
+          if (typeKey == 'leave' || typeKey == 'advance' || typeKey == 'correction') {
+            final ctrl = TextEditingController();
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Lý do từ chối', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                content: TextField(
+                  controller: ctrl,
+                  decoration: const InputDecoration(hintText: 'Nhập lý do...', border: OutlineInputBorder()),
+                  maxLines: 2,
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Từ chối'),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed != true) return;
+            reason = ctrl.text.trim();
+          }
+          setS(() => loadingIds.add(id));
+          await doApprove(typeKey, item, approve: false, reason: reason);
+          setS(() => loadingIds.remove(id));
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: .2)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(typeLabel,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+            ),
+            // Details
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (subtitle.isNotEmpty)
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                if (dateStr != null && dateStr.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    const Icon(Icons.calendar_today_outlined, size: 11, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 4),
+                    Text(dateStr, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                  ]),
+                ],
+                if (extraInfo != null && extraInfo.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.notes_rounded, size: 11, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text(extraInfo,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                      maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  ]),
+                ],
+              ]),
+            ),
+            // Action buttons
+            if (isLoading)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(10, 0, 10, 10),
+                child: Center(child: SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                child: Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF4444),
+                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                      ),
+                      icon: const Icon(Icons.close, size: 14),
+                      label: const Text('Từ chối', style: TextStyle(fontSize: 12)),
+                      onPressed: reject,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF22C55E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.check, size: 14),
+                      label: const Text('Duyệt', style: TextStyle(fontSize: 12)),
+                      onPressed: approve,
+                    ),
+                  ),
+                ]),
+              ),
+          ]),
+        );
+      });
+    }
+
+    String fmtDateRange(dynamic start, dynamic end) {
+      if (start == null) return '';
+      try {
+        final s = DateTime.parse(start.toString());
+        if (end == null) return '${s.day}/${s.month}/${s.year}';
+        final e = DateTime.parse(end.toString());
+        if (s.year == e.year && s.month == e.month && s.day == e.day) {
+          return '${s.day}/${s.month}/${s.year}';
+        }
+        return '${s.day}/${s.month} – ${e.day}/${e.month}/${e.year}';
+      } catch (_) { return start.toString(); }
+    }
+
+    Widget sectionHeader(String title, int count, Color color) => Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(6)),
+          child: Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        ),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      ]),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Đơn nghỉ phép ──
+        if (leaves.isNotEmpty) ...[
+          sectionHeader('Đơn nghỉ phép', leaves.length, const Color(0xFFF59E0B)),
+          ...leaves.map((item) {
+            final name = (item['employeeName'] ?? item['fullName'] ?? '').toString();
+            final dept = (item['department'] ?? item['departmentName'] ?? '').toString();
+            final leaveTypeRaw = item['type'] ?? item['leaveType'];
+            final leaveTypeStr = () {
+              if (leaveTypeRaw == null) return 'Nghỉ phép';
+              final t = leaveTypeRaw is int ? leaveTypeRaw : int.tryParse(leaveTypeRaw.toString()) ?? -1;
+              const labels = {0:'Phép năm',1:'Lễ tết',2:'VR có lương',3:'VR không lương',4:'Ốm đau',5:'Thai sản',6:'Nghỉ bù',7:'Nghỉ dài hạn'};
+              return labels[t] ?? 'Nghỉ phép';
+            }();
+            final totalDays = item['totalDays'] ?? item['totalShifts'];
+            final daysStr = totalDays != null ? '${(totalDays as num).toStringAsFixed(totalDays == (totalDays as num).truncate() ? 0 : 1)} ngày' : '';
+            final subtitle = [dept, leaveTypeStr, daysStr].where((s) => s.isNotEmpty).join(' • ');
+            return pendingCard(
+              item: item, typeKey: 'leave',
+              typeLabel: 'Nghỉ phép', color: const Color(0xFFF59E0B),
+              title: name.isEmpty ? 'N/A' : name,
+              subtitle: subtitle,
+              dateStr: fmtDateRange(item['startDate'], item['endDate']),
+              extraInfo: (item['reason'] ?? '').toString().trim().isNotEmpty ? item['reason'].toString() : null,
+            );
+          }),
+        ],
+        // ── Chỉnh sửa CC ──
+        if (corrections.isNotEmpty) ...[
+          sectionHeader('Chỉnh sửa chấm công', corrections.length, const Color(0xFF6366F1)),
+          ...corrections.map((item) {
+            final name = (item['employeeName'] ?? item['fullName'] ?? '').toString();
+            final action = (item['action'] ?? item['correctionType'] ?? '').toString();
+            final newTime = (item['newTime'] ?? '').toString();
+            final newDate = item['newDate'] ?? item['correctionDate'];
+            final reason = (item['reason'] ?? '').toString().trim();
+            return pendingCard(
+              item: item, typeKey: 'correction',
+              typeLabel: 'Chỉnh CC', color: const Color(0xFF6366F1),
+              title: name.isEmpty ? 'N/A' : name,
+              subtitle: [action, newTime].where((s) => s.isNotEmpty).join(' → '),
+              dateStr: newDate != null ? fmtDateRange(newDate, null) : '',
+              extraInfo: reason.isNotEmpty ? reason : null,
+            );
+          }),
+        ],
+        // ── Đổi ca ──
+        if (swaps.isNotEmpty) ...[
+          sectionHeader('Đổi ca', swaps.length, const Color(0xFF8B5CF6)),
+          ...swaps.map((item) {
+            final requester = (item['requesterName'] ?? item['employeeName'] ?? '').toString();
+            final target    = (item['targetName'] ?? item['targetEmployeeName'] ?? '').toString();
+            final shiftFrom = (item['originalShiftName'] ?? item['shiftName'] ?? '').toString();
+            final shiftTo   = (item['targetShiftName'] ?? '').toString();
+            final dateFrom  = item['originalDate'] ?? item['shiftDate'];
+            final dateTo    = item['targetDate'];
+            return pendingCard(
+              item: item, typeKey: 'swap',
+              typeLabel: 'Đổi ca', color: const Color(0xFF8B5CF6),
+              title: requester.isEmpty ? 'N/A' : requester,
+              subtitle: target.isNotEmpty ? 'Đổi với: $target' : '',
+              dateStr: shiftFrom.isNotEmpty || shiftTo.isNotEmpty
+                  ? [shiftFrom, shiftTo].where((s) => s.isNotEmpty).join(' ⇄ ')
+                  : fmtDateRange(dateFrom, dateTo),
+              extraInfo: (item['reason'] ?? '').toString().trim().isNotEmpty ? item['reason'].toString() : null,
+            );
+          }),
+        ],
+        // ── Ứng lương ──
+        if (advances.isNotEmpty) ...[
+          sectionHeader('Ứng lương', advances.length, const Color(0xFF0EA5E9)),
+          ...advances.map((item) {
+            final name = (item['employeeName'] ?? item['fullName'] ?? '').toString();
+            final dept = (item['department'] ?? item['departmentName'] ?? '').toString();
+            final amt  = (item['requestedAmount'] ?? item['amount'] ?? 0) as num;
+            final reason = (item['reason'] ?? '').toString().trim();
+            return pendingCard(
+              item: item, typeKey: 'advance',
+              typeLabel: 'Ứng lương', color: const Color(0xFF0EA5E9),
+              title: name.isEmpty ? 'N/A' : name,
+              subtitle: [dept, '${_fmtMoney(amt.toDouble())}đ'].where((s) => s.isNotEmpty).join(' • '),
+              dateStr: fmtDateRange(item['requestDate'] ?? item['createdAt'], null),
+              extraInfo: reason.isNotEmpty ? reason : null,
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLeaveTodayDetailContent() {
+    // Combine today's leaves from report + leave API, deduplicated
+    final all = _absentWithPermission.cast<Map<String, dynamic>>();
+
+    if (all.isEmpty) {
+      return _emptyState('Không có nhân viên nghỉ phép hôm nay');
+    }
+
+    int normalizeLeaveType(dynamic type) {
+      if (type is int) return type;
+      final s = type?.toString().toLowerCase() ?? '';
+      switch (s) {
+        case 'annualleave': case 'annual': case '0': return 0;
+        case 'holiday': case '1': return 1;
+        case 'personalpaid': case '2': return 2;
+        case 'personalunpaid': case '3': return 3;
+        case 'sickleave': case 'sick': case '4': return 4;
+        case 'maternityleave': case 'maternity': case '5': return 5;
+        case 'compensatoryleave': case 'compensatory': case '6': return 6;
+        case 'longtermleave': case 'longterm': case '7': return 7;
+        default: return -1;
+      }
+    }
+
+    String leaveTypeLabel(dynamic type) {
+      final t = normalizeLeaveType(type);
+      switch (t) {
+        case 0: return 'Phép năm';
+        case 1: return 'Lễ tết';
+        case 2: return 'VR có lương';
+        case 3: return 'VR không lương';
+        case 4: return 'Ốm đau';
+        case 5: return 'Thai sản';
+        case 6: return 'Nghỉ bù';
+        case 7: return 'Nghỉ dài hạn';
+        default: return 'Nghỉ phép';
+      }
+    }
+
+    // Group by leave type label
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final item in all) {
+      final label = leaveTypeLabel(item['type'] ?? item['leaveType'] ?? item['contractType']);
+      grouped.putIfAbsent(label, () => []).add(item);
+    }
+
+    Widget leaveCard(Map<String, dynamic> d) {
+      final ln = (d['lastName'] ?? '').toString();
+      final fn = (d['firstName'] ?? '').toString();
+      final empName = (d['employeeName'] ?? d['fullName'] ?? d['name'] ?? '').toString().trim();
+      final fullName = empName.isNotEmpty ? empName : '$ln $fn'.trim();
+      final dept = (d['department'] ?? d['departmentName'] ?? '').toString();
+      final start = d['startDate'] ?? d['shiftDate'] ?? d['date'];
+      final end = d['endDate'];
+      final totalDays = d['totalDays'] ?? d['totalShifts'];
+      final reason = (d['reason'] ?? d['note'] ?? '').toString().trim();
+      final isHalf = d['isHalfShift'] == true;
+
+      String dateRange = '';
+      if (start != null && end != null) {
+        try {
+          final s = DateTime.parse(start.toString());
+          final e = DateTime.parse(end.toString());
+          if (s.day == e.day && s.month == e.month && s.year == e.year) {
+            dateRange = '${s.day}/${s.month}/${s.year}';
+          } else {
+            dateRange = '${s.day}/${s.month} – ${e.day}/${e.month}/${e.year}';
+          }
+        } catch (_) {
+          dateRange = start.toString();
+        }
+      } else if (start != null) {
+        try {
+          final s = DateTime.parse(start.toString());
+          dateRange = '${s.day}/${s.month}/${s.year}';
+        } catch (_) {
+          dateRange = start.toString();
+        }
+      }
+
+      String daysStr = '';
+      if (totalDays != null) {
+        final n = (totalDays as num).toDouble();
+        daysStr = n == n.truncateToDouble() ? '${n.toInt()} ngày' : '${n.toStringAsFixed(1)} ngày';
+      } else if (isHalf) {
+        daysStr = 'Nửa ca';
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: .2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFFFEF3C7),
+              child: Text(
+                fullName.isNotEmpty ? fullName.characters.first.toUpperCase() : '?',
+                style: const TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(fullName.isEmpty ? 'N/A' : fullName,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (dept.isNotEmpty)
+                Text(dept, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+            ])),
+            if (daysStr.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(daysStr,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+              ),
+          ]),
+          if (dateRange.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              const Icon(Icons.calendar_today_outlined, size: 12, color: Color(0xFF6B7280)),
+              const SizedBox(width: 4),
+              Text(dateRange, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+            ]),
+          ],
+          if (reason.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.notes_rounded, size: 12, color: Color(0xFF9CA3AF)),
+              const SizedBox(width: 4),
+              Expanded(child: Text(reason,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                maxLines: 2, overflow: TextOverflow.ellipsis)),
+            ]),
+          ],
+        ]),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in grouped.entries) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 6),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('${entry.value.length}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+              ),
+              const SizedBox(width: 8),
+              Text(entry.key,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+          ...entry.value.map(leaveCard),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildContractDetailContent() {
+    final expiring = _expiringDocs.whereType<Map<String, dynamic>>().toList();
+    final expired  = _expiredContracts.whereType<Map<String, dynamic>>().toList();
+
+    if (expiring.isEmpty && expired.isEmpty) {
+      return _emptyState('Không có hợp đồng cần xử lý');
+    }
+
+    Widget contractRow(Map<String, dynamic> d, {bool isExpired = false}) {
+      final firstName = (d['firstName'] ?? '').toString();
+      final lastName  = (d['lastName']  ?? '').toString();
+      final fullName  = '$lastName $firstName'.trim();
+      final dept      = (d['department'] ?? '').toString();
+      final days      = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
+      final accent    = isExpired ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+      final badge     = isExpired
+          ? '${(-days)} ngày trước'
+          : (days == 0 ? 'Hôm nay' : '$days ngày');
+
+      return InkWell(
+        onTap: () {
+          Navigator.of(context, rootNavigator: false).maybePop();
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmployeesScreen()));
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accent.withValues(alpha: .2)),
+          ),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isExpired ? Icons.warning_rounded : Icons.schedule_rounded,
+                size: 16, color: accent,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(fullName.isEmpty ? 'N/A' : fullName,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (dept.isNotEmpty)
+                Text(dept, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
+              child: Text(badge,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: accent)),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    Widget sectionHeader(String title, int count, Color color) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(6)),
+          child: Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        ),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      ]),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (expiring.isNotEmpty) ...[
+          sectionHeader('Cần gia hạn (trong 30 ngày)', expiring.length, const Color(0xFFF59E0B)),
+          ...expiring.map((d) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: contractRow(d),
+          )),
+        ],
+        if (expired.isNotEmpty) ...[
+          if (expiring.isNotEmpty) const SizedBox(height: 8),
+          sectionHeader('Đã hết hạn', expired.length, const Color(0xFFEF4444)),
+          ...expired.map((d) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: contractRow(d, isExpired: true),
+          )),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBirthdayDetailContent() {
+    final today = DateTime.now();
+    final todayDay = today.day;
+
+    final past = <Map<String, dynamic>>[];
+    final todayList = <Map<String, dynamic>>[];
+    final upcoming = <Map<String, dynamic>>[];
+
+    final src = _birthdayEmployees.isNotEmpty ? _birthdayEmployees : _employees;
+    for (final e in src.whereType<Map<String, dynamic>>()) {
+      final dob = e['dateOfBirth'] ?? e['birthday'];
+      if (dob == null) continue;
+      try {
+        final d = DateTime.parse(dob.toString());
+        if (d.month != today.month) continue;
+        final row = {...e, '_birthdayDay': d.day, '_birthdayDate': d};
+        if (d.day < todayDay) {
+          past.add(row);
+        } else if (d.day == todayDay) {
+          todayList.add(row);
+        } else {
+          upcoming.add(row);
+        }
+      } catch (_) {}
+    }
+    past.sort((a, b) => (a['_birthdayDay'] as int).compareTo(b['_birthdayDay'] as int));
+    upcoming.sort((a, b) => (a['_birthdayDay'] as int).compareTo(b['_birthdayDay'] as int));
+
+    const pink = Color(0xFFEC4899);
+    const green = Color(0xFF22C55E);
+    const grey = Color(0xFF94A3B8);
+
+    Widget empRow(Map<String, dynamic> e, Color color) {
+      final ln = (e['lastName'] ?? '').toString().trim();
+      final fn = (e['firstName'] ?? '').toString().trim();
+      final fp = [ln, fn].where((s) => s.isNotEmpty).join(' ');
+      final name = (e['fullName'] ?? e['employeeName'] ?? e['name'] ?? '').toString().trim();
+      final displayName = name.isNotEmpty ? name : (fp.isNotEmpty ? fp : '-');
+      final dept = (e['departmentName'] ?? e['department'] ?? '').toString();
+      final day = e['_birthdayDay'] as int? ?? 0;
+
+      return InkWell(
+        onTap: () {
+          Navigator.of(context).maybePop();
+          final id = (e['id'] ?? e['Id'] ?? '').toString();
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => EmployeesScreen(highlightId: id.isEmpty ? null : id),
+          ));
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.18)),
+          ),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Text(
+                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (dept.isNotEmpty)
+                Text(dept,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Ngày $day',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    Widget section(String title, IconData icon, Color color, List<Map<String, dynamic>> list, {String? subtitle}) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+              child: Text('${list.length}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(width: 6),
+              Text(subtitle, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
+            ],
+          ]),
+        ),
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 4),
+            child: Text('Không có', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+          )
+        else
+          ...list.map((e) => empRow(e, color)),
+        const SizedBox(height: 10),
+      ]);
+    }
+
+    if (past.isEmpty && todayList.isEmpty && upcoming.isEmpty) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text('Không có sinh nhật trong tháng này',
+            style: TextStyle(color: Colors.grey.shade500)),
+      ));
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (todayList.isNotEmpty)
+        section('🎂 Hôm nay', Icons.cake_rounded, pink, todayList),
+      section('Sắp tới', Icons.upcoming_rounded, green, upcoming,
+          subtitle: upcoming.isNotEmpty ? '${upcoming.length} NV' : null),
+      section('Đã qua trong tháng', Icons.history_rounded, grey, past),
+    ]);
+  }
+
   Widget _buildOvertimeDetailContent() {
-    final total = _toInt(_overtimeStats['totalOvertimeCount'] ?? _overtimeStats['count'] ?? 0);
-    final hours = ((_overtimeStats['totalOvertimeHours'] ?? _overtimeStats['hours'] ?? 0) as num).toDouble();
+    final total = _toInt(_overtimeStats['totalRequests'] ?? _overtimeStats['totalOvertimeCount'] ?? _overtimeStats['count'] ?? 0);
+    final hours = ((_overtimeStats['totalActualHours'] ?? _overtimeStats['totalPlannedHours'] ?? _overtimeStats['totalOvertimeHours'] ?? _overtimeStats['hours'] ?? 0) as num).toDouble();
     final approved = _toInt(_overtimeStats['approvedCount'] ?? _overtimeStats['approved'] ?? 0);
     final pending = _toInt(_overtimeStats['pendingCount'] ?? _overtimeStats['pending'] ?? 0);
+    final completed = _toInt(_overtimeStats['completedCount'] ?? 0);
     return Column(children: [
-      _detailStatRow(Icons.people_outline, 'Tổng NV làm OT', '$total người', const Color(0xFF8B5CF6)),
+      _detailStatRow(Icons.receipt_long_outlined, 'Tổng đơn OT', '$total', const Color(0xFF8B5CF6)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.timer_outlined, 'Tổng giờ OT', '${hours.toStringAsFixed(1)} giờ', const Color(0xFF8B5CF6)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved', const Color(0xFF22C55E)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.task_alt, 'Hoàn thành', '$completed', const Color(0xFF1E3A5F)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.pending_outlined, 'Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
     ]);
@@ -1241,18 +3009,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPenaltyDetailContent() {
-    final total = _toInt(_penaltyStats['totalTickets'] ?? _penaltyStats['count'] ?? _penaltyStats['total'] ?? 0);
-    final totalFine = ((_penaltyStats['totalFineAmount'] ?? _penaltyStats['totalAmount'] ?? 0) as num).toDouble();
-    final paid = _toInt(_penaltyStats['paidCount'] ?? _penaltyStats['paid'] ?? 0);
-    final unpaid = _toInt(_penaltyStats['unpaidCount'] ?? _penaltyStats['unpaid'] ?? 0);
+    // Backend PenaltyTicketStats returns: totalPending, totalApproved, totalAutoApproved,
+    // totalCancelled, pendingAmount, approvedAmount.
+    final pending = _toInt(_penaltyStats['totalPending'] ?? 0);
+    final approved = _toInt(_penaltyStats['totalApproved'] ?? 0);
+    final autoApproved = _toInt(_penaltyStats['totalAutoApproved'] ?? 0);
+    final cancelled = _toInt(_penaltyStats['totalCancelled'] ?? 0);
+    final total = pending + approved + autoApproved + cancelled;
+    final totalFine = (((_penaltyStats['pendingAmount'] ?? 0) as num) +
+            ((_penaltyStats['approvedAmount'] ?? 0) as num))
+        .toDouble();
     return Column(children: [
       _detailStatRow(Icons.receipt_long, 'Tổng phiếu vi phạm', '$total', const Color(0xFFDC2626)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.attach_money, 'Tổng tiền phạt', '${_fmtMoney(totalFine)}đ', const Color(0xFFDC2626)),
       const SizedBox(height: 8),
-      _detailStatRow(Icons.check_circle_outline, 'Đã nộp phạt', '$paid', const Color(0xFF22C55E)),
+      _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved', const Color(0xFF22C55E)),
       const SizedBox(height: 8),
-      _detailStatRow(Icons.cancel_outlined, 'Chưa nộp', '$unpaid', const Color(0xFFF59E0B)),
+      _detailStatRow(Icons.bolt_outlined, 'Tự duyệt', '$autoApproved', const Color(0xFF1E3A5F)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.pending_outlined, 'Chờ xử lý', '$pending', const Color(0xFFF59E0B)),
+      const SizedBox(height: 8),
+      _detailStatRow(Icons.cancel_outlined, 'Đã hủy', '$cancelled', const Color(0xFF71717A)),
     ]);
   }
 
@@ -1442,57 +3220,201 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAttendanceDonut(double rate) {
-    // Color bands: green >= 85, orange 70-85, red < 70
-    final Color arcColor = rate >= 85
+    // Per-shift present counts from _shiftPairs
+    final shiftCounts = <String, int>{};
+    for (final p in _shiftPairs) {
+      if (p.checkIn == null) continue;
+      final key = p.shiftName.isNotEmpty ? p.shiftName : 'Không rõ';
+      shiftCounts[key] = (shiftCounts[key] ?? 0) + 1;
+    }
+    final shiftNames = shiftCounts.keys.toList()
+      ..sort((a, b) => shiftCounts[b]!.compareTo(shiftCounts[a]!));
+
+    const palette = [
+      Color(0xFF22C55E),
+      Color(0xFF3B82F6),
+      Color(0xFF8B5CF6),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+      Color(0xFFEC4899),
+    ];
+
+    final double total = _totalEmployees > 0 ? _totalEmployees.toDouble() : 1.0;
+    final double present = _presentCount.toDouble();
+    final double absent = (total - present).clamp(0.0, total);
+
+    final Color mainColor = rate >= 85
         ? const Color(0xFF22C55E)
         : rate >= 70
             ? const Color(0xFFF59E0B)
             : const Color(0xFFEF4444);
 
-    return Stack(
-      alignment: Alignment.center,
+    // Build sections with touch-aware radius
+    final sections = <PieChartSectionData>[];
+    int sectionIdx = 0;
+    if (shiftNames.isEmpty) {
+      final isTouched = _touchedDonutIndex == 0;
+      sections.add(PieChartSectionData(
+        value: present > 0 ? present : 0.0001,
+        color: mainColor,
+        radius: isTouched ? 34 : 26,
+        showTitle: false,
+      ));
+      sectionIdx++;
+    } else {
+      for (var i = 0; i < shiftNames.length; i++) {
+        final isTouched = _touchedDonutIndex == sectionIdx;
+        sections.add(PieChartSectionData(
+          value: shiftCounts[shiftNames[i]]!.toDouble(),
+          color: palette[i % palette.length],
+          radius: isTouched ? 34 : 26,
+          showTitle: false,
+        ));
+        sectionIdx++;
+      }
+    }
+    // absent section index
+    final absentIdx = sectionIdx;
+    if (absent > 0) {
+      final isTouched = _touchedDonutIndex == absentIdx;
+      sections.add(PieChartSectionData(
+        value: absent,
+        color: const Color(0xFFE2E8F0),
+        radius: isTouched ? 34 : 26,
+        showTitle: false,
+      ));
+    }
+
+    // Determine center display based on touched section
+    String centerTop;
+    String centerSub;
+    Color centerColor;
+    if (_touchedDonutIndex >= 0 && _touchedDonutIndex < sections.length) {
+      final isAbsent = _touchedDonutIndex == absentIdx;
+      if (isAbsent) {
+        final absPct = total > 0 ? (absent / total * 100) : 0.0;
+        centerTop = '${absPct.toStringAsFixed(1)}%';
+        centerSub = '${absent.toInt()} NV vắng';
+        centerColor = const Color(0xFF94A3B8);
+      } else {
+        final shiftIdx = shiftNames.isEmpty ? -1 : _touchedDonutIndex;
+        if (shiftIdx >= 0 && shiftIdx < shiftNames.length) {
+          final cnt = shiftCounts[shiftNames[shiftIdx]]!;
+          final pct = total > 0 ? (cnt / total * 100) : 0.0;
+          centerTop = '${pct.toStringAsFixed(1)}%';
+          centerSub = '$cnt NV • ${shiftNames[shiftIdx]}';
+          centerColor = palette[shiftIdx % palette.length];
+        } else {
+          final pct = total > 0 ? (present / total * 100) : 0.0;
+          centerTop = '${pct.toStringAsFixed(1)}%';
+          centerSub = '${present.toInt()} NV có mặt';
+          centerColor = mainColor;
+        }
+      }
+    } else {
+      centerTop = '${rate.toStringAsFixed(1)}%';
+      centerSub = '$_presentCount / $_totalEmployees NV';
+      centerColor = mainColor;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox.expand(
-          child: PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 72,
-              startDegreeOffset: -90,
-              sections: [
-                PieChartSectionData(
-                  value: rate,
-                  color: arcColor,
-                  radius: 26,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: (100 - rate).clamp(0.0001, 100),
-                  color: const Color(0xFFE2E8F0),
-                  radius: 26,
-                  showTitle: false,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        SizedBox(
+          height: 175,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                '${rate.toStringAsFixed(1)}%',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: arcColor),
+              SizedBox.expand(
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 66,
+                    startDegreeOffset: -90,
+                    sections: sections,
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, PieTouchResponse? resp) {
+                        setState(() {
+                          if (event is FlLongPressEnd ||
+                              event is FlTapUpEvent ||
+                              event is FlPointerExitEvent) {
+                            _touchedDonutIndex = -1;
+                          } else if (resp != null &&
+                              resp.touchedSection != null) {
+                            _touchedDonutIndex =
+                                resp.touchedSection!.touchedSectionIndex;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Tỉ lệ chấm công',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Text(
+                          centerTop,
+                          key: ValueKey(centerTop),
+                          style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: centerColor),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Text(
+                          centerSub,
+                          key: ValueKey(centerSub),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      if (_touchedDonutIndex < 0) ...[  
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Tỉ lệ có mặt',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
         ),
+        // Per-shift legend
+        if (shiftNames.isNotEmpty) ...[  
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              for (var i = 0; i < shiftNames.length; i++)
+                _donutLegendItem(
+                  palette[i % palette.length],
+                  shiftNames[i],
+                  shiftCounts[shiftNames[i]]!,
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1500,8 +3422,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeroKpiTiles() {
     final tiles = <_HeroKpi>[
       _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded, const Color(0xFF1E3A5F), 'total'),
-      _HeroKpi('Có mặt', '$_presentCount', Icons.how_to_reg_rounded, const Color(0xFF22C55E), 'present'),
-      _HeroKpi('Đi muộn', '$_lateCount', Icons.schedule_rounded, const Color(0xFFF59E0B), 'late'),
+      _HeroKpi(_presentShiftLabel, '$_presentCount', Icons.how_to_reg_rounded, const Color(0xFF22C55E), 'present'),
+      _HeroKpi('Đi trễ / Về sớm', '$_lateCount', Icons.schedule_rounded, const Color(0xFFF59E0B), 'late'),
       _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded, const Color(0xFFEF4444), 'absent'),
       _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded, const Color(0xFF2D5F8B), 'inout'),
       _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices', Icons.router_rounded, const Color(0xFF0F2340), 'devices'),
@@ -1626,6 +3548,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== KPI DETAIL SHEET =====================
   void _showKpiDetail(_HeroKpi k) {
+    if (k.kind == 'inout') {
+      _showInOutDetail();
+      return;
+    }
+    if (k.kind == 'late') {
+      _showLateDetail();
+      return;
+    }
+    if (k.kind == 'present') {
+      _showPresentDetail();
+      return;
+    }
+    if (k.kind == 'total') {
+      _showTotalDetail();
+      return;
+    }
+    if (k.kind == 'absent') {
+      _showAbsentDetail();
+      return;
+    }
     final items = _kpiDetailData(k.kind);
     showModalBottomSheet<void>(
       context: context,
@@ -1718,8 +3660,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           itemCount: items.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 6),
-                          itemBuilder: (_, i) => _buildKpiDetailRow(
-                              k.kind, items[i], k.color),
+                          itemBuilder: (_, i) => InkWell(
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              if (k.kind == 'late') {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AttendanceByShiftScreen(),
+                                  ),
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: _buildKpiDetailRow(
+                                k.kind, items[i], k.color),
+                          ),
                         ),
                 ),
               ],
@@ -1727,6 +3683,1582 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         },
       ),
+    );
+  }
+
+  /// Bottom-sheet Tổng NV — gom theo phòng ban, mỗi NV hiển thị ca lịch
+  /// (vàng) và ca đã chấm vào (xanh).
+  void _showTotalDetail() {
+    // ── Build lookups ────────────────────────────────────────────────────────
+    // schedulesByEmpId: employeeId/code → list of shiftName from work schedule today
+    // Use LinkedHashSet to preserve insertion order while deduplicating.
+    final schedulesByEmpId = <String, LinkedHashSet<String>>{};
+    for (final s in _todaySchedules.whereType<Map<String, dynamic>>()) {
+      if (s['isDayOff'] == true) continue;
+      final shiftName = (s['shiftName'] ?? s['shift']?['name'] ?? '').toString();
+      if (shiftName.isEmpty) continue;
+      final id = (s['employeeId'] ?? s['employeeUserId'] ?? s['employeeCode'] ?? '').toString();
+      if (id.isEmpty) continue;
+      (schedulesByEmpId[id] ??= LinkedHashSet<String>()).add(shiftName);
+    }
+
+    // checkedInShiftsByEmpCode: employeeCode/id → set of shiftName actually punched
+    final checkedInByEmpCode = <String, Set<String>>{};
+    for (final p in _shiftPairs) {
+      if (p.checkIn == null) continue;
+      final key = p.employeeCode.isNotEmpty ? p.employeeCode : p.employeeId;
+      if (key.isEmpty) continue;
+      (checkedInByEmpCode[key] ??= <String>{}).add(p.shiftName);
+    }
+
+    // Also mark employees with checkInTime from daily report (when shiftPairs may be sparse)
+    final dailyCheckedInIds = <String>{};
+    for (final r in _dailyReportItems.whereType<Map<String, dynamic>>()) {
+      if (r['checkInTime'] != null) {
+        final id = (r['employeeId'] ?? r['employeeCode'] ?? '').toString();
+        if (id.isNotEmpty) dailyCheckedInIds.add(id);
+      }
+    }
+
+    // ── Group _dailyReportItems by department ────────────────────────────────
+    final deptOrder = <String>[];
+    final byDept = <String, List<Map<String, dynamic>>>{};
+    for (final raw in _dailyReportItems.whereType<Map<String, dynamic>>()) {
+      final dept = (raw['departmentName'] ?? raw['department'] ?? raw['Department'] ?? '').toString();
+      final deptLabel = dept.isNotEmpty ? dept : 'Không có phòng ban';
+      if (!byDept.containsKey(deptLabel)) {
+        deptOrder.add(deptLabel);
+        byDept[deptLabel] = [];
+      }
+      byDept[deptLabel]!.add(raw);
+    }
+    // Sort: larger depts first; sort employees within each dept by name
+    deptOrder.sort((a, b) => byDept[b]!.length.compareTo(byDept[a]!.length));
+    for (final list in byDept.values) {
+      list.sort((a, b) => (a['employeeName'] ?? '').toString()
+          .compareTo((b['employeeName'] ?? '').toString()));
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.85,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.people_alt_rounded,
+                            color: Color(0xFF1E3A5F), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Tổng nhân viên',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            Text('${_dailyReportItems.length} NV · ${deptOrder.length} phòng ban',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      // Legend
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        _totalLegendDot(const Color(0xFFF59E0B), 'Lịch'),
+                        const SizedBox(width: 8),
+                        _totalLegendDot(const Color(0xFF22C55E), 'Đã vào'),
+                      ]),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Department list
+                Expanded(
+                  child: byDept.isEmpty
+                      ? Center(child: Text('Chưa có dữ liệu', style: TextStyle(color: Colors.grey.shade500)))
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          itemCount: deptOrder.length,
+                          itemBuilder: (_, di) {
+                            final deptName = deptOrder[di];
+                            final emps = byDept[deptName]!;
+                            final presentCount = emps.where((e) {
+                              final id = (e['employeeId'] ?? e['employeeCode'] ?? '').toString();
+                              return dailyCheckedInIds.contains(id) || e['checkInTime'] != null;
+                            }).length;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Department header
+                                  Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.09),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                        const Icon(Icons.business_rounded, size: 13, color: Color(0xFF1E3A5F)),
+                                        const SizedBox(width: 4),
+                                        Text(deptName,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                                      ]),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _inOutChip('$presentCount/${emps.length}', presentCount, const Color(0xFF22C55E)),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  // Employee rows
+                                  ...emps.map((emp) {
+                                    final empId = (emp['employeeId'] ?? emp['employeeCode'] ?? '').toString();
+                                    final empCode = (emp['employeeCode'] ?? '').toString();
+                                    final name = (emp['employeeName'] ?? emp['fullName'] ?? '?').toString();
+                                    final hasCheckedIn = emp['checkInTime'] != null
+                                        || dailyCheckedInIds.contains(empId)
+                                        || dailyCheckedInIds.contains(empCode);
+                                    // Scheduled shifts for this employee (deduplicated)
+                                    final scheduledShifts = (schedulesByEmpId[empId] ?? schedulesByEmpId[empCode] ?? LinkedHashSet<String>()).toList();
+                                    // Checked-in shifts
+                                    final checkedShifts = checkedInByEmpCode[empCode] ?? checkedInByEmpCode[empId] ?? <String>{};
+                                    final checkInStr = _formatTime(emp['checkInTime']);
+                                    final checkOutStr = _formatTime(emp['checkOutTime']);
+                                    final status = (emp['status'] ?? '').toString().toLowerCase();
+                                    final isLate = status.contains('trễ') || status.contains('muộn');
+                                    final isEarly = status.contains('sớm');
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: hasCheckedIn
+                                            ? const Color(0xFFF0FDF4)
+                                            : const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: hasCheckedIn
+                                              ? const Color(0xFF22C55E).withValues(alpha: 0.25)
+                                              : Colors.grey.shade200,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(children: [
+                                            CircleAvatar(
+                                              radius: 16,
+                                              backgroundColor: (hasCheckedIn
+                                                      ? const Color(0xFF22C55E)
+                                                      : const Color(0xFF94A3B8))
+                                                  .withValues(alpha: 0.18),
+                                              child: Text(
+                                                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                                style: TextStyle(
+                                                  color: hasCheckedIn ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(name,
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis),
+                                            ),
+                                            // Check-in / check-out times
+                                            if (checkInStr.isNotEmpty) ...[
+                                              const Icon(Icons.login, size: 11, color: Color(0xFF22C55E)),
+                                              const SizedBox(width: 2),
+                                              Text(checkInStr,
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isLate ? const Color(0xFFF59E0B) : const Color(0xFF16A34A))),
+                                            ],
+                                            if (checkOutStr.isNotEmpty) ...[
+                                              const SizedBox(width: 5),
+                                              const Icon(Icons.logout, size: 11, color: Color(0xFFEF4444)),
+                                              const SizedBox(width: 2),
+                                              Text(checkOutStr,
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isEarly ? const Color(0xFFF59E0B) : const Color(0xFFDC2626))),
+                                            ],
+                                            if (!hasCheckedIn)
+                                              const Padding(
+                                                padding: EdgeInsets.only(left: 4),
+                                                child: Icon(Icons.person_off_outlined, size: 14, color: Color(0xFF94A3B8)),
+                                              ),
+                                          ]),
+                                          // Shift chips: scheduled (yellow→green when punched) + extra punched
+                                          if (scheduledShifts.isNotEmpty || checkedShifts.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 5, left: 2),
+                                              child: Wrap(
+                                                spacing: 4,
+                                                runSpacing: 3,
+                                                children: [
+                                                  // Scheduled shifts: green if punched, yellow if not
+                                                  ...scheduledShifts.map((sn) {
+                                                    final done = checkedShifts.contains(sn);
+                                                    return _shiftChip(sn, done
+                                                        ? const Color(0xFF22C55E)
+                                                        : const Color(0xFFF59E0B));
+                                                  }),
+                                                  // Extra: punched shifts not in schedule
+                                                  ...checkedShifts.where((sn) => !scheduledShifts.contains(sn))
+                                                      .map((sn) => _shiftChip(sn, const Color(0xFF22C55E))),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _shiftChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(
+          color == const Color(0xFF22C55E) ? Icons.check_circle_outline : Icons.schedule_outlined,
+          size: 10, color: color,
+        ),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+
+  Widget _donutLegendItem(Color color, String label, int count) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text('$label: ', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+      Text('$count NV', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
+    ]);
+  }
+
+  Widget _totalLegendDot(Color color, String label) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 3),
+      Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  /// Bottom-sheet Vắng mặt — nhân viên vắng hôm nay, gom theo ca lịch.
+  void _showAbsentDetail() {
+    // ── Build schedules: empId/code → LinkedHashSet<shiftName> ─────────────
+    final schedulesByEmpId = <String, LinkedHashSet<String>>{};
+    for (final s in _todaySchedules.whereType<Map<String, dynamic>>()) {
+      if (s['isDayOff'] == true) continue;
+      final shiftName = (s['shiftName'] ?? s['shift']?['name'] ?? '').toString();
+      if (shiftName.isEmpty) continue;
+      final id = (s['employeeId'] ?? s['employeeUserId'] ?? s['employeeCode'] ?? '').toString();
+      if (id.isEmpty) continue;
+      (schedulesByEmpId[id] ??= LinkedHashSet<String>()).add(shiftName);
+    }
+
+    // ── Build present keys from raw attendances ──────────────────────────
+    final presentKeys = <String>{};
+    for (final a in _rawAttendances) {
+      final k = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+      if (k.isNotEmpty) presentKeys.add(k);
+      if (a.pin != null && a.pin!.isNotEmpty) presentKeys.add(a.pin!);
+    }
+
+    // ── Group absent employees by scheduled shift ────────────────────────
+    final shiftOrder = <String>[];
+    final byShift = <String, List<Map<String, dynamic>>>{};
+    final noShiftAbsent = <Map<String, dynamic>>[];
+    final seenEmpCodes = <String>{};
+
+    for (final raw in _dailyReportItems.whereType<Map<String, dynamic>>()) {
+      final s = (raw['status'] ?? '').toString().toLowerCase();
+      if (s.contains('không có lịch') || s.contains('ngày nghỉ') || s.contains('nghỉ lễ')) continue;
+
+      final code = (raw['employeeCode'] ?? raw['employeeId'] ?? '').toString();
+      final empId = (raw['employeeId'] ?? '').toString();
+
+      final bool isAbsent;
+      if (presentKeys.isNotEmpty) {
+        isAbsent = !presentKeys.contains(code) && !presentKeys.contains(empId);
+      } else {
+        isAbsent = s.contains('vắng') || s.contains('absent') || raw['checkInTime'] == null;
+      }
+      if (!isAbsent) continue;
+
+      final key = code.isNotEmpty ? code : empId;
+      seenEmpCodes.add(key);
+
+      final shifts = (schedulesByEmpId[code] ??
+              schedulesByEmpId[empId] ??
+              LinkedHashSet<String>())
+          .toList();
+      if (shifts.isEmpty) {
+        noShiftAbsent.add(raw);
+      } else {
+        for (final shiftName in shifts) {
+          if (!byShift.containsKey(shiftName)) {
+            shiftOrder.add(shiftName);
+            byShift[shiftName] = [];
+          }
+          byShift[shiftName]!.add(raw);
+        }
+      }
+    }
+
+    // Sort: most absent first per shift; employees by name
+    shiftOrder.sort((a, b) => byShift[b]!.length.compareTo(byShift[a]!.length));
+    for (final list in byShift.values) {
+      list.sort((a, b) => (a['employeeName'] ?? '').toString()
+          .compareTo((b['employeeName'] ?? '').toString()));
+    }
+    noShiftAbsent.sort((a, b) => (a['employeeName'] ?? '').toString()
+        .compareTo((b['employeeName'] ?? '').toString()));
+
+    final totalSections = shiftOrder.length + (noShiftAbsent.isNotEmpty ? 1 : 0);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.85,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.person_off_rounded,
+                            color: Color(0xFFEF4444), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Vắng mặt',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A))),
+                            Text(
+                                '${seenEmpCodes.length} NV · ${shiftOrder.length} ca',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Content
+                Expanded(
+                  child: (byShift.isEmpty && noShiftAbsent.isEmpty)
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle_outline,
+                                  size: 48, color: Colors.green.shade400),
+                              const SizedBox(height: 8),
+                              Text('Không có ai vắng mặt',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          itemCount: totalSections,
+                          itemBuilder: (_, idx) {
+                            final isNoShift = idx == shiftOrder.length;
+                            final shiftLabel = isNoShift
+                                ? 'Không rõ ca'
+                                : shiftOrder[idx];
+                            final emps = isNoShift
+                                ? noShiftAbsent
+                                : byShift[shiftLabel]!;
+
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: 16),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  // Shift header
+                                  Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
+                                        border: Border.all(
+                                            color: const Color(0xFFEF4444)
+                                                .withValues(alpha: 0.3)),
+                                      ),
+                                      child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                                Icons.access_time_rounded,
+                                                size: 12,
+                                                color: Color(0xFFEF4444)),
+                                            const SizedBox(width: 4),
+                                            Text(shiftLabel,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: Color(
+                                                        0xFFEF4444))),
+                                          ]),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Text('${emps.length} vắng',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                              fontWeight:
+                                                  FontWeight.w600)),
+                                    ),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  // Employee cards
+                                  ...emps.map((raw) {
+                                    final empName = (raw['employeeName'] ??
+                                            raw['fullName'] ??
+                                            '')
+                                        .toString();
+                                    final dept = (raw['departmentName'] ??
+                                            raw['department'] ??
+                                            '')
+                                        .toString();
+                                    final status =
+                                        (raw['status'] ?? '').toString();
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(
+                                          bottom: 6),
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.04),
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                        border: Border.all(
+                                            color: const Color(0xFFEF4444)
+                                                .withValues(alpha: 0.15)),
+                                      ),
+                                      child: Row(children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor:
+                                              const Color(0xFFEF4444)
+                                                  .withValues(alpha: 0.12),
+                                          child: Text(
+                                            empName.isNotEmpty
+                                                ? empName[0].toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                                color: Color(0xFFDC2626),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(empName,
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 13),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis),
+                                              if (dept.isNotEmpty)
+                                                Text(dept,
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors
+                                                            .grey.shade500),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow
+                                                        .ellipsis),
+                                            ],
+                                          ),
+                                        ),
+                                        // Status badge
+                                        Container(
+                                          padding: const EdgeInsets
+                                              .symmetric(
+                                              horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEF4444)
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            status.isNotEmpty
+                                                ? status
+                                                : 'Vắng',
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFFEF4444),
+                                                fontWeight:
+                                                    FontWeight.w600),
+                                          ),
+                                        ),
+                                      ]),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Bottom-sheet Có mặt — nhân viên đã chấm công hôm nay, gom theo ca.
+  void _showPresentDetail() {
+    // ── Group _shiftPairs by shiftName ──────────────────────────────────────
+    // Only employees who actually checked in (checkIn != null).
+    final shiftOrder = <String>[];
+    final byShift = <String, List<DailyShiftPair>>{};
+
+    // Fallback: nếu shiftPairs chưa có (raw chưa load), dùng _kpiDetailData
+    final useShiftPairs = _shiftPairs.isNotEmpty;
+
+    if (useShiftPairs) {
+      for (final p in _shiftPairs) {
+        if (p.checkIn == null) continue; // chưa vào không tính có mặt
+        final shiftLabel = p.shiftName.isNotEmpty ? p.shiftName : 'Không rõ ca';
+        if (!byShift.containsKey(shiftLabel)) {
+          shiftOrder.add(shiftLabel);
+          byShift[shiftLabel] = [];
+        }
+        byShift[shiftLabel]!.add(p);
+      }
+      // Sort each shift's employees alphabetically by name
+      for (final list in byShift.values) {
+        list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
+      }
+      // Sort shifts by employee count desc
+      shiftOrder.sort(
+          (a, b) => byShift[b]!.length.compareTo(byShift[a]!.length));
+    }
+
+    final totalPresent = useShiftPairs
+        ? _shiftPairs.where((p) => p.checkIn != null).length
+        : _kpiDetailData('present').length;
+
+    String fmtTime(DateTime? t) {
+      if (t == null) return '--:--';
+      return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    }
+
+    String fmtMin(int m) {
+      if (m <= 0) return '';
+      if (m < 60) return '${m}ph';
+      return '${m ~/ 60}g${m % 60 > 0 ? ' ${m % 60}ph' : ''}';
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.82,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22C55E).withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.check_circle_outline_rounded,
+                            color: Color(0xFF16A34A), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Có mặt hôm nay',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A))),
+                            Text('$totalPresent nhân viên'
+                                '${useShiftPairs && shiftOrder.isNotEmpty ? ' · ${shiftOrder.length} ca' : ''}',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Body
+                Expanded(
+                  child: !useShiftPairs || byShift.isEmpty
+                      // Fallback: danh sách phẳng từ _kpiDetailData
+                      ? _buildPresentFallbackList(
+                          scrollController, _kpiDetailData('present'))
+                      // Chính: gom theo ca
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          itemCount: shiftOrder.length,
+                          itemBuilder: (_, si) {
+                            final shiftName = shiftOrder[si];
+                            final emps = byShift[shiftName]!;
+                            final lateInShift =
+                                emps.where((e) => e.lateMinutes > 0).length;
+                            final earlyInShift =
+                                emps.where((e) => e.earlyMinutes > 0).length;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Shift header row
+                                  Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2D5F8B)
+                                            .withValues(alpha: 0.10),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.work_outline,
+                                                size: 13,
+                                                color: Color(0xFF2D5F8B)),
+                                            const SizedBox(width: 4),
+                                            Text(shiftName,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF2D5F8B))),
+                                          ]),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _inOutChip(
+                                        '${emps.length} NV',
+                                        emps.length,
+                                        const Color(0xFF22C55E)),
+                                    if (lateInShift > 0) ...[
+                                      const SizedBox(width: 6),
+                                      _lateBadge(
+                                          '⏰ $lateInShift trễ',
+                                          const Color(0xFFF59E0B)),
+                                    ],
+                                    if (earlyInShift > 0) ...[
+                                      const SizedBox(width: 4),
+                                      _lateBadge(
+                                          '🚪 $earlyInShift sớm',
+                                          const Color(0xFFEF4444)),
+                                    ],
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  // Employee cards
+                                  ...emps.map((emp) {
+                                    final hasIssue = emp.lateMinutes > 0 ||
+                                        emp.earlyMinutes > 0;
+                                    final borderColor = hasIssue
+                                        ? const Color(0xFFF59E0B)
+                                            .withValues(alpha: 0.40)
+                                        : const Color(0xFF22C55E)
+                                            .withValues(alpha: 0.25);
+                                    final bgColor = hasIssue
+                                        ? const Color(0xFFFFFBEB)
+                                        : const Color(0xFFF0FDF4);
+                                    final avatarColor = hasIssue
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFF22C55E);
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 5),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: bgColor,
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                        border: Border.all(color: borderColor),
+                                      ),
+                                      child: Row(children: [
+                                        CircleAvatar(
+                                          radius: 17,
+                                          backgroundColor: avatarColor
+                                              .withValues(alpha: 0.18),
+                                          child: Text(
+                                            emp.employeeName.isNotEmpty
+                                                ? emp.employeeName[0]
+                                                    .toUpperCase()
+                                                : '?',
+                                            style: TextStyle(
+                                                color: avatarColor,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(emp.employeeName,
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color:
+                                                          Color(0xFF0F172A)),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis),
+                                              if (emp.employeeCode.isNotEmpty)
+                                                Text(emp.employeeCode,
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors
+                                                            .grey.shade500)),
+                                            ],
+                                          ),
+                                        ),
+                                        // Times + badges
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Row(children: [
+                                              const Icon(Icons.login,
+                                                  size: 12,
+                                                  color: Color(0xFF22C55E)),
+                                              const SizedBox(width: 2),
+                                              Text(fmtTime(emp.checkIn),
+                                                  style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Color(
+                                                          0xFF16A34A))),
+                                              if (emp.checkOut != null) ...[
+                                                const SizedBox(width: 6),
+                                                const Icon(Icons.logout,
+                                                    size: 12,
+                                                    color: Color(0xFFEF4444)),
+                                                const SizedBox(width: 2),
+                                                Text(fmtTime(emp.checkOut),
+                                                    style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Color(
+                                                            0xFFDC2626))),
+                                              ],
+                                            ]),
+                                            const SizedBox(height: 2),
+                                            Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (emp.lateMinutes > 0) ...[
+                                                    _lateBadge(
+                                                        '⏰ ${fmtMin(emp.lateMinutes)}',
+                                                        const Color(
+                                                            0xFFF59E0B)),
+                                                    const SizedBox(width: 4),
+                                                  ],
+                                                  if (emp.earlyMinutes > 0)
+                                                    _lateBadge(
+                                                        '🚪 ${fmtMin(emp.earlyMinutes)}',
+                                                        const Color(
+                                                            0xFFEF4444)),
+                                                ]),
+                                          ],
+                                        ),
+                                      ]),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Danh sách phẳng fallback khi chưa có shiftPairs.
+  Widget _buildPresentFallbackList(
+      ScrollController sc, List<Map<String, dynamic>> items) {
+    if (items.isEmpty) {
+      return Center(
+        child: Text('Chưa có dữ liệu',
+            style: TextStyle(color: Colors.grey.shade500)),
+      );
+    }
+    return ListView.separated(
+      controller: sc,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 5),
+      itemBuilder: (_, i) => _buildKpiDetailRow('present', items[i],
+          const Color(0xFF22C55E)),
+    );
+  }
+
+  /// Bottom-sheet chi tiết Đi trễ / Về sớm — gom theo từng nhân viên.
+  /// Mỗi nhân viên có thể có nhiều ca; expand để thấy chi tiết từng ca.
+  void _showLateDetail() {
+    // ── Group _lateShiftEntries by employee ──────────────────────────────────
+    final empOrder = <String>[];                          // preserve insert order
+    final empMap = <String, List<DailyShiftLateEntry>>{}; // key = employeeCode
+    final empNames = <String, String>{};
+    for (final e in _lateShiftEntries) {
+      final key = e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId;
+      if (!empMap.containsKey(key)) {
+        empOrder.add(key);
+        empMap[key] = [];
+        empNames[key] = e.employeeName;
+      }
+      empMap[key]!.add(e);
+    }
+    // Sort employees: worst offenders first (totalLate + totalEarly desc)
+    empOrder.sort((a, b) {
+      final aList = empMap[a]!;
+      final bList = empMap[b]!;
+      final aTotal = aList.fold(0, (s, r) => s + r.lateMinutes + r.earlyMinutes);
+      final bTotal = bList.fold(0, (s, r) => s + r.lateMinutes + r.earlyMinutes);
+      return bTotal.compareTo(aTotal);
+    });
+
+    final groups = empOrder
+        .map((k) => _LateEmpGroup(
+              code: k,
+              name: empNames[k] ?? k,
+              entries: empMap[k]!,
+            ))
+        .toList();
+
+    final totalLateCount  = _lateShiftEntries.where((e) => e.lateMinutes  > 0).length;
+    final totalEarlyCount = _lateShiftEntries.where((e) => e.earlyMinutes > 0).length;
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    String fmtMin(int m) {
+      if (m <= 0) return '';
+      if (m < 60) return '${m}ph';
+      return '${m ~/ 60}g${m % 60 > 0 ? ' ${m % 60}ph' : ''}';
+    }
+
+    String fmtTime(DateTime? t) {
+      if (t == null) return '--:--';
+      return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.82,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (sheetCtx, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.schedule_rounded,
+                            color: Color(0xFFD97706), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Đi trễ / Về sớm',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A))),
+                            Text('${groups.length} nhân viên',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                // Summary chips
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Row(children: [
+                    _inOutChip('⏰ Đi trễ: $totalLateCount ca', totalLateCount,
+                        const Color(0xFFF59E0B)),
+                    const SizedBox(width: 8),
+                    _inOutChip('🚪 Về sớm: $totalEarlyCount ca', totalEarlyCount,
+                        const Color(0xFFEF4444)),
+                  ]),
+                ),
+                const Divider(height: 1),
+                // Employee list
+                Expanded(
+                  child: groups.isEmpty
+                      ? Center(
+                          child: Text('Không có dữ liệu',
+                              style: TextStyle(color: Colors.grey.shade500)))
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          itemCount: groups.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (_, gi) {
+                            final g = groups[gi];
+                            final totLate = g.entries.fold(
+                                0, (s, e) => s + e.lateMinutes);
+                            final totEarly = g.entries.fold(
+                                0, (s, e) => s + e.earlyMinutes);
+                            final multiShift = g.entries.length > 1;
+
+                            // Single-shift: flat card; multi-shift: ExpansionTile card
+                            if (!multiShift) {
+                              final en = g.entries.first;
+                              return _buildLateEmpCard(
+                                name: g.name,
+                                shiftName: en.shiftName,
+                                checkIn: fmtTime(en.checkIn),
+                                checkOut: fmtTime(en.checkOut),
+                                lateMin: en.lateMinutes,
+                                earlyMin: en.earlyMinutes,
+                                fmtMin: fmtMin,
+                              );
+                            }
+
+                            // Multiple shifts → ExpansionTile
+                            return Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                    color: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.35)),
+                              ),
+                              color: const Color(0xFFFFFBEB),
+                              child: Theme(
+                                data: Theme.of(sheetCtx).copyWith(
+                                    dividerColor: Colors.transparent),
+                                child: ExpansionTile(
+                                  tilePadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 4),
+                                  childrenPadding: const EdgeInsets.only(
+                                      left: 12, right: 12, bottom: 10),
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.18),
+                                    child: Text(
+                                      g.name.isNotEmpty
+                                          ? g.name[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                          color: Color(0xFFD97706),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14),
+                                    ),
+                                  ),
+                                  title: Text(g.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: Color(0xFF0F172A)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  subtitle: Row(children: [
+                                    Text('${g.entries.length} ca',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500)),
+                                    if (totLate > 0) ...[
+                                      const SizedBox(width: 6),
+                                      _lateBadge(
+                                          '⏰ ${fmtMin(totLate)}',
+                                          const Color(0xFFF59E0B)),
+                                    ],
+                                    if (totEarly > 0) ...[
+                                      const SizedBox(width: 4),
+                                      _lateBadge(
+                                          '🚪 ${fmtMin(totEarly)}',
+                                          const Color(0xFFEF4444)),
+                                    ],
+                                  ]),
+                                  children: g.entries.map((en) {
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 6),
+                                      child: _buildLateShiftRow(
+                                        shiftName: en.shiftName,
+                                        checkIn: fmtTime(en.checkIn),
+                                        checkOut: fmtTime(en.checkOut),
+                                        lateMin: en.lateMinutes,
+                                        earlyMin: en.earlyMinutes,
+                                        fmtMin: fmtMin,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Card phẳng cho nhân viên chỉ có 1 ca trễ.
+  Widget _buildLateEmpCard({
+    required String name,
+    required String shiftName,
+    required String checkIn,
+    required String checkOut,
+    required int lateMin,
+    required int earlyMin,
+    required String Function(int) fmtMin,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor:
+                const Color(0xFFF59E0B).withValues(alpha: 0.18),
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: const TextStyle(
+                  color: Color(0xFFD97706),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                _buildLateShiftRow(
+                  shiftName: shiftName,
+                  checkIn: checkIn,
+                  checkOut: checkOut,
+                  lateMin: lateMin,
+                  earlyMin: earlyMin,
+                  fmtMin: fmtMin,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 1 dòng ca: tên ca + giờ vào/ra + badge trễ/sớm.
+  Widget _buildLateShiftRow({
+    required String shiftName,
+    required String checkIn,
+    required String checkOut,
+    required int lateMin,
+    required int earlyMin,
+    required String Function(int) fmtMin,
+  }) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(shiftName,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.login, size: 11, color: Color(0xFF22C55E)),
+          const SizedBox(width: 2),
+          Text(checkIn,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF16A34A),
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(width: 6),
+          const Icon(Icons.logout, size: 11, color: Color(0xFFEF4444)),
+          const SizedBox(width: 2),
+          Text(checkOut,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFFDC2626),
+                  fontWeight: FontWeight.w600)),
+        ]),
+        if (lateMin > 0)
+          _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', const Color(0xFFF59E0B)),
+        if (earlyMin > 0)
+          _lateBadge('🚪 Sớm ${fmtMin(earlyMin)}', const Color(0xFFEF4444)),
+      ],
+    );
+  }
+
+  Widget _lateBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w700)),
+    );
+  }
+
+  /// Bottom-sheet chi tiết Vào / Ra — hiển thị theo từng nhân viên:
+  /// cặp (vào, ra) mỗi lần chấm. Thiếu ra = đang trong ca / quên chấm.
+  void _showInOutDetail() {
+    // Build per-employee ordered punch list from raw (same logic as KPI count).
+    final hasCutoff = _dayEndHour != 0 || _dayEndMinute != 0;
+    final target = _selectedDate ?? DateTime.now();
+    final windowStart = hasCutoff
+        ? DateTime(target.year, target.month, target.day, _dayEndHour, _dayEndMinute)
+        : DateTime(target.year, target.month, target.day);
+    final windowEnd = hasCutoff
+        ? DateTime(target.year, target.month, target.day + 1, _dayEndHour, _dayEndMinute)
+        : DateTime(target.year, target.month, target.day, 23, 59, 59);
+
+    // empKey → sorted punches
+    final empMap = <String, List<Attendance>>{};
+    final empName = <String, String>{};
+    for (final a in _rawAttendances) {
+      final t = a.attendanceTime;
+      if (t.isBefore(windowStart) || !t.isBefore(windowEnd)) continue;
+      final key = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+      if (key.isEmpty) continue;
+      (empMap[key] ??= <Attendance>[]).add(a);
+      if ((a.employeeName ?? '').isNotEmpty) empName[key] = a.employeeName!;
+    }
+    // Sort each employee's punches ascending
+    for (final list in empMap.values) {
+      list.sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
+    }
+
+    // Build display rows: each employee → list of {in, out?, missing}
+    final rows = <_InOutRow>[];
+    for (final entry in empMap.entries) {
+      final key = entry.key;
+      final punches = entry.value;
+      final name = empName[key] ?? key;
+      // Group into pairs: [0]=in, [1]=out, [2]=in, [3]=out ...
+      for (var i = 0; i < punches.length; i += 2) {
+        final pIn = punches[i];
+        final pOut = i + 1 < punches.length ? punches[i + 1] : null;
+        rows.add(_InOutRow(
+          name: name,
+          pairIndex: i ~/ 2 + 1,
+          checkIn: pIn.attendanceTime,
+          checkOut: pOut?.attendanceTime,
+          missing: pOut == null,
+        ));
+      }
+    }
+    // Sort: missing (cần chú ý) lên trên, rồi theo checkIn mới nhất
+    rows.sort((a, b) {
+      if (a.missing != b.missing) return a.missing ? -1 : 1;
+      return b.checkIn.compareTo(a.checkIn);
+    });
+
+    final missingCount = rows.where((r) => r.missing).length;
+    final completeCount = rows.where((r) => !r.missing).length;
+
+    String fmtTime(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.80,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2D5F8B).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF2D5F8B), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Chi tiết Vào / Ra',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            Text('$_checkIns vào · $_checkOuts ra'
+                                '${missingCount > 0 ? ' · $missingCount chưa ra' : ''}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                ),
+                // Summary chips
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Row(children: [
+                    _inOutChip('✅ Đủ cặp', completeCount, const Color(0xFF22C55E)),
+                    const SizedBox(width: 8),
+                    _inOutChip('⚠️ Thiếu ra', missingCount, const Color(0xFFF59E0B)),
+                  ]),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: rows.isEmpty
+                      ? Center(child: Text('Chưa có dữ liệu chấm công', style: TextStyle(color: Colors.grey.shade500)))
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: rows.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          itemBuilder: (_, i) {
+                            final r = rows[i];
+                            final color = r.missing ? const Color(0xFFF59E0B) : const Color(0xFF22C55E);
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: color.withValues(alpha: 0.25)),
+                              ),
+                              child: Row(children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: color.withValues(alpha: 0.15),
+                                  child: Text(
+                                    r.name.isNotEmpty ? r.name[0].toUpperCase() : '?',
+                                    style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(r.name,
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      Text('Lần ${r.pairIndex}',
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                    ],
+                                  ),
+                                ),
+                                // In time
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Row(children: [
+                                      const Icon(Icons.login, size: 13, color: Color(0xFF22C55E)),
+                                      const SizedBox(width: 3),
+                                      Text(fmtTime(r.checkIn),
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF22C55E))),
+                                    ]),
+                                    const SizedBox(height: 2),
+                                    if (r.checkOut != null)
+                                      Row(children: [
+                                        const Icon(Icons.logout, size: 13, color: Color(0xFFEF4444)),
+                                        const SizedBox(width: 3),
+                                        Text(fmtTime(r.checkOut!),
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                                      ])
+                                    else
+                                      Row(children: [
+                                        Icon(Icons.warning_amber_rounded, size: 13, color: const Color(0xFFF59E0B)),
+                                        const SizedBox(width: 3),
+                                        const Text('Chưa ra',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                                      ]),
+                                  ],
+                                ),
+                              ]),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _inOutChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Text('$label: $count',
+          style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -1766,15 +5298,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
               s.contains('early');
         }).map((e) => Map<String, dynamic>.from(e)).toList();
       case 'late':
+        // Ưu tiên dùng per-shift entries (không gộp theo ngày) —
+        // mỗi ca trễ / về sớm = 1 dòng. Fallback về _memoLate khi raw
+        // attendances chưa load.
+        if (_lateShiftEntries.isNotEmpty) {
+          return _lateShiftEntries.map((e) {
+            final parts = <String>[];
+            if (e.lateMinutes > 0) parts.add('Trễ ${e.lateMinutes} phút');
+            if (e.earlyMinutes > 0) parts.add('Sớm ${e.earlyMinutes} phút');
+            return <String, dynamic>{
+              'employeeName': e.employeeName,
+              'employeeCode': e.employeeCode,
+              'departmentName': e.shiftName,
+              'shiftName': e.shiftName,
+              'checkInTime': e.checkIn?.toIso8601String(),
+              'checkOutTime': e.checkOut?.toIso8601String(),
+              'lateMinutes': e.lateMinutes,
+              'earlyLeaveMinutes': e.earlyMinutes,
+              'status': parts.join(' • '),
+            };
+          }).toList();
+        }
         return _memoLate.map((e) => Map<String, dynamic>.from(e)).toList();
       case 'absent':
-        // Be strict: only items explicitly marked absent (or with no
-        // check-in AND status containing "vắng"/"absent"/"nghỉ").
+        // Nhất quán với _memoAbsentCount: nhân viên có lịch nhưng không có
+        // checkInTime trong ngày (từ daily report) và không phải ngày nghỉ.
         return _dailyReportItems.whereType<Map>().where((r) {
           final s = (r['status'] ?? '').toString().toLowerCase();
-          return s.contains('vắng') ||
-              s.contains('absent') ||
-              s.contains('nghỉ');
+          if (s.contains('không có lịch') || s.contains('ngày nghỉ') || s.contains('nghỉ lễ')) return false;
+          return r['checkInTime'] == null;
         }).map((e) => Map<String, dynamic>.from(e)).toList();
       case 'inout':
         return _dailyReportItems
@@ -1988,14 +5540,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text(
                 status,
                 style: TextStyle(
-                    fontSize: 10,
+                    fontSize: kind == 'late' ? 11 : 10,
                     fontWeight: FontWeight.w600,
                     color: accent),
               ),
             ),
+          if (kind == 'late') ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          ],
         ],
       ),
     );
+  }
+
+  /// Parse "HH:MM:SS" or "HH:MM" TimeSpan string to minutes-since-midnight.
+  int _parseShiftTime(String? s) {
+    if (s == null || s.isEmpty) return 0;
+    final parts = s.split(':');
+    if (parts.length < 2) return 0;
+    return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
   }
 
   String _formatTime(dynamic v) {
@@ -2033,13 +5597,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              // Row 2: Late/Early + Schedule + Birthday
+              // Row 2: Late/Early + Birthday
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(child: _buildLateEarlyCard()),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildTodayScheduleCard()),
                   const SizedBox(width: 16),
                   Expanded(child: _buildBirthdayCard()),
                 ],
@@ -2148,8 +5710,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildBirthdayCard(),
             ],
             const SizedBox(height: 16),
-            _buildTodayScheduleCard(),
-            const SizedBox(height: 16),
             _buildAttendanceTrendCard(),
             const SizedBox(height: 16),
             _buildDepartmentStatsCard(),
@@ -2231,33 +5791,245 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== CARD: REALTIME ATTENDANCE =====================
   Widget _buildRealtimeAttendanceCard() {
+    // Hiển thị tất cả lượt chấm công trong ngày, mới nhất trên đầu.
+    // Vào/Ra = tính theo thứ tự lẻ/chẵn per nhân viên (không dùng attendanceState
+    // vì thiết bị ZKTeco thường gửi state=0 cho mọi punch).
+    if (_rawAttendances.isNotEmpty) {
+      // Tính thứ tự per-employee theo chiều tăng dần → xác định Vào/Ra.
+      final empPunches = <String, List<Attendance>>{};
+      for (final a in _rawAttendances) {
+        final key = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+        if (key.isEmpty) continue;
+        (empPunches[key] ??= <Attendance>[]).add(a);
+      }
+      // Sort mỗi nhân viên tăng dần để đánh index.
+      final punchIndex = <String, int>{}; // id → index (0-based)
+      for (final entry in empPunches.entries) {
+        final list = entry.value..sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
+        for (var i = 0; i < list.length; i++) {
+          punchIndex[list[i].id] = i;
+        }
+      }
+
+      // Hiển thị theo chiều giảm dần (mới nhất trên đầu).
+      // Mặc định chỉ hiện 5 dòng đầu — scroll lên để xem thêm.
+      const visibleRows = 5;
+      final punches = List<Attendance>.from(_rawAttendances)
+        ..sort((a, b) => b.attendanceTime.compareTo(a.attendanceTime));
+      const rowHeight = 52.0;
+      final controller = ScrollController();
+
+      return _DashCard(
+        icon: Icons.monitor_heart_outlined,
+        title: _l10n.realtimeAttendance,
+        color: const Color(0xFF1E3A5F),
+        badge: '${punches.length} lượt',
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: visibleRows * rowHeight),
+          child: Scrollbar(
+            thumbVisibility: punches.length > visibleRows,
+            controller: controller,
+            child: ListView.builder(
+              controller: controller,
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: punches.length,
+              itemBuilder: (_, i) {
+                final a = punches[i];
+                final idx = punchIndex[a.id] ?? 0;
+                final isCheckIn = idx.isEven;
+                return _attendancePunchRow(a, isCheckIn: isCheckIn);
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback: per-employee rows từ daily report (raw attendances chưa load).
     final working = _todayEmployees.whereType<Map<String, dynamic>>().where((e) {
       final s = (e['status'] ?? '').toString().toLowerCase();
-      // Exclude absent, leave, no-schedule, day-off, and employees who already left early
       if (s.contains('vắng') || s.contains('absent') || s == 'nghỉ phép' || s.contains('leave')) return false;
       if (s.contains('không có lịch') || s.contains('ngày nghỉ')) return false;
       if (e['checkInTime'] == null) return false;
       return true;
     }).toList();
+    DateTime? ts(Map<String, dynamic> e) {
+      final raw = e['checkOutTime'] ?? e['checkInTime'];
+      if (raw == null) return null;
+      return DateTime.tryParse(raw.toString());
+    }
+    working.sort((a, b) {
+      final ta = ts(a);
+      final tb = ts(b);
+      if (ta == null && tb == null) return 0;
+      if (ta == null) return 1;
+      if (tb == null) return -1;
+      return tb.compareTo(ta);
+    });
 
+    const visibleRows = 10;
+    const rowHeight = 44.0;
     return _DashCard(
       icon: Icons.monitor_heart_outlined,
       title: _l10n.realtimeAttendance,
       color: const Color(0xFF1E3A5F),
       badge: '${working.length} working',
-      child: Column(
-        children: [
-          if (working.isEmpty)
-            _emptyState(_l10n.noAttendanceToday)
-          else
-            ...working.take(8).map((e) => _employeeAttendanceRow(e)),
-          if (working.length > 8)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('+${working.length - 8} nhân viên khác',
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+      child: working.isEmpty
+          ? _emptyState(_l10n.noAttendanceToday)
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: visibleRows * rowHeight),
+              child: Scrollbar(
+                thumbVisibility: working.length > visibleRows,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: working.length,
+                  itemBuilder: (context, i) => _employeeAttendanceRow(working[i]),
+                ),
+              ),
             ),
-        ],
+    );
+  }
+
+  Widget _shiftPairRow(DailyShiftPair p) {
+    final isLate = p.lateMinutes > 0;
+    final isEarly = p.earlyMinutes > 0;
+    final color = (isLate || isEarly)
+        ? const Color(0xFFF59E0B)
+        : const Color(0xFF22C55E);
+    final statusParts = <String>[];
+    if (isLate) statusParts.add('Trễ ${p.lateMinutes}p');
+    if (isEarly) statusParts.add('Sớm ${p.earlyMinutes}p');
+    final statusText = statusParts.isEmpty ? 'Đúng giờ' : statusParts.join(' • ');
+    String fmt(DateTime? d) => d == null
+        ? '--:--'
+        : '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AttendanceByShiftScreen()),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Text(
+              p.employeeName.isNotEmpty
+                  ? p.employeeName[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.employeeName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text(
+                  '${p.shiftName} · ${fmt(p.checkIn)} → ${fmt(p.checkOut)}',
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFFA1A1AA)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(statusText,
+                style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _attendancePunchRow(Attendance a, {bool? isCheckIn}) {
+    final name = (a.employeeName ?? a.deviceUserName ?? a.pin ?? 'N/A');
+    // Ưu tiên isCheckIn được tính từ ngoài (odd/even per-emp).
+    // Nếu không truyền vào, fallback theo attendanceState.
+    final checkIn = isCheckIn ?? (a.attendanceState == 0 || a.attendanceState == 2 || a.attendanceState == 4);
+    final color = checkIn ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final stateLabel = checkIn ? 'Vào' : 'Ra';
+    final t = a.attendanceTime;
+    final timeStr = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+    final dateStr = '${t.day.toString().padLeft(2, '0')}/${t.month.toString().padLeft(2, '0')}';
+
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AttendanceByShiftScreen()),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text(
+                  '$dateStr · ${a.deviceName ?? ''}'.trim(),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(timeStr,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(stateLabel,
+                    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        ]),
       ),
     );
   }
@@ -2370,6 +6142,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== CARD: LATE / EARLY =====================
   Widget _buildLateEarlyCard() {
+    final entries = _lateShiftEntries;
+    // Khi có dữ liệu raw (per-shift) thì hiển thị từng ca riêng — không
+    // gộp chung lại 1 ngày. Fallback về _lateEmployees (per-day) khi raw
+    // attendances chưa kịp load.
+    if (entries.isNotEmpty) {
+      return _DashCard(
+        icon: Icons.timer_off_outlined,
+        title: _l10n.lateEarly,
+        color: const Color(0xFFF59E0B),
+        badge: '${entries.length} ca',
+        child: Column(children: [
+          ...entries.take(8).map((e) {
+            final parts = <String>[];
+            if (e.lateMinutes > 0) parts.add('${e.lateMinutes}p trễ');
+            if (e.earlyMinutes > 0) parts.add('${e.earlyMinutes}p sớm');
+            final lateLabel = parts.join(' | ');
+            final timeStr = e.checkIn != null
+                ? '${e.checkIn!.hour.toString().padLeft(2, '0')}:${e.checkIn!.minute.toString().padLeft(2, '0')}'
+                : '';
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(children: [
+                const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(e.employeeName,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text(
+                        [
+                          if (e.shiftName.isNotEmpty) e.shiftName,
+                          if (timeStr.isNotEmpty) timeStr,
+                        ].join(' • '),
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFFA1A1AA)),
+                      ),
+                    ],
+                  ),
+                ),
+                if (lateLabel.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(lateLabel,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFD97706),
+                            fontWeight: FontWeight.w600)),
+                  ),
+              ]),
+            );
+          }),
+          if (entries.length > 8)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('+${entries.length - 8} ca khác',
+                  style: const TextStyle(
+                      color: Color(0xFF71717A), fontSize: 12)),
+            ),
+        ]),
+      );
+    }
+
     return _DashCard(
       icon: Icons.timer_off_outlined,
       title: _l10n.lateEarly,
@@ -2433,7 +6274,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (today.isNotEmpty) ...[
           _sectionLabel('🎂 Hôm nay', const Color(0xFFEC4899)),
           ...today.map((e) {
-            final name = (e['fullName'] ?? e['firstName'] ?? 'N/A').toString();
+            final _ln = (e['lastName'] ?? '').toString().trim();
+            final _fn = (e['firstName'] ?? '').toString().trim();
+            final _full = (e['fullName'] ?? '').toString().trim();
+            final name = _full.isNotEmpty ? _full : ([_ln, _fn].where((s) => s.isNotEmpty).join(' ').isEmpty ? 'N/A' : [_ln, _fn].where((s) => s.isNotEmpty).join(' '));
             final dept = (e['department'] ?? '').toString();
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
@@ -2463,7 +6307,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (monthly.isNotEmpty) ...[
           _sectionLabel('📅 Trong tháng ${DateTime.now().month}', const Color(0xFF0F2340)),
           ...monthly.take(10).map((e) {
-            final name = (e['fullName'] ?? e['firstName'] ?? 'N/A').toString();
+            final _ln = (e['lastName'] ?? '').toString().trim();
+            final _fn = (e['firstName'] ?? '').toString().trim();
+            final _full = (e['fullName'] ?? '').toString().trim();
+            final name = _full.isNotEmpty ? _full : ([_ln, _fn].where((s) => s.isNotEmpty).join(' ').isEmpty ? 'N/A' : [_ln, _fn].where((s) => s.isNotEmpty).join(' '));
             final dept = (e['department'] ?? '').toString();
             final day = e['_birthdayDay'] ?? 0;
             return Padding(
@@ -2709,10 +6556,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (dept.isEmpty || dept == 'N/A') continue;
         final status = (e['status'] ?? '').toString().toLowerCase();
         // Skip employees with no schedule or day off - they shouldn't be in dept stats
-        if (status.contains('không có lịch') || status.contains('ngày nghỉ')) continue;
+        if (status.contains('không có lịch') || status.contains('ngày nghỉ') || status.contains('nghỉ lễ')) continue;
         deptMap.putIfAbsent(dept, () => {'total': 0, 'present': 0});
         deptMap[dept]!['total'] = (deptMap[dept]!['total'] ?? 0) + 1;
-        if (status != 'vắng mặt' && status != 'absent' && status != 'nghỉ phép' && status != 'leave') {
+        if (status != 'vắng mặt' && status != 'absent' && status != 'nghỉ phép' && status != 'leave' && !status.contains('vắng') && !status.contains('không phép')) {
           deptMap[dept]!['present'] = (deptMap[dept]!['present'] ?? 0) + 1;
         }
       }
@@ -3490,50 +7337,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ===================== CARD: EXPIRING DOCUMENTS =====================
+  // ===================== CARD: EXPIRING CONTRACTS =====================
   Widget _buildExpiringDocsCard() {
-    return _DashCard(
-      icon: Icons.description_outlined,
-      title: 'Tài liệu sắp hết hạn',
-      color: const Color(0xFFD97706),
-      badge: _expiringDocs.isNotEmpty ? '${_expiringDocs.length} tài liệu' : null,
-      child: _expiringDocs.isEmpty
-          ? _emptyState('Không có tài liệu sắp hết hạn')
-          : Column(children: _expiringDocs.take(6).map((d) {
-              final title = (d['title'] ?? d['documentName'] ?? d['name'] ?? 'N/A').toString();
-              final employee = (d['employeeName'] ?? d['fullName'] ?? '').toString();
-              final expiry = DateTime.tryParse((d['expiryDate'] ?? d['endDate'] ?? '').toString());
-              final daysLeft = expiry != null ? expiry.difference(DateTime.now()).inDays : 0;
-              final isUrgent = daysLeft <= 7;
-              final statusColor = isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
-              final statusText = daysLeft <= 0 ? 'Hết hạn' : '$daysLeft ngày';
+    final total = _expiringDocs.length + _expiredContracts.length;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Icon(isUrgent ? Icons.warning_amber : Icons.schedule, size: 16, color: statusColor),
+    Widget contractTile(dynamic d, {bool isExpired = false}) {
+      final firstName = (d['firstName'] ?? '').toString();
+      final lastName  = (d['lastName']  ?? '').toString();
+      final fullName  = '$lastName $firstName'.trim();
+      final department = (d['department'] ?? '').toString();
+      final daysLeft  = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
+      final isUrgent  = !isExpired && daysLeft <= 7;
+      final statusColor = isExpired
+          ? const Color(0xFFEF4444)
+          : (isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B));
+      final statusText = isExpired
+          ? '${(-daysLeft)} ngày trước'
+          : (daysLeft == 0 ? 'Hôm nay' : '$daysLeft ngày');
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: Icon(isExpired ? Icons.warning_rounded : Icons.schedule, size: 16, color: statusColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(fullName.isEmpty ? 'N/A' : fullName,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (department.isNotEmpty)
+              Text(department, style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Text(statusText,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+          ),
+        ]),
+      );
+    }
+
+    return _DashCard(
+      icon: Icons.assignment_late_outlined,
+      title: 'Hợp đồng hết hạn',
+      color: const Color(0xFFD97706),
+      badge: total > 0 ? '$total NV' : null,
+      child: total == 0
+          ? _emptyState('Không có hợp đồng cần xử lý')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_expiringDocs.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('Cần gia hạn',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        color: const Color(0xFFF59E0B))),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (employee.isNotEmpty)
-                      Text(employee, style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
-                  ])),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                    child: Text(statusText,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+                  ..._expiringDocs.take(3).map((d) => contractTile(d)),
+                ],
+                if (_expiredContracts.isNotEmpty) ...[
+                  if (_expiringDocs.isNotEmpty) const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('Đã hết hạn',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        color: const Color(0xFFEF4444))),
                   ),
-                ]),
-              );
-            }).toList()),
+                  ..._expiredContracts.take(3).map((d) => contractTile(d, isExpired: true)),
+                ],
+              ],
+            ),
     );
   }
 
@@ -3780,7 +7660,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return s.contains('approved') || s.contains('duyệt');
     }).length;
     final pending = _pendingLeaves.length;
-    final annualUsed = _toInt(_monthlyReport['annualLeaveUsed'] ?? _monthlyReport['leaveUsed'] ?? 0);
+    // Sum totalLeaveDays across all employees from the monthly report items.
+    var monthlyLeaveDays = 0;
+    final mItems = (_monthlyReport['items'] as List<dynamic>?) ?? const [];
+    for (final it in mItems) {
+      if (it is Map) monthlyLeaveDays += _toInt(it['totalLeaveDays'] ?? 0);
+    }
+    final annualUsed = monthlyLeaveDays > 0
+        ? monthlyLeaveDays
+        : _toInt(_monthlyReport['annualLeaveUsed'] ?? _monthlyReport['leaveUsed'] ?? 0);
     final leaveTypes = (typeMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(5).toList();
 
     return _DashCard(
@@ -3851,10 +7739,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final kpiTotal = _toInt(_kpiDashboard['totalEmployees'] ?? 0);
     final kpiApproved = _toInt(_kpiDashboard['totalApproved'] ?? 0);
 
-    // Attendance monthly
-    final monthTotal = _toInt(_monthlyReport['totalWorkDays'] ?? _monthlyReport['workdays'] ?? 0);
-    final monthPresent = _toInt(_monthlyReport['totalPresent'] ?? _monthlyReport['present'] ?? 0);
-    final monthLate = _toInt(_monthlyReport['totalLate'] ?? _monthlyReport['late'] ?? 0);
+    // Attendance monthly — backend returns { workingDays, totalEmployees, items[] }
+    // where each item has totalDaysWorked / totalLateDays / totalLeaveDays / totalAbsentDays.
+    // Aggregate across all employees to compute org-level rate.
+    final monthWorkingDays = _toInt(_monthlyReport['workingDays'] ?? _monthlyReport['totalWorkDays'] ?? _monthlyReport['workdays'] ?? 0);
+    final monthEmployees = _toInt(_monthlyReport['totalEmployees'] ?? 0);
+    final monthItems = (_monthlyReport['items'] as List<dynamic>?) ?? const [];
+    var sumDaysWorked = 0;
+    var sumLateDays = 0;
+    for (final it in monthItems) {
+      if (it is Map) {
+        sumDaysWorked += _toInt(it['totalDaysWorked'] ?? 0);
+        sumLateDays += _toInt(it['totalLateDays'] ?? 0);
+      }
+    }
+    // Fall back to legacy top-level fields if items aren't available.
+    final monthPresent = sumDaysWorked > 0
+        ? sumDaysWorked
+        : _toInt(_monthlyReport['totalPresent'] ?? _monthlyReport['present'] ?? 0);
+    final monthLate = sumLateDays > 0
+        ? sumLateDays
+        : _toInt(_monthlyReport['totalLate'] ?? _monthlyReport['late'] ?? 0);
+    final monthTotal = (monthWorkingDays * monthEmployees) > 0
+        ? monthWorkingDays * monthEmployees
+        : _toInt(_monthlyReport['totalWorkDays'] ?? 0);
     final monthRate = monthTotal > 0 ? (monthPresent / monthTotal * 100) : _attendanceRate;
 
     // Task
@@ -3862,8 +7770,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final taskDone = _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? 0);
     final taskRate = taskTotal > 0 ? (taskDone / taskTotal * 100) : 0.0;
 
-    // OT
-    final otHours = ((_overtimeStats['totalOvertimeHours'] ?? _overtimeStats['hours'] ?? 0) as num).toDouble();
+    // OT hours — backend returns totalActualHours / totalPlannedHours.
+    final otHours = ((_overtimeStats['totalActualHours'] ??
+            _overtimeStats['totalPlannedHours'] ??
+            _overtimeStats['totalOvertimeHours'] ??
+            _overtimeStats['hours'] ?? 0) as num)
+        .toDouble();
 
     final kpiColor = avgKpi >= 80 ? const Color(0xFF22C55E) : avgKpi >= 60 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
     final attColor = monthRate >= 85 ? const Color(0xFF22C55E) : monthRate >= 70 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
@@ -4328,6 +8240,30 @@ class _HeroKpi {
   _HeroKpi(this.label, this.value, this.icon, this.color, this.kind);
 }
 
+class _InOutRow {
+  final String name;
+  final int pairIndex;
+  final DateTime checkIn;
+  final DateTime? checkOut;
+  final bool missing;
+  _InOutRow({
+    required this.name,
+    required this.pairIndex,
+    required this.checkIn,
+    this.checkOut,
+    required this.missing,
+  });
+}
+
+class _LateEmpGroup {
+  final String code;
+  final String name;
+  final List<DailyShiftLateEntry> entries;
+  _LateEmpGroup({required this.code, required this.name, required this.entries});
+  int get totalLateMinutes  => entries.fold(0, (s, e) => s + e.lateMinutes);
+  int get totalEarlyMinutes => entries.fold(0, (s, e) => s + e.earlyMinutes);
+}
+
 class _QuickAction {
   final IconData icon;
   final String label;
@@ -4343,4 +8279,11 @@ class _InsightChipData {
   final Color color;
   final String kind;
   const _InsightChipData(this.icon, this.label, this.value, this.color, this.kind);
+}
+
+class _InsightCta {
+  final String label;
+  final IconData icon;
+  final Widget screen;
+  const _InsightCta(this.label, this.icon, this.screen);
 }

@@ -12,7 +12,8 @@ import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
 
 class LeaveScreen extends StatefulWidget {
-  const LeaveScreen({super.key});
+  final String? highlightId;
+  const LeaveScreen({super.key, this.highlightId});
 
   @override
   State<LeaveScreen> createState() => _LeaveScreenState();
@@ -159,7 +160,43 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       debugPrint('Error loading leave data: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    dynamic match;
+    bool isAllTab = false;
+    bool showApprovalActions = false;
+    bool isMyLeaves = false;
+    for (final l in _pendingLeaves) {
+      if (l is Map && (l['id']?.toString() == id)) {
+        match = l; showApprovalActions = true; break;
+      }
+    }
+    if (match == null) {
+      for (final l in _allLeaves) {
+        if (l is Map && (l['id']?.toString() == id)) { match = l; isAllTab = true; break; }
+      }
+    }
+    if (match == null) {
+      for (final l in _myLeaves) {
+        if (l is Map && (l['id']?.toString() == id)) { match = l; isMyLeaves = true; break; }
+      }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showLeaveDetailDialog(match,
+          isMyLeaves: isMyLeaves,
+          showApprovalActions: showApprovalActions,
+          isAllTab: isAllTab);
+    });
   }
 
   static int _normalizeStatus(dynamic status) {

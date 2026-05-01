@@ -34,6 +34,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             try
             {
                 await AutoApprovePendingPenaltiesAsync(stoppingToken);
+                await AutoApprovePendingPenaltyTicketsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -153,5 +154,37 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
 
         // Cập nhật PaymentMethod trên penalty transaction
         penalty.PaymentMethod = "Cash";
+    }
+
+    /// <summary>
+    /// Auto-approves PenaltyTicket records that were auto-created from attendance
+    /// (Status=Pending) where ViolationDate is before today and no manager has cancelled.
+    /// Sets Status=AutoApproved and stamps ProcessedDate; does NOT create a CashTransaction
+    /// (the linked PaymentTransaction handles the cash receipt to avoid double counting).
+    /// </summary>
+    private async Task AutoApprovePendingPenaltyTicketsAsync(CancellationToken stoppingToken)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
+
+        var cutoffDate = DateTime.Now.Date;
+        var pendingTickets = await dbContext.PenaltyTickets
+            .Where(t => t.Status == PenaltyTicketStatus.Pending
+                && t.ViolationDate < cutoffDate)
+            .ToListAsync(stoppingToken);
+
+        if (pendingTickets.Count == 0) return;
+
+        _logger.LogInformation("🔔 Found {Count} pending PenaltyTicket(s) to auto-approve", pendingTickets.Count);
+
+        var now = DateTime.Now;
+        foreach (var ticket in pendingTickets)
+        {
+            ticket.Status = PenaltyTicketStatus.AutoApproved;
+            ticket.ProcessedDate = now;
+        }
+
+        await dbContext.SaveChangesAsync(stoppingToken);
+        _logger.LogInformation("🔔 Auto-approved {Count} PenaltyTicket(s)", pendingTickets.Count);
     }
 }

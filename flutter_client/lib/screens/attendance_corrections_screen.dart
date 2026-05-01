@@ -8,7 +8,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 
 class AttendanceCorrectionsScreen extends StatefulWidget {
-  const AttendanceCorrectionsScreen({super.key});
+  final String? highlightId;
+  const AttendanceCorrectionsScreen({super.key, this.highlightId});
 
   @override
   State<AttendanceCorrectionsScreen> createState() => _AttendanceCorrectionsScreenState();
@@ -69,7 +70,25 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    AttendanceCorrectionRequest? match;
+    for (final r in _requests) {
+      if (r.id == id) { match = r; break; }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showRequestDetail(match!);
+    });
   }
 
   void _showCreateDialog() {

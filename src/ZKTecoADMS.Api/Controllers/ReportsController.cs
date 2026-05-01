@@ -19,17 +19,33 @@ public class ReportsController(
     ILogger<ReportsController> logger
 ) : AuthenticatedControllerBase
 {
+    // Typed projection for ShiftTemplate used by daily report — using a named record
+    // (vs anonymous types boxed into dynamic) avoids runtime cast issues when the
+    // list is iterated in a different assembly/internal scope.
+    private sealed record ShiftInfo(
+        Guid Id,
+        string Name,
+        TimeSpan StartTime,
+        TimeSpan EndTime,
+        int LateGraceMinutes,
+        int EarlyLeaveGraceMinutes);
+
     /// <summary>
     /// Build a VN (UTC+7) day range for querying UTC-stored timestamps.
     /// Returns (targetLocal, utcStart, utcEnd) where utcStart..utcEnd represents
     /// the VN day [00:00, next-00:00). When <paramref name="date"/> is null, uses today (VN).
     /// </summary>
-    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date)
+    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date, TimeSpan? overnightCutoff = null)
     {
         // "Local VN day" — zero the time component, treat input as VN calendar date.
         var targetLocal = (date ?? DateTime.UtcNow.AddHours(7)).Date;
-        var utcStart = targetLocal.AddHours(-7); // UTC instant at VN 00:00
-        var utcEnd = utcStart.AddDays(1);        // UTC instant at next VN 00:00
+        // When an overnight cutoff is configured (ca qua đêm), the "working day" boundary
+        // shifts from VN 00:00 to VN cutoff. Working day X = [X cutoff, X+1 cutoff).
+        // This way overnight punches (e.g. checkout 03:00 of next calendar day) attach
+        // to the correct working day instead of leaking into the next day's report.
+        var cutoff = overnightCutoff ?? TimeSpan.Zero;
+        var utcStart = targetLocal.Add(cutoff).AddHours(-7); // UTC instant at VN cutoff of target day
+        var utcEnd = utcStart.AddDays(1);                     // UTC instant at VN cutoff of next day
         return (targetLocal, utcStart, utcEnd);
     }
 
@@ -42,11 +58,17 @@ public class ReportsController(
     public async Task<ActionResult<AppResponse<DailyAttendanceReportDto>>> GetDailyAttendanceReport(
         [FromQuery] DateTime? date = null,
         [FromQuery] string? department = null,
-        [FromQuery] string? employeeCode = null)
+        [FromQuery] string? employeeCode = null,
+        [FromQuery] string? overnightCutoff = null)
     {
         try
         {
-            var (targetDate, vnStart, vnEnd) = VnDayRange(date);
+            TimeSpan? cutoff = null;
+            if (!string.IsNullOrWhiteSpace(overnightCutoff) && TimeSpan.TryParse(overnightCutoff, out var parsedCutoff))
+            {
+                cutoff = parsedCutoff;
+            }
+            var (targetDate, vnStart, vnEnd) = VnDayRange(date, cutoff);
             var storeId = RequiredStoreId;
 
             // Get all employees (filter by Deleted == null for active)
@@ -135,6 +157,112 @@ public class ReportsController(
                 .GroupBy(ws => ws.EmployeeUserId)
                 .ToDictionary(g => g.Key, g => g.First());
 
+            // Load active salary profile (Benefit) for each employee — used as a
+            // fallback when no WorkSchedule exists. Salary profile defines:
+            //   • WeeklyOffDays (e.g. "Saturday,Sunday") → those weekdays are rest
+            //     days and NOT counted as absent when employee doesn't show up.
+            //   • CheckIn/CheckOut → default expected hours.
+            // Any other working weekday with no check-in and no approved leave is
+            // counted as "Vắng không phép".
+            // EffectiveDate may carry a time component (e.g. created at 14:29:30 of the
+            // same day). Treat assignment as effective for the WHOLE day, so compare against
+            // end-of-day rather than 00:00. Same for EndDate inclusivity.
+            var dayEndExclusive = targetDate.Date.AddDays(1);
+            var activeBenefits = await dbContext.EmployeeBenefits
+                .Include(eb => eb.Benefit)
+                .Where(eb => employeeIds.Contains(eb.EmployeeId)
+                    && eb.EffectiveDate < dayEndExclusive
+                    && (eb.EndDate == null || eb.EndDate >= targetDate.Date))
+                .OrderByDescending(eb => eb.EffectiveDate)
+                .ToListAsync();
+            var benefitByEmployeeId = activeBenefits
+                .GroupBy(eb => eb.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.First().Benefit);
+
+            // ─── Load shift templates for "shifts in salary profile" fallback ──
+            // Khi nhân viên không có WorkSchedule cho ngày, ta đối chiếu giờ
+            // chấm vào với danh sách ca trong hồ sơ lương (Benefit.Description
+            // dạng "shifts:Ca sáng, Ca chiều|...") để tính trễ/sớm chuẩn theo
+            // tab "Tổng hợp theo ca" trên Flutter.
+            var activeShiftTemplates = await dbContext.ShiftTemplates
+                .Where(s => s.StoreId == storeId && s.IsActive)
+                .Select(s => new ShiftInfo(
+                    s.Id,
+                    s.Name,
+                    s.StartTime,
+                    s.EndTime,
+                    s.LateGraceMinutes,
+                    s.EarlyLeaveGraceMinutes))
+                .ToListAsync();
+            static string NormalizeShiftName(string s) =>
+                System.Text.RegularExpressions.Regex.Replace(
+                    (s ?? string.Empty).Trim().ToLowerInvariant(), @"\s+", " ");
+            var shiftByName = activeShiftTemplates
+                .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+                .GroupBy(s => NormalizeShiftName(s.Name))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // Parse "k1:v1|k2:v2" description format used by Flutter salary UI.
+            static string ParseDescField(string? description, string key)
+            {
+                if (string.IsNullOrWhiteSpace(description)) return string.Empty;
+                foreach (var part in description.Split('|'))
+                {
+                    var idx = part.IndexOf(':');
+                    if (idx <= 0) continue;
+                    if (string.Equals(part[..idx].Trim(), key, StringComparison.OrdinalIgnoreCase))
+                        return part[(idx + 1)..].Trim();
+                }
+                return string.Empty;
+            }
+
+            // Public holidays applicable to this date for this store.
+            // A holiday applies if:
+            //  • its exact Date == targetDate, OR
+            //  • IsRecurring AND month/day match (annual holidays)
+            //  • AND (StoreId == storeId OR StoreId IS NULL — null = global)
+            //  • AND IsActive
+            // EmployeeIds (comma-separated) optionally restricts the holiday to a subset.
+            var allHolidays = await dbContext.Holidays
+                .Where(h => h.IsActive
+                    && (h.StoreId == null || h.StoreId == storeId))
+                .Select(h => new { h.Date, h.IsRecurring, h.Name, h.EmployeeIds })
+                .ToListAsync();
+            var matchingHolidays = allHolidays
+                .Where(h => h.Date.Date == targetDate.Date
+                    || (h.IsRecurring && h.Date.Month == targetDate.Month && h.Date.Day == targetDate.Day))
+                .ToList();
+            var isHolidayToday = matchingHolidays.Any(h => string.IsNullOrWhiteSpace(h.EmployeeIds));
+            // Per-employee holiday membership: if a holiday has EmployeeIds set,
+            // only those employees are off on that holiday. EmployeeIds is stored either
+            // as comma-separated values OR as a JSON array (legacy seeded data) — handle both.
+            var holidayEmployeeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var h in matchingHolidays.Where(h => !string.IsNullOrWhiteSpace(h.EmployeeIds)))
+            {
+                var raw = h.EmployeeIds!.Trim();
+                if (raw.StartsWith('['))
+                {
+                    try
+                    {
+                        var arr = System.Text.Json.JsonSerializer.Deserialize<List<string>>(raw);
+                        if (arr != null) foreach (var t in arr) holidayEmployeeIds.Add(t);
+                    }
+                    catch { /* fall back to CSV split below */ }
+                }
+                else
+                {
+                    foreach (var token in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        holidayEmployeeIds.Add(token);
+                    }
+                }
+            }
+            logger.LogInformation("[DailyReport] Date={Date} StoreId={StoreId} Holidays(matching)={Count} isHolidayToday={IsHol} restrictedEmps={Emps}",
+                targetDate.ToString("yyyy-MM-dd"), storeId, matchingHolidays.Count, isHolidayToday, holidayEmployeeIds.Count);
+
+            // Map English DayOfWeek name (matches WeeklyOffDays storage format).
+            var todayDayName = targetDate.DayOfWeek.ToString(); // e.g. "Saturday"
+
             // Build report data
             var reportItems = new List<DailyAttendanceItemDto>();
             var totalLate = 0;
@@ -168,9 +296,83 @@ public class ReportsController(
                 var hasSchedule = schedule != null;
                 var isDayOff = schedule?.IsDayOff ?? false;
 
-                // Determine expected start/end from shift template or schedule override
-                var expectedStart = schedule?.StartTime ?? schedule?.Shift?.StartTime ?? defaultExpectedStart;
-                var expectedEnd = schedule?.EndTime ?? schedule?.Shift?.EndTime ?? defaultExpectedEnd;
+                // Fallback: when no explicit WorkSchedule exists for today, derive
+                // the work-day rule from the employee's active salary profile
+                // (Benefit.WeeklyOffDays). This ensures absent statistics work
+                // even when admins haven't created daily schedules.
+                benefitByEmployeeId.TryGetValue(employee.Id, out var benefit);
+                var isWeeklyOffByBenefit = false;
+                if (!hasSchedule && benefit != null && !string.IsNullOrWhiteSpace(benefit.WeeklyOffDays))
+                {
+                    var off = benefit.WeeklyOffDays
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    isWeeklyOffByBenefit = off.Any(d => string.Equals(d, todayDayName, StringComparison.OrdinalIgnoreCase));
+                }
+
+                // Determine expected start/end from shift template, schedule
+                // override, or fall back to the salary profile's CheckIn/CheckOut.
+                var expectedStart = schedule?.StartTime
+                    ?? schedule?.Shift?.StartTime
+                    ?? (benefit?.CheckIn != null ? benefit.CheckIn.Value.ToTimeSpan() : defaultExpectedStart);
+                var expectedEnd = schedule?.EndTime
+                    ?? schedule?.Shift?.EndTime
+                    ?? (benefit?.CheckOut != null ? benefit.CheckOut.Value.ToTimeSpan() : defaultExpectedEnd);
+                int? lateGrace = schedule?.Shift?.LateGraceMinutes;
+                int? earlyGrace = schedule?.Shift?.EarlyLeaveGraceMinutes;
+
+                // Multi-shift fallback: nếu không có WorkSchedule, lấy danh
+                // sách ca từ hồ sơ lương (Benefit.Description "shifts:Ca sáng,
+                // Ca chiều") và pair từng punch với ca có StartTime gần nhất.
+                // Tổng late/early được cộng dồn — đồng bộ với tab "Tổng hợp
+                // theo ca" trên Flutter (NV làm 2 ca/ngày sẽ thấy đúng tổng).
+                List<ShiftInfo>? multiShiftAssignments = null;
+                if (!hasSchedule && benefit != null)
+                {
+                    var shiftsStr = ParseDescField(benefit.Description, "shifts");
+                    if (!string.IsNullOrWhiteSpace(shiftsStr))
+                    {
+                        var assignedShifts = shiftsStr
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(NormalizeShiftName)
+                            .Where(n => !string.IsNullOrEmpty(n) && shiftByName.ContainsKey(n))
+                            .Select(n => shiftByName[n])
+                            .ToList();
+                        if (assignedShifts.Count > 0)
+                        {
+                            multiShiftAssignments = assignedShifts;
+                            // Best-match ca chính (cho expectedStart/End mặc định khi chỉ có 1 punch)
+                            if (checkIn != null)
+                            {
+                                var checkInVnMin = (int)checkIn.AttendanceTime.TimeOfDay.TotalMinutes;
+                                var bestDist = int.MaxValue;
+                                var best = assignedShifts[0];
+                                foreach (var s in assignedShifts)
+                                {
+                                    var startMin = (int)s.StartTime.TotalMinutes;
+                                    var dist = Math.Abs(checkInVnMin - startMin);
+                                    if (dist > 720) dist = 1440 - dist;
+                                    if (dist < bestDist)
+                                    {
+                                        bestDist = dist;
+                                        best = s;
+                                    }
+                                }
+                                expectedStart = best.StartTime;
+                                expectedEnd = best.EndTime;
+                                lateGrace = best.LateGraceMinutes;
+                                earlyGrace = best.EarlyLeaveGraceMinutes;
+                            }
+                        }
+                    }
+                }
+
+                // Check if today is a public holiday for this employee.
+                // A holiday applies if it has no EmployeeIds restriction (global)
+                // OR the employee's id/code is in the restricted list.
+                var isHolidayForEmp = isHolidayToday
+                    || (holidayEmployeeIds.Count > 0 && (
+                        holidayEmployeeIds.Contains(employee.Id.ToString())
+                        || (!string.IsNullOrEmpty(employee.EmployeeCode) && holidayEmployeeIds.Contains(employee.EmployeeCode))));
 
                 // Check if on leave — O(1) HashSet lookup
                 var isOnLeave = employee.ApplicationUserId.HasValue && 
@@ -181,62 +383,159 @@ public class ReportsController(
                 var lateMinutes = 0;
                 var earlyLeaveMinutes = 0;
 
-                if (isOnLeave)
+                if (isHolidayForEmp && checkIn == null)
+                {
+                    // Public holiday and employee did not work → "Nghỉ lễ".
+                    // If they DID check in on a holiday, fall through to normal
+                    // attendance branches so OT/holiday-pay logic still applies.
+                    status = "Nghỉ lễ";
+                    totalNotScheduled++;
+                }
+                else if (isOnLeave)
                 {
                     status = "Nghỉ phép";
                     totalOnLeave++;
                 }
-                else if (!hasSchedule)
+                else if (isDayOff || isWeeklyOffByBenefit)
                 {
-                    // No work schedule assigned for today — not counted as absent
-                    status = "Không có lịch";
+                    // Either an explicit WorkSchedule day-off, or a fixed weekly
+                    // off day defined in the salary profile (Sat/Sun, etc.).
+                    status = "Ngày nghỉ";
                     totalNotScheduled++;
                 }
-                else if (isDayOff)
+                else if (!hasSchedule && benefit == null)
                 {
-                    // Scheduled as day off — not counted as absent
-                    status = "Ngày nghỉ";
+                    // No WorkSchedule and no salary profile to infer from — we
+                    // cannot tell whether today should be a working day, so we
+                    // exclude this employee from the absent count.
+                    status = "Không có lịch";
                     totalNotScheduled++;
                 }
                 else if (checkIn != null)
                 {
-                    // AttendanceTime is stored in UTC; shift StartTime/EndTime are VN local.
-                    // Convert to VN before comparing TimeOfDay, otherwise every check-in looks
-                    // "early" by 7 hours and trend/late calculations go wrong.
-                    var checkInTime = checkIn.AttendanceTime.AddHours(7).TimeOfDay;
-                    if (checkInTime > expectedStart)
+                    // Nếu nhân viên có nhiều ca trong hồ sơ lương, pair từng
+                    // punch với ca gần nhất theo giờ và cộng dồn late/early.
+                    if (multiShiftAssignments != null && multiShiftAssignments.Count > 1)
                     {
-                        lateMinutes = (int)(checkInTime - expectedStart).TotalMinutes;
-                        status = "Đi muộn";
-                        totalLate++;
+                        var sortedPunches = empAttendances
+                            .OrderBy(a => a.AttendanceTime)
+                            .ToList();
+                        // Pair theo cặp (in, out) — odd index làm in, even+1 làm out.
+                        var pairs = new List<(DateTime In, DateTime? Out)>();
+                        for (int i = 0; i < sortedPunches.Count; i += 2)
+                        {
+                            var inT = sortedPunches[i].AttendanceTime;
+                            DateTime? outT = (i + 1 < sortedPunches.Count)
+                                ? sortedPunches[i + 1].AttendanceTime
+                                : (DateTime?)null;
+                            pairs.Add((inT, outT));
+                        }
+
+                        var totalShiftLate = 0;
+                        var totalShiftEarly = 0;
+                        foreach (var (inT, outT) in pairs)
+                        {
+                            var inVnMin = (int)inT.TimeOfDay.TotalMinutes;
+                            var bestDist = int.MaxValue;
+                            ShiftInfo? bestShift = null;
+                            foreach (var s in multiShiftAssignments)
+                            {
+                                var startMin = (int)s.StartTime.TotalMinutes;
+                                var dist = Math.Abs(inVnMin - startMin);
+                                if (dist > 720) dist = 1440 - dist;
+                                if (dist < bestDist)
+                                {
+                                    bestDist = dist;
+                                    bestShift = s;
+                                }
+                            }
+                            if (bestShift == null) continue;
+                            var sStart = bestShift.StartTime;
+                            var sEnd = bestShift.EndTime;
+                            int sLateGrace = bestShift.LateGraceMinutes;
+                            int sEarlyGrace = bestShift.EarlyLeaveGraceMinutes;
+
+                            var inTime = inT.TimeOfDay;
+                            if (inTime > sStart + TimeSpan.FromMinutes(sLateGrace))
+                            {
+                                totalShiftLate += (int)(inTime - sStart).TotalMinutes;
+                            }
+                            if (outT.HasValue)
+                            {
+                                var outTime = outT.Value.TimeOfDay;
+                                if (outTime < sEnd - TimeSpan.FromMinutes(sEarlyGrace))
+                                {
+                                    totalShiftEarly += (int)(sEnd - outTime).TotalMinutes;
+                                }
+                            }
+                        }
+
+                        lateMinutes = totalShiftLate;
+                        earlyLeaveMinutes = totalShiftEarly;
+                        if (lateMinutes > 0 && earlyLeaveMinutes > 0)
+                        {
+                            status = "Đi muộn + Về sớm";
+                            totalLate++;
+                            totalEarlyLeave++;
+                        }
+                        else if (lateMinutes > 0)
+                        {
+                            status = "Đi muộn";
+                            totalLate++;
+                        }
+                        else if (earlyLeaveMinutes > 0)
+                        {
+                            status = "Về sớm";
+                            totalEarlyLeave++;
+                        }
+                        else
+                        {
+                            status = "Đúng giờ";
+                            totalOnTime++;
+                        }
                     }
                     else
                     {
-                        status = "Đúng giờ";
-                        totalOnTime++;
-                    }
-
-                    if (checkOut != null)
-                    {
-                        var checkOutTime = checkOut.AttendanceTime.AddHours(7).TimeOfDay;
-                        if (checkOutTime < expectedEnd)
+                        // AttendanceTime is stored as VN local (no TZ adjust). Use TimeOfDay directly.
+                        var checkInTime = checkIn.AttendanceTime.TimeOfDay;
+                        var lateGraceMin = TimeSpan.FromMinutes(lateGrace ?? 0);
+                        if (checkInTime > expectedStart + lateGraceMin)
                         {
-                            earlyLeaveMinutes = (int)(expectedEnd - checkOutTime).TotalMinutes;
-                            if (status == "Đúng giờ")
+                            lateMinutes = (int)(checkInTime - expectedStart).TotalMinutes;
+                            status = "Đi muộn";
+                            totalLate++;
+                        }
+                        else
+                        {
+                            status = "Đúng giờ";
+                            totalOnTime++;
+                        }
+
+                        if (checkOut != null)
+                        {
+                            var checkOutTime = checkOut.AttendanceTime.TimeOfDay;
+                            var earlyGraceMin = TimeSpan.FromMinutes(earlyGrace ?? 0);
+                            if (checkOutTime < expectedEnd - earlyGraceMin)
                             {
-                                status = "Về sớm";
+                                earlyLeaveMinutes = (int)(expectedEnd - checkOutTime).TotalMinutes;
+                                if (status == "Đúng giờ")
+                                {
+                                    status = "Về sớm";
+                                }
+                                else
+                                {
+                                    status += " + Về sớm";
+                                }
+                                totalEarlyLeave++;
                             }
-                            else
-                            {
-                                status += " + Về sớm";
-                            }
-                            totalEarlyLeave++;
                         }
                     }
                 }
                 else
                 {
-                    // Has schedule, not day off, no check-in, not on leave → truly absent
+                    // Today is a working day (per WorkSchedule or salary
+                    // profile), no check-in, no approved leave → vắng không phép.
+                    status = "Vắng không phép";
                     totalAbsent++;
                 }
 
@@ -674,7 +973,7 @@ public class ReportsController(
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
-            
+
             if (!string.IsNullOrEmpty(department))
             {
                 employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
@@ -682,17 +981,72 @@ public class ReportsController(
 
             var employees = await employeesQuery.ToListAsync();
 
+            // ─── Loại bỏ NV chưa thiết lập bảng lương (giống tab "Tổng hợp theo ca") ─
+            // Tab Flutter chỉ tính trễ/sớm cho NV nằm trong SalaryProfile thuộc
+            // store hiện tại (BenefitsController.GetAllProfiles filter Benefit.StoreId).
+            var salaryProfileEmpIds = await (
+                from eb in dbContext.Set<EmployeeBenefit>()
+                join b in dbContext.Set<Benefit>() on eb.BenefitId equals b.Id
+                where b.StoreId == storeId
+                select eb.EmployeeId
+            ).Distinct().ToListAsync();
+            var salaryProfileEmpIdSet = salaryProfileEmpIds.ToHashSet();
+            employees = employees.Where(e => salaryProfileEmpIdSet.Contains(e.Id)).ToList();
+
             var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
+            var employeeIdSet = employees.Select(e => e.Id).ToHashSet();
+
+            // ─── Load shift templates (active in this store) ────────────────
+            // Mirror logic của tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart):
+            // mỗi punch tìm ca phù hợp dựa trên thời điểm chấm vào, áp dụng
+            // grace period rồi mới tính trễ/sớm.
+            var shiftTemplates = await dbContext.ShiftTemplates
+                .Where(s => s.StoreId == storeId && s.IsActive)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.StartTime,
+                    s.EndTime,
+                    s.LateGraceMinutes,
+                    s.EarlyLeaveGraceMinutes,
+                })
+                .ToListAsync();
+
+            // ─── Load shift salary levels → empId → assigned shift ids ──────
+            var shiftSalaryLevels = await dbContext.Set<ShiftSalaryLevel>()
+                .Select(l => new { l.ShiftTemplateId, l.EmployeeIds })
+                .ToListAsync();
+            var empIdToShiftIds = new Dictionary<Guid, List<Guid>>();
+            foreach (var lvl in shiftSalaryLevels)
+            {
+                if (string.IsNullOrWhiteSpace(lvl.EmployeeIds)) continue;
+                List<string>? ids = null;
+                try
+                {
+                    ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds);
+                }
+                catch { /* malformed JSON — bỏ qua dòng này */ }
+                if (ids == null) continue;
+                foreach (var raw in ids)
+                {
+                    if (!Guid.TryParse(raw, out var empGuid)) continue;
+                    if (!employeeIdSet.Contains(empGuid)) continue;
+                    if (!empIdToShiftIds.TryGetValue(empGuid, out var list))
+                    {
+                        list = new List<Guid>();
+                        empIdToShiftIds[empGuid] = list;
+                    }
+                    if (!list.Contains(lvl.ShiftTemplateId)) list.Add(lvl.ShiftTemplateId);
+                }
+            }
 
             var attendances = await dbContext.AttendanceLogs
-                .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.AttendanceTime >= start 
+                .Where(a => a.Device != null && a.Device.StoreId == storeId
+                    && a.AttendanceTime >= start
                     && a.AttendanceTime <= end.AddDays(1)
                     && employeeCodes.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
-
-            // Build attendance lookup by PIN for O(1) access
             var attendanceByPin = attendances.ToLookup(a => a.PIN);
 
             var reportItems = new List<LateEarlyItemDto>();
@@ -701,16 +1055,19 @@ public class ReportsController(
             var totalLateMinutes = 0;
             var totalEarlyMinutes = 0;
 
-            // Default times: 8:30 AM start, 6:00 PM end
-            var lateThreshold = new TimeSpan(8, 30, 0);
-            var earlyLeaveThreshold = new TimeSpan(18, 0, 0);
-
             foreach (var employee in employees)
             {
-                // O(1) lookup instead of scanning entire list
                 var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
-                var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
+                if (empAttendances.Count == 0) continue;
 
+                // Candidate shift templates: ca được gán riêng nếu có,
+                // không thì duyệt toàn bộ ca trong store (giống fallback Flutter).
+                var candidateIds = empIdToShiftIds.TryGetValue(employee.Id, out var assigned) && assigned.Count > 0
+                    ? assigned
+                    : shiftTemplates.Select(s => s.Id).ToList();
+                var candidateShifts = shiftTemplates.Where(s => candidateIds.Contains(s.Id)).ToList();
+
+                var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
                 var lateCount = 0;
                 var earlyCount = 0;
                 var lateMins = 0;
@@ -718,23 +1075,124 @@ public class ReportsController(
 
                 foreach (var dayGroup in groupedByDate)
                 {
-                    var checkIn = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                        .OrderBy(a => a.AttendanceTime).FirstOrDefault();
-                    var checkOut = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
-                        .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
+                    var dayPunches = dayGroup.OrderBy(a => a.AttendanceTime).ToList();
+                    var ins = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckIn).ToList();
+                    var outs = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckOut).ToList();
 
-                    // Check late
-                    if (checkIn?.AttendanceTime.TimeOfDay > lateThreshold)
+                    // Pair (in, out): ưu tiên dùng AttendanceState; nếu không
+                    // đủ thông tin thì rơi về ghép theo thứ tự chronological.
+                    var pairs = new List<(DateTime? In, DateTime? Out)>();
+                    if (ins.Count > 0 && outs.Count > 0 && (ins.Count + outs.Count) == dayPunches.Count)
                     {
-                        lateCount++;
-                        lateMins += (int)(checkIn.AttendanceTime.TimeOfDay - lateThreshold).TotalMinutes;
+                        var remainingOuts = new List<DateTime>(outs.Select(o => o.AttendanceTime));
+                        foreach (var inP in ins)
+                        {
+                            var idx = remainingOuts.FindIndex(o => o >= inP.AttendanceTime);
+                            if (idx >= 0)
+                            {
+                                pairs.Add((inP.AttendanceTime, remainingOuts[idx]));
+                                remainingOuts.RemoveAt(idx);
+                            }
+                            else pairs.Add((inP.AttendanceTime, null));
+                        }
+                        foreach (var o in remainingOuts) pairs.Add((null, o));
+                    }
+                    else
+                    {
+                        for (int i = 0; i < dayPunches.Count; i += 2)
+                        {
+                            var inT = dayPunches[i].AttendanceTime;
+                            DateTime? outT = (i + 1 < dayPunches.Count) ? dayPunches[i + 1].AttendanceTime : null;
+                            pairs.Add((inT, outT));
+                        }
                     }
 
-                    // Check early leave
-                    if (checkOut?.AttendanceTime.TimeOfDay < earlyLeaveThreshold)
+                    foreach (var (punchIn, punchOut) in pairs)
                     {
-                        earlyCount++;
-                        earlyMins += (int)(earlyLeaveThreshold - checkOut.AttendanceTime.TimeOfDay).TotalMinutes;
+                        // Mirror tab "Tổng hợp theo ca": chỉ tính trễ/sớm khi pair
+                        // có ĐỦ cả IN và OUT (attendanceMode='both' mặc định).
+                        // Pair thiếu 1 vế → coi là "thiếu chấm công", không
+                        // cộng vào trễ/sớm để tránh số ảo (vd. 683p do match
+                        // nhầm ca cho 1 punch lẻ).
+                        if (punchIn == null || punchOut == null) continue;
+
+                        var refTime = punchIn ?? punchOut;
+                        if (refTime == null) continue;
+                        var refMin = refTime.Value.Hour * 60 + refTime.Value.Minute;
+
+                        // Tìm ca khớp nhất: dùng wrap-around distance (giống Flutter
+                        // _findMatchingShift). Nếu best > 180 phút thì fallback duyệt
+                        // toàn bộ ca trong store; nếu vẫn > 180 thì BỎ QUA pair này.
+                        static int WrapDist(int refM, int startM)
+                        {
+                            var d = Math.Abs(refM - startM);
+                            if (d > 720) d = 1440 - d;
+                            return d;
+                        }
+                        var matched = candidateShifts
+                            .Select(s => new { Shift = s, Diff = WrapDist(refMin, (int)s.StartTime.TotalMinutes) })
+                            .OrderBy(x => x.Diff)
+                            .FirstOrDefault();
+                        if (matched == null || matched.Diff > 180)
+                        {
+                            // Nếu nhân viên đã được gán ca cụ thể, KHÔNG fallback sang ca
+                            // khác. Một punch cách xa ca được gán → coi là punch lạc
+                            // (vd. NV ca đêm chấm vào lúc 14:33 không nên bị tính trễ
+                            // 93p theo "Ca chiều"). Chỉ fallback khi nhân viên CHƯA
+                            // được gán ca nào.
+                            var hasAssignedShifts = empIdToShiftIds.TryGetValue(employee.Id, out var assignedList)
+                                && assignedList.Count > 0;
+                            if (hasAssignedShifts) continue;
+
+                            var fallback = shiftTemplates
+                                .Select(s => new { Shift = s, Diff = WrapDist(refMin, (int)s.StartTime.TotalMinutes) })
+                                .OrderBy(x => x.Diff)
+                                .FirstOrDefault();
+                            if (fallback == null || fallback.Diff > 180) continue;
+                            matched = fallback;
+                        }
+                        var shift = matched.Shift;
+                        var shiftStartMin = (int)shift.StartTime.TotalMinutes;
+                        var shiftEndMin = (int)shift.EndTime.TotalMinutes;
+                        var isCross = shiftStartMin > shiftEndMin;
+
+                        // Late
+                        if (punchIn != null)
+                        {
+                            var pinMin = punchIn.Value.Hour * 60 + punchIn.Value.Minute;
+                            int lateCalc = 0;
+                            if (isCross)
+                            {
+                                if (pinMin >= shiftStartMin) lateCalc = pinMin - shiftStartMin;
+                                else if (pinMin < shiftEndMin) lateCalc = (1440 - shiftStartMin) + pinMin;
+                            }
+                            else if (pinMin > shiftStartMin) lateCalc = pinMin - shiftStartMin;
+                            if (lateCalc <= shift.LateGraceMinutes) lateCalc = 0;
+                            if (lateCalc > 0)
+                            {
+                                lateCount++;
+                                lateMins += lateCalc;
+                            }
+                        }
+
+                        // Early
+                        if (punchOut != null)
+                        {
+                            var poutMin = punchOut.Value.Hour * 60 + punchOut.Value.Minute;
+                            int earlyCalc = 0;
+                            if (isCross)
+                            {
+                                if (poutMin <= shiftEndMin) earlyCalc = shiftEndMin - poutMin;
+                                else if (poutMin >= shiftStartMin) earlyCalc = (1440 - poutMin) + shiftEndMin;
+                            }
+                            else if (poutMin < shiftEndMin) earlyCalc = shiftEndMin - poutMin;
+                            if (earlyCalc <= shift.EarlyLeaveGraceMinutes) earlyCalc = 0;
+                            if (earlyCalc > 0)
+                            {
+                                earlyCount++;
+                                earlyMins += earlyCalc;
+                            }
+                        }
                     }
                 }
 
@@ -751,7 +1209,6 @@ public class ReportsController(
                         EarlyLeaveCount = earlyCount,
                         TotalEarlyMinutes = earlyMins
                     });
-
                     totalLateCount += lateCount;
                     totalEarlyCount += earlyCount;
                     totalLateMinutes += lateMins;

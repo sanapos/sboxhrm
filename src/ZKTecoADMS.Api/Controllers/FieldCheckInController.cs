@@ -1496,10 +1496,8 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
     /// <summary>
     /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app).
-    /// Quyền riêng tư: chỉ ghi nhận vị trí khi nhân viên đang trong CA LÀM VIỆC đã duyệt
-    /// HOẶC có HÀNH TRÌNH FIELD CHECK-IN đang chạy hôm nay HOẶC có ASSIGNMENT điểm bán còn hiệu lực.
-    /// (Trước đây chỉ chấp nhận khi có ca duyệt — khiến NV bán hàng/đi field không có ca cố định
-    /// không bao giờ xuất hiện trên bản đồ quản lý.)
+    /// Để đảm bảo quyền riêng tư: chỉ ghi nhận vị trí khi nhân viên đang trong ca làm việc đã được duyệt
+    /// (với biên 30 phút trước giờ bắt đầu và 15 phút sau giờ kết thúc).
     /// </summary>
     [HttpPost("report-location")]
     public async Task<ActionResult> ReportLocation([FromBody] ReportLocationRequest request)
@@ -1512,13 +1510,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
         if (request.Latitude == 0 && request.Longitude == 0)
             return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
 
-        // Privacy guards (any one allows storing location):
-        //   1. Có ca làm việc đã duyệt phủ thời điểm hiện tại (±30/15 phút).
-        //   2. Có hành trình FieldCheckIn đang chạy (status = "in_progress") hôm nay.
-        //   3. Có assignment điểm bán còn hiệu lực (StartDate <= today <= EndDate hoặc EndDate null).
+        // Privacy guard: only record location if the employee is currently within an approved shift window.
+        // Window: [StartTime - 30m, EndTime + 15m]. Shift StartTime/EndTime are stored in server local time.
         var nowLocal = DateTime.Now;
-        var (today, _, _) = VnTodayRange();
-
         var onShift = await _dbContext.Shifts
             .AsNoTracking()
             .AnyAsync(s => s.StoreId == storeId
@@ -1527,28 +1521,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && s.StartTime.AddMinutes(-30) <= nowLocal
                 && s.EndTime.AddMinutes(15) >= nowLocal);
 
-        var allowed = onShift;
-        if (!allowed)
-        {
-            allowed = await _dbContext.JourneyTrackings
-                .AsNoTracking()
-                .AnyAsync(j => j.StoreId == storeId
-                    && j.EmployeeId == empId
-                    && j.JourneyDate == today
-                    && j.Status == "in_progress"
-                    && j.Deleted == null);
-        }
-        if (!allowed)
-        {
-            // NV được giao điểm bán → cho phép báo vị trí (đặc thù field sales/giao hàng).
-            allowed = await _dbContext.FieldLocationAssignments
-                .AsNoTracking()
-                .AnyAsync(a => a.StoreId == storeId
-                    && a.EmployeeId == empId
-                    && a.Deleted == null);
-        }
-
-        if (!allowed)
+        if (!onShift)
         {
             // Silently accept but don't store — respect employee privacy outside working hours.
             return Ok(AppResponse<object>.Success(new { stored = false, reason = "off-shift" }));

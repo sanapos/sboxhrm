@@ -54,7 +54,11 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> CreateAdvanceRequest([FromBody] CreateAdvanceRequestDto request)
     {
-        var employeeUserId = request.EmployeeUserId ?? CurrentUserId;
+        // Manager/Admin creating for a specific employee: they provide employeeUserId and/or employeeId.
+        // Employee self-request: neither is provided → use CurrentUserId.
+        Guid? employeeUserId = request.EmployeeUserId
+            ?? (request.EmployeeId == null ? CurrentUserId : (Guid?)null);
+
         var command = new CreateAdvanceRequestCommand(
             RequiredStoreId,
             employeeUserId,

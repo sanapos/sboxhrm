@@ -7,6 +7,8 @@ import 'providers/permission_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/face_embedding_service_stub.dart'
     if (dart.library.io) 'services/face_embedding_service.dart';
+import 'services/fcm_service_stub.dart'
+    if (dart.library.io) 'services/fcm_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +44,11 @@ void main() {
   }).catchError((e) {
     debugPrint('FaceEmbeddingService init failed: $e');
   });
+
+  // Initialize Firebase Cloud Messaging (push notifications). Best-effort:
+  // failures are swallowed so the app still launches without Firebase.
+  // ignore: discarded_futures
+  FcmService.instance.initialize();
 
   runApp(
     MultiProvider(

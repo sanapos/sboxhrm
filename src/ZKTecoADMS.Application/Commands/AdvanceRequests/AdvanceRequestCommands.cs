@@ -8,7 +8,7 @@ namespace ZKTecoADMS.Application.Commands.AdvanceRequests;
 // Create Advance Request Command
 public record CreateAdvanceRequestCommand(
     Guid StoreId,
-    Guid EmployeeUserId,
+    Guid? EmployeeUserId,
     decimal Amount,
     string? Reason,
     string? Note,
@@ -38,31 +38,50 @@ public class CreateAdvanceRequestHandler(
             Guid? employeeUserId = null;
             Guid? employeeId = request.EmployeeId;
 
-            var inputId = request.EmployeeUserId;
-            var user = await userManager.FindByIdAsync(inputId.ToString());
-            if (user != null)
+            if (request.EmployeeUserId.HasValue)
             {
-                employeeUserId = inputId;
-                if (employeeId == null)
+                // Resolve via userId: find the user then their employee record
+                var inputId = request.EmployeeUserId.Value;
+                var user = await userManager.FindByIdAsync(inputId.ToString());
+                if (user != null)
                 {
-                    var emp = await employeeRepository.GetSingleAsync(
-                        e => e.ApplicationUserId == inputId, cancellationToken: cancellationToken);
-                    employeeId = emp?.Id;
-                }
-            }
-            else
-            {
-                var employee = await employeeRepository.GetByIdAsync(inputId, cancellationToken: cancellationToken);
-                if (employee != null)
-                {
-                    employeeId = employee.Id;
-                    if (employee.ApplicationUserId != null)
-                        employeeUserId = employee.ApplicationUserId.Value;
+                    employeeUserId = inputId;
+                    if (employeeId == null)
+                    {
+                        var emp = await employeeRepository.GetSingleAsync(
+                            e => e.ApplicationUserId == inputId, cancellationToken: cancellationToken);
+                        employeeId = emp?.Id;
+                    }
                 }
                 else
                 {
-                    return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy nhân viên");
+                    // inputId might actually be an employee entity Id (legacy path)
+                    var employee = await employeeRepository.GetByIdAsync(inputId, cancellationToken: cancellationToken);
+                    if (employee != null)
+                    {
+                        employeeId = employee.Id;
+                        if (employee.ApplicationUserId != null)
+                            employeeUserId = employee.ApplicationUserId.Value;
+                    }
+                    else
+                    {
+                        return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy nhân viên");
+                    }
                 }
+            }
+            else if (employeeId.HasValue)
+            {
+                // No userId provided — resolve employee directly by Id (employee without user account)
+                var employee = await employeeRepository.GetByIdAsync(employeeId.Value, cancellationToken: cancellationToken);
+                if (employee == null)
+                    return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy hồ sơ nhân viên");
+                if (employee.ApplicationUserId != null)
+                    employeeUserId = employee.ApplicationUserId.Value;
+                // employeeId already set
+            }
+            else
+            {
+                return AppResponse<AdvanceRequestDto>.Error("Vui lòng chỉ định nhân viên");
             }
 
             if (employeeId == null)

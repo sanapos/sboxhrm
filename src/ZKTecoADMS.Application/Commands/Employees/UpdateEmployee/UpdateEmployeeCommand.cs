@@ -47,6 +47,7 @@ public class UpdateEmployeeCommand : IRequest<AppResponse<bool>>
     public string? Level { get; set; }
     public DateTime? JoinDate { get; set; }
     public DateTime? ProbationEndDate { get; set; }
+    public DateTime? ContractEndDate { get; set; }
     public EmployeeWorkStatus WorkStatus { get; set; }
     public Guid? DirectManagerEmployeeId { get; set; }
     public DateTime? ResignationDate { get; set; }

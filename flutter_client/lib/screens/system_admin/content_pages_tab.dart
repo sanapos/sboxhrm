@@ -12,8 +12,6 @@ class ContentPagesTab extends StatefulWidget {
 
 class ContentPagesTabState extends State<ContentPagesTab>
     with SingleTickerProviderStateMixin {
-  final _api = ApiService();
-  final _df = DateFormat('dd/MM/yyyy HH:mm');
   late final TabController _sub;
 
   @override

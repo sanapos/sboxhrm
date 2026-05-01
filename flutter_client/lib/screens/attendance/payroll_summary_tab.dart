@@ -190,7 +190,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Future<void> _saveColumnPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final list = _columns.map((c) => {'key': c.key, 'visible': c.visible}).toList();
+      final list =
+          _columns.map((c) => {'key': c.key, 'visible': c.visible}).toList();
       await prefs.setString('payroll_columns_v8', jsonEncode(list));
     } catch (_) {}
   }
@@ -224,7 +225,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
       }
       // Loại bỏ NV chưa thiết lập bảng lương khỏi tổng hợp lương.
-      _employees = _employees.where((e) => profileMap.containsKey(e.id)).toList();
+      _employees =
+          _employees.where((e) => profileMap.containsKey(e.id)).toList();
       for (final emp in _employees) {
         _employeeSalaryProfiles.add({
           'employeeId': emp.id,
@@ -297,23 +299,28 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _commissionSettings = await _apiService.getCommissionSettings();
         final periodsRes = await _apiService.getKpiPeriods();
         if (periodsRes['isSuccess'] == true) {
-          final periods = List<Map<String, dynamic>>.from(periodsRes['data'] ?? []);
+          final periods =
+              List<Map<String, dynamic>>.from(periodsRes['data'] ?? []);
           String? matchPeriodId;
           for (final p in periods) {
-            final pStart = DateTime.tryParse(p['periodStart']?.toString() ?? '');
+            final pStart =
+                DateTime.tryParse(p['periodStart']?.toString() ?? '');
             final pEnd = DateTime.tryParse(p['periodEnd']?.toString() ?? '');
-            if (pStart != null && pEnd != null &&
-                !_fromDate.isAfter(pEnd) && !_toDate.isBefore(pStart)) {
+            if (pStart != null &&
+                pEnd != null &&
+                !_fromDate.isAfter(pEnd) &&
+                !_toDate.isBefore(pStart)) {
               matchPeriodId = p['id']?.toString();
               break;
             }
           }
           if (matchPeriodId != null) {
-            final targetsRes = await _apiService.getKpiEmployeeTargets(periodId: matchPeriodId);
+            final targetsRes = await _apiService.getKpiEmployeeTargets(
+                periodId: matchPeriodId);
             if (targetsRes['isSuccess'] == true) {
-              _kpiEmployeeTargets = List<Map<String, dynamic>>.from(targetsRes['data'] ?? []);
+              _kpiEmployeeTargets =
+                  List<Map<String, dynamic>>.from(targetsRes['data'] ?? []);
             }
-
           }
         }
       } catch (_) {
@@ -328,7 +335,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           toDate: _toDate,
         );
         if (prodRes['isSuccess'] == true) {
-          _productionSummaries = List<Map<String, dynamic>>.from(prodRes['data'] ?? []);
+          _productionSummaries =
+              List<Map<String, dynamic>>.from(prodRes['data'] ?? []);
         }
       } catch (_) {
         _productionSummaries = [];
@@ -346,8 +354,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             pageSize: 500,
           );
           _periodAttendances = (result['items'] as List?)
-              ?.map((item) => Attendance.fromJson(item as Map<String, dynamic>))
-              .toList() ?? [];
+                  ?.map((item) =>
+                      Attendance.fromJson(item as Map<String, dynamic>))
+                  .toList() ??
+              [];
         } else {
           _periodAttendances = widget.attendances;
         }
@@ -384,12 +394,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // ──────── Helper: check if a date is holiday ────────
   bool _isHoliday(DateTime date) {
     for (final h in _holidays) {
-      final hDate = h['date'] != null ? DateTime.tryParse(h['date'].toString()) : null;
+      final hDate =
+          h['date'] != null ? DateTime.tryParse(h['date'].toString()) : null;
       if (hDate == null) continue;
       final isRecurring = h['isRecurring'] == true;
       final dateMatch = isRecurring
           ? hDate.month == date.month && hDate.day == date.day
-          : hDate.year == date.year && hDate.month == date.month && hDate.day == date.day;
+          : hDate.year == date.year &&
+              hDate.month == date.month &&
+              hDate.day == date.day;
       if (dateMatch) return true;
     }
     return false;
@@ -411,22 +424,31 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     switch (paidLeaveType) {
       case 'sunday':
-        for (var d = monthStart; !d.isAfter(monthEnd); d = d.add(const Duration(days: 1))) {
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
           if (d.weekday == DateTime.sunday) offDays++;
         }
         break;
       case 'saturday':
-        for (var d = monthStart; !d.isAfter(monthEnd); d = d.add(const Duration(days: 1))) {
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
           if (d.weekday == DateTime.saturday) offDays++;
         }
         break;
       case 'sat-sun':
-        for (var d = monthStart; !d.isAfter(monthEnd); d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) offDays++;
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
+          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday)
+            offDays++;
         }
         break;
       case 'sat-afternoon-sun':
-        for (var d = monthStart; !d.isAfter(monthEnd); d = d.add(const Duration(days: 1))) {
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
           if (d.weekday == DateTime.sunday) {
             offDays++;
           } else if (d.weekday == DateTime.saturday) {
@@ -447,9 +469,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         offDays = 4;
         break;
       default:
-        for (var d = monthStart; !d.isAfter(monthEnd); d = d.add(const Duration(days: 1))) {
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
           if ((paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
-              (paidDayOff.contains('Saturday') && d.weekday == DateTime.saturday)) {
+              (paidDayOff.contains('Saturday') &&
+                  d.weekday == DateTime.saturday)) {
             offDays++;
           }
         }
@@ -463,9 +488,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (att.employeeId != null && att.employeeId!.isNotEmpty) {
       final emp = _employees.where((e) => e.id == att.employeeId).firstOrNull;
       if (emp != null) return emp.employeeCode;
-      final emp2 = _employees
-          .where((e) => e.employeeCode == att.employeeId)
-          .firstOrNull;
+      final emp2 =
+          _employees.where((e) => e.employeeCode == att.employeeId).firstOrNull;
       if (emp2 != null) return emp2.employeeCode;
       return att.employeeId!;
     }
@@ -501,8 +525,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   // ──────── Insurance salary calculation ────────
   // Returns raw salary before cap (for BHXH and BHTN which have different caps)
-  double _getInsuranceSalaryRaw(
-      String socialInsType, double baseSalary, double completionSalary, double customInsuranceSalary) {
+  double _getInsuranceSalaryRaw(String socialInsType, double baseSalary,
+      double completionSalary, double customInsuranceSalary) {
     switch (socialInsType) {
       case '0':
         return 0; // Không đóng
@@ -513,11 +537,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case '3':
         final region = _toInt(_insuranceSettings['defaultRegion'], 1);
         switch (region) {
-          case 1: return _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
-          case 2: return _toDouble(_insuranceSettings['minSalaryRegion2'], 4410000);
-          case 3: return _toDouble(_insuranceSettings['minSalaryRegion3'], 3860000);
-          case 4: return _toDouble(_insuranceSettings['minSalaryRegion4'], 3450000);
-          default: return _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
+          case 1:
+            return _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
+          case 2:
+            return _toDouble(_insuranceSettings['minSalaryRegion2'], 4410000);
+          case 3:
+            return _toDouble(_insuranceSettings['minSalaryRegion3'], 3860000);
+          case 4:
+            return _toDouble(_insuranceSettings['minSalaryRegion4'], 3450000);
+          default:
+            return _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
         }
       case '4':
         return customInsuranceSalary;
@@ -526,28 +555,40 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
   }
 
-  double _calculateInsuranceSalary(
-      String socialInsType, double baseSalary, double completionSalary, double customInsuranceSalary) {
-    final maxIns = _toDouble(_insuranceSettings['maxInsuranceSalary'], 46800000);
-    final raw = _getInsuranceSalaryRaw(socialInsType, baseSalary, completionSalary, customInsuranceSalary);
+  double _calculateInsuranceSalary(String socialInsType, double baseSalary,
+      double completionSalary, double customInsuranceSalary) {
+    final maxIns =
+        _toDouble(_insuranceSettings['maxInsuranceSalary'], 46800000);
+    final raw = _getInsuranceSalaryRaw(
+        socialInsType, baseSalary, completionSalary, customInsuranceSalary);
     // Áp dụng mức trần BHXH (20x lương cơ sở)
     return raw > maxIns ? maxIns : raw;
   }
 
   /// BHTN cap = 20 × regional minimum salary (different from BHXH cap)
-  double _calculateBhtnInsuranceSalary(
-      String socialInsType, double baseSalary, double completionSalary, double customInsuranceSalary) {
-    final raw = _getInsuranceSalaryRaw(socialInsType, baseSalary, completionSalary, customInsuranceSalary);
+  double _calculateBhtnInsuranceSalary(String socialInsType, double baseSalary,
+      double completionSalary, double customInsuranceSalary) {
+    final raw = _getInsuranceSalaryRaw(
+        socialInsType, baseSalary, completionSalary, customInsuranceSalary);
     if (raw == 0) return 0;
     // BHTN cap = 20 × lương tối thiểu vùng (theo luật Việc làm 2013)
     final region = _toInt(_insuranceSettings['defaultRegion'], 1);
     double regionMin;
     switch (region) {
-      case 1: regionMin = _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000); break;
-      case 2: regionMin = _toDouble(_insuranceSettings['minSalaryRegion2'], 4410000); break;
-      case 3: regionMin = _toDouble(_insuranceSettings['minSalaryRegion3'], 3860000); break;
-      case 4: regionMin = _toDouble(_insuranceSettings['minSalaryRegion4'], 3450000); break;
-      default: regionMin = _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
+      case 1:
+        regionMin = _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
+        break;
+      case 2:
+        regionMin = _toDouble(_insuranceSettings['minSalaryRegion2'], 4410000);
+        break;
+      case 3:
+        regionMin = _toDouble(_insuranceSettings['minSalaryRegion3'], 3860000);
+        break;
+      case 4:
+        regionMin = _toDouble(_insuranceSettings['minSalaryRegion4'], 3450000);
+        break;
+      default:
+        regionMin = _toDouble(_insuranceSettings['minSalaryRegion1'], 4960000);
     }
     final maxBhtn = regionMin * 20;
     return raw > maxBhtn ? maxBhtn : raw;
@@ -575,11 +616,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (v is num) return v.toInt();
     if (v is String) {
       switch (v) {
-        case 'Hourly': return 0;
-        case 'Monthly': return 1;
-        case 'Daily': return 2;
-        case 'Shift': return 3;
-        default: return int.tryParse(v) ?? 1;
+        case 'Hourly':
+          return 0;
+        case 'Monthly':
+          return 1;
+        case 'Daily':
+          return 2;
+        case 'Shift':
+          return 3;
+        default:
+          return int.tryParse(v) ?? 1;
       }
     }
     return 1; // default Monthly
@@ -595,7 +641,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     Map<String, dynamic>? profile;
     if (emp != null) {
       final sp = _employeeSalaryProfiles
-          .where((e) => e['employeeId'] == emp.id || e['employeeCode'] == emp.employeeCode)
+          .where((e) =>
+              e['employeeId'] == emp.id ||
+              e['employeeCode'] == emp.employeeCode)
           .firstOrNull;
       profile = sp?['profile'] as Map<String, dynamic>?;
     }
@@ -605,20 +653,25 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final int rateType = _parseRateType(benefit?['rateType']);
     final double completionSalary = _toDouble(benefit?['completionSalary']);
     final double mealAllowancePerDay = _toDouble(benefit?['mealAllowance']);
-    final double responsibilityAllowance = _toDouble(benefit?['responsibilityAllowance']);
+    final double responsibilityAllowance =
+        _toDouble(benefit?['responsibilityAllowance']);
     final int shiftsPerDay = _toInt(benefit?['shiftsPerDay'], 1);
     // Chế độ chấm công: 'checkin' = chỉ cần chấm vào, 'checkout' = chỉ cần chấm ra,
     // 'both' = phải có cả vào và ra mới tính công, 'any' = chỉ cần 1 punch, 'none' = không yêu cầu.
-    final String attendanceMode = (benefit?['attendanceMode'] ?? 'both').toString();
-    final String socialInsType = (benefit?['socialInsuranceType'] ?? 0).toString();
+    final String attendanceMode =
+        (benefit?['attendanceMode'] ?? 'both').toString();
+    final String socialInsType =
+        (benefit?['socialInsuranceType'] ?? 0).toString();
     final double customInsuranceSalary = _toDouble(benefit?['insuranceSalary']);
     final bool hasHealthInsurance = benefit?['hasHealthInsurance'] == true;
 
     // Overtime settings
     final int holidayOtType = _toInt(benefit?['holidayOvertimeType'], 1);
-    final double holidayOtDailyRate = _toDouble(benefit?['holidayOvertimeDailyRate']);
+    final double holidayOtDailyRate =
+        _toDouble(benefit?['holidayOvertimeDailyRate']);
     final int hourlyOtType = _toInt(benefit?['hourlyOvertimeType'], 1);
-    final double hourlyOtFixedRate = _toDouble(benefit?['hourlyOvertimeFixedRate']);
+    final double hourlyOtFixedRate =
+        _toDouble(benefit?['hourlyOvertimeFixedRate']);
 
     // Shift salary
     final int shiftSalaryType = _toInt(benefit?['shiftSalaryType']);
@@ -626,10 +679,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     // Paid leave settings
     final String paidDayOff = benefit?['weeklyOffDays']?.toString() ?? 'Sunday';
-    final String paidLeaveType = benefit?['paidLeaveType']?.toString() ?? 'sunday';
+    final String paidLeaveType =
+        benefit?['paidLeaveType']?.toString() ?? 'sunday';
 
     // Standard work days - calculate dynamically based on paidLeaveType and month
-    final double standardWorkDays = _calcStandardWorkDays(paidLeaveType, paidDayOff);
+    final double standardWorkDays =
+        _calcStandardWorkDays(paidLeaveType, paidDayOff);
 
     // Scheduled check-in/check-out from benefit
     final String? checkInStr = benefit?['checkIn']?.toString();
@@ -648,16 +703,26 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     // Standard hours per day
-    final double standardDayHours = _toDouble(benefit?['standardHoursPerDay'], 8.0);
+    final double standardDayHours =
+        _toDouble(benefit?['standardHoursPerDay'], 8.0);
 
     // Salary type label
     String salaryTypeLabel;
     switch (rateType) {
-      case 0: salaryTypeLabel = _l10n.hourly; break;
-      case 1: salaryTypeLabel = _l10n.monthly; break;
-      case 2: salaryTypeLabel = _l10n.daily; break;
-      case 3: salaryTypeLabel = 'Ca'; break;
-      default: salaryTypeLabel = _l10n.monthly;
+      case 0:
+        salaryTypeLabel = _l10n.hourly;
+        break;
+      case 1:
+        salaryTypeLabel = _l10n.monthly;
+        break;
+      case 2:
+        salaryTypeLabel = _l10n.daily;
+        break;
+      case 3:
+        salaryTypeLabel = 'Ca';
+        break;
+      default:
+        salaryTypeLabel = _l10n.monthly;
     }
 
     // ═══ Calculate attendance stats ═══
@@ -767,7 +832,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       // Late/early detection using scheduled times from Benefit
       if (checkIns.isNotEmpty && !isWkend && !isHol) {
         final firstIn = checkIns.first.attendanceTime;
-        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day, scheduledInHour, scheduledInMin);
+        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day,
+            scheduledInHour, scheduledInMin);
         if (firstIn.isAfter(scheduledIn.add(const Duration(minutes: 5)))) {
           lateCount++;
           lateMinutes += firstIn.difference(scheduledIn).inMinutes;
@@ -775,8 +841,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
       if (checkOuts.isNotEmpty && !isWkend && !isHol) {
         final lastOut = checkOuts.last.attendanceTime;
-        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day, scheduledOutHour, scheduledOutMin);
-        if (lastOut.isBefore(scheduledOut.subtract(const Duration(minutes: 5)))) {
+        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day,
+            scheduledOutHour, scheduledOutMin);
+        if (lastOut
+            .isBefore(scheduledOut.subtract(const Duration(minutes: 5)))) {
           earlyCount++;
           earlyMinutes += scheduledOut.difference(lastOut).inMinutes;
         }
@@ -784,7 +852,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     // Count paid leave and absent days
-    for (var d = _fromDate; !d.isAfter(_toDate); d = d.add(const Duration(days: 1))) {
+    for (var d = _fromDate;
+        !d.isAfter(_toDate);
+        d = d.add(const Duration(days: 1))) {
       final key = DateFormat('yyyy-MM-dd').format(d);
       if (_isHoliday(d)) continue;
 
@@ -797,7 +867,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           isPaidOff = d.weekday == DateTime.saturday;
           break;
         case 'sat-sun':
-          isPaidOff = d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
+          isPaidOff =
+              d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
           break;
         case 'sat-afternoon-sun':
           isPaidOff = d.weekday == DateTime.sunday;
@@ -807,17 +878,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         case 'off-2':
         case 'off-3':
         case 'off-4':
-          isPaidOff = false; // off-X days are flat deductions from standardWorkDays, not per-day
+          isPaidOff =
+              false; // off-X days are flat deductions from standardWorkDays, not per-day
           break;
         default:
           // Fallback: use weeklyOffDays
-          isPaidOff = (paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
-              (paidDayOff.contains('Saturday') && d.weekday == DateTime.saturday);
+          isPaidOff =
+              (paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
+                  (paidDayOff.contains('Saturday') &&
+                      d.weekday == DateTime.saturday);
       }
 
       if (isPaidOff) {
         paidLeaveDays++;
-      } else if (!attendanceByDate.containsKey(key) && d.isBefore(DateTime.now())) {
+      } else if (!attendanceByDate.containsKey(key) &&
+          d.isBefore(DateTime.now())) {
         absentDays++;
       }
     }
@@ -832,7 +907,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         workSalary = baseSalary * standardHours;
         break;
       case 1: // Monthly
-        hourlyRate = standardWorkDays > 0 ? baseSalary / standardWorkDays / standardDayHours : 0;
+        hourlyRate = standardWorkDays > 0
+            ? baseSalary / standardWorkDays / standardDayHours
+            : 0;
         workSalary = standardWorkDays > 0
             ? (baseSalary / standardWorkDays) * workDays
             : 0;
@@ -879,7 +956,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // ═══ OT salary ═══
     double otSalary = 0;
     if (hourlyOtType == 0) {
-      otSalary = (otHoursWeekday + otHoursWeekend + otHoursHoliday) * hourlyOtFixedRate;
+      otSalary = (otHoursWeekday + otHoursWeekend + otHoursHoliday) *
+          hourlyOtFixedRate;
     } else if (hourlyOtType == 1) {
       otSalary += otHoursWeekday * hourlyRate * 1.5;
       otSalary += otHoursWeekend * hourlyRate * 2.0;
@@ -895,7 +973,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     // ═══ Allowances ═══
     // Per-day allowances × actual work days (built-in từ Benefit)
-    double totalAllowance = (mealAllowancePerDay + responsibilityAllowance) * workDays;
+    double totalAllowance =
+        (mealAllowancePerDay + responsibilityAllowance) * workDays;
 
     // Cộng thêm phụ cấp từ AllowanceSettings (Fixed = cố định/kỳ, Daily = theo ngày công)
     // Lọc theo EmployeeIds và StartDate/EndDate.
@@ -906,8 +985,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (empIdsRaw != null && empIdsRaw.toString().isNotEmpty) {
         try {
           final ids = jsonDecode(empIdsRaw.toString()) as List;
-          if (empIdForAllowance == null || !ids.contains(empIdForAllowance)) continue;
-        } catch (_) { continue; }
+          if (empIdForAllowance == null || !ids.contains(empIdForAllowance))
+            continue;
+        } catch (_) {
+          continue;
+        }
       }
       // Filter ngày hiệu lực
       final startStr = al['startDate']?.toString();
@@ -939,8 +1021,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       // Match by employeeId or employeeUserId (backward compatibility)
       final txEmpId = tx['employeeId']?.toString();
       final txEmpUserId = tx['employeeUserId']?.toString();
-      if (txEmpId != empId && txEmpUserId != empId &&
-          txEmpId != empCode && txEmpUserId != empCode) {
+      if (txEmpId != empId &&
+          txEmpUserId != empId &&
+          txEmpId != empCode &&
+          txEmpUserId != empCode) {
         continue;
       }
       final txType = tx['type']?.toString().toLowerCase() ?? '';
@@ -964,15 +1048,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double late15 = _toDouble(_penaltySettings['lateDeduction15Min']);
     final double late30 = _toDouble(_penaltySettings['lateDeduction30Min']);
     final double late60 = _toDouble(_penaltySettings['lateDeduction60Min']);
-    final double earlyL15 = _toDouble(_penaltySettings['earlyLeaveDeduction15Min']);
-    final double earlyL30 = _toDouble(_penaltySettings['earlyLeaveDeduction30Min']);
-    final double earlyL60 = _toDouble(_penaltySettings['earlyLeaveDeduction60Min']);
-    final double unauthorizedLeavePenalty = _toDouble(_penaltySettings['unauthorizedLeaveDeduction']);
+    final double earlyL15 =
+        _toDouble(_penaltySettings['earlyLeaveDeduction15Min']);
+    final double earlyL30 =
+        _toDouble(_penaltySettings['earlyLeaveDeduction30Min']);
+    final double earlyL60 =
+        _toDouble(_penaltySettings['earlyLeaveDeduction60Min']);
+    final double unauthorizedLeavePenalty =
+        _toDouble(_penaltySettings['unauthorizedLeaveDeduction']);
 
     // Fallback to generic rates
-    final double penaltyPerLate = _toDouble(_penaltySettings['lateDeduction'], late15);
-    final double penaltyPerEarly = _toDouble(_penaltySettings['earlyLeaveDeduction'], earlyL15);
-    final double penaltyPerAbsent = _toDouble(_penaltySettings['absentDeduction'], unauthorizedLeavePenalty);
+    final double penaltyPerLate =
+        _toDouble(_penaltySettings['lateDeduction'], late15);
+    final double penaltyPerEarly =
+        _toDouble(_penaltySettings['earlyLeaveDeduction'], earlyL15);
+    final double penaltyPerAbsent = _toDouble(
+        _penaltySettings['absentDeduction'], unauthorizedLeavePenalty);
 
     if (late15 > 0 || late30 > 0 || late60 > 0) {
       // Tiered late penalty (approximate: use average late minutes per incident)
@@ -983,7 +1074,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final checkIns = dayAtts.where((a) => a.attendanceState == 0).toList();
         if (checkIns.isEmpty) continue;
         final firstIn = checkIns.first.attendanceTime;
-        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day, scheduledInHour, scheduledInMin);
+        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day,
+            scheduledInHour, scheduledInMin);
         final lateMins = firstIn.difference(scheduledIn).inMinutes;
         if (lateMins > 5) {
           if (lateMins >= 60) {
@@ -1003,7 +1095,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final checkOuts = dayAtts.where((a) => a.attendanceState == 1).toList();
         if (checkOuts.isEmpty) continue;
         final lastOut = checkOuts.last.attendanceTime;
-        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day, scheduledOutHour, scheduledOutMin);
+        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day,
+            scheduledOutHour, scheduledOutMin);
         final earlyMins = scheduledOut.difference(lastOut).inMinutes;
         if (earlyMins > 5) {
           if (earlyMins >= 60) {
@@ -1017,8 +1110,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     } else {
       // Flat rate penalties (backward compatible)
-      latePenaltyTotal = (penaltyPerLate * lateCount) +
-          (penaltyPerEarly * earlyCount);
+      latePenaltyTotal =
+          (penaltyPerLate * lateCount) + (penaltyPerEarly * earlyCount);
     }
     // Absent penalty
     latePenaltyTotal += penaltyPerAbsent * absentDays;
@@ -1043,23 +1136,31 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // If socialInsType == '0' (chưa đóng BHXH), insuranceSalary = 0 => all = 0
     // Otherwise: mức đóng × hệ số tổng NLĐ đóng
     final double bhxhPart = insuranceSalary * bhxhRate / 100;
-    final double bhytPart = hasHealthInsurance ? 0 : insuranceSalary * bhytRate / 100;
+    final double bhytPart =
+        hasHealthInsurance ? 0 : insuranceSalary * bhytRate / 100;
     final double bhtnPart = bhtnInsuranceSalary * bhtnRate / 100;
     final double unionFeePart = insuranceSalary * unionFeeRate / 100;
     final double totalInsurance = bhxhPart + bhytPart + bhtnPart + unionFeePart;
 
     // ═══ Tax (PIT – Vietnamese progressive) ═══
-    final double grossIncome = workSalary + completionSalaryAmount + otSalary + totalAllowance + bonusTotal;
+    final double grossIncome = workSalary +
+        completionSalaryAmount +
+        otSalary +
+        totalAllowance +
+        bonusTotal;
     final double taxableIncome = grossIncome - totalInsurance;
     double pit = 0;
-    final double personalDeduction = _toDouble(_taxSettings['personalDeduction'], 11000000);
-    final double dependentDeduction = _toDouble(_taxSettings['dependentDeduction'], 4400000);
+    final double personalDeduction =
+        _toDouble(_taxSettings['personalDeduction'], 11000000);
+    final double dependentDeduction =
+        _toDouble(_taxSettings['dependentDeduction'], 4400000);
 
     // Get dependents from employee tax deductions
     int dependents = 0;
     if (emp != null) {
       final empTaxDed = _employeeTaxDeductions
-          .where((d) => d['employeeId']?.toString() == emp.id ||
+          .where((d) =>
+              d['employeeId']?.toString() == emp.id ||
               d['employeeUserId']?.toString() == emp.id)
           .firstOrNull;
       if (empTaxDed != null) {
@@ -1067,7 +1168,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
-    final double taxable = taxableIncome - personalDeduction - (dependentDeduction * dependents);
+    final double taxable =
+        taxableIncome - personalDeduction - (dependentDeduction * dependents);
     if (taxable > 0) {
       pit = _calculatePIT(taxable);
     }
@@ -1075,8 +1177,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // ═══ Advance (filter by PaidDate within period) ═══
     double advanceTotal = 0;
     for (final req in _advanceRequests) {
-      final reqEmpId = req['employeeId']?.toString() ??
-          req['employeeUserId']?.toString();
+      final reqEmpId =
+          req['employeeId']?.toString() ?? req['employeeUserId']?.toString();
       if (reqEmpId != empId && reqEmpId != empCode) continue;
       final status = req['status'];
       final isPaid = req['isPaid'] == true;
@@ -1093,10 +1195,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     // ═══ KPI Salary (Lương KPI = Tổng thưởng từ KPI targets) ═══
     double kpiSalaryAmount = 0;
-    final kpiTarget = _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
-      (t) => t?['employeeId']?.toString() == emp?.id,
-      orElse: () => null,
-    );
+    final kpiTarget =
+        _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
+              (t) => t?['employeeId']?.toString() == emp?.id,
+              orElse: () => null,
+            );
     if (kpiTarget != null) {
       final tgt = ((kpiTarget['targetValue'] ?? 0) as num).toDouble();
       final act = ((kpiTarget['actualValue'] ?? 0) as num).toDouble();
@@ -1105,17 +1208,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final salaryHT = pct >= 100 ? cs : 0.0;
       final penaltyBonus = _kpiCalcPenaltyBonus(kpiTarget);
       final tierBonuses = _kpiCalcTierBonuses(kpiTarget);
-      final totalTierBonus = tierBonuses.fold<double>(0, (s, b) => s + _toDouble(b['bonus']));
+      final totalTierBonus =
+          tierBonuses.fold<double>(0, (s, b) => s + _toDouble(b['bonus']));
       kpiSalaryAmount = salaryHT + penaltyBonus + totalTierBonus;
     }
 
     // ═══ Sales & Commission ═══
     double salesAmount = 0;
     double commissionAmount = 0;
-    final empTarget = _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
-      (t) => t?['employeeId']?.toString() == emp?.id && t?['criteriaType'] == 0,
-      orElse: () => null,
-    );
+    final empTarget =
+        _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
+              (t) =>
+                  t?['employeeId']?.toString() == emp?.id &&
+                  t?['criteriaType'] == 0,
+              orElse: () => null,
+            );
     if (empTarget != null) {
       salesAmount = _toDouble(empTarget['actualValue']);
       commissionAmount = _calculateCommission(salesAmount);
@@ -1123,11 +1230,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     // ═══ Production / Piece-rate salary ═══
     double productionAmount = 0;
-    final prodSummary = _productionSummaries.cast<Map<String, dynamic>?>().firstWhere(
-      (s) => s?['employeeId']?.toString() == emp?.id ||
-             s?['employeeCode']?.toString() == empCode,
-      orElse: () => null,
-    );
+    final prodSummary =
+        _productionSummaries.cast<Map<String, dynamic>?>().firstWhere(
+              (s) =>
+                  s?['employeeId']?.toString() == emp?.id ||
+                  s?['employeeCode']?.toString() == empCode,
+              orElse: () => null,
+            );
     if (prodSummary != null) {
       productionAmount = _toDouble(prodSummary['totalAmount']);
     }
@@ -1151,7 +1260,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double dailySalary = rateType == 2 ? workSalary : 0;
     final double shiftSalary = rateType == 3 ? workSalary : 0;
     final double hourlySalary = rateType == 0 ? workSalary : 0;
-    final double otTotalHours = otHoursWeekday + otHoursWeekend + otHoursHoliday;
+    final double otTotalHours =
+        otHoursWeekday + otHoursWeekend + otHoursHoliday;
 
     return {
       'code': empCode,
@@ -1274,7 +1384,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (_cachedPayrollData != null) return _cachedPayrollData!;
 
     // Group attendance by resolved employee code
-    final attendances = _periodAttendances.isNotEmpty ? _periodAttendances : widget.attendances;
+    final attendances =
+        _periodAttendances.isNotEmpty ? _periodAttendances : widget.attendances;
     final grouped = <String, List<Attendance>>{};
     for (final att in attendances) {
       final code = _resolveAttEmployeeCode(att);
@@ -1336,23 +1447,31 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   void showColumnSelectorDialog() {
     // Work on a temporary copy of columns so we can reorder without affecting state until apply
-    var tempColumns = _columns.map((c) => PayrollColumn(
-      key: c.key, label: c.label, defaultVisible: c.defaultVisible, visible: c.visible,
-    )).toList();
+    var tempColumns = _columns
+        .map((c) => PayrollColumn(
+              key: c.key,
+              label: c.label,
+              defaultVisible: c.defaultVisible,
+              visible: c.visible,
+            ))
+        .toList();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx2, setDialogState) {
           // Exclude frozen columns from reordering
-          final reorderableCols = tempColumns.where((c) => !_frozenKeys.contains(c.key)).toList();
+          final reorderableCols =
+              tempColumns.where((c) => !_frozenKeys.contains(c.key)).toList();
 
           return AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.view_column, color: Colors.blue),
                 const SizedBox(width: 8),
-                const Expanded(child: Text('Chọn & sắp xếp cột', style: TextStyle(fontSize: 16))),
+                const Expanded(
+                    child: Text('Chọn & sắp xếp cột',
+                        style: TextStyle(fontSize: 16))),
                 TextButton(
                   onPressed: () {
                     setDialogState(() {
@@ -1360,15 +1479,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       tempColumns = _columns.map((c) {
                         final orig = _columns.firstWhere((o) => o.key == c.key);
                         return PayrollColumn(
-                          key: orig.key, label: orig.label,
-                          defaultVisible: orig.defaultVisible, visible: orig.defaultVisible,
+                          key: orig.key,
+                          label: orig.label,
+                          defaultVisible: orig.defaultVisible,
+                          visible: orig.defaultVisible,
                         );
                       }).toList();
                       _initColumns();
-                      tempColumns = _columns.map((c) => PayrollColumn(
-                        key: c.key, label: c.label,
-                        defaultVisible: c.defaultVisible, visible: c.defaultVisible,
-                      )).toList();
+                      tempColumns = _columns
+                          .map((c) => PayrollColumn(
+                                key: c.key,
+                                label: c.label,
+                                defaultVisible: c.defaultVisible,
+                                visible: c.defaultVisible,
+                              ))
+                          .toList();
                     });
                   },
                   child: const Text('Mặc định', style: TextStyle(fontSize: 12)),
@@ -1376,7 +1501,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               ],
             ),
             content: SizedBox(
-              width: math.min(460, MediaQuery.of(context).size.width - 32).toDouble(),
+              width: math
+                  .min(460, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
               height: 520,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1385,30 +1512,37 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
                     child: Text('Cột cố định (không thể di chuyển)',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
                   ),
-                  ...tempColumns.where((c) => _frozenKeys.contains(c.key)).map((col) =>
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(6),
+                  ...tempColumns.where((c) => _frozenKeys.contains(c.key)).map(
+                        (col) => Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.lock_outline,
+                                  size: 14, color: Colors.grey.shade400),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: Text(col.label,
+                                      style: const TextStyle(
+                                          fontSize: 13, color: Colors.grey))),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade400),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(col.label, style: const TextStyle(fontSize: 13, color: Colors.grey))),
-                        ],
-                      ),
-                    ),
-                  ),
                   const Divider(height: 12),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
                     child: Text('Kéo để sắp xếp thứ tự cột',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
                   ),
                   // Reorderable columns
                   Expanded(
@@ -1418,11 +1552,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                         setDialogState(() {
                           if (newIndex > oldIndex) newIndex--;
                           // Find in tempColumns (skip frozen ones)
-                          final nonFrozen = tempColumns.where((c) => !_frozenKeys.contains(c.key)).toList();
+                          final nonFrozen = tempColumns
+                              .where((c) => !_frozenKeys.contains(c.key))
+                              .toList();
                           final item = nonFrozen.removeAt(oldIndex);
                           nonFrozen.insert(newIndex, item);
                           // Rebuild tempColumns: frozen first, then reordered non-frozen
-                          final frozen = tempColumns.where((c) => _frozenKeys.contains(c.key)).toList();
+                          final frozen = tempColumns
+                              .where((c) => _frozenKeys.contains(c.key))
+                              .toList();
                           tempColumns = [...frozen, ...nonFrozen];
                         });
                       },
@@ -1432,27 +1570,36 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           key: ValueKey(col.key),
                           margin: const EdgeInsets.only(bottom: 2),
                           decoration: BoxDecoration(
-                            color: col.visible ? Colors.blue.shade50 : Colors.white,
+                            color: col.visible
+                                ? Colors.blue.shade50
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: col.visible ? Colors.blue.shade200 : Colors.grey.shade200,
+                              color: col.visible
+                                  ? Colors.blue.shade200
+                                  : Colors.grey.shade200,
                               width: 0.5,
                             ),
                           ),
                           child: ListTile(
                             dense: true,
-                            contentPadding: const EdgeInsets.only(left: 8, right: 0),
+                            contentPadding:
+                                const EdgeInsets.only(left: 8, right: 0),
                             leading: Checkbox(
                               value: col.visible,
-                              onChanged: (v) => setDialogState(() => col.visible = v ?? true),
+                              onChanged: (v) =>
+                                  setDialogState(() => col.visible = v ?? true),
                               visualDensity: VisualDensity.compact,
                             ),
-                            title: Text(col.label, style: const TextStyle(fontSize: 13)),
+                            title: Text(col.label,
+                                style: const TextStyle(fontSize: 13)),
                             trailing: ReorderableDragStartListener(
                               index: i,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Icon(Icons.drag_handle, size: 18, color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                child: Icon(Icons.drag_handle,
+                                    size: 18, color: Colors.grey.shade400),
                               ),
                             ),
                           ),
@@ -1472,7 +1619,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 onPressed: () {
                   // Apply order and visibility from tempColumns
                   _columns = tempColumns.map((t) {
-                    final orig = _columns.firstWhere((c) => c.key == t.key, orElse: () => t);
+                    final orig = _columns.firstWhere((c) => c.key == t.key,
+                        orElse: () => t);
                     orig.visible = t.visible;
                     return orig;
                   }).toList();
@@ -1545,16 +1693,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         excel_lib.TextCellValue('TỔNG CỘNG'),
         excel_lib.TextCellValue(''),
         excel_lib.TextCellValue('${data.length} nhân viên'),
-        excel_lib.TextCellValue('Lương cơ bản: ${_currencyFmt.format(totalBase.round())}'),
-        excel_lib.TextCellValue('Tổng lương: ${_currencyFmt.format(totalWork.round())}'),
-        excel_lib.TextCellValue('Tổng bảo hiểm: ${_currencyFmt.format(totalIns.round())}'),
-        excel_lib.TextCellValue('Thực nhận: ${_currencyFmt.format(totalNet.round())}'),
+        excel_lib.TextCellValue(
+            'Lương cơ bản: ${_currencyFmt.format(totalBase.round())}'),
+        excel_lib.TextCellValue(
+            'Tổng lương: ${_currencyFmt.format(totalWork.round())}'),
+        excel_lib.TextCellValue(
+            'Tổng bảo hiểm: ${_currencyFmt.format(totalIns.round())}'),
+        excel_lib.TextCellValue(
+            'Thực nhận: ${_currencyFmt.format(totalNet.round())}'),
       ]);
 
       wb.delete('Sheet1');
       final bytes = wb.encode();
       if (bytes != null) {
-        await file_saver.saveFileBytes(bytes,
+        await file_saver.saveFileBytes(
+            bytes,
             'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
@@ -1588,8 +1741,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case 'standardDays':
         return excel_lib.IntCellValue((row[key] as num?)?.toInt() ?? 0);
       default:
-        return excel_lib.DoubleCellValue(
-            (row[key] as num?)?.toDouble() ?? 0);
+        return excel_lib.DoubleCellValue((row[key] as num?)?.toDouble() ?? 0);
     }
   }
 
@@ -1598,16 +1750,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final boundary = _tableKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) {
-        appNotification.showError(
-            title: 'Lỗi', message: 'Không thể chụp bảng');
+        appNotification.showError(title: 'Lỗi', message: 'Không thể chụp bảng');
         return;
       }
       final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
       final bytes = byteData.buffer.asUint8List();
-      await file_saver.saveFileBytes(bytes,
+      await file_saver.saveFileBytes(
+          bytes,
           'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png',
           'image/png');
       appNotification.showSuccess(
@@ -1648,7 +1799,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _fromDate = thisMonday.subtract(const Duration(days: 7));
           _fromDate = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
           _toDate = thisMonday.subtract(const Duration(days: 1));
-          _toDate = DateTime(_toDate.year, _toDate.month, _toDate.day, 23, 59, 59);
+          _toDate =
+              DateTime(_toDate.year, _toDate.month, _toDate.day, 23, 59, 59);
           break;
         case 'today':
           _fromDate = DateTime(now.year, now.month, now.day);
@@ -1732,14 +1884,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Công chuẩn', '${row['standardDays']}'),
           _detailRow('Ngày phép', '${row['paidLeaveDays']}'),
           _detailRow('Ngày vắng', '${row['absentDays']} ngày'),
-          _detailRow('Tổng giờ', '${(row['totalHours'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Giờ chuẩn', '${(row['standardHours'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Tăng ca', '${(row['otTotalHours'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Tăng ca ngày thường', '${(row['otHoursWeekday'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Tăng ca cuối tuần', '${(row['otHoursWeekend'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Tăng ca ngày lễ', '${(row['otHoursHoliday'] as num).toStringAsFixed(1)}h'),
-          _detailRow('Đi trễ', '${row['lateCount']} lần (${row['lateMinutes']} phút)'),
-          _detailRow('Về sớm', '${row['earlyCount']} lần (${row['earlyMinutes']} phút)'),
+          _detailRow(
+              'Tổng giờ', '${(row['totalHours'] as num).toStringAsFixed(1)}h'),
+          _detailRow('Giờ chuẩn',
+              '${(row['standardHours'] as num).toStringAsFixed(1)}h'),
+          _detailRow(
+              'Tăng ca', '${(row['otTotalHours'] as num).toStringAsFixed(1)}h'),
+          _detailRow('Tăng ca ngày thường',
+              '${(row['otHoursWeekday'] as num).toStringAsFixed(1)}h'),
+          _detailRow('Tăng ca cuối tuần',
+              '${(row['otHoursWeekend'] as num).toStringAsFixed(1)}h'),
+          _detailRow('Tăng ca ngày lễ',
+              '${(row['otHoursHoliday'] as num).toStringAsFixed(1)}h'),
+          _detailRow(
+              'Đi trễ', '${row['lateCount']} lần (${row['lateMinutes']} phút)'),
+          _detailRow('Về sớm',
+              '${row['earlyCount']} lần (${row['earlyMinutes']} phút)'),
         ]),
         _detailSection('Thu nhập', [
           _detailRow('Loại lương', row['salaryType']),
@@ -1750,10 +1910,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Lương theo giờ', _fmtCurrency(row['hourlySalary'])),
           _detailRow('Lương tăng ca', _fmtCurrency(row['otSalary'])),
           _detailRow('Phụ cấp ăn trưa', _fmtCurrency(row['mealAllowance'])),
-          _detailRow('Phụ cấp trách nhiệm', _fmtCurrency(row['responsibilityAllowance'])),
+          _detailRow('Phụ cấp trách nhiệm',
+              _fmtCurrency(row['responsibilityAllowance'])),
           _detailRow('Phụ cấp khác', _fmtCurrency(row['otherAllowance'])),
-          _detailRow('Thưởng', _fmtCurrency(row['bonus']),
-              color: Colors.green),
+          _detailRow('Thưởng', _fmtCurrency(row['bonus']), color: Colors.green),
         ]),
         _detailSection('Khấu trừ', [
           _detailRow('Phạt giao dịch', _fmtDeduction(row['penalty']),
@@ -1762,13 +1922,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               color: Colors.red),
           _detailRow('Mức đóng bảo hiểm', _fmtCurrency(row['insuranceSalary'])),
           _detailRow('BHXH (${(_insuranceSettings['bhxhEmployeeRate'] ?? 8)}%)',
-              _fmtDeduction(row['bhxhPart']), color: Colors.red),
-          _detailRow('BHYT (${(_insuranceSettings['bhytEmployeeRate'] ?? 1.5)}%)',
-              _fmtDeduction(row['bhytPart']), color: Colors.red),
+              _fmtDeduction(row['bhxhPart']),
+              color: Colors.red),
+          _detailRow(
+              'BHYT (${(_insuranceSettings['bhytEmployeeRate'] ?? 1.5)}%)',
+              _fmtDeduction(row['bhytPart']),
+              color: Colors.red),
           _detailRow('BHTN (${(_insuranceSettings['bhtnEmployeeRate'] ?? 1)}%)',
-              _fmtDeduction(row['bhtnPart']), color: Colors.red),
-          _detailRow('Đoàn phí (${(_insuranceSettings['unionFeeEmployeeRate'] ?? 1)}%)',
-              _fmtDeduction(row['unionFeePart']), color: Colors.red),
+              _fmtDeduction(row['bhtnPart']),
+              color: Colors.red),
+          _detailRow(
+              'Đoàn phí (${(_insuranceSettings['unionFeeEmployeeRate'] ?? 1)}%)',
+              _fmtDeduction(row['unionFeePart']),
+              color: Colors.red),
           _detailRow('Tổng BHXH NLĐ đóng', _fmtDeduction(row['totalInsurance']),
               color: Colors.red),
           _detailRow('TNCN', _fmtDeduction(row['pit']), color: Colors.red),
@@ -1781,8 +1947,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('THỰC NHẬN',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               Text(_fmtCurrency(row['netSalary']),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -1808,7 +1973,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: Text(row['name'] ?? 'Chi tiết', overflow: TextOverflow.ellipsis),
+                title: Text(row['name'] ?? 'Chi tiết',
+                    overflow: TextOverflow.ellipsis),
               ),
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -1831,13 +1997,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         builder: (ctx) => AlertDialog(
           title: titleRow,
           content: SizedBox(
-            width: math.min(500, MediaQuery.of(context).size.width - 32).toDouble(),
+            width: math
+                .min(500, MediaQuery.of(context).size.width - 32)
+                .toDouble(),
             child: SingleChildScrollView(child: contentBody),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
           ],
         ),
       );
@@ -1868,9 +2035,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+          Text(label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
           Text(value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: color)),
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500, color: color)),
         ],
       ),
     );
@@ -1898,7 +2067,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 12),
-            Text('Đang tính toán lương...', style: TextStyle(color: Colors.grey)),
+            Text('Đang tính toán lương...',
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -1926,7 +2096,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final totalPages = (totalRows / _rowsPerPage).ceil().clamp(1, 999999);
     if (_currentPage > totalPages) _currentPage = totalPages;
     final startIdx = isMobile ? 0 : (_currentPage - 1) * _rowsPerPage;
-    final endIdx = isMobile ? totalRows : (startIdx + _rowsPerPage).clamp(0, totalRows);
+    final endIdx =
+        isMobile ? totalRows : (startIdx + _rowsPerPage).clamp(0, totalRows);
     final pagedData = payrollData.sublist(startIdx, endIdx);
 
     return Padding(
@@ -1938,21 +2109,33 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           const SizedBox(height: 12),
           if (Responsive.isMobile(context)) ...[
             InkWell(
-              onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
                     const Spacer(),
-                    Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
@@ -1975,184 +2158,291 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                             size: 64, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
                         Text('Không có dữ liệu lương',
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                            style: TextStyle(
+                                color: Colors.grey.shade500, fontSize: 15)),
                         const SizedBox(height: 4),
                         Text('Hãy kiểm tra khoảng thời gian đã chọn',
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                            style: TextStyle(
+                                color: Colors.grey.shade400, fontSize: 12)),
                       ],
                     ),
                   )
                 : Responsive.isMobile(context)
                     ? ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         itemCount: pagedData.length,
                         itemBuilder: (_, index) {
-                            final row = pagedData[index];
-                            final name = row['name']?.toString() ?? '';
-                            final code = row['code']?.toString() ?? '';
-                            final department = row['department']?.toString() ?? '';
-                            final netSalary = ((row['netSalary'] as num?) ?? 0).round();
-                            final baseSalary = ((row['baseSalary'] as num?) ?? 0).round();
-                            final allowance = ((row['totalAllowance'] as num?) ?? 0).round();
-                            final bonus = ((row['bonus'] as num?) ?? 0).round();
-                            final penalty = (((row['penalty'] as num?) ?? 0) + ((row['latePenalty'] as num?) ?? 0)).round();
-                            final insurance = ((row['totalInsurance'] as num?) ?? 0).round();
-                            final advance = ((row['advance'] as num?) ?? 0).round();
-                            final workDays = ((row['workDays'] as num?) ?? 0).toInt();
-                            final standardDays = ((row['standardDays'] as num?) ?? 0).toInt();
+                          final row = pagedData[index];
+                          final name = row['name']?.toString() ?? '';
+                          final code = row['code']?.toString() ?? '';
+                          final department =
+                              row['department']?.toString() ?? '';
+                          final netSalary =
+                              ((row['netSalary'] as num?) ?? 0).round();
+                          final baseSalary =
+                              ((row['baseSalary'] as num?) ?? 0).round();
+                          final allowance =
+                              ((row['totalAllowance'] as num?) ?? 0).round();
+                          final bonus = ((row['bonus'] as num?) ?? 0).round();
+                          final penalty = (((row['penalty'] as num?) ?? 0) +
+                                  ((row['latePenalty'] as num?) ?? 0))
+                              .round();
+                          final insurance =
+                              ((row['totalInsurance'] as num?) ?? 0).round();
+                          final advance =
+                              ((row['advance'] as num?) ?? 0).round();
+                          final workDays =
+                              ((row['workDays'] as num?) ?? 0).toInt();
+                          final standardDays =
+                              ((row['standardDays'] as num?) ?? 0).toInt();
 
-                            String fmtShort(int n) {
-                              if (n == 0) return '0';
-                              final abs = n.abs();
-                              if (abs >= 1000000) return '${(n / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
-                              if (abs >= 1000) return '${(n / 1000).toStringAsFixed(0)}k';
-                              return _currencyFmt.format(n);
-                            }
+                          String fmtShort(int n) {
+                            if (n == 0) return '0';
+                            final abs = n.abs();
+                            if (abs >= 1000000)
+                              return '${(n / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
+                            if (abs >= 1000)
+                              return '${(n / 1000).toStringAsFixed(0)}k';
+                            return _currencyFmt.format(n);
+                          }
 
-                            Widget statPill(IconData icon, String label, int value, Color color, {bool subtractive = false}) {
-                              if (value == 0) return const SizedBox.shrink();
-                              final prefix = subtractive ? '-' : '+';
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(icon, size: 11, color: color),
-                                    const SizedBox(width: 3),
-                                    Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-                                    const SizedBox(width: 3),
-                                    Text('$prefix${fmtShort(value)}', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              );
-                            }
+                          Widget statPill(IconData icon, String label,
+                              int value, Color color,
+                              {bool subtractive = false}) {
+                            if (value == 0) return const SizedBox.shrink();
+                            final prefix = subtractive ? '-' : '+';
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(icon, size: 11, color: color),
+                                  const SizedBox(width: 3),
+                                  Text(label,
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: color,
+                                          fontWeight: FontWeight.w600)),
+                                  const SizedBox(width: 3),
+                                  Text('$prefix${fmtShort(value)}',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: color,
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            );
+                          }
 
-                            final pills = [
-                              statPill(Icons.account_balance_wallet_outlined, 'CB', baseSalary, const Color(0xFF1E3A5F)),
-                              statPill(Icons.card_giftcard_outlined, 'PC', allowance, const Color(0xFF2D5F8B)),
-                              statPill(Icons.emoji_events_outlined, 'TH', bonus, const Color(0xFF8B5CF6)),
-                              statPill(Icons.health_and_safety_outlined, 'BH', insurance, const Color(0xFFF59E0B), subtractive: true),
-                              statPill(Icons.gavel_outlined, 'P', penalty, const Color(0xFFEF4444), subtractive: true),
-                              statPill(Icons.payments_outlined, 'Ứng', advance, const Color(0xFF0F2340), subtractive: true),
-                            ].where((w) => w is! SizedBox).toList();
+                          final pills = [
+                            statPill(Icons.account_balance_wallet_outlined,
+                                'CB', baseSalary, const Color(0xFF1E3A5F)),
+                            statPill(Icons.card_giftcard_outlined, 'PC',
+                                allowance, const Color(0xFF2D5F8B)),
+                            statPill(Icons.emoji_events_outlined, 'TH', bonus,
+                                const Color(0xFF8B5CF6)),
+                            statPill(Icons.health_and_safety_outlined, 'BH',
+                                insurance, const Color(0xFFF59E0B),
+                                subtractive: true),
+                            statPill(Icons.gavel_outlined, 'P', penalty,
+                                const Color(0xFFEF4444),
+                                subtractive: true),
+                            statPill(Icons.payments_outlined, 'Ứng', advance,
+                                const Color(0xFF0F2340),
+                                subtractive: true),
+                          ].where((w) => w is! SizedBox).toList();
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: () => _showEmployeeDetail(row),
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Row 1: avatar + name/code + net salary
-                                        Row(children: [
-                                          CircleAvatar(
-                                            radius: 20,
-                                            backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                                            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 15)),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                                              Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                [
-                                                  if (code.isNotEmpty) code,
-                                                  if (department.isNotEmpty) department,
-                                                ].join(' · '),
-                                                style: const TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ]),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                _currencyFmt.format(netSalary),
-                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: netSalary >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
-                                              ),
-                                              const SizedBox(height: 1),
-                                              Text('₫ thực nhận', style: TextStyle(color: Colors.grey.shade500, fontSize: 9.5, fontWeight: FontWeight.w500)),
-                                            ],
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
-                                        ]),
-                                        const SizedBox(height: 10),
-                                        // Row 2: work days bar
-                                        Row(
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border:
+                                    Border.all(color: const Color(0xFFE4E4E7)),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2))
+                                ],
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () => _showEmployeeDetail(row),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Row 1: avatar + name/code + net salary
+                                      Row(children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor:
+                                              const Color(0xFF1E3A5F)
+                                                  .withValues(alpha: 0.1),
+                                          child: Text(
+                                              name.isNotEmpty
+                                                  ? name[0].toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                  color: Color(0xFF1E3A5F),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15)),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(name,
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        fontSize: 14.5,
+                                                        color:
+                                                            Color(0xFF1E293B)),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  [
+                                                    if (code.isNotEmpty) code,
+                                                    if (department.isNotEmpty)
+                                                      department,
+                                                  ].join(' · '),
+                                                  style: const TextStyle(
+                                                      color: Color(0xFF71717A),
+                                                      fontSize: 11.5),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ]),
+                                        ),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
                                           children: [
-                                            Icon(Icons.event_available_outlined, size: 13, color: Colors.grey.shade600),
-                                            const SizedBox(width: 5),
                                             Text(
-                                              standardDays > 0 ? '$workDays / $standardDays công' : '$workDays công',
-                                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                              _currencyFmt.format(netSalary),
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                  color: netSalary >= 0
+                                                      ? const Color(0xFF16A34A)
+                                                      : const Color(
+                                                          0xFFDC2626)),
                                             ),
-                                            const SizedBox(width: 8),
-                                            if (standardDays > 0)
-                                              Expanded(
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: LinearProgressIndicator(
-                                                    value: (workDays / standardDays).clamp(0.0, 1.0),
-                                                    minHeight: 5,
-                                                    backgroundColor: const Color(0xFFF1F5F9),
-                                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                                      workDays >= standardDays ? const Color(0xFF22C55E) : const Color(0xFF3B82F6),
-                                                    ),
+                                            const SizedBox(height: 1),
+                                            Text('₫ thực nhận',
+                                                style: TextStyle(
+                                                    color: Colors.grey.shade500,
+                                                    fontSize: 9.5,
+                                                    fontWeight:
+                                                        FontWeight.w500)),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.chevron_right,
+                                            size: 18, color: Color(0xFFA1A1AA)),
+                                      ]),
+                                      const SizedBox(height: 10),
+                                      // Row 2: work days bar
+                                      Row(
+                                        children: [
+                                          Icon(Icons.event_available_outlined,
+                                              size: 13,
+                                              color: Colors.grey.shade600),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            standardDays > 0
+                                                ? '$workDays / $standardDays công'
+                                                : '$workDays công',
+                                            style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: Colors.grey.shade700,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (standardDays > 0)
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value:
+                                                      (workDays / standardDays)
+                                                          .clamp(0.0, 1.0),
+                                                  minHeight: 5,
+                                                  backgroundColor:
+                                                      const Color(0xFFF1F5F9),
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(
+                                                    workDays >= standardDays
+                                                        ? const Color(
+                                                            0xFF22C55E)
+                                                        : const Color(
+                                                            0xFF3B82F6),
                                                   ),
                                                 ),
                                               ),
-                                          ],
-                                        ),
-                                        // Row 3: breakdown pills (only non-zero items)
-                                        if (pills.isNotEmpty) ...[
-                                          const SizedBox(height: 10),
-                                          Wrap(spacing: 6, runSpacing: 6, children: pills),
+                                            ),
                                         ],
+                                      ),
+                                      // Row 3: breakdown pills (only non-zero items)
+                                      if (pills.isNotEmpty) ...[
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: pills),
                                       ],
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            );
-                          },
-                        )
+                            ),
+                          );
+                        },
+                      )
                     : Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: _buildTable(pagedData, visibleCols, startIndex: startIdx),
-                    ),
-                  ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: _buildTable(pagedData, visibleCols,
+                              startIndex: startIdx),
+                        ),
+                      ),
           ),
-          if (payrollData.isNotEmpty && !isMobile) ...[const SizedBox(height: 12), _buildPagination(totalRows, totalPages)],
+          if (payrollData.isNotEmpty && !isMobile) ...[
+            const SizedBox(height: 12),
+            _buildPagination(totalRows, totalPages)
+          ],
         ],
       ),
     );
@@ -2160,14 +2450,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   String _periodLabel(String period) {
     switch (period) {
-      case 'thisMonth': return 'Tháng này';
-      case 'lastMonth': return 'Tháng trước';
-      case 'thisWeek': return 'Tuần này';
-      case 'lastWeek': return 'Tuần trước';
-      case 'today': return 'Hôm nay';
-      case 'yesterday': return 'Hôm qua';
-      case 'custom': return 'Tùy chọn';
-      default: return period;
+      case 'thisMonth':
+        return 'Tháng này';
+      case 'lastMonth':
+        return 'Tháng trước';
+      case 'thisWeek':
+        return 'Tuần này';
+      case 'lastWeek':
+        return 'Tuần trước';
+      case 'today':
+        return 'Hôm nay';
+      case 'yesterday':
+        return 'Hôm qua';
+      case 'custom':
+        return 'Tùy chọn';
+      default:
+        return period;
     }
   }
 
@@ -2192,15 +2490,20 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               children: [
                 const Icon(Icons.people, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(child: Text('Chọn nhân viên', style: TextStyle(fontSize: 16))),
+                const Expanded(
+                    child:
+                        Text('Chọn nhân viên', style: TextStyle(fontSize: 16))),
                 TextButton(
                   onPressed: () => setDialogState(() => tempSelected.clear()),
-                  child: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 12)),
+                  child: const Text('Bỏ chọn tất cả',
+                      style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
             content: SizedBox(
-              width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+              width: math
+                  .min(400, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
               height: 450,
               child: Column(
                 children: [
@@ -2209,8 +2512,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       hintText: 'Tìm nhân viên...',
                       prefixIcon: const Icon(Icons.search, size: 18),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     style: const TextStyle(fontSize: 13),
                     onChanged: (v) => setDialogState(() => filterQuery = v),
@@ -2234,19 +2539,27 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                               }
                             });
                           },
-                          title: Text(emp.fullName, style: const TextStyle(fontSize: 13)),
+                          title: Text(emp.fullName,
+                              style: const TextStyle(fontSize: 13)),
                           subtitle: Text(
                             '${emp.employeeCode} • ${emp.department ?? ''}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade600),
                           ),
                           secondary: CircleAvatar(
                             radius: 16,
-                            backgroundColor: isSelected ? Colors.blue.shade100 : Colors.grey.shade200,
+                            backgroundColor: isSelected
+                                ? Colors.blue.shade100
+                                : Colors.grey.shade200,
                             child: Text(
-                              emp.fullName.isNotEmpty ? emp.fullName[0].toUpperCase() : '?',
+                              emp.fullName.isNotEmpty
+                                  ? emp.fullName[0].toUpperCase()
+                                  : '?',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
+                                color: isSelected
+                                    ? Colors.blue.shade700
+                                    : Colors.grey.shade600,
                               ),
                             ),
                           ),
@@ -2260,7 +2573,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       tempSelected.isEmpty
                           ? 'Hiển thị tất cả nhân viên'
                           : 'Đã chọn ${tempSelected.length} nhân viên',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ),
                 ],
@@ -2321,14 +2635,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.calendar_today, size: 14, color: Theme.of(context).primaryColor),
+            Icon(Icons.calendar_today,
+                size: 14, color: Theme.of(context).primaryColor),
             const SizedBox(width: 6),
             Text(
               _periodLabel(_selectedPeriod),
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 18, color: Theme.of(context).primaryColor),
+            Icon(Icons.arrow_drop_down,
+                size: 18, color: Theme.of(context).primaryColor),
           ],
         ),
       ),
@@ -2350,13 +2669,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             Icon(Icons.calendar_today, size: 13, color: Colors.grey.shade600),
             const SizedBox(width: 6),
-            Text(DateFormat('dd/MM/yyyy').format(_fromDate), style: const TextStyle(fontSize: 13)),
+            Text(DateFormat('dd/MM/yyyy').format(_fromDate),
+                style: const TextStyle(fontSize: 13)),
           ],
         ),
       ),
     );
 
-    final dateSep = Text('—', style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
+    final dateSep =
+        Text('—', style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
 
     final toDate = InkWell(
       onTap: () => _pickSingleDate(isFrom: false),
@@ -2374,7 +2695,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             Icon(Icons.calendar_today, size: 13, color: Colors.grey.shade600),
             const SizedBox(width: 6),
-            Text(DateFormat('dd/MM/yyyy').format(_toDate), style: const TextStyle(fontSize: 13)),
+            Text(DateFormat('dd/MM/yyyy').format(_toDate),
+                style: const TextStyle(fontSize: 13)),
           ],
         ),
       ),
@@ -2400,7 +2722,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline, size: 14,
+            Icon(Icons.people_outline,
+                size: 14,
                 color: _selectedEmployeeIds.isNotEmpty
                     ? Theme.of(context).primaryColor
                     : Colors.grey.shade600),
@@ -2425,7 +2748,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     _cachedPayrollData = null;
                   });
                 },
-                child: Icon(Icons.close, size: 14, color: Theme.of(context).primaryColor),
+                child: Icon(Icons.close,
+                    size: 14, color: Theme.of(context).primaryColor),
               ),
             ],
           ],
@@ -2443,7 +2767,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           filled: true,
           fillColor: const Color(0xFFFAFAFA),
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -2460,7 +2785,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         style: const TextStyle(fontSize: 13),
         onChanged: (v) {
           _cachedPayrollData = null;
-          setState(() { _searchQuery = v; _currentPage = 1; });
+          setState(() {
+            _searchQuery = v;
+            _currentPage = 1;
+          });
         },
       ),
     );
@@ -2473,7 +2801,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ),
       child: Text(
         '${_buildPayrollData().length} NV',
-        style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600),
+        style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF1E3A5F),
+            fontWeight: FontWeight.w600),
       ),
     );
 
@@ -2483,7 +2814,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: isMobile
@@ -2496,21 +2830,48 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     recordCount,
                     const SizedBox(width: 4),
                     InkWell(
-                      onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                      onTap: () => setState(
+                          () => _showMobileFilters = !_showMobileFilters),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         height: 36,
                         width: 36,
                         decoration: BoxDecoration(
-                          color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : const Color(0xFFFAFAFA),
+                          color: _showMobileFilters
+                              ? Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.1)
+                              : const Color(0xFFFAFAFA),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
+                          border: Border.all(
+                              color: _showMobileFilters
+                                  ? Theme.of(context)
+                                      .primaryColor
+                                      .withValues(alpha: 0.3)
+                                  : const Color(0xFFE4E4E7)),
                         ),
                         child: Stack(
                           children: [
-                            Center(child: Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: _showMobileFilters ? Theme.of(context).primaryColor : Colors.grey.shade600)),
-                            if (_selectedPeriod != 'thisMonth' || _selectedEmployeeIds.isNotEmpty)
-                              Positioned(top: 4, right: 4, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle))),
+                            Center(
+                                child: Icon(
+                                    _showMobileFilters
+                                        ? Icons.filter_alt
+                                        : Icons.filter_alt_outlined,
+                                    size: 18,
+                                    color: _showMobileFilters
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.grey.shade600)),
+                            if (_selectedPeriod != 'thisMonth' ||
+                                _selectedEmployeeIds.isNotEmpty)
+                              Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle))),
                           ],
                         ),
                       ),
@@ -2561,19 +2922,26 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     );
   }
 
-  PopupMenuItem<String> _periodMenuItem(String value, String label, IconData icon) {
+  PopupMenuItem<String> _periodMenuItem(
+      String value, String label, IconData icon) {
     return PopupMenuItem(
       value: value,
       child: Row(
         children: [
-          Icon(icon, size: 16,
-              color: _selectedPeriod == value ? Colors.blue : Colors.grey.shade600),
+          Icon(icon,
+              size: 16,
+              color: _selectedPeriod == value
+                  ? Colors.blue
+                  : Colors.grey.shade600),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(
-            fontSize: 13,
-            fontWeight: _selectedPeriod == value ? FontWeight.bold : FontWeight.normal,
-            color: _selectedPeriod == value ? Colors.blue : null,
-          )),
+          Text(label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: _selectedPeriod == value
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: _selectedPeriod == value ? Colors.blue : null,
+              )),
         ],
       ),
     );
@@ -2591,7 +2959,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final totalBonus = data.fold<double>(
         0, (s, r) => s + ((r['bonus'] as num?) ?? 0).toDouble());
     final totalPenalty = data.fold<double>(
-        0, (s, r) => s + ((r['penalty'] as num?) ?? 0).toDouble() + ((r['latePenalty'] as num?) ?? 0).toDouble());
+        0,
+        (s, r) =>
+            s +
+            ((r['penalty'] as num?) ?? 0).toDouble() +
+            ((r['latePenalty'] as num?) ?? 0).toDouble());
     final totalIns = data.fold<double>(
         0, (s, r) => s + ((r['totalInsurance'] as num?) ?? 0).toDouble());
     final totalAdv = data.fold<double>(
@@ -2600,21 +2972,35 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         0, (s, r) => s + ((r['kpiSalary'] as num?) ?? 0).toDouble());
     final avgWorkDays = data.isEmpty
         ? 0
-        : data.fold<int>(0, (s, r) => s + ((r['workDays'] as num?) ?? 0).toInt()) ~/ data.length;
+        : data.fold<int>(
+                0, (s, r) => s + ((r['workDays'] as num?) ?? 0).toInt()) ~/
+            data.length;
 
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     final items = [
-      _SummaryItem('Tổng lương CB', _currencyFmt.format(totalBase.round()), const Color(0xFF1E3A5F), Icons.account_balance_wallet_outlined),
-      _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()), const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
-      _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()), const Color(0xFF8B5CF6), Icons.emoji_events_outlined),
-      _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()), const Color(0xFFEF4444), Icons.gavel_outlined),
-      _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()), const Color(0xFFF59E0B), Icons.health_and_safety_outlined),
-      _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()), const Color(0xFF0F2340), Icons.payments_outlined),
-      _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()), const Color(0xFFEC4899), Icons.flag_outlined),
-      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6), Icons.event_available_outlined),
+      _SummaryItem('Tổng lương CB', _currencyFmt.format(totalBase.round()),
+          const Color(0xFF1E3A5F), Icons.account_balance_wallet_outlined),
+      _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()),
+          const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
+      _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()),
+          const Color(0xFF8B5CF6), Icons.emoji_events_outlined),
+      _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()),
+          const Color(0xFFEF4444), Icons.gavel_outlined),
+      _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()),
+          const Color(0xFFF59E0B), Icons.health_and_safety_outlined),
+      _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()),
+          const Color(0xFF0F2340), Icons.payments_outlined),
+      _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
+          const Color(0xFFEC4899), Icons.flag_outlined),
+      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6),
+          Icons.event_available_outlined),
     ];
-    final netItem = _SummaryItem('THỰC NHẬN', _currencyFmt.format(totalNet.round()), const Color(0xFF22C55E), Icons.savings_outlined);
+    final netItem = _SummaryItem(
+        'THỰC NHẬN',
+        _currencyFmt.format(totalNet.round()),
+        const Color(0xFF22C55E),
+        Icons.savings_outlined);
 
     if (isMobile) {
       // Mobile: 2-column grid + full-width net salary
@@ -2627,7 +3013,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 children: [
                   Expanded(child: _mobileSummaryChip(items[i])),
                   const SizedBox(width: 6),
-                  Expanded(child: i + 1 < items.length ? _mobileSummaryChip(items[i + 1]) : const SizedBox.shrink()),
+                  Expanded(
+                      child: i + 1 < items.length
+                          ? _mobileSummaryChip(items[i + 1])
+                          : const SizedBox.shrink()),
                 ],
               ),
             ),
@@ -2677,7 +3066,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: item.color.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6)),
+          BoxShadow(
+              color: item.color.withValues(alpha: 0.25),
+              blurRadius: 16,
+              offset: const Offset(0, 6)),
         ],
       ),
       child: Row(
@@ -2736,7 +3128,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: item.color.withValues(alpha: 0.18)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -2792,9 +3187,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: highlight ? item.color.withValues(alpha: 0.12) : item.color.withValues(alpha: 0.06),
+        color: highlight
+            ? item.color.withValues(alpha: 0.12)
+            : item.color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: item.color.withValues(alpha: highlight ? 0.3 : 0.12)),
+        border: Border.all(
+            color: item.color.withValues(alpha: highlight ? 0.3 : 0.12)),
       ),
       child: Row(
         children: [
@@ -2805,42 +3203,34 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               color: item.color.withValues(alpha: highlight ? 0.18 : 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(item.icon, color: item.color, size: highlight ? 18 : 14),
+            child:
+                Icon(item.icon, color: item.color, size: highlight ? 18 : 14),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.label, style: TextStyle(fontSize: 10, color: item.color.withValues(alpha: 0.7), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(item.label,
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: item.color.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(item.value, style: TextStyle(fontSize: highlight ? 15 : 12, fontWeight: FontWeight.bold, color: item.color)),
+                  child: Text(item.value,
+                      style: TextStyle(
+                          fontSize: highlight ? 15 : 12,
+                          fontWeight: FontWeight.bold,
+                          color: item.color)),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniChip(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-          const SizedBox(width: 4),
-          Flexible(child: Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -2857,21 +3247,42 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('$totalRows dòng', style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+            Text('$totalRows dòng',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF1E3A5F),
+                    fontWeight: FontWeight.w600)),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() { _currentPage--; })),
+                _buildPageNavBtn(
+                    Icons.chevron_left,
+                    _currentPage > 1,
+                    () => setState(() {
+                          _currentPage--;
+                        })),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text('$_currentPage / $totalPages',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
-                _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() { _currentPage++; })),
+                _buildPageNavBtn(
+                    Icons.chevron_right,
+                    _currentPage < totalPages,
+                    () => setState(() {
+                          _currentPage++;
+                        })),
               ],
             ),
           ],
@@ -2884,7 +3295,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -2895,23 +3309,39 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('$totalRows dòng', style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+            child: Text('$totalRows dòng',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF1E3A5F),
+                    fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 16),
-          Text('Hiển thị', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Text('Hiển thị',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           const SizedBox(width: 6),
           PopupMenuButton<int>(
-            onSelected: (v) => setState(() { _rowsPerPage = v; _currentPage = 1; _cachedPayrollData = null; }),
+            onSelected: (v) => setState(() {
+              _rowsPerPage = v;
+              _currentPage = 1;
+              _cachedPayrollData = null;
+            }),
             offset: const Offset(0, -200),
-            itemBuilder: (_) => [10, 20, 50, 100].map((n) => PopupMenuItem(
-              value: n,
-              height: 36,
-              child: Text('$n', style: TextStyle(
-                fontSize: 12,
-                fontWeight: n == _rowsPerPage ? FontWeight.bold : FontWeight.normal,
-                color: n == _rowsPerPage ? Colors.blue : Colors.black87,
-              )),
-            )).toList(),
+            itemBuilder: (_) => [10, 20, 50, 100]
+                .map((n) => PopupMenuItem(
+                      value: n,
+                      height: 36,
+                      child: Text('$n',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: n == _rowsPerPage
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: n == _rowsPerPage
+                                ? Colors.blue
+                                : Colors.black87,
+                          )),
+                    ))
+                .toList(),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
@@ -2921,24 +3351,48 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('$_rowsPerPage', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                  Text('$_rowsPerPage',
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black87)),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey.shade600),
+                  Icon(Icons.arrow_drop_down,
+                      size: 16, color: Colors.grey.shade600),
                 ],
               ),
             ),
           ),
-          Text(' / trang', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Text(' / trang',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           const Spacer(),
-          _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() { _currentPage = 1; })),
+          _buildPageNavBtn(
+              Icons.first_page,
+              _currentPage > 1,
+              () => setState(() {
+                    _currentPage = 1;
+                  })),
           const SizedBox(width: 4),
-          _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() { _currentPage--; })),
+          _buildPageNavBtn(
+              Icons.chevron_left,
+              _currentPage > 1,
+              () => setState(() {
+                    _currentPage--;
+                  })),
           const SizedBox(width: 4),
           ..._buildPageNumbers(totalPages),
           const SizedBox(width: 4),
-          _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() { _currentPage++; })),
+          _buildPageNavBtn(
+              Icons.chevron_right,
+              _currentPage < totalPages,
+              () => setState(() {
+                    _currentPage++;
+                  })),
           const SizedBox(width: 4),
-          _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() { _currentPage = totalPages; })),
+          _buildPageNavBtn(
+              Icons.last_page,
+              _currentPage < totalPages,
+              () => setState(() {
+                    _currentPage = totalPages;
+                  })),
         ],
       ),
     );
@@ -2963,7 +3417,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (p == -1) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text('...', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+          child: Text('...',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
         );
       }
       final isActive = p == _currentPage;
@@ -2973,16 +3428,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            onTap: isActive ? null : () => setState(() { _currentPage = p; }),
+            onTap: isActive
+                ? null
+                : () => setState(() {
+                      _currentPage = p;
+                    }),
             borderRadius: BorderRadius.circular(8),
             child: Container(
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               alignment: Alignment.center,
-              child: Text('$p', style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? Colors.white : Colors.grey.shade700,
-              )),
+              child: Text('$p',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive ? Colors.white : Colors.grey.shade700,
+                  )),
             ),
           ),
         ),
@@ -3001,16 +3461,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           width: 32,
           height: 32,
           alignment: Alignment.center,
-          child: Icon(icon, size: 18, color: enabled ? Colors.grey.shade700 : Colors.grey.shade300),
+          child: Icon(icon,
+              size: 18,
+              color: enabled ? Colors.grey.shade700 : Colors.grey.shade300),
         ),
       ),
     );
   }
 
   Widget _buildTable(
-      List<Map<String, dynamic>> data, List<PayrollColumn> visibleCols, {int startIndex = 0}) {
-    final frozenCols = visibleCols.where((c) => _frozenKeys.contains(c.key)).toList();
-    final scrollableCols = visibleCols.where((c) => !_frozenKeys.contains(c.key)).toList();
+      List<Map<String, dynamic>> data, List<PayrollColumn> visibleCols,
+      {int startIndex = 0}) {
+    final frozenCols =
+        visibleCols.where((c) => _frozenKeys.contains(c.key)).toList();
+    final scrollableCols =
+        visibleCols.where((c) => !_frozenKeys.contains(c.key)).toList();
 
     const double rowHeight = 44;
     const double headerHeight = 46;
@@ -3018,39 +3483,58 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     double colWidth(PayrollColumn col) {
       switch (col.key) {
-        case 'stt': return 44;
-        case 'code': return 110;
-        case 'name': return 170;
-        case 'department': return 110;
-        case 'salaryType': return 90;
-        case 'standardDays': return 90;
-        case 'workDays': return 78;
-        case 'totalHours': return 74;
-        case 'otTotalHours': return 70;
-        default: return 118;
+        case 'stt':
+          return 44;
+        case 'code':
+          return 110;
+        case 'name':
+          return 170;
+        case 'department':
+          return 110;
+        case 'salaryType':
+          return 90;
+        case 'standardDays':
+          return 90;
+        case 'workDays':
+          return 78;
+        case 'totalHours':
+          return 74;
+        case 'otTotalHours':
+          return 70;
+        default:
+          return 118;
       }
     }
 
     final frozenWidth = frozenCols.fold<double>(0, (s, c) => s + colWidth(c));
 
-    Widget buildCell(String key, Map<String, dynamic> row, int index, double width) {
+    Widget buildCell(
+        String key, Map<String, dynamic> row, int index, double width) {
       final isEven = index.isEven;
       return InkWell(
         onTap: () => _showEmployeeDetail(row),
         child: Container(
           width: width,
           height: rowHeight,
-          alignment: key == 'name' || key == 'code' || key == 'department' || key == 'salaryType' ? Alignment.centerLeft : Alignment.center,
+          alignment: key == 'name' ||
+                  key == 'code' ||
+                  key == 'department' ||
+                  key == 'salaryType'
+              ? Alignment.centerLeft
+              : Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: cellPadding),
           decoration: BoxDecoration(
             color: isEven ? Colors.white : const Color(0xFFFAFBFC),
-            border: const Border(bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
+            border: const Border(
+                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
           ),
           child: Text(
             _formatCellValue(key, row, index),
             style: TextStyle(
               fontSize: 12,
-              fontWeight: key == 'netSalary' ? FontWeight.bold : (key == 'name' ? FontWeight.w600 : FontWeight.normal),
+              fontWeight: key == 'netSalary'
+                  ? FontWeight.bold
+                  : (key == 'name' ? FontWeight.w600 : FontWeight.normal),
               color: _getCellColor(key, row),
             ),
             overflow: TextOverflow.ellipsis,
@@ -3083,7 +3567,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             children: [
               Flexible(
                 child: Text(col.label,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Color(0xFF71717A)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis),
               ),
               if (isCurrentSort)
@@ -3115,13 +3602,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       Container(
                         color: const Color(0xFFFAFAFA),
                         child: Row(
-                          children: frozenCols.map((c) => buildHeaderCell(c, colWidth(c))).toList(),
+                          children: frozenCols
+                              .map((c) => buildHeaderCell(c, colWidth(c)))
+                              .toList(),
                         ),
                       ),
                       // Frozen data rows
                       Expanded(
                         child: ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                          behavior: ScrollConfiguration.of(context)
+                              .copyWith(scrollbars: false),
                           child: ListView.builder(
                             controller: _verticalScrollController,
                             itemCount: data.length,
@@ -3129,9 +3619,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                             itemBuilder: (_, i) {
                               final row = data[i];
                               return Container(
-                                color: i.isEven ? Colors.white : const Color(0xFFFAFAFA),
+                                color: i.isEven
+                                    ? Colors.white
+                                    : const Color(0xFFFAFAFA),
                                 child: Row(
-                                  children: frozenCols.map((c) => buildCell(c.key, row, i, colWidth(c))).toList(),
+                                  children: frozenCols
+                                      .map((c) =>
+                                          buildCell(c.key, row, i, colWidth(c)))
+                                      .toList(),
                                 ),
                               );
                             },
@@ -3152,14 +3647,17 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       controller: _horizontalScrollController,
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
-                        width: scrollableCols.fold<double>(0, (s, c) => s + colWidth(c)),
+                        width: scrollableCols.fold<double>(
+                            0, (s, c) => s + colWidth(c)),
                         child: Column(
                           children: [
                             // Scrollable header
                             Container(
                               color: const Color(0xFFFAFAFA),
                               child: Row(
-                                children: scrollableCols.map((c) => buildHeaderCell(c, colWidth(c))).toList(),
+                                children: scrollableCols
+                                    .map((c) => buildHeaderCell(c, colWidth(c)))
+                                    .toList(),
                               ),
                             ),
                             // Scrollable data rows (synced with frozen vertical scroll)
@@ -3171,9 +3669,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                 itemBuilder: (_, i) {
                                   final row = data[i];
                                   return Container(
-                                    color: i.isEven ? Colors.white : const Color(0xFFFAFAFA),
+                                    color: i.isEven
+                                        ? Colors.white
+                                        : const Color(0xFFFAFAFA),
                                     child: Row(
-                                      children: scrollableCols.map((c) => buildCell(c.key, row, i, colWidth(c))).toList(),
+                                      children: scrollableCols
+                                          .map((c) => buildCell(
+                                              c.key, row, i, colWidth(c)))
+                                          .toList(),
                                     ),
                                   );
                                 },
@@ -3225,27 +3728,42 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     try {
       final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
       if (list.isNotEmpty && list.first.containsKey('milestonePercent')) {
-        final sorted = list..sort((a, b) => ((a['milestonePercent'] ?? 0) as num).compareTo((b['milestonePercent'] ?? 0) as num));
+        final sorted = list
+          ..sort((a, b) => ((a['milestonePercent'] ?? 0) as num)
+              .compareTo((b['milestonePercent'] ?? 0) as num));
         final migrated = <Map<String, dynamic>>[];
         for (int i = 0; i < sorted.length; i++) {
           final from = (sorted[i]['milestonePercent'] as num?)?.toDouble() ?? 0;
-          final to = i + 1 < sorted.length ? (sorted[i + 1]['milestonePercent'] as num?)?.toDouble() ?? -1 : -1.0;
-          migrated.add({'fromPct': from, 'toPct': to, 'rate': sorted[i]['bonusAmount'] ?? 0, 'rateType': 0});
+          final to = i + 1 < sorted.length
+              ? (sorted[i + 1]['milestonePercent'] as num?)?.toDouble() ?? -1
+              : -1.0;
+          migrated.add({
+            'fromPct': from,
+            'toPct': to,
+            'rate': sorted[i]['bonusAmount'] ?? 0,
+            'rateType': 0
+          });
         }
         return migrated;
       }
       return list;
-    } catch (_) { return []; }
+    } catch (_) {
+      return [];
+    }
   }
 
   List<Map<String, dynamic>> _kpiParsePenaltyTiers(String? json) {
     if (json == null || json.isEmpty || json == 'null') return [];
-    try { return (jsonDecode(json) as List).cast<Map<String, dynamic>>(); }
-    catch (_) { return []; }
+    try {
+      return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
   }
 
   double _kpiCalcPenaltyBonus(Map<String, dynamic> target) {
-    final pTiers = _kpiParsePenaltyTiers(target['penaltyTiersJson']?.toString());
+    final pTiers =
+        _kpiParsePenaltyTiers(target['penaltyTiersJson']?.toString());
     if (pTiers.isEmpty) return 0;
     final tgt = ((target['targetValue'] ?? 0) as num).toDouble();
     final act = ((target['actualValue'] ?? 0) as num).toDouble();
@@ -3273,16 +3791,25 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final rateType = ((tier['rateType'] ?? 0) as num).toInt();
       double bonus = 0;
       if (pct >= 100 && pct > fromPct) {
-        if (rateType == 2) { bonus = rate; }
-        else if (rateType == 3) { bonus = cs * rate / 100; }
-        else {
+        if (rateType == 2) {
+          bonus = rate;
+        } else if (rateType == 3) {
+          bonus = cs * rate / 100;
+        } else {
           final fromVal = tgt * fromPct / 100;
           final toVal = toPct < 0 ? act : tgt * toPct / 100;
           final inBand = (act < toVal ? act : toVal) - fromVal;
-          if (inBand > 0) bonus = rateType == 1 ? inBand * rate / 100 : inBand * rate;
+          if (inBand > 0)
+            bonus = rateType == 1 ? inBand * rate / 100 : inBand * rate;
         }
       }
-      return {'fromPct': fromPct, 'toPct': toPct, 'rate': rate, 'rateType': rateType, 'bonus': bonus};
+      return {
+        'fromPct': fromPct,
+        'toPct': toPct,
+        'rate': rate,
+        'rateType': rateType,
+        'bonus': bonus
+      };
     }).toList();
   }
 
@@ -3304,7 +3831,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return '${(row[key] as num?)?.toInt() ?? 0}';
       case 'standardDays':
         final sd = (row[key] as num?)?.toDouble() ?? 0;
-        return sd == sd.roundToDouble() ? '${sd.toInt()}' : sd.toStringAsFixed(1);
+        return sd == sd.roundToDouble()
+            ? '${sd.toInt()}'
+            : sd.toStringAsFixed(1);
       case 'totalHours':
       case 'standardHours':
       case 'otTotalHours':
@@ -3331,7 +3860,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return _currencyFmt.format(val.round());
     }
   }
-
 }
 
 class _SummaryItem {

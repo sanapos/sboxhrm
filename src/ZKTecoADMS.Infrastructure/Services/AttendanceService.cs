@@ -16,6 +16,9 @@ public class AttendanceService(
     IRepository<PenaltySetting> penaltySettingRepository,
     IRepository<PaymentTransaction> paymentTransactionRepository,
     IRepository<Employee> employeeEntityRepository,
+    IRepository<PenaltyTicket> penaltyTicketRepository,
+    IRepository<EmployeeBenefit> employeeBenefitRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
     ILogger<AttendanceService> logger
 )
     : IAttendanceService
@@ -103,6 +106,39 @@ public class AttendanceService(
                 && pt.Type == "Penalty"
         )).ToList();
 
+        // Pre-load existing PenaltyTickets to avoid duplicate auto-creation per (employee, date, type)
+        // and to compute next sequential TicketCode per day.
+        var existingTickets = (await penaltyTicketRepository.GetAllAsync(
+            filter: t => employeeIds.Contains(t.EmployeeId)
+                && t.ViolationDate >= minDate
+                && t.ViolationDate <= maxDate
+        )).ToList();
+
+        // Pre-load store-wide ticket counts for current day window so we can generate
+        // sequential TicketCode (PP-YYYYMMDD-XXXX) without N+1 round-trips.
+        var ticketCountsByDate = (await penaltyTicketRepository.GetAllAsync(
+            filter: t => t.StoreId == device.StoreId
+                && t.ViolationDate >= minDate
+                && t.ViolationDate <= maxDate
+        )).GroupBy(t => t.ViolationDate.Date)
+          .ToDictionary(g => g.Key, g => g.Count());
+
+        // Pre-load Benefits (SalaryProfile) for fallback when WorkSchedule is missing.
+        // The "Tổng hợp theo ca" tab uses these to determine shift assignment.
+        var employeeBenefits = (await employeeBenefitRepository.GetAllAsync(
+            filter: eb => employeeIds.Contains(eb.EmployeeId)
+                && eb.EffectiveDate <= maxDate
+                && (eb.EndDate == null || eb.EndDate >= minDate),
+            includeProperties: ["Benefit"]
+        )).GroupBy(eb => eb.EmployeeId)
+          .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EffectiveDate).First());
+
+        // Pre-load ShiftTemplates for this store, indexed by normalized name.
+        var shiftTemplatesByName = (await shiftTemplateRepository.GetAllAsync(
+            filter: st => st.StoreId == device.StoreId && st.IsActive
+        )).GroupBy(st => NormalizeShiftName(st.Name))
+          .ToDictionary(g => g.Key, g => g.First());
+
         foreach (var attendance in attendanceList)
         {
             if (attendance.EmployeeId == null)
@@ -120,7 +156,9 @@ public class AttendanceService(
             try
             {
                 await ProcessPenaltyForAttendanceBatchAsync(attendance, employeeUser, device,
-                    penaltySetting, schedulesByEmployeeDate, employees, existingPenalties);
+                    penaltySetting, schedulesByEmployeeDate, employees, existingPenalties,
+                    existingTickets, ticketCountsByDate,
+                    employeeBenefits, shiftTemplatesByName);
             }
             catch (Exception ex)
             {
@@ -135,7 +173,11 @@ public class AttendanceService(
         PenaltySetting? penaltySetting,
         Dictionary<(Guid, DateTime), WorkSchedule> schedulesByEmployeeDate,
         Dictionary<Guid, Employee> employees,
-        List<PaymentTransaction> existingPenalties)
+        List<PaymentTransaction> existingPenalties,
+        List<PenaltyTicket> existingTickets,
+        Dictionary<DateTime, int> ticketCountsByDate,
+        Dictionary<Guid, EmployeeBenefit> employeeBenefits,
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName)
     {
         if (!deviceUser.EmployeeId.HasValue)
         {
@@ -145,17 +187,34 @@ public class AttendanceService(
 
         var employeeId = deviceUser.EmployeeId.Value;
         var violationDate = attendance.AttendanceTime.Date;
+        var punchTime = attendance.AttendanceTime.TimeOfDay;
 
         // Use pre-loaded schedule
         schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var schedule);
 
-        if (schedule == null || schedule.IsDayOff)
-            return;
+        TimeSpan shiftStart;
+        TimeSpan shiftEnd;
+        Guid? shiftIdForTicket;
 
-        var defaultStart = new TimeSpan(8, 30, 0);
-        var defaultEnd = new TimeSpan(18, 0, 0);
-        var shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
-        var shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
+        if (schedule != null)
+        {
+            if (schedule.IsDayOff) return;
+            var defaultStart = new TimeSpan(8, 30, 0);
+            var defaultEnd = new TimeSpan(18, 0, 0);
+            shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
+            shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
+            shiftIdForTicket = schedule.ShiftId;
+        }
+        else
+        {
+            // Fallback: use Employee's SalaryProfile (Benefit) shifts.
+            var fallback = ResolveFallbackShift(employeeId, violationDate, punchTime,
+                attendance.AttendanceState, employeeBenefits, shiftTemplatesByName);
+            if (fallback == null) return;
+            shiftStart = fallback.Value.start;
+            shiftEnd = fallback.Value.end;
+            shiftIdForTicket = null;
+        }
 
         if (penaltySetting == null)
             return;
@@ -163,8 +222,6 @@ public class AttendanceService(
         // Use pre-loaded employee
         employees.TryGetValue(employeeId, out var employee);
         var employeeUserId = employee?.ApplicationUserId;
-
-        var punchTime = attendance.AttendanceTime.TimeOfDay;
 
         if (attendance.AttendanceState == AttendanceStates.CheckIn)
         {
@@ -216,6 +273,13 @@ public class AttendanceService(
 
                 await paymentTransactionRepository.AddAsync(transaction);
                 existingPenalties.Add(transaction); // Track newly created penalties
+
+                // Also create a PenaltyTicket so it appears in "Phiếu phạt" UI for manager review.
+                await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
+                    PenaltyTicketType.Late, tier, lateMinutes, amount + repeatPenalty,
+                    repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
+                    attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
+
                 logger.LogInformation("{DeviceSN}: Tạo phiếu phạt đi trễ cho NV {Pin} - {Minutes} phút - {Amount}đ",
                     device.SerialNumber, deviceUser.Pin, lateMinutes, amount + repeatPenalty);
             }
@@ -268,10 +332,82 @@ public class AttendanceService(
                 };
 
                 await paymentTransactionRepository.AddAsync(transaction);
+                existingPenalties.Add(transaction);
+
+                // Also create a PenaltyTicket so it appears in "Phiếu phạt" UI for manager review.
+                await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
+                    PenaltyTicketType.EarlyLeave, tier, earlyMinutes, amount + repeatPenalty,
+                    repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
+                    attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
+
                 logger.LogInformation("{DeviceSN}: Tạo phiếu phạt về sớm cho NV {Pin} - {Minutes} phút - {Amount}đ",
                     device.SerialNumber, deviceUser.Pin, earlyMinutes, amount + repeatPenalty);
             }
         }
+    }
+
+    /// <summary>
+    /// Creates a PenaltyTicket auto-generated from attendance, mirroring the PaymentTransaction
+    /// penalty so the manager can review/cancel it before auto-approval. Idempotent: skips if a
+    /// ticket already exists for the same (employee, date, type).
+    /// </summary>
+    private async Task CreatePenaltyTicketAsync(
+        Guid employeeId,
+        Guid? storeId,
+        DateTime violationDate,
+        PenaltyTicketType type,
+        int tier,
+        int minutesLateOrEarly,
+        decimal totalAmount,
+        int repeatCountInMonth,
+        decimal repeatSurcharge,
+        TimeSpan shiftStart,
+        TimeSpan shiftEnd,
+        TimeSpan punchTime,
+        Attendance attendance,
+        Guid? shiftId,
+        string description,
+        List<PenaltyTicket> existingTickets,
+        Dictionary<DateTime, int> ticketCountsByDate)
+    {
+        // Idempotency: one ticket per (employee, date, type).
+        if (existingTickets.Any(t => t.EmployeeId == employeeId
+                && t.ViolationDate.Date == violationDate.Date
+                && t.Type == type
+                && t.Status != PenaltyTicketStatus.Cancelled))
+        {
+            return;
+        }
+
+        var dateKey = violationDate.Date;
+        var nextSeq = (ticketCountsByDate.TryGetValue(dateKey, out var c) ? c : 0) + 1;
+        var ticketCode = $"PP-{violationDate:yyyyMMdd}-{nextSeq:D4}";
+
+        var ticket = new PenaltyTicket
+        {
+            Id = Guid.NewGuid(),
+            TicketCode = ticketCode,
+            EmployeeId = employeeId,
+            Type = type,
+            Status = PenaltyTicketStatus.Pending,
+            Amount = totalAmount,
+            ViolationDate = violationDate.Date,
+            MinutesLateOrEarly = minutesLateOrEarly,
+            ShiftStartTime = shiftStart,
+            ShiftEndTime = shiftEnd,
+            ActualPunchTime = attendance.AttendanceTime,
+            PenaltyTier = tier,
+            RepeatCountInMonth = repeatSurcharge > 0 ? repeatCountInMonth : null,
+            Description = description,
+            ShiftId = shiftId,
+            AttendanceId = attendance.Id,
+            StoreId = storeId,
+            CreatedAt = DateTime.Now,
+        };
+
+        await penaltyTicketRepository.AddAsync(ticket);
+        existingTickets.Add(ticket);
+        ticketCountsByDate[dateKey] = nextSeq;
     }
 
     private static (int tier, decimal amount) CalculateLatePenalty(int lateMinutes, PenaltySetting settings)
@@ -305,5 +441,94 @@ public class AttendanceService(
         if (totalViolations >= settings.RepeatCount1)
             return settings.RepeatPenalty1;
         return 0;
+    }
+
+    /// <summary>
+    /// Khi không có WorkSchedule cho nhân viên trong ngày, dùng SalaryProfile (Benefit)
+    /// để lấy danh sách ca làm việc và chọn ca phù hợp với thời điểm chấm công.
+    /// Đảm bảo logic phạt đồng nhất với màn hình "Tổng hợp theo ca".
+    /// </summary>
+    private static (TimeSpan start, TimeSpan end)? ResolveFallbackShift(
+        Guid employeeId, DateTime violationDate, TimeSpan punchTime,
+        AttendanceStates state,
+        Dictionary<Guid, EmployeeBenefit> employeeBenefits,
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName)
+    {
+        if (!employeeBenefits.TryGetValue(employeeId, out var eb)) return null;
+        var benefit = eb.Benefit;
+        if (benefit == null) return null;
+
+        // Day-off check based on Benefit.WeeklyOffDays (e.g. "Sunday", "Saturday,Sunday").
+        if (!string.IsNullOrWhiteSpace(benefit.WeeklyOffDays))
+        {
+            var dayName = violationDate.DayOfWeek.ToString();
+            var offs = benefit.WeeklyOffDays.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (offs.Any(d => string.Equals(d, dayName, StringComparison.OrdinalIgnoreCase)))
+                return null;
+        }
+
+        // Parse "shifts:Ca sáng, Ca chiều" from Description; map names → ShiftTemplate.
+        var candidates = new List<ShiftTemplate>();
+        var shiftsField = ParseDescField(benefit.Description, "shifts");
+        if (!string.IsNullOrWhiteSpace(shiftsField))
+        {
+            foreach (var raw in shiftsField.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                var key = NormalizeShiftName(raw);
+                if (shiftTemplatesByName.TryGetValue(key, out var st))
+                    candidates.Add(st);
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            // Last-resort fallback: Benefit's own CheckIn/CheckOut times.
+            if (benefit.CheckIn.HasValue && benefit.CheckOut.HasValue)
+                return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan());
+            return null;
+        }
+
+        // Choose the shift covering this punch.
+        ShiftTemplate? chosen;
+        if (state == AttendanceStates.CheckIn)
+        {
+            var window = TimeSpan.FromHours(2);
+            var match = candidates
+                .Where(s => punchTime >= s.StartTime - window && punchTime <= s.EndTime)
+                .OrderBy(s => Math.Abs((punchTime - s.StartTime).TotalMinutes))
+                .ToList();
+            chosen = match.FirstOrDefault()
+                ?? candidates.OrderBy(s => Math.Abs((punchTime - s.StartTime).TotalMinutes)).First();
+        }
+        else
+        {
+            var window = TimeSpan.FromHours(2);
+            var match = candidates
+                .Where(s => punchTime >= s.StartTime && punchTime <= s.EndTime + window)
+                .OrderBy(s => Math.Abs((punchTime - s.EndTime).TotalMinutes))
+                .ToList();
+            chosen = match.FirstOrDefault()
+                ?? candidates.OrderBy(s => Math.Abs((punchTime - s.EndTime).TotalMinutes)).First();
+        }
+
+        return (chosen.StartTime, chosen.EndTime);
+    }
+
+    private static string NormalizeShiftName(string s)
+        => string.IsNullOrEmpty(s)
+            ? string.Empty
+            : System.Text.RegularExpressions.Regex.Replace(s.Trim().ToLowerInvariant(), @"\s+", " ");
+
+    private static string ParseDescField(string? description, string key)
+    {
+        if (string.IsNullOrEmpty(description)) return string.Empty;
+        foreach (var part in description.Split('|'))
+        {
+            var idx = part.IndexOf(':');
+            if (idx <= 0) continue;
+            if (string.Equals(part.Substring(0, idx).Trim(), key, StringComparison.Ordinal))
+                return part.Substring(idx + 1).Trim();
+        }
+        return string.Empty;
     }
 }

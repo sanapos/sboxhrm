@@ -1,0 +1,2 @@
+SELECT s."Name" as store, s."Code", COUNT(a.*) as att_count, MIN(a."AttendanceTime") as min_t, MAX(a."AttendanceTime") as max_t FROM "Stores" s LEFT JOIN "AttendanceLogs" a ON a."StoreId" = s."Id" WHERE s."Code"='demo' GROUP BY s."Name", s."Code";
+SELECT "Name", "ShiftType", "IsActive", "StartTime", "EndTime", "OvernightCutoffTime" FROM "ShiftTemplates" WHERE "StoreId"=(SELECT "Id" FROM "Stores" WHERE "Code"='demo') AND "ShiftType"='Qua đêm';

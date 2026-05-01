@@ -57,6 +57,8 @@ class AttendanceSummaryTab extends StatefulWidget {
   final Function(AttendanceCorrectionRequest)? onCorrectionRequest;
   final int dayEndHour;
   final int dayEndMinute;
+  final List<dynamic> holidays;
+  final List<dynamic> salaryProfiles;
 
   const AttendanceSummaryTab({
     super.key,
@@ -67,6 +69,8 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.onCorrectionRequest,
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
+    this.holidays = const [],
+    this.salaryProfiles = const [],
   });
 
   @override
@@ -87,6 +91,103 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   // Sorting
   String _sortColumn = 'name';
   bool _sortAscending = true;
+
+  // Lookup maps for holiday/restday coefficients (built from salaryProfiles)
+  Map<String, String> _employeeCodeToWeeklyOffDays = {};
+  Map<String, double> _employeeCodeToHolidayMultiplier = {};
+  Map<String, int> _employeeCodeToHolidayOvertimeType = {};
+  Map<String, int> _employeeCodeToShiftsPerDay = {};
+  // Map employeeCode -> employeeGuid (Employee.Id) so we can match against
+  // holiday.employeeIds which stores GUIDs.
+  Map<String, String> _employeeCodeToGuid = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _buildLookupMaps();
+  }
+
+  @override
+  void didUpdateWidget(covariant AttendanceSummaryTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.salaryProfiles != widget.salaryProfiles) {
+      _buildLookupMaps();
+    }
+  }
+
+  void _buildLookupMaps() {
+    _employeeCodeToWeeklyOffDays = {};
+    _employeeCodeToHolidayMultiplier = {};
+    _employeeCodeToHolidayOvertimeType = {};
+    _employeeCodeToShiftsPerDay = {};
+    _employeeCodeToGuid = {};
+    for (final profile in widget.salaryProfiles) {
+      if (profile is! Map<String, dynamic>) continue;
+      final shiftsPerDay = (profile['shiftsPerDay'] as num?)?.toInt() ?? 1;
+      final weeklyOffDays = profile['weeklyOffDays']?.toString() ?? 'Sunday';
+      final holidayMultiplier =
+          (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
+      final holidayOvertimeType =
+          (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
+      final employees = profile['employees'] as List? ?? [];
+      for (final emp in employees) {
+        if (emp is Map<String, dynamic>) {
+          final code = emp['employeeCode']?.toString() ?? '';
+          final guid = emp['id']?.toString() ?? '';
+          if (code.isNotEmpty) {
+            _employeeCodeToWeeklyOffDays[code] = weeklyOffDays;
+            _employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
+            _employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
+            _employeeCodeToShiftsPerDay[code] = shiftsPerDay;
+            if (guid.isNotEmpty) _employeeCodeToGuid[code] = guid;
+          }
+        }
+      }
+    }
+  }
+
+  /// Check if a date is a weekly off day for a given employee
+  bool _isWeeklyOffDay(DateTime date, String employeeCode) {
+    final weeklyOff = _employeeCodeToWeeklyOffDays[employeeCode] ?? 'Sunday';
+    final weekday = date.weekday;
+    if (weeklyOff.contains('Sunday') && weekday == DateTime.sunday) return true;
+    if (weeklyOff.contains('Saturday') && weekday == DateTime.saturday) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Get holiday salaryRate or null. Holiday scope can be by employeeCode or
+  /// employeeId (GUID). API stores GUIDs in `employeeIds`.
+  double? _getHolidayRate(DateTime date, String employeeCode) {
+    final empGuid = _employeeCodeToGuid[employeeCode];
+    for (final h in widget.holidays) {
+      if (h is! Map<String, dynamic>) continue;
+      final holidayDate = DateTime.tryParse(h['date']?.toString() ?? '');
+      if (holidayDate == null) continue;
+      final isRecurring = h['isRecurring'] == true;
+      final dateMatch = isRecurring
+          ? holidayDate.month == date.month && holidayDate.day == date.day
+          : holidayDate.year == date.year &&
+              holidayDate.month == date.month &&
+              holidayDate.day == date.day;
+      if (!dateMatch) continue;
+      final employeeCodes = h['employeeCodes'] as List?;
+      final employeeIds = h['employeeIds'] as List?;
+      // Combine both lists – any match (by code or GUID) is enough.
+      final scopeList = <String>[
+        if (employeeCodes != null) ...employeeCodes.map((e) => e?.toString() ?? ''),
+        if (employeeIds != null) ...employeeIds.map((e) => e?.toString() ?? ''),
+      ].where((s) => s.isNotEmpty).toList();
+      if (scopeList.isNotEmpty) {
+        final inScope = scopeList.any((s) =>
+            s == employeeCode || (empGuid != null && s == empGuid));
+        if (!inScope) continue;
+      }
+      return (h['salaryRate'] as num?)?.toDouble() ?? 3.0;
+    }
+    return null;
+  }
 
   /// Get logical date: if punch time < dayEndTime, it belongs to the previous day
   DateTime _getLogicalDate(DateTime punchTime) {
@@ -239,17 +340,50 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       // Ca 4: Lần 8 - Lần 7
       // Ca 5: Lần 10 - Lần 9
       List<double> shiftHours = [];
+      int completePairs = 0;
       for (int i = 0; i < 5; i++) {
         final punchIn = punches[i * 2];
         final punchOut = punches[i * 2 + 1];
         if (punchIn != null && punchOut != null) {
           shiftHours.add(punchOut.difference(punchIn).inMinutes / 60.0);
+          completePairs++;
         } else {
           shiftHours.add(0);
         }
       }
 
-      final totalShiftHours = shiftHours.fold(0.0, (sum, h) => sum + h);
+      double totalShiftHours = shiftHours.fold(0.0, (sum, h) => sum + h);
+
+      // Determine code for holiday/weekly-off lookup
+      final empCodeForLookup = first.employeeId?.isNotEmpty == true
+          ? first.employeeId!
+          : (first.enrollNumber ?? '-');
+      final shiftsPerDay = _employeeCodeToShiftsPerDay[empCodeForLookup] ?? 1;
+      double workCount = shiftsPerDay > 0
+          ? completePairs / shiftsPerDay
+          : (completePairs > 0 ? 1.0 : 0.0);
+
+      // Apply holiday/restday coefficients
+      final holidayRate = _getHolidayRate(date, empCodeForLookup);
+      final isHoliday = holidayRate != null;
+      final isRestDay = !isHoliday && _isWeeklyOffDay(date, empCodeForLookup);
+      final holidayMultiplier =
+          _employeeCodeToHolidayMultiplier[empCodeForLookup] ?? 2.0;
+      final holidayOvertimeType =
+          _employeeCodeToHolidayOvertimeType[empCodeForLookup] ?? 1;
+      double effectiveMultiplier = 1.0;
+      if (isHoliday) {
+        effectiveMultiplier = holidayRate;
+      } else if (isRestDay && holidayOvertimeType == 1) {
+        effectiveMultiplier = holidayMultiplier;
+      }
+      if (effectiveMultiplier != 1.0 && workCount > 0) {
+        workCount *= effectiveMultiplier;
+        totalShiftHours *= effectiveMultiplier;
+        for (int i = 0; i < shiftHours.length; i++) {
+          shiftHours[i] *= effectiveMultiplier;
+        }
+      }
 
       // Xác định tên & mã nhân viên đúng
       final empName = first.employeeName?.isNotEmpty == true
@@ -294,6 +428,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         shift5Hours: shiftHours[4],
         totalHours: totalShiftHours,
         totalPunches: attendances.length,
+        workCount: workCount,
+        effectiveMultiplier: effectiveMultiplier,
+        isHoliday: isHoliday,
+        isRestDay: isRestDay,
       ));
     });
 
@@ -613,6 +751,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                     color: Color(0xFF71717A)))),
                             onSort: (_, asc) { setState(() { _sortColumn = 'totalHours'; _sortAscending = asc; }); }));
 
+                        // Cột số công (đã nhân hệ số ngày lễ/nghỉ nếu có)
+                        columns.add(const DataColumn(
+                            label: Expanded(child: Text('Số công', textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: Color(0xFF71717A))))));
+
                         // Cột giờ thập phân
                         columns.add(const DataColumn(
                             label: Expanded(child: Text('Giờ thập phân', textAlign: TextAlign.center,
@@ -726,6 +872,35 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                             cells.add(DataCell(Center(child: _buildHoursBadge(
                                                 summary.totalHours, Colors.green,
                                                 isBold: true))));
+
+                                            // Cell số công
+                                            cells.add(DataCell(Center(child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: summary.isHoliday
+                                                    ? Colors.deepOrange.withValues(alpha: 0.12)
+                                                    : (summary.isRestDay && summary.effectiveMultiplier > 1
+                                                        ? Colors.purple.withValues(alpha: 0.12)
+                                                        : (summary.workCount > 0 ? Colors.blue.withValues(alpha: 0.10) : Colors.transparent)),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                summary.workCount > 0
+                                                    ? (summary.effectiveMultiplier != 1.0
+                                                        ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
+                                                        : summary.workCount.toStringAsFixed(2))
+                                                    : '-',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: summary.isHoliday
+                                                      ? Colors.deepOrange
+                                                      : (summary.isRestDay && summary.effectiveMultiplier > 1
+                                                          ? Colors.purple
+                                                          : (summary.workCount > 0 ? Colors.blue.shade700 : Colors.grey)),
+                                                ),
+                                              ),
+                                            ))));
 
                                             // Cell giờ thập phân
                                             cells.add(DataCell(Center(child: Text(
@@ -987,7 +1162,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       for (int i = 1; i <= maxShifts; i++) {
         headers.add('Giờ ca $i');
       }
-      headers.addAll(['Tổng giờ', 'Giờ thập phân']);
+      headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
 
       for (int i = 0; i < headers.length; i++) {
         sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0)).value =
@@ -1022,6 +1197,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
         sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
             excel_lib.TextCellValue(_formatHours(s.totalHours));
+        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
+            excel_lib.DoubleCellValue(double.parse(s.workCount.toStringAsFixed(2)));
         sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
             excel_lib.DoubleCellValue(double.parse(s.totalHours.toStringAsFixed(2)));
       }
@@ -1071,7 +1248,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       for (int i = 1; i <= maxShifts; i++) {
         headers.add('Giờ ca $i');
       }
-      headers.addAll(['Tổng giờ', 'Giờ thập phân']);
+      headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
 
       // Xây dựng rows
       final rows = <List<String>>[];
@@ -1092,6 +1269,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           row.add(_formatHours(s.getShiftHours(i)));
         }
         row.add(_formatHours(s.totalHours));
+        row.add(s.workCount > 0
+            ? (s.effectiveMultiplier != 1.0
+                ? '${s.workCount.toStringAsFixed(2)} (x${s.effectiveMultiplier.toStringAsFixed(s.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
+                : s.workCount.toStringAsFixed(2))
+            : '-');
         row.add(_formatDecimalHours(s.totalHours));
         rows.add(row);
       }
@@ -2603,6 +2785,10 @@ class _DailySummary {
   final double shift5Hours;
   final double totalHours;
   final int totalPunches; // Tổng số lần chấm công
+  final double workCount; // Số công (đã nhân hệ số ngày lễ/ngày nghỉ nếu có)
+  final double effectiveMultiplier; // 1.0 = bình thường, >1 = ngày lễ/nghỉ
+  final bool isHoliday;
+  final bool isRestDay;
 
   _DailySummary({
     required this.employeeId,
@@ -2637,6 +2823,10 @@ class _DailySummary {
     this.shift5Hours = 0,
     required this.totalHours,
     this.totalPunches = 0,
+    this.workCount = 0,
+    this.effectiveMultiplier = 1.0,
+    this.isHoliday = false,
+    this.isRestDay = false,
   });
 
   // Lấy punch time theo index (1-10)

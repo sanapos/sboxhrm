@@ -1,6 +1,5 @@
 using ZKTecoADMS.Application.Settings;
 using ZKTecoADMS.Application.Interfaces;
-using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Api.Middlewares;
@@ -122,7 +121,10 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
         services.AddScoped<ISystemNotificationService, SystemNotificationService>();
         services.AddScoped<IDeviceStatusNotificationService, DeviceStatusNotificationService>();
-        services.AddScoped<INotificationTargetResolver, NotificationTargetResolver>();
+
+        // FCM push notifications
+        services.AddSingleton<ZKTecoADMS.Infrastructure.Services.Push.FirebaseInitializer>();
+        services.AddScoped<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService, ZKTecoADMS.Infrastructure.Services.Push.PushNotificationService>();
 
         // SuperAdmin announcements (Phase 1)
         services.AddScoped<IAudienceResolver, AudienceResolver>();

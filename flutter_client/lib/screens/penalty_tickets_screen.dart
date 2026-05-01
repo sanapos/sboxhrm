@@ -9,7 +9,8 @@ import '../providers/permission_provider.dart';
 
 /// Màn hình quản lý phiếu phạt
 class PenaltyTicketsScreen extends StatefulWidget {
-  const PenaltyTicketsScreen({super.key});
+  final String? highlightId;
+  const PenaltyTicketsScreen({super.key, this.highlightId});
 
   @override
   State<PenaltyTicketsScreen> createState() => _PenaltyTicketsScreenState();
@@ -32,6 +33,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   String? _filterStatus;
   String? _filterType;
   DateTimeRange? _dateRange;
+  String _datePreset = 'this_month'; // today, yesterday, this_week, last_week, this_month, last_month, custom, all
+
+  // Multi-select for bulk approve
+  final Set<String> _selectedIds = {};
+  bool get _isSelectionMode => _selectedIds.isNotEmpty;
 
   bool _showMobileFilters = false;
   bool _showMobileSummary = false;
@@ -39,7 +45,54 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   @override
   void initState() {
     super.initState();
+    _applyDatePreset('this_month', reload: false);
     _loadData();
+  }
+
+  void _applyDatePreset(String preset, {bool reload = true}) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTimeRange? range;
+    switch (preset) {
+      case 'today':
+        range = DateTimeRange(start: today, end: today);
+        break;
+      case 'yesterday':
+        final y = today.subtract(const Duration(days: 1));
+        range = DateTimeRange(start: y, end: y);
+        break;
+      case 'this_week':
+        final weekStart = today.subtract(Duration(days: today.weekday - 1));
+        range = DateTimeRange(start: weekStart, end: today);
+        break;
+      case 'last_week':
+        final weekStart = today.subtract(Duration(days: today.weekday - 1));
+        final lastWeekStart = weekStart.subtract(const Duration(days: 7));
+        final lastWeekEnd = weekStart.subtract(const Duration(days: 1));
+        range = DateTimeRange(start: lastWeekStart, end: lastWeekEnd);
+        break;
+      case 'this_month':
+        range = DateTimeRange(start: DateTime(today.year, today.month, 1), end: today);
+        break;
+      case 'last_month':
+        final firstThis = DateTime(today.year, today.month, 1);
+        final lastPrev = firstThis.subtract(const Duration(days: 1));
+        final firstPrev = DateTime(lastPrev.year, lastPrev.month, 1);
+        range = DateTimeRange(start: firstPrev, end: lastPrev);
+        break;
+      case 'all':
+        range = null;
+        break;
+      case 'custom':
+        // Keep current range; caller will open picker
+        return;
+    }
+    setState(() {
+      _datePreset = preset;
+      _dateRange = range;
+      _currentPage = 1;
+    });
+    if (reload) _loadTickets();
   }
 
   Future<void> _loadData({bool showLoading = true}) async {
@@ -52,7 +105,25 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       ]);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    Map<String, dynamic>? match;
+    for (final t in _tickets) {
+      if (t['id']?.toString() == id) { match = t; break; }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showDetailSheet(match!);
+    });
   }
 
   Future<void> _loadTickets() async {
@@ -317,9 +388,71 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       ),
     );
     if (picked != null) {
-      setState(() { _dateRange = picked; _currentPage = 1; });
+      setState(() { _dateRange = picked; _datePreset = 'custom'; _currentPage = 1; });
       await _loadTickets();
     }
+  }
+
+  // ─── Bulk approve ───
+  Future<void> _bulkApprove() async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Duyệt nhanh', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Duyệt ${ids.length} phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+            child: Text('Duyệt ${ids.length}', style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    int ok = 0, fail = 0;
+    for (final id in ids) {
+      try {
+        final r = await _apiService.approvePenaltyTicket(id);
+        if (r['isSuccess'] == true) { ok++; } else { fail++; }
+      } catch (_) { fail++; }
+    }
+    if (mounted) {
+      _selectedIds.clear();
+      if (fail == 0) {
+        appNotification.showSuccess(title: 'Thành công', message: 'Đã duyệt $ok phiếu');
+      } else {
+        appNotification.showWarning(title: 'Hoàn tất', message: 'Duyệt thành công $ok, lỗi $fail');
+      }
+      await _loadData(showLoading: false);
+    }
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _selectAllPendingOnPage() {
+    setState(() {
+      for (final t in _tickets) {
+        if (t['status'] == 'Pending') {
+          _selectedIds.add(t['id'].toString());
+        }
+      }
+    });
   }
 
   // ─── Create / Edit Dialog ───
@@ -840,6 +973,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   _buildStatsCards(),
                 ],
                 if (!isMobile || _showMobileFilters) _buildFilterBar(),
+                if (_isSelectionMode) _buildBulkActionBar(),
                 Expanded(child: _buildTicketList()),
                 if (_totalCount > _pageSize) _buildPagination(),
               ],
@@ -850,109 +984,184 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Widget _buildStatsCards() {
     return Container(
       padding: const EdgeInsets.all(12),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final cards = [
-          _buildStatCard('Chờ duyệt', _stats['totalPending'] ?? 0, Colors.orange,
-            amount: (_stats['pendingAmount'] as num?)?.toDouble(), expanded: constraints.maxWidth >= 400),
-          _buildStatCard('Đã duyệt', ((_stats['totalApproved'] ?? 0) as int) + ((_stats['totalAutoApproved'] ?? 0) as int), Colors.green,
-            amount: (_stats['approvedAmount'] as num?)?.toDouble(), expanded: constraints.maxWidth >= 400),
-          _buildStatCard('Đã hủy', _stats['totalCancelled'] ?? 0, Colors.grey, expanded: constraints.maxWidth >= 400),
-        ];
-        if (constraints.maxWidth < 400) {
-          return Column(children: cards);
-        }
-        return Row(children: [
-          for (int i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(width: 8), cards[i]],
-        ]);
-      }),
+      child: Row(
+        children: [
+          Expanded(child: _buildStatCard('Chờ duyệt', _stats['totalPending'] ?? 0, Colors.orange,
+            amount: (_stats['pendingAmount'] as num?)?.toDouble())),
+          const SizedBox(width: 8),
+          Expanded(child: _buildStatCard('Đã duyệt', ((_stats['totalApproved'] ?? 0) as int) + ((_stats['totalAutoApproved'] ?? 0) as int), Colors.green,
+            amount: (_stats['approvedAmount'] as num?)?.toDouble())),
+          const SizedBox(width: 8),
+          Expanded(child: _buildStatCard('Đã hủy', _stats['totalCancelled'] ?? 0, Colors.grey)),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard(String label, dynamic count, Color color, {double? amount, bool expanded = true}) {
-    final card = Card(
+  Widget _buildStatCard(String label, dynamic count, Color color, {double? amount}) {
+    return Card(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE4E4E7))),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+            Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
             if (amount != null && amount > 0)
-              Text('${_currencyFormat.format(amount)}đ', style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+              Text('${_currencyFormat.format(amount)}đ', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
     );
-    return expanded ? Expanded(child: card) : card;
   }
 
   Widget _buildFilterBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date preset chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _datePresetChip('today', 'Hôm nay'),
+                const SizedBox(width: 6),
+                _datePresetChip('yesterday', 'Hôm qua'),
+                const SizedBox(width: 6),
+                _datePresetChip('this_week', 'Tuần này'),
+                const SizedBox(width: 6),
+                _datePresetChip('last_week', 'Tuần trước'),
+                const SizedBox(width: 6),
+                _datePresetChip('this_month', 'Tháng này'),
+                const SizedBox(width: 6),
+                _datePresetChip('last_month', 'Tháng trước'),
+                const SizedBox(width: 6),
+                _datePresetChip('all', 'Tất cả'),
+                const SizedBox(width: 6),
+                ActionChip(
+                  avatar: const Icon(Icons.date_range, size: 16),
+                  label: Text(_datePreset == 'custom' && _dateRange != null
+                      ? '${DateFormat('dd/MM').format(_dateRange!.start)} - ${DateFormat('dd/MM').format(_dateRange!.end)}'
+                      : 'Lựa chọn khác'),
+                  backgroundColor: _datePreset == 'custom' ? const Color(0xFF0F2340) : Colors.white,
+                  labelStyle: TextStyle(fontSize: 12, color: _datePreset == 'custom' ? Colors.white : const Color(0xFF18181B)),
+                  side: const BorderSide(color: Color(0xFFE4E4E7)),
+                  onPressed: _pickDateRange,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String?>(
+                  initialValue: _filterStatus,
+                  dropdownColor: Colors.white,
+                  decoration: const InputDecoration(
+                    labelText: 'Trạng thái',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Tất cả')),
+                    DropdownMenuItem(value: '0', child: Text('Chờ duyệt')),
+                    DropdownMenuItem(value: '1', child: Text('Đã duyệt')),
+                    DropdownMenuItem(value: '3', child: Text('Tự động duyệt')),
+                    DropdownMenuItem(value: '2', child: Text('Đã hủy')),
+                  ],
+                  onChanged: (v) {
+                    setState(() { _filterStatus = v; _currentPage = 1; });
+                    _loadTickets();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String?>(
+                  initialValue: _filterType,
+                  dropdownColor: Colors.white,
+                  decoration: const InputDecoration(
+                    labelText: 'Loại',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Tất cả')),
+                    DropdownMenuItem(value: '1', child: Text('Đi trễ')),
+                    DropdownMenuItem(value: '2', child: Text('Về sớm')),
+                    DropdownMenuItem(value: '3', child: Text('Quên chấm công')),
+                    DropdownMenuItem(value: '4', child: Text('Nghỉ không phép')),
+                    DropdownMenuItem(value: '5', child: Text('Vi phạm')),
+                    DropdownMenuItem(value: '6', child: Text('Tái phạm')),
+                  ],
+                  onChanged: (v) {
+                    setState(() { _filterType = v; _currentPage = 1; });
+                    _loadTickets();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _datePresetChip(String preset, String label) {
+    final selected = _datePreset == preset;
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) => _applyDatePreset(preset),
+      backgroundColor: Colors.white,
+      selectedColor: const Color(0xFF0F2340),
+      labelStyle: TextStyle(color: selected ? Colors.white : const Color(0xFF18181B)),
+      side: const BorderSide(color: Color(0xFFE4E4E7)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildBulkActionBar() {
+    final canApprove = Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets');
+    final pendingOnPage = _tickets.where((t) => t['status'] == 'Pending').length;
+    return Container(
+      color: const Color(0xFFFFF7ED),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Expanded(
-            child: DropdownButtonFormField<String?>(
-              initialValue: _filterStatus,
-              dropdownColor: Colors.white,
-              decoration: const InputDecoration(
-                labelText: 'Trạng thái',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(value: '0', child: Text('Chờ duyệt')),
-                DropdownMenuItem(value: '1', child: Text('Đã duyệt')),
-                DropdownMenuItem(value: '3', child: Text('Tự động duyệt')),
-                DropdownMenuItem(value: '2', child: Text('Đã hủy')),
-              ],
-              onChanged: (v) {
-                setState(() { _filterStatus = v; _currentPage = 1; });
-                _loadTickets();
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: () => setState(() => _selectedIds.clear()),
+            tooltip: 'Bỏ chọn',
+            visualDensity: VisualDensity.compact,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonFormField<String?>(
-              initialValue: _filterType,
-              dropdownColor: Colors.white,
-              decoration: const InputDecoration(
-                labelText: 'Loại',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(value: '1', child: Text('Đi trễ')),
-                DropdownMenuItem(value: '2', child: Text('Về sớm')),
-                DropdownMenuItem(value: '3', child: Text('Quên chấm công')),
-                DropdownMenuItem(value: '4', child: Text('Nghỉ không phép')),
-                DropdownMenuItem(value: '5', child: Text('Vi phạm')),
-                DropdownMenuItem(value: '6', child: Text('Tái phạm')),
-              ],
-              onChanged: (v) {
-                setState(() { _filterType = v; _currentPage = 1; });
-                _loadTickets();
-              },
+          Text('Đã chọn ${_selectedIds.length} phiếu', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const Spacer(),
+          if (pendingOnPage > _selectedIds.where((id) => _tickets.any((t) => t['id'].toString() == id && t['status'] == 'Pending')).length)
+            TextButton(
+              onPressed: _selectAllPendingOnPage,
+              child: Text('Chọn tất cả chờ duyệt ($pendingOnPage)', style: const TextStyle(fontSize: 12)),
             ),
-          ),
-          if (_dateRange != null) ...[
+          if (canApprove) ...[
             const SizedBox(width: 8),
-            Chip(
-              label: Text(
-                '${DateFormat('dd/MM').format(_dateRange!.start)} - ${DateFormat('dd/MM').format(_dateRange!.end)}',
-                style: const TextStyle(fontSize: 12),
+            ElevatedButton.icon(
+              onPressed: _bulkApprove,
+              icon: const Icon(Icons.check, size: 16),
+              label: Text('Duyệt ${_selectedIds.length}'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onDeleted: () {
-                setState(() { _dateRange = null; _currentPage = 1; });
-                _loadTickets();
-              },
             ),
           ],
         ],
@@ -983,27 +1192,46 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       itemCount: _tickets.length,
       itemBuilder: (_, i) {
         final ticket = _tickets[i];
+        final id = ticket['id'].toString();
         final status = ticket['status'] as String? ?? '';
         final type = ticket['type'] as String? ?? '';
         final amount = (ticket['amount'] as num?)?.toDouble() ?? 0;
+        final isPending = status == 'Pending';
+        final isSelected = _selectedIds.contains(id);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
-            color: Colors.white,
+            color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             elevation: 0,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () => _showDetailSheet(ticket),
+              onTap: () {
+                if (_isSelectionMode && isPending) {
+                  _toggleSelection(id);
+                } else {
+                  _showDetailSheet(ticket);
+                }
+              },
+              onLongPress: isPending ? () => _toggleSelection(id) : null,
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  border: Border.all(color: isSelected ? Colors.orange : const Color(0xFFE4E4E7), width: isSelected ? 1.5 : 1),
                 ),
                 child: Row(
                   children: [
+                    if (_isSelectionMode && isPending)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: isSelected ? Colors.orange : const Color(0xFFA1A1AA),
+                          size: 22,
+                        ),
+                      ),
                     CircleAvatar(
                       radius: 20,
                       backgroundColor: _getStatusColor(status).withValues(alpha: 0.15),
@@ -1055,20 +1283,32 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       itemCount: _tickets.length,
       itemBuilder: (context, index) {
         final ticket = _tickets[index];
+        final id = ticket['id'].toString();
         final status = ticket['status'] as String? ?? '';
         final type = ticket['type'] as String? ?? '';
         final isPending = status == 'Pending';
         final isApproved = status == 'Approved' || status == 'AutoApproved';
         final amount = (ticket['amount'] as num?)?.toDouble() ?? 0;
+        final isSelected = _selectedIds.contains(id);
 
         return Card(
-          color: Colors.white,
+          color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE4E4E7))),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: isSelected ? Colors.orange : const Color(0xFFE4E4E7), width: isSelected ? 1.5 : 1),
+          ),
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: () => _showDetailSheet(ticket),
+            onTap: () {
+              if (_isSelectionMode && isPending) {
+                _toggleSelection(id);
+              } else {
+                _showDetailSheet(ticket);
+              }
+            },
+            onLongPress: isPending ? () => _toggleSelection(id) : null,
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -1076,6 +1316,18 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 children: [
                   Row(
                     children: [
+                      if (isPending)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            onTap: () => _toggleSelection(id),
+                            child: Icon(
+                              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                              color: isSelected ? Colors.orange : const Color(0xFFA1A1AA),
+                              size: 22,
+                            ),
+                          ),
+                        ),
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: _getStatusColor(status).withValues(alpha: 0.15),

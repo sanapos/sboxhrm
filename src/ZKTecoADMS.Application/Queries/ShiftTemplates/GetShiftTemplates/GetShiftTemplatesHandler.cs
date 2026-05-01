@@ -36,6 +36,7 @@ public class GetShiftTemplatesHandler(
             EarlyLeaveGraceMinutes = t.EarlyLeaveGraceMinutes,
             OvertimeMinutesThreshold = t.OvertimeMinutesThreshold,
             ShiftType = t.ShiftType,
+            OvernightCutoffTime = t.OvernightCutoffTime,
             Description = t.Description,
             IsActive = t.IsActive,
             CreatedAt = t.CreatedAt,

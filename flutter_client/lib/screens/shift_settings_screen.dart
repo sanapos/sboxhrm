@@ -390,7 +390,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
 
     final tooltipMsg = 'Chấm sớm: ${shift.earlyCheckInMinutes ?? 30}p  •  Trễ TĐ: ${shift.maximumAllowedLateMinutes ?? 30}p  •  Về sớm TĐ: ${shift.maximumAllowedEarlyLeaveMinutes ?? 30}p\n'
         'Grace trễ: ${shift.lateGraceMinutes ?? 5}p  •  Grace về sớm: ${shift.earlyLeaveGraceMinutes ?? 5}p'
-        '${(shift.breakMinutes ?? 0) > 0 ? '  •  Nghỉ giữa ca: ${shift.breakMinutes}p' : ''}';
+        '${(shift.breakMinutes ?? 0) > 0 ? '  •  Tính tăng ca sau: ${shift.breakMinutes}p' : ''}';
 
     return Tooltip(
       message: tooltipMsg,
@@ -857,7 +857,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   _buildParamRow(Icons.alarm, 'Tính đi trễ sau', '${shift.lateGraceMinutes ?? 5} phút', Colors.red),
                   _buildParamRow(Icons.alarm_off, 'Tính về sớm sau', '${shift.earlyLeaveGraceMinutes ?? 5} phút', Colors.pink),
                   if (shift.breakMinutes != null && shift.breakMinutes! > 0)
-                    _buildParamRow(Icons.coffee, 'Nghỉ giữa ca', '${shift.breakMinutes} phút', Colors.teal),
+                    _buildParamRow(Icons.coffee, 'Tính tăng ca sau', '${shift.breakMinutes} phút', Colors.teal),
                   const SizedBox(height: 20),
 
                   // Shift info
@@ -1038,8 +1038,16 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     int allowEarlyLeave = shift?.maximumAllowedEarlyLeaveMinutes ?? 30;
     int lateGrace = shift?.lateGraceMinutes ?? 5;
     int earlyLeaveGrace = shift?.earlyLeaveGraceMinutes ?? 5;
-    int breakMinutes = shift?.breakMinutes ?? 0;
+    int breakMinutes = shift?.breakMinutes ?? 30;
     bool isSaving = false;
+
+    // Overnight cutoff
+    TimeOfDay? overnightCutoff = shift?.overnightCutoffTime != null
+        ? TimeOfDay(
+            hour: int.tryParse(shift!.overnightCutoffTime!.split(':')[0]) ?? 7,
+            minute: int.tryParse(shift.overnightCutoffTime!.split(':')[1]) ?? 0,
+          )
+        : null;
 
     showDialog(
       context: context,
@@ -1179,7 +1187,93 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
+
+                          // Overnight cutoff row — only when type = 'Qua đêm'
+                          if (shiftType == 'Qua đêm') ...[
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F2340).withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFF0F2340).withValues(alpha: 0.25)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.nightlight_round, size: 16, color: Color(0xFF0F2340)),
+                                      SizedBox(width: 6),
+                                      Text('Ca qua đêm', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F2340))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Giờ qua đêm phải lớn hơn giờ kết thúc ca. Báo cáo hôm nay sẽ tính từ giờ vào cho đến giờ qua đêm (đủ 24h).',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _dialogField('Giờ qua đêm *', InkWell(
+                                          onTap: () async {
+                                            final t = await showTimePicker(
+                                              context: ctx,
+                                              initialTime: overnightCutoff ?? TimeOfDay(hour: (endTime.hour + 1) % 24, minute: endTime.minute),
+                                            );
+                                            if (t != null) setDialogState(() => overnightCutoff = t);
+                                          },
+                                          child: overnightCutoff == null
+                                              ? Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.orange.shade400, width: 1.5),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Row(children: [
+                                                    Icon(Icons.access_time, color: Colors.orange.shade400, size: 18),
+                                                    const SizedBox(width: 8),
+                                                    Text('Chọn giờ...', style: TextStyle(fontSize: 14, color: Colors.orange.shade600)),
+                                                  ]),
+                                                )
+                                              : _timeBox(overnightCutoff!, Icons.nightlight_round, const Color(0xFF0F2340)),
+                                        )),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(overnightCutoff == null
+                                            ? '⚠ Bắt buộc thiết lập'
+                                            : (() {
+                                                // Compute overnight span
+                                                final endMin = endTime.hour * 60 + endTime.minute;
+                                                final cutMin = overnightCutoff!.hour * 60 + overnightCutoff!.minute;
+                                                // cutoff is next day relative to endTime
+                                                final spanMin = (cutMin <= endMin)
+                                                    ? cutMin + 24 * 60 - endMin
+                                                    : cutMin - endMin;
+                                                final h = spanMin ~/ 60;
+                                                final m = spanMin % 60;
+                                                return '✓ Thêm ${h}h${m > 0 ? '${m}m' : ''} sau kết ca';
+                                              })(),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: overnightCutoff == null ? Colors.orange.shade700 : Colors.green.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      )),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
 
                           // Attendance parameters section
                           Container(
@@ -1217,7 +1311,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(child: _minuteField('Tính về sớm sau', earlyLeaveGrace, (v) => setDialogState(() => earlyLeaveGrace = v))),
                                     const SizedBox(width: 12),
-                                    Expanded(child: _minuteField('Nghỉ giữa ca', breakMinutes, (v) => setDialogState(() => breakMinutes = v))),
+                                    Expanded(child: _minuteField('Tính tăng ca sau', breakMinutes, (v) => setDialogState(() => breakMinutes = v))),
                                   ],
                                 ),
                               ],
@@ -1252,6 +1346,26 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập tên ca');
                               return;
                             }
+                            // Validate overnight cutoff
+                            if (shiftType == 'Qua đêm') {
+                              if (overnightCutoff == null) {
+                                appNotification.showWarning(title: 'Thiếu Giờ qua đêm', message: 'Ca qua đêm bắt buộc phải thiết lập Giờ qua đêm');
+                                return;
+                              }
+                              // Overnight cutoff must be "after" endTime in overnight sense
+                              // i.e., it should represent more minutes past endTime
+                              // Since overnight: endTime < startTime (crosses midnight)
+                              // Cutoff must be > endTime (in absolute hour sense, next-day)
+                              final endMin = endTime.hour * 60 + endTime.minute;
+                              final cutMin = overnightCutoff!.hour * 60 + overnightCutoff!.minute;
+                              // Consider cutoff as next-day if cutoff <= endTime (hour)
+                              // Valid: cutoff must come after endTime (at least 1 minute)
+                              // Since endTime is on the next day, cutoff must be >= endTime+1
+                              if (cutMin == endMin) {
+                                appNotification.showWarning(title: 'Giờ qua đêm không hợp lệ', message: 'Giờ qua đêm phải lớn hơn giờ kết thúc ca');
+                                return;
+                              }
+                            }
                             setDialogState(() => isSaving = true);
 
                             final data = {
@@ -1261,6 +1375,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               'endTime': '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00',
                               'isActive': isActive,
                               'shiftType': shiftType,
+                              if (shiftType == 'Qua đêm' && overnightCutoff != null)
+                                'overnightCutoffTime': '${overnightCutoff!.hour.toString().padLeft(2, '0')}:${overnightCutoff!.minute.toString().padLeft(2, '0')}:00',
+                              if (shiftType != 'Qua đêm')
+                                'overnightCutoffTime': null,
                               'description': shift?.description,
                               'earlyCheckInMinutes': earlyCheckIn,
                               'maximumAllowedLateMinutes': allowLate,

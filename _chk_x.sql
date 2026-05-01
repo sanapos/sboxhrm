@@ -1,0 +1,1 @@
+UPDATE "AspNetUsers" SET "PasswordHash"='AQAAAAIAAYagAAAAEFwTPCkTSKKZflPpOhKvRbGVoFNAm/5Gz0xjPxvO7v3J9jJjDhOC3dKcfOVMG/mtoQ==' WHERE "Email"='049094008190@company.com';

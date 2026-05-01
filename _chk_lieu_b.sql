@@ -1,0 +1,1 @@
+SELECT b."WeeklyOffDays", b."CheckIn", b."CheckOut", b."Description" FROM "SalaryProfiles" b JOIN "EmployeeBenefits" eb ON eb."BenefitId"=b."Id" WHERE eb."EmployeeId"='02adc168-1ddb-4309-b06b-4e3e1c482241' AND eb."EffectiveDate" <= '2026-04-30' AND (eb."EndDate" IS NULL OR eb."EndDate" >= '2026-04-30');

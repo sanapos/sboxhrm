@@ -56,6 +56,7 @@ public class GetEmployeeByIdHandler(IRepository<Employee> employeeRepository)
             EmploymentType = employee.EmploymentType,
             JoinDate = employee.JoinDate,
             ProbationEndDate = employee.ProbationEndDate,
+            ContractEndDate = employee.ContractEndDate,
             WorkStatus = employee.WorkStatus,
             DirectManagerEmployeeId = employee.DirectManagerEmployeeId,
             DirectManagerName = employee.DirectManagerEmployee != null

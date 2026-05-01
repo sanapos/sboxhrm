@@ -5,7 +5,8 @@ import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
 
 class HrDocumentsScreen extends StatefulWidget {
-  const HrDocumentsScreen({super.key});
+  final String? highlightId;
+  const HrDocumentsScreen({super.key, this.highlightId});
 
   @override
   State<HrDocumentsScreen> createState() => _HrDocumentsScreenState();
@@ -51,6 +52,29 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen> with SingleTicker
       debugPrint('Error loading HR documents: $e');
     }
     setState(() => _isLoading = false);
+    _maybeOpenHighlight();
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    Map<String, dynamic>? match;
+    for (final d in _expiringDocs) {
+      if (d['id']?.toString() == id) { match = d; break; }
+    }
+    if (match == null) {
+      for (final d in _documents) {
+        if (d['id']?.toString() == id) { match = d; break; }
+      }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showDocumentDialog(doc: match);
+    });
   }
 
   Color _getDocTypeColor(String? type) {

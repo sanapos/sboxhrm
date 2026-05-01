@@ -84,6 +84,10 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var deptManagerMap = await BuildDeptManagerMapAsync(
                 departmentRepo, employeeRepo, device.StoreId);
 
+            // Build employee DirectManagerEmployeeId chain map (used when org structure is
+            // tracked per-employee instead of via department managers).
+            var empManagerMap = await BuildEmployeeManagerMapAsync(employeeRepo, device.StoreId);
+
             // Pre-load: users who disabled "attendance" notification category
             var allCandidateUserIds = new HashSet<Guid>(adminUserIds);
             foreach (var u in users)
@@ -92,6 +96,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 if (u.Employee?.DepartmentId != null)
                 {
                     foreach (var mgrUserId in ResolveDeptHierarchyManagers(deptManagerMap, u.Employee.DepartmentId.Value, levels: 2))
+                        allCandidateUserIds.Add(mgrUserId);
+                }
+                if (u.Employee != null)
+                {
+                    foreach (var mgrUserId in ResolveEmpChainManagers(empManagerMap, u.Employee.Id, levels: 2))
                         allCandidateUserIds.Add(mgrUserId);
                 }
             }
@@ -113,6 +122,15 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 {
                     foreach (var mgrUserId in ResolveDeptHierarchyManagers(
                         deptManagerMap, user.Employee.DepartmentId.Value, levels: 2))
+                        targetUserIds.Add(mgrUserId);
+                }
+
+                // Also walk Employee.DirectManagerEmployeeId chain (the explicit reporting
+                // chain). Catches managers who aren't registered as department managers.
+                if (user?.Employee != null)
+                {
+                    foreach (var mgrUserId in ResolveEmpChainManagers(
+                        empManagerMap, user.Employee.Id, levels: 2))
                         targetUserIds.Add(mgrUserId);
                 }
 
@@ -161,6 +179,14 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var departmentRepo = scope.ServiceProvider.GetRequiredService<IRepository<Department>>();
             var deptManagerMap = await BuildDeptManagerMapAsync(departmentRepo, employeeRepo, device.StoreId);
             foreach (var mgrUserId in ResolveDeptHierarchyManagers(deptManagerMap, employee.DepartmentId.Value, levels: 2))
+                targets.Add(mgrUserId);
+        }
+
+        // 3b. Walk Employee.DirectManagerEmployeeId chain (org chart maintained per-employee)
+        if (employee != null)
+        {
+            var empManagerMap = await BuildEmployeeManagerMapAsync(employeeRepo, device.StoreId);
+            foreach (var mgrUserId in ResolveEmpChainManagers(empManagerMap, employee.Id, levels: 2))
                 targets.Add(mgrUserId);
         }
 
@@ -236,6 +262,116 @@ public class AttendanceNotificationService : IAttendanceNotificationService
     }
 
     /// <summary>
+    /// Build map: Employee.Id -> (DirectManagerEmployeeId, this employee's ApplicationUserId).
+    /// Used to walk the explicit reporting chain when org structure isn't via dept managers.
+    /// Self-heals: if an Employee row has ApplicationUserId == null, looks up an ApplicationUser
+    /// in the same store by UserName == EmployeeCode (or PhoneNumber fallback) and persists the link.
+    /// </summary>
+    private async Task<Dictionary<Guid, (Guid? DirectManagerId, Guid? AppUserId)>> BuildEmployeeManagerMapAsync(
+        IRepository<Employee> employeeRepo, Guid? storeId)
+    {
+        var employees = (await employeeRepo.GetAllAsync(
+            e => !storeId.HasValue || e.StoreId == storeId)).ToList();
+
+        // Resolve missing ApplicationUserId by EmployeeCode within the same store.
+        var orphans = employees
+            .Where(e => e.ApplicationUserId == null
+                        && !string.IsNullOrWhiteSpace(e.EmployeeCode)
+                        && e.StoreId.HasValue)
+            .ToList();
+        if (orphans.Count > 0)
+        {
+            try
+            {
+                using var healScope = _serviceScopeFactory.CreateScope();
+                var userManager = healScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+                var empRepoForHeal = healScope.ServiceProvider.GetRequiredService<IRepository<Employee>>();
+
+                var codes = orphans.Select(o => o.EmployeeCode).Distinct().ToList();
+                var phones = orphans
+                    .Where(o => !string.IsNullOrWhiteSpace(o.PhoneNumber))
+                    .Select(o => o.PhoneNumber!)
+                    .Distinct()
+                    .ToList();
+
+                var candidates = await userManager.Users
+                    .Where(u => u.IsActive
+                                && u.StoreId == storeId
+                                && (codes.Contains(u.UserName!)
+                                    || codes.Contains(u.PhoneNumber!)
+                                    || phones.Contains(u.PhoneNumber!)))
+                    .Select(u => new { u.Id, u.UserName, u.PhoneNumber, u.Email })
+                    .ToListAsync();
+
+                // Avoid linking the same user to multiple employees
+                var alreadyLinkedUserIds = employees
+                    .Where(e => e.ApplicationUserId.HasValue)
+                    .Select(e => e.ApplicationUserId!.Value)
+                    .ToHashSet();
+
+                foreach (var orphan in orphans)
+                {
+                    var match = candidates.FirstOrDefault(c =>
+                        (c.UserName != null && c.UserName == orphan.EmployeeCode)
+                        || (c.PhoneNumber != null && c.PhoneNumber == orphan.EmployeeCode)
+                        || (c.PhoneNumber != null && !string.IsNullOrEmpty(orphan.PhoneNumber)
+                            && c.PhoneNumber == orphan.PhoneNumber));
+
+                    if (match == null || alreadyLinkedUserIds.Contains(match.Id)) continue;
+
+                    orphan.ApplicationUserId = match.Id;
+                    alreadyLinkedUserIds.Add(match.Id);
+                    try
+                    {
+                        await empRepoForHeal.UpdateAsync(orphan);
+                        _logger.LogInformation(
+                            "Auto-linked Employee {EmpId} (Code={Code}) to ApplicationUser {UserId} via {Match}",
+                            orphan.Id, orphan.EmployeeCode, match.Id,
+                            match.UserName == orphan.EmployeeCode ? "UserName" : "PhoneNumber");
+                    }
+                    catch (Exception persistEx)
+                    {
+                        _logger.LogWarning(persistEx,
+                            "Failed to persist auto-link for Employee {EmpId}", orphan.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Auto-link Employee->ApplicationUser failed for store {StoreId}", storeId);
+            }
+        }
+
+        var map = new Dictionary<Guid, (Guid? DirectManagerId, Guid? AppUserId)>();
+        foreach (var e in employees)
+            map[e.Id] = (e.DirectManagerEmployeeId, e.ApplicationUserId);
+        return map;
+    }
+
+    /// <summary>
+    /// Walk Employee.DirectManagerEmployeeId UP from <paramref name="startEmployeeId"/>'s manager,
+    /// up to <paramref name="levels"/>+1 hops, yielding ApplicationUserId of each manager (skip
+    /// employees without an account). Cycle-safe.
+    /// </summary>
+    private static IEnumerable<Guid> ResolveEmpChainManagers(
+        Dictionary<Guid, (Guid? DirectManagerId, Guid? AppUserId)> map,
+        Guid startEmployeeId,
+        int levels)
+    {
+        var visited = new HashSet<Guid> { startEmployeeId };
+        if (!map.TryGetValue(startEmployeeId, out var start)) yield break;
+        var currentId = start.DirectManagerId;
+        for (int i = 0; i < levels + 1 && currentId.HasValue && currentId.Value != Guid.Empty; i++)
+        {
+            if (!visited.Add(currentId.Value)) yield break;
+            if (!map.TryGetValue(currentId.Value, out var entry)) yield break;
+            if (entry.AppUserId.HasValue && entry.AppUserId.Value != Guid.Empty)
+                yield return entry.AppUserId.Value;
+            currentId = entry.DirectManagerId;
+        }
+    }
+
+    /// <summary>
     /// Send NewAttendance SignalR event and save notification records for each target user
     /// </summary>
     private async Task SendAttendanceNotificationAsync(
@@ -280,8 +416,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         // Save per-user notification records to DB + send NewNotification for history
         var userName = notification.UserName ?? attendance.PIN ?? "Unknown";
-        var title = $"Chấm công: {userName}";
-        var message = $"{attendance.AttendanceTime:HH:mm:ss} · {device.DeviceName ?? device.SerialNumber}";
+        // Title cố tình giữ ngắn ("Chấm công") để Android không cắt cụt vì
+        // notification title chỉ hiển thị 1 dòng. Tên nhân viên đẩy sang
+        // dòng đầu của message để BigTextStyle wrap đầy đủ.
+        var title = "Chấm công";
+        var message = $"{userName}\n{attendance.AttendanceTime:HH:mm:ss} · {device.DeviceName ?? device.SerialNumber}";
 
         var notifications = targetUserIds.Select(uid => new Notification
         {
@@ -300,6 +439,29 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         }).ToList();
 
         await notificationRepo.AddRangeAsync(notifications);
+
+        // Send FCM push notifications (background/system tray). Resolved from scope because
+        // the push service is scoped (DbContext-bound).
+        try
+        {
+            using var pushScope = _serviceScopeFactory.CreateScope();
+            var push = pushScope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService>();
+            if (push != null)
+            {
+                var pushData = new Dictionary<string, string>
+                {
+                    ["type"] = "attendance",
+                    ["attendanceId"] = attendance.Id.ToString(),
+                    ["categoryCode"] = "attendance"
+                };
+                await push.PushToUsersAsync(targetUserIds, title, message,
+                    actionUrl: "/attendance", data: pushData);
+            }
+        }
+        catch (Exception pushEx)
+        {
+            _logger.LogWarning(pushEx, "FCM push for attendance notification failed (non-fatal)");
+        }
 
         // Send NewNotification to each targeted user for notification list update.
         // Per-user push failures are isolated so one bad client doesn't break the batch.

@@ -102,17 +102,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         new string(bssid.Where(c => char.IsAsciiHexDigit(c)).ToArray()).ToLowerInvariant();
-
-    // Per-(store,employee) in-process lock to serialize the duplicate-check +
-    // insert critical section in SubmitPunch. Without this, two concurrent
-    // requests can both pass the MaxPunchesPerDay / MinPunchInterval checks
-    // and both insert, exceeding the configured limits.
-    // NOTE: in-process only. Multi-instance deployments still need a unique
-    // DB index on (StoreId, OdooEmployeeId, PunchType, time bucket) or a
-    // distributed lock; tracked separately.
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _punchLocks = new();
-    private static SemaphoreSlim GetPunchLock(Guid storeId, string employeeId) =>
-        _punchLocks.GetOrAdd($"{storeId}:{employeeId}", _ => new SemaphoreSlim(1, 1));
     // Legacy compatibility: old stores may still have MaxPunchesPerDay = 4 in DB.
     // Treat that legacy value as the new default. A value of 0 or negative now
     // means "unlimited" (no per-day cap) so stores with shift-based rotation
@@ -304,7 +293,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 gpsRadiusMeters = 100,
 
 
-                minFaceMatchScore = 80.0,
+                minFaceMatchScore = 55.0,
 
 
                 autoApproveInRange = true,
@@ -316,7 +305,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 maxPhotosPerRegistration = 5,
 
 
-                maxPunchesPerDay = 20,
+                maxPunchesPerDay = 10,
 
 
                 requirePhotoProof = false,
@@ -353,8 +342,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             enableLivenessDetection = settings.EnableLivenessDetection,
-            // Alias for Flutter clients using the old key.
-            requireLivenessDetection = settings.EnableLivenessDetection,
 
 
             gpsRadiusMeters = settings.GpsRadiusMeters,
@@ -459,20 +446,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             verificationMode = settings?.VerificationMode ?? "all",
 
 
-            enableLivenessDetection = settings?.EnableLivenessDetection ?? true,
-            // Alias for older Flutter clients that read 'requireLivenessDetection'.
-            requireLivenessDetection = settings?.EnableLivenessDetection ?? true,
-
-
-            minFaceMatchScore = settings?.MinFaceMatchScore ?? 80.0,
+            minFaceMatchScore = settings?.MinFaceMatchScore ?? 55.0,
 
 
             autoApproveInRange = settings?.AutoApproveInRange ?? true,
-            allowManualApproval = settings?.AllowManualApproval ?? true,
-            requirePhotoProof = settings?.RequirePhotoProof ?? false,
-            maxPhotosPerRegistration = settings?.MaxPhotosPerRegistration ?? 5,
-            maxPunchesPerDay = ResolveMaxPunchesPerDay(settings?.MaxPunchesPerDay),
-            minPunchIntervalMinutes = settings?.MinPunchIntervalMinutes ?? 5,
 
 
             gpsRadiusMeters = settings?.GpsRadiusMeters ?? 100,
@@ -1228,16 +1205,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Enforce per-store cap (admin-configurable in HRM); fall back to 5.
-        var storeIdForCap1 = RequiredStoreId;
-        var maxPhotos1 = await _dbContext.MobileAttendanceSettings
-            .AsNoTracking()
-            .Where(s => s.StoreId == storeIdForCap1 && s.Deleted == null)
-            .Select(s => (int?)s.MaxPhotosPerRegistration)
-            .FirstOrDefaultAsync() ?? 5;
-        if (maxPhotos1 <= 0) maxPhotos1 = 5;
-        if (request.FaceImages.Count > maxPhotos1)
-            return BadRequest(AppResponse<object>.Fail($"Tối đa {maxPhotos1} ảnh khuôn mặt"));
+        if (request.FaceImages.Count > 5)
+
+
+            return BadRequest(AppResponse<object>.Fail("Tối đa 5 ảnh khuôn mặt"));
 
 
 
@@ -1817,8 +1788,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             existing.AllowOutsideCheckIn = request.AllowOutsideCheckIn;
-            if (!string.IsNullOrWhiteSpace(request.WifiBssid))
-                existing.WifiBssid = NormalizeBssidHex(request.WifiBssid);
 
 
             existing.UpdatedAt = DateTime.UtcNow;
@@ -1876,9 +1845,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 AllowOutsideCheckIn = request.AllowOutsideCheckIn,
-                WifiBssid = !string.IsNullOrWhiteSpace(request.WifiBssid)
-                    ? NormalizeBssidHex(request.WifiBssid)
-                    : null,
 
 
                 AuthorizedAt = DateTime.UtcNow,
@@ -2070,16 +2036,19 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             return BadRequest(AppResponse<object>.Fail("Vui lòng chụp ảnh khuôn mặt"));
 
 
-        var storeId = RequiredStoreId;
-        var maxPhotosReg = await _dbContext.MobileAttendanceSettings
-            .AsNoTracking()
-            .Where(s => s.StoreId == storeId && s.Deleted == null)
-            .Select(s => (int?)s.MaxPhotosPerRegistration)
-            .FirstOrDefaultAsync() ?? 5;
-        if (maxPhotosReg <= 0) maxPhotosReg = 5;
-        if (request.FaceImages.Count > maxPhotosReg)
-            return BadRequest(AppResponse<object>.Fail($"Tối đa {maxPhotosReg} ảnh khuôn mặt"));
 
+
+
+        if (request.FaceImages.Count > 5)
+
+
+            return BadRequest(AppResponse<object>.Fail("Tối đa 5 ảnh khuôn mặt"));
+
+
+
+
+
+        var storeId = RequiredStoreId;
 
 
         var employeeId = request.EmployeeId;
@@ -2892,15 +2861,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var storeIdDc = RequiredStoreId;
-        var maxPhotosDc = await _dbContext.MobileAttendanceSettings
-            .AsNoTracking()
-            .Where(s => s.StoreId == storeIdDc && s.Deleted == null)
-            .Select(s => (int?)s.MaxPhotosPerRegistration)
-            .FirstOrDefaultAsync() ?? 5;
-        if (maxPhotosDc <= 0) maxPhotosDc = 5;
-        if (request.FaceImages.Count > maxPhotosDc)
-            return BadRequest(AppResponse<object>.Fail($"Tối đa {maxPhotosDc} ảnh khuôn mặt"));
+        if (request.FaceImages.Count > 5)
+
+
+            return BadRequest(AppResponse<object>.Fail("Tối đa 5 ảnh khuôn mặt"));
 
 
 
@@ -4368,31 +4332,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // SECURITY: device must belong to the employee submitting the punch.
-        // Without this, any logged-in user in the store could send a punch
-        // for a coworker by passing that coworker's EmployeeId.
-        if (!string.IsNullOrWhiteSpace(registeredDevice.EmployeeId)
-            && !string.Equals(registeredDevice.EmployeeId, request.EmployeeId, StringComparison.Ordinal))
-        {
-            _logger.LogWarning("❌ PUNCH REJECT: employee mismatch device.Emp={DeviceEmp}, request.Emp={ReqEmp}",
-                registeredDevice.EmployeeId, request.EmployeeId);
-            return BadRequest(AppResponse<object>.Fail("Thiết bị này được đăng ký bởi nhân viên khác. Không được chấm công hộ."));
-        }
-
-        // Validate lat/lng range to avoid storing garbage coordinates.
-        if (request.Latitude.HasValue
-            && (request.Latitude.Value < -90 || request.Latitude.Value > 90))
-        {
-            return BadRequest(AppResponse<object>.Fail("Vĩ độ không hợp lệ."));
-        }
-        if (request.Longitude.HasValue
-            && (request.Longitude.Value < -180 || request.Longitude.Value > 180))
-        {
-            return BadRequest(AppResponse<object>.Fail("Kinh độ không hợp lệ."));
-        }
-
-
-
 
 
         _logger.LogWarning("ðŸ“Œ PUNCH STEP 2: Device found, IsAuthorized={IsAuth}, AllowOutside={AllowOutside}", registeredDevice.IsAuthorized, registeredDevice.AllowOutsideCheckIn);
@@ -4450,22 +4389,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         var maxPunches = ResolveMaxPunchesPerDay(settings?.MaxPunchesPerDay);
-
-        // RequirePhotoProof: when admin enables this in HRM, every punch
-        // must include a captured photo regardless of Face ID being on/off.
-        // Previously this flag was stored and surfaced to the UI but never
-        // enforced server-side.
-        if ((settings?.RequirePhotoProof ?? false))
-        {
-            var img = request.FaceImageUrl ?? string.Empty;
-            // Require a non-trivial base64 payload (>100 chars filters empty / placeholder strings).
-            if (string.IsNullOrWhiteSpace(img) || img.Length < 100)
-            {
-                _logger.LogWarning("❌ PUNCH REJECT: RequirePhotoProof=true but no photo submitted");
-                return BadRequest(AppResponse<object>.Fail("Cần chụp ảnh chứng minh khi chấm công. Vui lòng bật camera và chụp ảnh."));
-            }
-        }
-
 
 
 
@@ -4534,12 +4457,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         var today = serverPunchTime.Date;
 
 
-        // Serialize per-employee duplicate-check + insert to prevent concurrent
-        // requests from both bypassing MaxPunchesPerDay / MinPunchInterval.
-        var __punchLock = GetPunchLock(storeId, request.EmployeeId);
-        await __punchLock.WaitAsync();
-        try
-        {
         var todayCount = await _dbContext.MobileAttendanceRecords
 
 
@@ -4594,9 +4511,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            // Only treat as duplicate if the previous punch is the SAME type.
-            // A user may legitimately punch IN then OUT in quick succession
-            // (e.g. quick errand) — we should not block opposite-type punches.
             var lastPunch = await _dbContext.MobileAttendanceRecords
 
 
@@ -4604,7 +4518,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                     && r.StoreId == storeId
-                    && r.PunchType == request.PunchType
 
 
                     && r.Deleted == null)
@@ -4738,11 +4651,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         }) ?? new List<MobileWorkLocation>();
 
-        // Apply store-level GPS radius cap from settings (defensive: never
-        // larger than the per-location radius). Without this, the field shown
-        // in HRM "GPS radius" had no effect on the punch decision.
-        var settingsGpsRadius = settings?.GpsRadiusMeters ?? 0;
-
 
 
 
@@ -4772,11 +4680,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                     locationName = loc.Name;
-                    // Effective radius = min(location radius, store-level cap if set).
-                    var effectiveRadius = settingsGpsRadius > 0
-                        ? Math.Min(loc.Radius, settingsGpsRadius)
-                        : loc.Radius;
-                    isInRange = d <= effectiveRadius;
+
+
+                    isInRange = d <= loc.Radius;
 
 
                 }
@@ -4985,16 +4891,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             }
 
-            // Require manager-approved face registration. Self-service registration
-            // creates a record with IsVerified=false; allowing it to be used would
-            // let an unverified spoofed photo become a valid template the moment
-            // the device is approved. Block until verified.
-            if (faceReg != null && !faceReg.IsVerified)
-            {
-                _logger.LogWarning("❌ PUNCH REJECT: face registration not yet verified for {EmpId}", request.EmployeeId);
-                return BadRequest(AppResponse<object>.Fail("Khuôn mặt đăng ký chưa được quản lý duyệt. Vui lòng chờ duyệt trước khi chấm công."));
-            }
-
 
 
 
@@ -5015,7 +4911,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             // through to the slow server-side path.
             var requireLiveness = settings?.EnableLivenessDetection ?? true;
             var livenessOk = !requireLiveness || request.LivenessPassed;
-            _ = livenessOk; // referenced indirectly by the requireLiveness gate below.
 
 
             // SECURITY: Never trust clientFaceScore from the mobile app as the
@@ -5028,12 +4923,11 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             // clientFaceScore. Force the server-side comparison path on every
             // request; the client score is still logged for debugging but is
             // no longer authoritative.
-            // SECURITY: client-supplied face score is never authoritative. The
-            // unsafe "fast path" that trusted it has been removed. We always
-            // run the server-side comparator (slow path) below.
-            // Field kept (unused) so downstream code referencing clientFaceScore
-            // for logging continues to compile.
-            _ = clientFaceScore;
+            var trustClient = false;
+
+            // Previous (unsafe) logic kept for reference only:
+            // var trustClient = hasRegistration && hasClientImage
+            //     && clientFaceScore >= minFaceScore && livenessOk;
 
 
 
@@ -5148,6 +5042,120 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                     request.EmployeeId);
+
+
+            }
+
+
+            else if (hasRegistration && imageBytes != null && trustClient)
+
+
+            {
+
+
+                // FAST PATH: client already did on-device face comparison with the same
+
+
+                // registered images using TFLite / HOG+LBP. Trust its score to avoid the
+
+
+                // expensive synchronous Google Drive upload + server-side recomparison,
+
+
+                // which is the primary cause of multi-second punch latency reported by users.
+
+
+                serverFaceScore = clientFaceScore;
+
+
+                isFaceVerified = true;
+
+
+
+
+
+                var empId = request.EmployeeId;
+
+
+                var imageBytesCopy = imageBytes;
+
+
+                var extCopy = imageExt ?? ".jpg";
+
+
+                var faceFileName = $"punch_{empId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extCopy}";
+
+
+                // Resolve store folder synchronously (needs HttpContext.CurrentStoreId) BEFORE
+
+
+                // kicking off the background task; Task.Run has no HTTP scope.
+
+
+                var uploadFolderForBg = await GetStoreFolderAsync("uploads/face-verifications");
+
+
+                faceImageStoredPath = $"{uploadFolderForBg.TrimEnd('/')}/{faceFileName}";
+
+
+                var storageSvc = _fileStorageService;
+
+
+                var logger = _logger;
+
+
+
+
+
+                // Fire-and-forget: persist for audit in the background; do not block the response.
+
+
+                _ = Task.Run(async () =>
+
+
+                {
+
+
+                    try
+
+
+                    {
+
+
+                        using var ms = new MemoryStream(imageBytesCopy);
+
+
+                        await storageSvc.UploadAsync(ms, faceFileName, uploadFolderForBg);
+
+
+                    }
+
+
+                    catch (Exception ex)
+
+
+                    {
+
+
+                        logger.LogWarning(ex, "Background save of punch face image failed for {EmployeeId}", empId);
+
+
+                    }
+
+
+                });
+
+
+
+
+
+                _logger.LogInformation(
+
+
+                    "Trusting client face score for employee {EmpId}: clientScore={Score}, threshold={Threshold} (image saved async)",
+
+
+                    request.EmployeeId, clientFaceScore, minFaceScore);
 
 
             }
@@ -5552,15 +5560,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // NOTE: when enableFace=true, serverFaceScore is always assigned
-        // (either by the comparator or 0.0 on failure). So the previous
-        // `serverFaceScore == null` block was dead code and never fired.
-        // Hard-fail when Face ID is required but no registration exists is
-        // now handled inside the face verification block (serverFaceScore=0.0)
-        // and surfaced through the verificationMode gate below.
+        // BLOCK: If Face ID is enabled and employee has no face registration, reject the punch
 
 
-        _logger.LogWarning("ℹ️ PUNCH STEP 5: enableFace={Face}, enableGps={Gps}, enableWifi={Wifi}, mode={Mode}, isFaceVerified={FV}, isInRange={IR}, isWifiVerified={WV}, allowOutside={AO}",
+        if (enableFace && !isFaceVerified && serverFaceScore == null)
+
+
+        {
+
+
+            _logger.LogWarning("❌ PUNCH REJECT: no face registration");
+
+
+            return BadRequest(AppResponse<object>.Fail("Nh�n vi�n chua dang k� khu�n m?t. Vui l�ng dang k� Face ID tru?c khi ch?m c�ng."));
+
+
+        }
+
+
+
+
+
+        _logger.LogWarning("ðŸ“Œ PUNCH STEP 5: enableFace={Face}, enableGps={Gps}, enableWifi={Wifi}, mode={Mode}, isFaceVerified={FV}, isInRange={IR}, isWifiVerified={WV}, allowOutside={AO}",
 
 
             enableFace, enableGps, enableWifi, verificationMode, isFaceVerified, isInRange, isWifiVerified, allowOutside);
@@ -5569,10 +5590,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Build enabled / passed lists. AllowOutside relaxes ONLY the GPS
-        // requirement (the device is approved to check-in outside the
-        // company perimeter); identity (face) and WiFi rules still apply.
+        if (!allowOutside)
+
+
         {
+
+
+            // Count which enabled methods passed
+
+
             var enabledMethods = new List<string>();
 
 
@@ -5583,7 +5609,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             if (enableFace) { enabledMethods.Add("face"); if (isFaceVerified) passedMethods.Add("face"); }
-            if (enableGps && !allowOutside) { enabledMethods.Add("gps"); if (isInRange) passedMethods.Add("gps"); }
+
+
+            if (enableGps) { enabledMethods.Add("gps"); if (isInRange) passedMethods.Add("gps"); }
 
 
             if (enableWifi) { enabledMethods.Add("wifi"); if (isWifiVerified) passedMethods.Add("wifi"); }
@@ -5592,7 +5620,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            _logger.LogWarning("ℹ️ PUNCH STEP 5b: enabled=[{Enabled}], passed=[{Passed}], allowOutside={AllowOutside}", string.Join(",", enabledMethods), string.Join(",", passedMethods), allowOutside);
+            _logger.LogWarning("ðŸ“Œ PUNCH STEP 5b: enabled=[{Enabled}], passed=[{Passed}]", string.Join(",", enabledMethods), string.Join(",", passedMethods));
 
 
 
@@ -5670,12 +5698,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         var autoApprove = settings?.AutoApproveInRange ?? true;
 
 
-        // Auto-approve when at least one verification signal succeeded
-        // (or the device is allowed to check-in outside the company).
-        // Previous logic ignored Face entirely — stores configured with
-        // Face-only verification always landed in 'pending'.
-        var anyVerified = isFaceVerified || isInRange || isWifiVerified || allowOutside;
-        var status = (anyVerified && autoApprove) ? "auto_approved" : "pending";
+
+
+
+        var status = ((isInRange || isWifiVerified || allowOutside) && autoApprove) ? "auto_approved" : "pending";
 
 
 
@@ -5753,9 +5779,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             WifiSsid = matchedWifiSsid ?? request.WifiSsid,
 
 
-            WifiBssid = isWifiVerified && !string.IsNullOrEmpty(request.WifiBssid)
-                ? NormalizeBssidHex(request.WifiBssid)
-                : null,
+            WifiBssid = isWifiVerified ? request.WifiBssid : null,
 
 
             WifiIpAddress = isWifiVerified ? (HttpContext.Connection.RemoteIpAddress?.ToString()) : null,
@@ -5792,6 +5816,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         await _dbContext.SaveChangesAsync();
+
+
+
 
 
         _logger.LogWarning("✅ PUNCH SAVED: Id={Id}", record.Id);
@@ -5926,7 +5953,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var __response = Ok(AppResponse<object>.Success(new
+        return Ok(AppResponse<object>.Success(new
 
 
         {
@@ -5960,13 +5987,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         }));
-
-        return __response;
-        }
-        finally
-        {
-            __punchLock.Release();
-        }
 
 
     }
@@ -7485,7 +7505,6 @@ public class AuthorizeDeviceRequest
 
 
     public bool AllowOutsideCheckIn { get; set; } = false;
-    public string? WifiBssid { get; set; }
 
 
 }

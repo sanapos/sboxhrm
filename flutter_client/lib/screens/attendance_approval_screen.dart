@@ -13,7 +13,8 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
-  const AttendanceApprovalScreen({super.key});
+  final String? highlightId;
+  const AttendanceApprovalScreen({super.key, this.highlightId});
 
   @override
   State<AttendanceApprovalScreen> createState() =>
@@ -145,7 +146,25 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    Map<String, dynamic>? match;
+    for (final r in _requests) {
+      if (r['id']?.toString() == id) { match = r; break; }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showRequestDetail(match!);
+    });
   }
 
   void _applyDatePreset(String preset) {

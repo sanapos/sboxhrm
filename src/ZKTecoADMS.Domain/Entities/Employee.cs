@@ -101,6 +101,8 @@ public class Employee : AuditableEntity<Guid>
 
     public DateTime? ProbationEndDate { get; set; } // Ngày hết thử việc
 
+    public DateTime? ContractEndDate { get; set; } // Ngày hết hạn hợp đồng
+
     public EmployeeWorkStatus WorkStatus { get; set; } // Trạng thái làm việc (Đang làm / Nghỉ phép / Nghỉ việc)
     
     public DateTime? ResignationDate { get; set; } // Ngày nghỉ việc

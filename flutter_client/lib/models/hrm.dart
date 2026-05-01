@@ -888,6 +888,7 @@ class Shift {
   final int? lateGraceMinutes;
   final int? earlyLeaveGraceMinutes;
   final String? shiftType;
+  final String? overnightCutoffTime; // HH:mm:ss — only for overnight shifts
 
   Shift({
     required this.id,
@@ -906,6 +907,7 @@ class Shift {
     this.lateGraceMinutes,
     this.earlyLeaveGraceMinutes,
     this.shiftType,
+    this.overnightCutoffTime,
   });
 
   factory Shift.fromJson(Map<String, dynamic> json) {
@@ -942,6 +944,9 @@ class Shift {
       lateGraceMinutes: json['lateGraceMinutes'],
       earlyLeaveGraceMinutes: json['earlyLeaveGraceMinutes'],
       shiftType: json['shiftType'],
+      overnightCutoffTime: json['overnightCutoffTime'] != null
+          ? formatTime(json['overnightCutoffTime'])
+          : null,
     );
   }
 }

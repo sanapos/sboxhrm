@@ -2888,6 +2888,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<DateTime?>("ProbationEndDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("ContractEndDate")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime?>("ResignationDate")
                         .HasColumnType("timestamp without time zone");
 

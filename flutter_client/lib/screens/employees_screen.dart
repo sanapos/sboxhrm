@@ -25,7 +25,8 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 
 class EmployeesScreen extends StatefulWidget {
-  const EmployeesScreen({super.key});
+  final String? highlightId;
+  const EmployeesScreen({super.key, this.highlightId});
 
   @override
   State<EmployeesScreen> createState() => _EmployeesScreenState();
@@ -33,7 +34,8 @@ class EmployeesScreen extends StatefulWidget {
 
 class _EmployeesScreenState extends State<EmployeesScreen> {
   AppLocalizations get _l10n => AppLocalizations.of(context);
-  PermissionProvider get _perm => Provider.of<PermissionProvider>(context, listen: false);
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
   static const _module = 'Employee';
   final ApiService _apiService = ApiService();
   List<Employee> _employees = [];
@@ -208,7 +210,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       final d = int.tryParse(dobStr.substring(0, 2));
       final m = int.tryParse(dobStr.substring(2, 4));
       final y = int.tryParse(dobStr.substring(4, 8));
-      if (y != null && m != null && d != null && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      if (y != null &&
+          m != null &&
+          d != null &&
+          m >= 1 &&
+          m <= 12 &&
+          d >= 1 &&
+          d <= 31) {
         dob = DateTime(y, m, d);
       }
     } else if (dobStr.contains('/')) {
@@ -430,7 +438,25 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      _maybeOpenHighlight();
     }
+  }
+
+  bool _highlightOpened = false;
+  void _maybeOpenHighlight() {
+    if (_highlightOpened) return;
+    final id = widget.highlightId;
+    if (id == null || id.isEmpty) return;
+    Employee? match;
+    for (final e in _employees) {
+      if (e.id == id) { match = e; break; }
+    }
+    if (match == null) return;
+    _highlightOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showEmployeeDetails(match!);
+    });
   }
 
   void _applyFilters() {
@@ -471,7 +497,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       final result = await _apiService.exportEmployeesExcel();
       if (result['isSuccess'] == true) {
         final bytes = Uint8List.fromList(List<int>.from(result['data']));
-        await file_saver.saveFileBytes(bytes, 'nhan_vien_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await file_saver.saveFileBytes(
+            bytes,
+            'nhan_vien_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         _showSuccess(_l10n.exportExcelSuccess);
       } else {
         _showError(result['message'] ?? _l10n.exportExcelFailed);
@@ -801,21 +830,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         },
                         itemBuilder: (_) => [
                           if (_perm.canCreate(_module))
-                          PopupMenuItem(
-                              value: 'import',
-                              child: Row(children: [
-                                const Icon(Icons.upload_file, size: 18),
-                                const SizedBox(width: 10),
-                                Text(_l10n.importExcel)
-                              ])),
+                            PopupMenuItem(
+                                value: 'import',
+                                child: Row(children: [
+                                  const Icon(Icons.upload_file, size: 18),
+                                  const SizedBox(width: 10),
+                                  Text(_l10n.importExcel)
+                                ])),
                           if (_perm.canExport(_module))
-                          PopupMenuItem(
-                              value: 'export',
-                              child: Row(children: [
-                                const Icon(Icons.download, size: 18),
-                                const SizedBox(width: 10),
-                                Text(_l10n.exportExcel)
-                              ])),
+                            PopupMenuItem(
+                                value: 'export',
+                                child: Row(children: [
+                                  const Icon(Icons.download, size: 18),
+                                  const SizedBox(width: 10),
+                                  Text(_l10n.exportExcel)
+                                ])),
                           PopupMenuItem(
                               value: 'dept',
                               child: Row(children: [
@@ -859,24 +888,22 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       ),
                       const Spacer(),
                       if (_perm.canCreate(_module))
-                      _buildHeaderActionBtn(Icons.person_add, _l10n.addEmployee,
-                          () => _showEmployeeForm(null)),
+                        _buildHeaderActionBtn(Icons.person_add,
+                            _l10n.addEmployee, () => _showEmployeeForm(null)),
+                      if (_perm.canCreate(_module)) const SizedBox(width: 8),
                       if (_perm.canCreate(_module))
-                      const SizedBox(width: 8),
-                      if (_perm.canCreate(_module))
-                      _buildHeaderActionBtn(
-                        Icons.upload_file,
-                        _isImporting ? 'Importing...' : _l10n.importExcel,
-                        _isImporting ? null : _importEmployeesExcel,
-                      ),
+                        _buildHeaderActionBtn(
+                          Icons.upload_file,
+                          _isImporting ? 'Importing...' : _l10n.importExcel,
+                          _isImporting ? null : _importEmployeesExcel,
+                        ),
+                      if (_perm.canExport(_module)) const SizedBox(width: 8),
                       if (_perm.canExport(_module))
-                      const SizedBox(width: 8),
-                      if (_perm.canExport(_module))
-                      _buildHeaderActionBtn(
-                        Icons.download,
-                        _isExporting ? 'Exporting...' : _l10n.exportExcel,
-                        _isExporting ? null : _exportEmployeesExcel,
-                      ),
+                        _buildHeaderActionBtn(
+                          Icons.download,
+                          _isExporting ? 'Exporting...' : _l10n.exportExcel,
+                          _isExporting ? null : _exportEmployeesExcel,
+                        ),
                       const SizedBox(width: 8),
                       _buildHeaderActionBtn(Icons.business, _l10n.department,
                           () => NavigationNotifier.goToDepartments()),
@@ -1036,9 +1063,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     String? selectedManagerId;
 
     final List<String> defaultPositionSuggestions = [
-      'Giám đốc', 'Phó Giám đốc', 'Trưởng phòng', 'Phó phòng',
-      'Trưởng nhóm', 'Phó nhóm', 'Nhân viên', 'Thực tập sinh',
-      'Chuyên viên', 'Kế toán trưởng', 'Thư ký', 'Tổ trưởng',
+      'Giám đốc',
+      'Phó Giám đốc',
+      'Trưởng phòng',
+      'Phó phòng',
+      'Trưởng nhóm',
+      'Phó nhóm',
+      'Nhân viên',
+      'Thực tập sinh',
+      'Chuyên viên',
+      'Kế toán trưởng',
+      'Thư ký',
+      'Tổ trưởng',
     ];
     List<String> selectedPositions = [];
 
@@ -1088,11 +1124,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         value: null,
                         child: Text('Không có (Phòng ban gốc)'),
                       ),
-                      ..._departmentList
-                          .map((d) => DropdownMenuItem(
-                                value: d.id,
-                                child: Text(d.name),
-                              )),
+                      ..._departmentList.map((d) => DropdownMenuItem(
+                            value: d.id,
+                            child: Text(d.name),
+                          )),
                     ],
                     onChanged: (v) =>
                         setDeptDialogState(() => selectedParentId = v),
@@ -1114,8 +1149,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       ),
                       ..._employees.map((emp) {
                         final fullName =
-                            '${emp.lastName} ${emp.firstName}'
-                                .trim();
+                            '${emp.lastName} ${emp.firstName}'.trim();
                         return DropdownMenuItem(
                           value: emp.id,
                           child: Row(
@@ -1159,8 +1193,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             children: selectedPositions
                                 .map((pos) => Chip(
                                       label: Text(pos,
-                                          style:
-                                              const TextStyle(fontSize: 13)),
+                                          style: const TextStyle(fontSize: 13)),
                                       deleteIcon:
                                           const Icon(Icons.close, size: 16),
                                       onDeleted: () {
@@ -1175,26 +1208,23 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           ),
                         const SizedBox(height: 6),
                         Autocomplete<String>(
-                          optionsBuilder:
-                              (TextEditingValue textEditingValue) {
+                          optionsBuilder: (TextEditingValue textEditingValue) {
                             if (textEditingValue.text.isEmpty) {
-                              return defaultPositionSuggestions.where(
-                                  (s) => !selectedPositions.contains(s));
+                              return defaultPositionSuggestions
+                                  .where((s) => !selectedPositions.contains(s));
                             }
                             return defaultPositionSuggestions
-                                .where(
-                                    (s) => !selectedPositions.contains(s))
+                                .where((s) => !selectedPositions.contains(s))
                                 .where((s) => s.toLowerCase().contains(
                                     textEditingValue.text.toLowerCase()));
                           },
-                          fieldViewBuilder: (context, controller, focusNode,
-                              onSubmitted) {
+                          fieldViewBuilder:
+                              (context, controller, focusNode, onSubmitted) {
                             return TextField(
                               controller: controller,
                               focusNode: focusNode,
                               decoration: const InputDecoration(
-                                hintText:
-                                    'Nhập chức vụ hoặc chọn gợi ý...',
+                                hintText: 'Nhập chức vụ hoặc chọn gợi ý...',
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding:
@@ -1228,20 +1258,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   .take(6)
                                   .map((s) => ActionChip(
                                         label: Text(s,
-                                            style: const TextStyle(
-                                                fontSize: 12)),
+                                            style:
+                                                const TextStyle(fontSize: 12)),
                                         onPressed: () {
-                                          if (!selectedPositions
-                                              .contains(s)) {
-                                            setDeptDialogState(() =>
-                                                selectedPositions.add(s));
+                                          if (!selectedPositions.contains(s)) {
+                                            setDeptDialogState(
+                                                () => selectedPositions.add(s));
                                           }
                                         },
-                                        visualDensity:
-                                            VisualDensity.compact,
+                                        visualDensity: VisualDensity.compact,
                                         materialTapTargetSize:
-                                            MaterialTapTargetSize
-                                                .shrinkWrap,
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ))
                                   .toList(),
                             ),
@@ -1284,7 +1311,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               parentDepartmentId: selectedParentId,
               managerId: selectedManagerId,
               sortOrder: int.tryParse(sortOrderController.text) ?? 0,
-              positions: selectedPositions.isNotEmpty ? selectedPositions : null,
+              positions:
+                  selectedPositions.isNotEmpty ? selectedPositions : null,
             );
             if (!ctx.mounted) return;
             Navigator.pop(ctx);
@@ -1294,14 +1322,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 departmentController.text = name;
               });
               if (mounted) {
-                NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã thêm phòng ban "$name"');
+                NotificationOverlayManager().showSuccess(
+                    title: 'Thành công', message: 'Đã thêm phòng ban "$name"');
               }
             } else {
               if (mounted) {
-                NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi tạo phòng ban');
+                NotificationOverlayManager().showError(
+                    title: 'Lỗi',
+                    message: result['message'] ?? 'Lỗi tạo phòng ban');
               }
             }
           }
+
           if (isMobile) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
@@ -1894,109 +1926,112 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           ),
         ),
-        if (!isMobile) Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade200)),
-          ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              Text(
-                totalCount > 0
-                    ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
-                    : 'Không có dữ liệu',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Hiển thị:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                  const SizedBox(width: 8),
-                  Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _pageSize,
-                        isDense: true,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                        items: _pageSizeOptions
-                            .map((s) =>
-                                DropdownMenuItem(value: s, child: Text('$s')))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() {
-                              _pageSize = v;
-                              _currentPage = 1;
-                            });
-                          }
-                        },
+        if (!isMobile)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Text(
+                  totalCount > 0
+                      ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
+                      : 'Không có dữ liệu',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Hiển thị:',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: _pageSize,
+                          isDense: true,
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[800]),
+                          items: _pageSizeOptions
+                              .map((s) =>
+                                  DropdownMenuItem(value: s, child: Text('$s')))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() {
+                                _pageSize = v;
+                                _currentPage = 1;
+                              });
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.first_page, size: 20),
-                    onPressed: _currentPage > 1
-                        ? () => setState(() => _currentPage = 1)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, size: 20),
-                    onPressed: _currentPage > 1
-                        ? () => setState(() => _currentPage--)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(8),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.first_page, size: 20),
+                      onPressed: _currentPage > 1
+                          ? () => setState(() => _currentPage = 1)
+                          : null,
+                      visualDensity: VisualDensity.compact,
                     ),
-                    child: Text('$_currentPage / $totalPages',
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, size: 20),
-                    onPressed: _currentPage < totalPages
-                        ? () => setState(() => _currentPage++)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.last_page, size: 20),
-                    onPressed: _currentPage < totalPages
-                        ? () => setState(() => _currentPage = totalPages)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ],
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, size: 20),
+                      onPressed: _currentPage > 1
+                          ? () => setState(() => _currentPage--)
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$_currentPage / $totalPages',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, size: 20),
+                      onPressed: _currentPage < totalPages
+                          ? () => setState(() => _currentPage++)
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.last_page, size: 20),
+                      onPressed: _currentPage < totalPages
+                          ? () => setState(() => _currentPage = totalPages)
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -2015,7 +2050,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               backgroundImage: employee.avatarUrl != null
                   ? NetworkImage(_apiService.getFileUrl(employee.avatarUrl!))
                   : null,
-              onBackgroundImageError: employee.avatarUrl != null ? (_, __) {} : null,
+              onBackgroundImageError:
+                  employee.avatarUrl != null ? (_, __) {} : null,
               child: employee.avatarUrl == null
                   ? Icon(
                       employee.gender?.toLowerCase() == 'female' ||
@@ -2041,7 +2077,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Text(employee.employeeCode,
                           style: const TextStyle(
-                              color: Color(0xFF3B82F6), fontSize: 11, fontWeight: FontWeight.w500)),
+                              color: Color(0xFF3B82F6),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
                       if (employee.department != null) ...[
                         const Text(' · ',
                             style: TextStyle(
@@ -2058,7 +2096,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   Row(
                     children: [
                       if (employee.position != null) ...[
-                        const Icon(Icons.work_outline, size: 11, color: Color(0xFFA1A1AA)),
+                        const Icon(Icons.work_outline,
+                            size: 11, color: Color(0xFFA1A1AA)),
                         const SizedBox(width: 3),
                         Flexible(
                             child: Text(employee.position!,
@@ -2066,12 +2105,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     color: Color(0xFF71717A), fontSize: 11),
                                 overflow: TextOverflow.ellipsis)),
                       ],
-                      if (employee.position != null && employee.phone != null && employee.phone!.isNotEmpty)
+                      if (employee.position != null &&
+                          employee.phone != null &&
+                          employee.phone!.isNotEmpty)
                         const Text(' · ',
                             style: TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 11)),
-                      if (employee.phone != null && employee.phone!.isNotEmpty) ...[
-                        const Icon(Icons.phone_outlined, size: 11, color: Color(0xFFA1A1AA)),
+                      if (employee.phone != null &&
+                          employee.phone!.isNotEmpty) ...[
+                        const Icon(Icons.phone_outlined,
+                            size: 11, color: Color(0xFFA1A1AA)),
                         const SizedBox(width: 3),
                         Text(employee.phone!,
                             style: const TextStyle(
@@ -2110,21 +2153,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.visibility, size: 20),
                       SizedBox(width: 12),
-                      Text('Xem chi tiết'),
+                      Text('View Details'),
                     ],
                   ),
                 ),
                 if (_perm.canEdit(_module))
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 12),
-                      Text('Chỉnh sửa'),
-                    ],
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 12),
+                        Text('Edit'),
+                      ],
+                    ),
                   ),
-                ),
                 if (employee.phone != null && employee.phone!.isNotEmpty)
                   const PopupMenuItem(
                     value: 'call',
@@ -2132,7 +2175,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       children: [
                         Icon(Icons.phone, size: 20, color: Colors.green),
                         SizedBox(width: 12),
-                        Text('Gọi điện', style: TextStyle(color: Colors.green)),
+                        Text('Call', style: TextStyle(color: Colors.green)),
                       ],
                     ),
                   ),
@@ -2142,23 +2185,23 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.payments, size: 20, color: Colors.blue),
                       SizedBox(width: 12),
-                      Text('Cài đặt lương',
+                      Text('Salary Settings',
                           style: TextStyle(color: Colors.blue)),
                     ],
                   ),
                 ),
                 if (_perm.canDelete(_module))
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete, size: 20, color: Colors.red),
-                      const SizedBox(width: 12),
-                      Text(_l10n.delete,
-                          style: const TextStyle(color: Colors.red)),
-                    ],
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete, size: 20, color: Colors.red),
+                        const SizedBox(width: 12),
+                        Text(_l10n.delete,
+                            style: const TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ],
@@ -2236,6 +2279,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     // ignore: unused_local_variable
     DateTime? selectedDateOfBirth = employee?.dateOfBirth;
     DateTime? selectedJoinDate = employee?.joinDate;
+    DateTime? selectedContractEndDate = employee?.contractEndDate;
     String? selectedManagerId = employee?.managerId;
     String? selectedManagerName = employee?.managerName;
 
@@ -2262,1180 +2306,1209 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           final formContent = SingleChildScrollView(
             padding: isMobileForm ? const EdgeInsets.all(16) : EdgeInsets.zero,
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ===== ẢNH ĐẠI DIỆN =====
-                  _buildSectionHeader('Ảnh đại diện'),
-                  Center(
-                    child: InkWell(
-                      onTap: () async {
-                        final path = await _pickAndCropImage(
-                          uploadFn: _apiService.uploadEmployeePhoto,
-                          isCircle: true,
-                        );
-                        if (path != null) {
-                          setDialogState(() => photoUrl = path);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(60),
-                      child: CircleAvatar(
-                        radius: 55,
-                        backgroundColor: Colors.grey[200],
-                        backgroundImage: photoUrl != null
-                            ? NetworkImage(_apiService.getFileUrl(photoUrl!))
-                            : null,
-                        onBackgroundImageError: photoUrl != null ? (_, __) {} : null,
-                        child: photoUrl == null
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    selectedGender == 'Nữ'
-                                        ? Icons.woman_rounded
-                                        : Icons.man_rounded,
-                                    size: 40,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text('Tải ảnh lên',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey[500])),
-                                ],
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ===== THÔNG TIN CƠ BẢN =====
-                  _buildSectionHeader('Thông tin cơ bản'),
-
-                  // QR CCCD Scanner button
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final result = await showDialog<String>(
-                          context: context,
-                          builder: (_) => const _CccdQrScannerDialog(),
-                        );
-                        if (result != null && result.isNotEmpty) {
-                          final parsed = _parseCccdQr(result);
-                          if (parsed != null) {
-                            setDialogState(() {
-                              if (parsed['cccd'] != null) {
-                                nationalIdController.text = parsed['cccd']!;
-                              }
-                              if (parsed['fullName'] != null) {
-                                fullNameController.text = parsed['fullName']!;
-                                autoFillBankAccountName();
-                              }
-                              if (parsed['dob'] != null) {
-                                selectedDateOfBirth =
-                                    parsed['dob'] as DateTime?;
-                              }
-                              if (parsed['gender'] != null) {
-                                selectedGender = parsed['gender'];
-                              }
-                              if (parsed['address'] != null) {
-                                permanentAddressController.text =
-                                    parsed['address']!;
-                              }
-                              if (parsed['province'] != null) {
-                                selectedHometown = parsed['province'];
-                              }
-                            });
-                            NotificationOverlayManager().showSuccess(title: 'CCCD', message: 'Đã điền thông tin từ CCCD');
-                          } else {
-                            NotificationOverlayManager().showError(title: 'Lỗi', message: 'Mã QR không đúng định dạng CCCD');
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.qr_code_scanner, size: 20),
-                      label: const Text('Quét QR căn cước công dân'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0C56D0),
-                        side: const BorderSide(color: Color(0xFF0C56D0)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-
-                  if (isMobileForm) ...[
-                    TextField(
-                      controller: employeeCodeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Mã nhân viên *',
-                        prefixIcon: Icon(Icons.badge),
-                      ),
-                      enabled: !isEditing,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: fullNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên nhân viên *',
-                        prefixIcon: Icon(Icons.person),
-                        hintText: 'VD: Nguyễn Văn A',
-                      ),
-                      onChanged: (_) => autoFillBankAccountName(),
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: employeeCodeController,
-                            decoration: const InputDecoration(
-                              labelText: 'Mã nhân viên *',
-                              prefixIcon: Icon(Icons.badge),
-                            ),
-                            enabled: !isEditing,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: fullNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Tên nhân viên *',
-                              prefixIcon: Icon(Icons.person),
-                              hintText: 'VD: Nguyễn Văn A',
-                            ),
-                            onChanged: (_) => autoFillBankAccountName(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  if (isMobileForm) ...[
-                    DropdownButtonFormField<String>(
-                      initialValue: _genders.contains(selectedGender)
-                          ? selectedGender
-                          : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Giới tính',
-                        prefixIcon: Icon(Icons.wc),
-                      ),
-                      items: _genders
-                          .map((g) =>
-                              DropdownMenuItem(value: g, child: Text(g)))
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => selectedGender = value),
-                    ),
-                    const SizedBox(height: 12),
-                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate:
-                              selectedDateOfBirth ?? DateTime(1990),
-                          firstDate: DateTime(1950),
-                          lastDate: DateTime.now(),
-                        );
-                        if (date != null) {
-                          setDialogState(() => selectedDateOfBirth = date);
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: _l10n.birthDate,
-                          prefixIcon: const Icon(Icons.cake),
-                        ),
-                        child: Text(
-                          selectedDateOfBirth != null
-                              ? DateFormat('dd/MM/yyyy')
-                                  .format(selectedDateOfBirth!)
-                              : 'Chọn ngày',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue:
-                          _maritalStatuses.contains(selectedMaritalStatus)
-                              ? selectedMaritalStatus
-                              : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Tình trạng hôn nhân',
-                        prefixIcon: Icon(Icons.favorite),
-                      ),
-                      items: _maritalStatuses
-                          .map((s) =>
-                              DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
-                      onChanged: (value) => setDialogState(
-                          () => selectedMaritalStatus = value),
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _genders.contains(selectedGender)
-                                ? selectedGender
-                                : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Giới tính',
-                              prefixIcon: Icon(Icons.wc),
-                            ),
-                            items: _genders
-                                .map((g) =>
-                                    DropdownMenuItem(value: g, child: Text(g)))
-                                .toList(),
-                            onChanged: (value) =>
-                                setDialogState(() => selectedGender = value),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate:
-                                    selectedDateOfBirth ?? DateTime(1990),
-                                firstDate: DateTime(1950),
-                                lastDate: DateTime.now(),
-                              );
-                              if (date != null) {
-                                setDialogState(() => selectedDateOfBirth = date);
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: _l10n.birthDate,
-                                prefixIcon: const Icon(Icons.cake),
-                              ),
-                              child: Text(
-                                selectedDateOfBirth != null
-                                    ? DateFormat('dd/MM/yyyy')
-                                        .format(selectedDateOfBirth!)
-                                    : 'Chọn ngày',
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue:
-                                _maritalStatuses.contains(selectedMaritalStatus)
-                                    ? selectedMaritalStatus
-                                    : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Tình trạng hôn nhân',
-                              prefixIcon: Icon(Icons.favorite),
-                            ),
-                            items: _maritalStatuses
-                                .map((s) =>
-                                    DropdownMenuItem(value: s, child: Text(s)))
-                                .toList(),
-                            onChanged: (value) => setDialogState(
-                                () => selectedMaritalStatus = value),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nationalIdController,
-                    decoration: const InputDecoration(
-                      labelText: 'Số CCCD/CMND',
-                      prefixIcon: Icon(Icons.credit_card),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Quê quán — Autocomplete 34 tỉnh thành
-                  Autocomplete<String>(
-                    initialValue:
-                        TextEditingValue(text: selectedHometown ?? ''),
-                    optionsBuilder: (TextEditingValue textEditingValue) {
-                      if (textEditingValue.text.isEmpty) {
-                        return _vietnamProvinces;
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ===== ẢNH ĐẠI DIỆN =====
+                _buildSectionHeader('Ảnh đại diện'),
+                Center(
+                  child: InkWell(
+                    onTap: () async {
+                      final path = await _pickAndCropImage(
+                        uploadFn: _apiService.uploadEmployeePhoto,
+                        isCircle: true,
+                      );
+                      if (path != null) {
+                        setDialogState(() => photoUrl = path);
                       }
-                      return _vietnamProvinces.where((p) => p
-                          .toLowerCase()
-                          .contains(textEditingValue.text.toLowerCase()));
                     },
-                    onSelected: (String selection) {
-                      selectedHometown = selection;
-                    },
-                    fieldViewBuilder: (context, controller, focusNode,
-                        onFieldSubmitted) {
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        onChanged: (value) => selectedHometown = value,
-                        decoration: const InputDecoration(
-                          labelText: 'Quê quán',
-                          prefixIcon: Icon(Icons.location_on_outlined),
-                          hintText: 'Chọn hoặc tìm tỉnh/thành...',
-                        ),
+                    borderRadius: BorderRadius.circular(60),
+                    child: CircleAvatar(
+                      radius: 55,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: photoUrl != null
+                          ? NetworkImage(_apiService.getFileUrl(photoUrl!))
+                          : null,
+                      onBackgroundImageError:
+                          photoUrl != null ? (_, __) {} : null,
+                      child: photoUrl == null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  selectedGender == 'Nữ'
+                                      ? Icons.woman_rounded
+                                      : Icons.man_rounded,
+                                  size: 40,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Tải ảnh lên',
+                                    style: TextStyle(
+                                        fontSize: 10, color: Colors.grey[500])),
+                              ],
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ===== THÔNG TIN CƠ BẢN =====
+                _buildSectionHeader('Thông tin cơ bản'),
+
+                // QR CCCD Scanner button
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await showDialog<String>(
+                        context: context,
+                        builder: (_) => const _CccdQrScannerDialog(),
                       );
+                      if (result != null && result.isNotEmpty) {
+                        final parsed = _parseCccdQr(result);
+                        if (parsed != null) {
+                          setDialogState(() {
+                            if (parsed['cccd'] != null) {
+                              nationalIdController.text = parsed['cccd']!;
+                            }
+                            if (parsed['fullName'] != null) {
+                              fullNameController.text = parsed['fullName']!;
+                              autoFillBankAccountName();
+                            }
+                            if (parsed['dob'] != null) {
+                              selectedDateOfBirth = parsed['dob'] as DateTime?;
+                            }
+                            if (parsed['gender'] != null) {
+                              selectedGender = parsed['gender'];
+                            }
+                            if (parsed['address'] != null) {
+                              permanentAddressController.text =
+                                  parsed['address']!;
+                            }
+                            if (parsed['province'] != null) {
+                              selectedHometown = parsed['province'];
+                            }
+                          });
+                          NotificationOverlayManager().showSuccess(
+                              title: 'CCCD',
+                              message: 'Đã điền thông tin từ CCCD');
+                        } else {
+                          NotificationOverlayManager().showError(
+                              title: 'Lỗi',
+                              message: 'Mã QR không đúng định dạng CCCD');
+                        }
+                      }
                     },
-                    optionsViewBuilder: (context, onSelected, options) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4.0,
-                          borderRadius: BorderRadius.circular(10),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                                maxHeight: 250,
-                                maxWidth: MediaQuery.of(context)
-                                            .size
-                                            .width <
-                                        600
-                                    ? MediaQuery.of(context).size.width -
-                                        48
-                                    : 320),
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              itemCount: options.length,
-                              itemBuilder: (context, index) {
-                                final option = options.elementAt(index);
-                                return ListTile(
-                                  dense: true,
-                                  leading: const Icon(Icons.location_on,
-                                      size: 16, color: Color(0xFF1E3A5F)),
-                                  title: Text(option,
-                                      style:
-                                          const TextStyle(fontSize: 13)),
-                                  onTap: () => onSelected(option),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                    icon: const Icon(Icons.qr_code_scanner, size: 20),
+                    label: const Text('Quét QR căn cước công dân'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0C56D0),
+                      side: const BorderSide(color: Color(0xFF0C56D0)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+
+                if (isMobileForm) ...[
+                  TextField(
+                    controller: employeeCodeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Mã nhân viên *',
+                      prefixIcon: Icon(Icons.badge),
+                    ),
+                    enabled: !isEditing,
                   ),
                   const SizedBox(height: 12),
-                  // Trình độ học vấn
-                  DropdownButtonFormField<String>(
-                    initialValue: const [
-                      'Trung học',
-                      'Trung cấp',
-                      'Cao đẳng',
-                      'Đại học',
-                      'Thạc sĩ',
-                      'Tiến sĩ',
-                      'Khác'
-                    ].contains(selectedEducationLevel)
-                        ? selectedEducationLevel
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Trình độ học vấn',
-                      prefixIcon: Icon(Icons.school),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'Trung học', child: Text('Trung học')),
-                      DropdownMenuItem(
-                          value: 'Trung cấp', child: Text('Trung cấp')),
-                      DropdownMenuItem(
-                          value: 'Cao đẳng', child: Text('Cao đẳng')),
-                      DropdownMenuItem(
-                          value: 'Đại học', child: Text('Đại học')),
-                      DropdownMenuItem(
-                          value: 'Thạc sĩ', child: Text('Thạc sĩ')),
-                      DropdownMenuItem(
-                          value: 'Tiến sĩ', child: Text('Tiến sĩ')),
-                      DropdownMenuItem(
-                          value: 'Khác', child: Text('Khác')),
-                    ],
-                    onChanged: (value) {
-                      selectedEducationLevel = value;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Thông tin liên hệ
-                  _buildSectionHeader('Thông tin liên hệ'),
-                  if (isMobileForm) ...[
-                    TextField(
-                      controller: phoneController,
-                      decoration: InputDecoration(
-                        labelText: _l10n.phone,
-                        prefixIcon: const Icon(Icons.phone),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email cá nhân',
-                        prefixIcon: Icon(Icons.email),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: phoneController,
-                            decoration: InputDecoration(
-                              labelText: _l10n.phone,
-                              prefixIcon: const Icon(Icons.phone),
-                            ),
-                            keyboardType: TextInputType.phone,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
-                            controller: emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email cá nhân',
-                              prefixIcon: Icon(Icons.email),
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  if (isMobileForm) ...[
-                    TextField(
-                      controller: emergencyContactNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên người thân',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: emergencyContactController,
-                      decoration: const InputDecoration(
-                        labelText: 'SĐT người thân',
-                        prefixIcon: Icon(Icons.contact_phone),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: emergencyContactNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Tên người thân',
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
-                            controller: emergencyContactController,
-                            decoration: const InputDecoration(
-                              labelText: 'SĐT người thân',
-                              prefixIcon: Icon(Icons.contact_phone),
-                            ),
-                            keyboardType: TextInputType.phone,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
                   TextField(
-                    controller: permanentAddressController,
-                    decoration: InputDecoration(
-                      labelText: _l10n.address,
-                      prefixIcon: const Icon(Icons.home),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: temporaryAddressController,
+                    controller: fullNameController,
                     decoration: const InputDecoration(
-                      labelText: 'Địa chỉ tạm trú',
-                      prefixIcon: Icon(Icons.location_on),
+                      labelText: 'Tên nhân viên *',
+                      prefixIcon: Icon(Icons.person),
+                      hintText: 'VD: Nguyễn Văn A',
                     ),
+                    onChanged: (_) => autoFillBankAccountName(),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Thông tin công việc
-                  _buildSectionHeader('Thông tin công việc'),
-                  if (isMobileForm) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _departments
-                                    .where((d) => d != 'Tất cả')
-                                    .contains(departmentController.text)
-                                ? departmentController.text
-                                : null,
-                            decoration: InputDecoration(
-                              labelText: _l10n.department,
-                              prefixIcon: const Icon(Icons.business),
-                              hintText: 'Select department',
-                            ),
-                            items: _departments
-                                .where((d) => d != 'Tất cả')
-                                .map((d) =>
-                                    DropdownMenuItem(value: d, child: Text(d)))
-                                .toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                departmentController.text = value ?? '';
-                                positionController.text = '';
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: Color(0xFF1E3A5F)),
-                          tooltip: 'Thêm phòng ban mới',
-                          onPressed: () => _showQuickAddDepartmentDialog(
-                              setDialogState, departmentController),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Builder(
-                      builder: (context) {
-                        final deptName = departmentController.text;
-                        final availablePositions = deptName.isNotEmpty &&
-                                _departmentPositions.containsKey(deptName)
-                            ? _departmentPositions[deptName]!
-                            : _positions;
-                        return DropdownButtonFormField<String>(
-                          initialValue: availablePositions
-                                  .contains(positionController.text)
-                              ? positionController.text
-                              : null,
-                          decoration: InputDecoration(
-                            labelText: _l10n.position,
-                            prefixIcon: const Icon(Icons.work),
-                            hintText: deptName.isEmpty
-                                ? 'Select department first'
-                                : 'Select position',
-                          ),
-                          items: availablePositions
-                              .map((p) => DropdownMenuItem(
-                                  value: p, child: Text(p)))
-                              .toList(),
-                          onChanged: deptName.isEmpty
-                              ? null
-                              : (value) {
-                                  setDialogState(() {
-                                    positionController.text = value ?? '';
-                                  });
-                                },
-                        );
-                      },
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        // Department dropdown from API
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _departments
-                                    .where((d) => d != 'Tất cả')
-                                    .contains(departmentController.text)
-                                ? departmentController.text
-                                : null,
-                            decoration: InputDecoration(
-                              labelText: _l10n.department,
-                              prefixIcon: const Icon(Icons.business),
-                              hintText: 'Select department',
-                            ),
-                            items: _departments
-                                .where((d) => d != 'Tất cả')
-                                .map((d) =>
-                                    DropdownMenuItem(value: d, child: Text(d)))
-                                .toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                departmentController.text = value ?? '';
-                                // Reset position when department changes
-                                positionController.text = '';
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // Quick add department button
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: Color(0xFF1E3A5F)),
-                          tooltip: 'Thêm phòng ban mới',
-                          onPressed: () => _showQuickAddDepartmentDialog(
-                              setDialogState, departmentController),
-                        ),
-                        const SizedBox(width: 16),
-                        // Position dropdown linked to department
-                        Expanded(
-                          child: Builder(
-                            builder: (context) {
-                              final deptName = departmentController.text;
-                              final availablePositions = deptName.isNotEmpty &&
-                                      _departmentPositions.containsKey(deptName)
-                                  ? _departmentPositions[deptName]!
-                                  : _positions;
-                              return DropdownButtonFormField<String>(
-                                initialValue: availablePositions
-                                        .contains(positionController.text)
-                                    ? positionController.text
-                                    : null,
-                                decoration: InputDecoration(
-                                  labelText: _l10n.position,
-                                  prefixIcon: const Icon(Icons.work),
-                                  hintText: deptName.isEmpty
-                                      ? 'Select department first'
-                                      : 'Select position',
-                                ),
-                                items: availablePositions
-                                    .map((p) => DropdownMenuItem(
-                                        value: p, child: Text(p)))
-                                    .toList(),
-                                onChanged: deptName.isEmpty
-                                    ? null
-                                    : (value) {
-                                        setDialogState(() {
-                                          positionController.text = value ?? '';
-                                        });
-                                      },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-
-                  // Manager field - show for all positions
-                  if (positionController.text.isNotEmpty) ...[
-                    Autocomplete<Employee>(
-                      initialValue:
-                          TextEditingValue(text: selectedManagerName ?? ''),
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        final managers = _employees.where((e) =>
-                            e.id != employee?.id &&
-                            e.position != null &&
-                            e.position != 'Nhân viên' &&
-                            e.position != 'Thực tập sinh');
-                        if (textEditingValue.text.isEmpty) {
-                          return managers.take(10);
-                        }
-                        return managers.where((e) => e.fullName
-                            .toLowerCase()
-                            .contains(textEditingValue.text.toLowerCase()));
-                      },
-                      displayStringForOption: (Employee emp) =>
-                          '${emp.fullName} (${emp.position ?? ""})',
-                      onSelected: (Employee selection) {
-                        setDialogState(() {
-                          selectedManagerId = selection.id;
-                          selectedManagerName = selection.fullName;
-                        });
-                      },
-                      fieldViewBuilder:
-                          (context, controller, focusNode, onFieldSubmitted) {
-                        if (controller.text.isEmpty &&
-                            selectedManagerName != null) {
-                          controller.text = selectedManagerName!;
-                        }
-                        return TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: const InputDecoration(
-                            labelText: 'Người quản lý',
-                            prefixIcon: Icon(Icons.supervisor_account),
-                            hintText: 'Chọn quản lý',
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (isMobileForm) ...[
-                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: selectedJoinDate ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (date != null) {
-                          setDialogState(() => selectedJoinDate = date);
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Ngày vào làm',
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(
-                          selectedJoinDate != null
-                              ? DateFormat('dd/MM/yyyy')
-                                  .format(selectedJoinDate!)
-                              : 'Chọn ngày',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: companyEmailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email công ty',
-                        prefixIcon: Icon(Icons.alternate_email),
-                        hintText: 'VD: nva@company.com',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: selectedJoinDate ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate:
-                                    DateTime.now().add(const Duration(days: 365)),
-                              );
-                              if (date != null) {
-                                setDialogState(() => selectedJoinDate = date);
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Ngày vào làm',
-                                prefixIcon: Icon(Icons.calendar_today),
-                              ),
-                              child: Text(
-                                selectedJoinDate != null
-                                    ? DateFormat('dd/MM/yyyy')
-                                        .format(selectedJoinDate!)
-                                    : 'Chọn ngày',
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
-                            controller: companyEmailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email công ty',
-                              prefixIcon: Icon(Icons.alternate_email),
-                              hintText: 'VD: nva@company.com',
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
+                ] else ...[
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _statuses
-                                  .where((s) => s != 'Tất cả')
-                                  .contains(selectedWorkStatus)
-                              ? selectedWorkStatus
-                              : 'Đang làm việc',
-                          decoration: InputDecoration(
-                            labelText: _l10n.status,
-                            prefixIcon: const Icon(Icons.toggle_on),
+                        child: TextField(
+                          controller: employeeCodeController,
+                          decoration: const InputDecoration(
+                            labelText: 'Mã nhân viên *',
+                            prefixIcon: Icon(Icons.badge),
                           ),
-                          items: _statuses
-                              .where((s) => s != 'Tất cả')
-                              .map((s) =>
-                                  DropdownMenuItem(value: s, child: Text(s)))
-                              .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setDialogState(() => selectedWorkStatus = value);
-                            }
-                          },
+                          enabled: !isEditing,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Thông tin ngân hàng
-                  _buildSectionHeader('Thông tin ngân hàng'),
-                  Autocomplete<String>(
-                          initialValue:
-                              TextEditingValue(text: selectedBank ?? ''),
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text.isEmpty) {
-                              return _vietnamBanks;
-                            }
-                            return _vietnamBanks.where((bank) => bank
-                                .toLowerCase()
-                                .contains(textEditingValue.text.toLowerCase()));
-                          },
-                          onSelected: (String selection) {
-                            setDialogState(() => selectedBank = selection);
-                          },
-                          fieldViewBuilder: (context, controller, focusNode,
-                              onFieldSubmitted) {
-                            if (controller.text.isEmpty &&
-                                selectedBank != null &&
-                                selectedBank!.isNotEmpty) {
-                              controller.text = selectedBank!;
-                            }
-                            return TextField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              onChanged: (value) =>
-                                  setDialogState(() => selectedBank = value),
-                              decoration: const InputDecoration(
-                                labelText: 'Ngân hàng',
-                                prefixIcon: Icon(Icons.account_balance),
-                                hintText: 'Chọn hoặc nhập ngân hàng',
-                              ),
-                            );
-                          },
-                          optionsViewBuilder: (context, onSelected, options) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 4.0,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                      maxHeight: 300,
-                                      maxWidth: MediaQuery.of(context)
-                                                  .size
-                                                  .width <
-                                              600
-                                          ? MediaQuery.of(context).size.width -
-                                              48
-                                          : 400),
-                                  child: ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    shrinkWrap: true,
-                                    itemCount: options.length,
-                                    itemBuilder: (context, index) {
-                                      final option = options.elementAt(index);
-                                      return ListTile(
-                                        dense: true,
-                                        title: Text(option,
-                                            style:
-                                                const TextStyle(fontSize: 13)),
-                                        onTap: () => onSelected(option),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                  ),
-                  const SizedBox(height: 16),
-                  if (isMobileForm) ...[
-                    Focus(
-                      onFocusChange: (hasFocus) {
-                        if (hasFocus &&
-                            bankAccountNameController.text.isEmpty &&
-                            fullNameController.text.isNotEmpty) {
-                          final suggestion = _removeVietnameseAccents(
-                                  fullNameController.text)
-                              .toUpperCase();
-                          setDialogState(() {
-                            bankAccountNameController.text = suggestion;
-                            bankAccountNameController.selection =
-                                TextSelection(
-                                    baseOffset: 0,
-                                    extentOffset: suggestion.length);
-                          });
-                        }
-                      },
-                      child: TextField(
-                        controller: bankAccountNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Tên chủ tài khoản',
-                          prefixIcon: Icon(Icons.person_outline),
-                          hintText: 'VD: NGUYEN VAN A',
-                        ),
-                        textCapitalization: TextCapitalization.characters,
-                        onChanged: (value) {
-                          final uppercaseValue =
-                              _removeVietnameseAccents(value).toUpperCase();
-                          if (value != uppercaseValue) {
-                            bankAccountNameController.value =
-                                TextEditingValue(
-                              text: uppercaseValue,
-                              selection: TextSelection.collapsed(
-                                  offset: uppercaseValue.length),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: bankAccountNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Số tài khoản',
-                        prefixIcon: Icon(Icons.numbers),
-                        hintText: 'VD: 1234567890',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Focus(
-                            onFocusChange: (hasFocus) {
-                              if (hasFocus &&
-                                  bankAccountNameController.text.isEmpty &&
-                                  fullNameController.text.isNotEmpty) {
-                                final suggestion = _removeVietnameseAccents(
-                                        fullNameController.text)
-                                    .toUpperCase();
-                                setDialogState(() {
-                                  bankAccountNameController.text = suggestion;
-                                  bankAccountNameController.selection =
-                                      TextSelection(
-                                          baseOffset: 0,
-                                          extentOffset: suggestion.length);
-                                });
-                              }
-                            },
-                            child: TextField(
-                              controller: bankAccountNameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Tên chủ tài khoản',
-                                prefixIcon: Icon(Icons.person_outline),
-                                hintText: 'VD: NGUYEN VAN A',
-                              ),
-                              textCapitalization: TextCapitalization.characters,
-                              onChanged: (value) {
-                                // Convert to uppercase without accents
-                                final uppercaseValue =
-                                    _removeVietnameseAccents(value).toUpperCase();
-                                if (value != uppercaseValue) {
-                                  bankAccountNameController.value =
-                                      TextEditingValue(
-                                    text: uppercaseValue,
-                                    selection: TextSelection.collapsed(
-                                        offset: uppercaseValue.length),
-                                  );
-                                }
-                              },
-                            ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: fullNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tên nhân viên *',
+                            prefixIcon: Icon(Icons.person),
+                            hintText: 'VD: Nguyễn Văn A',
                           ),
+                          onChanged: (_) => autoFillBankAccountName(),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
-                            controller: bankAccountNumberController,
-                            decoration: const InputDecoration(
-                              labelText: 'Số tài khoản',
-                              prefixIcon: Icon(Icons.numbers),
-                              hintText: 'VD: 1234567890',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-
-                  // ===== ẢNH CCCD =====
-                  _buildSectionHeader('Ảnh CCCD'),
-                  Row(
-                    children: [
-                      // CCCD front
-                      _buildImageUploadBox(
-                        label: 'CCCD mặt trước',
-                        imageUrl: cccdFrontUrl,
-                        icon: Icons.credit_card,
-                        onPick: () async {
-                          final path = await _pickAndCropImage(
-                            uploadFn: _apiService.uploadCccdFront,
-                            aspectRatio: 1.585,
-                          );
-                          if (path != null) {
-                            setDialogState(() => cccdFrontUrl = path);
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      // CCCD back
-                      _buildImageUploadBox(
-                        label: 'CCCD mặt sau',
-                        imageUrl: cccdBackUrl,
-                        icon: Icons.credit_card,
-                        onPick: () async {
-                          final path = await _pickAndCropImage(
-                            uploadFn: _apiService.uploadCccdBack,
-                            aspectRatio: 1.585,
-                          );
-                          if (path != null) {
-                            setDialogState(() => cccdBackUrl = path);
-                          }
-                        },
                       ),
                     ],
                   ),
                 ],
-              ),
-            );
+                const SizedBox(height: 16),
+                if (isMobileForm) ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: _genders.contains(selectedGender)
+                        ? selectedGender
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Giới tính',
+                      prefixIcon: Icon(Icons.wc),
+                    ),
+                    items: _genders
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (value) =>
+                        setDialogState(() => selectedGender = value),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDateOfBirth ?? DateTime(1990),
+                        firstDate: DateTime(1950),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setDialogState(() => selectedDateOfBirth = date);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: _l10n.birthDate,
+                        prefixIcon: const Icon(Icons.cake),
+                      ),
+                      child: Text(
+                        selectedDateOfBirth != null
+                            ? DateFormat('dd/MM/yyyy')
+                                .format(selectedDateOfBirth!)
+                            : 'Chọn ngày',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue:
+                        _maritalStatuses.contains(selectedMaritalStatus)
+                            ? selectedMaritalStatus
+                            : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Tình trạng hôn nhân',
+                      prefixIcon: Icon(Icons.favorite),
+                    ),
+                    items: _maritalStatuses
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (value) =>
+                        setDialogState(() => selectedMaritalStatus = value),
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _genders.contains(selectedGender)
+                              ? selectedGender
+                              : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Giới tính',
+                            prefixIcon: Icon(Icons.wc),
+                          ),
+                          items: _genders
+                              .map((g) =>
+                                  DropdownMenuItem(value: g, child: Text(g)))
+                              .toList(),
+                          onChanged: (value) =>
+                              setDialogState(() => selectedGender = value),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate:
+                                  selectedDateOfBirth ?? DateTime(1990),
+                              firstDate: DateTime(1950),
+                              lastDate: DateTime.now(),
+                            );
+                            if (date != null) {
+                              setDialogState(() => selectedDateOfBirth = date);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: _l10n.birthDate,
+                              prefixIcon: const Icon(Icons.cake),
+                            ),
+                            child: Text(
+                              selectedDateOfBirth != null
+                                  ? DateFormat('dd/MM/yyyy')
+                                      .format(selectedDateOfBirth!)
+                                  : 'Chọn ngày',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue:
+                              _maritalStatuses.contains(selectedMaritalStatus)
+                                  ? selectedMaritalStatus
+                                  : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Tình trạng hôn nhân',
+                            prefixIcon: Icon(Icons.favorite),
+                          ),
+                          items: _maritalStatuses
+                              .map((s) =>
+                                  DropdownMenuItem(value: s, child: Text(s)))
+                              .toList(),
+                          onChanged: (value) => setDialogState(
+                              () => selectedMaritalStatus = value),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nationalIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'Số CCCD/CMND',
+                    prefixIcon: Icon(Icons.credit_card),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Quê quán — Autocomplete 34 tỉnh thành
+                Autocomplete<String>(
+                  initialValue: TextEditingValue(text: selectedHometown ?? ''),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return _vietnamProvinces;
+                    }
+                    return _vietnamProvinces.where((p) => p
+                        .toLowerCase()
+                        .contains(textEditingValue.text.toLowerCase()));
+                  },
+                  onSelected: (String selection) {
+                    selectedHometown = selection;
+                  },
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: (value) => selectedHometown = value,
+                      decoration: const InputDecoration(
+                        labelText: 'Quê quán',
+                        prefixIcon: Icon(Icons.location_on_outlined),
+                        hintText: 'Chọn hoặc tìm tỉnh/thành...',
+                      ),
+                    );
+                  },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        borderRadius: BorderRadius.circular(10),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxHeight: 250,
+                              maxWidth: MediaQuery.of(context).size.width < 600
+                                  ? MediaQuery.of(context).size.width - 48
+                                  : 320),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (context, index) {
+                              final option = options.elementAt(index);
+                              return ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.location_on,
+                                    size: 16, color: Color(0xFF1E3A5F)),
+                                title: Text(option,
+                                    style: const TextStyle(fontSize: 13)),
+                                onTap: () => onSelected(option),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                // Trình độ học vấn
+                DropdownButtonFormField<String>(
+                  initialValue: const [
+                    'Trung học',
+                    'Trung cấp',
+                    'Cao đẳng',
+                    'Đại học',
+                    'Thạc sĩ',
+                    'Tiến sĩ',
+                    'Khác'
+                  ].contains(selectedEducationLevel)
+                      ? selectedEducationLevel
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Trình độ học vấn',
+                    prefixIcon: Icon(Icons.school),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'Trung học', child: Text('Trung học')),
+                    DropdownMenuItem(
+                        value: 'Trung cấp', child: Text('Trung cấp')),
+                    DropdownMenuItem(
+                        value: 'Cao đẳng', child: Text('Cao đẳng')),
+                    DropdownMenuItem(value: 'Đại học', child: Text('Đại học')),
+                    DropdownMenuItem(value: 'Thạc sĩ', child: Text('Thạc sĩ')),
+                    DropdownMenuItem(value: 'Tiến sĩ', child: Text('Tiến sĩ')),
+                    DropdownMenuItem(value: 'Khác', child: Text('Khác')),
+                  ],
+                  onChanged: (value) {
+                    selectedEducationLevel = value;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Thông tin liên hệ
+                _buildSectionHeader('Thông tin liên hệ'),
+                if (isMobileForm) ...[
+                  TextField(
+                    controller: phoneController,
+                    decoration: InputDecoration(
+                      labelText: _l10n.phone,
+                      prefixIcon: const Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email cá nhân',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: phoneController,
+                          decoration: InputDecoration(
+                            labelText: _l10n.phone,
+                            prefixIcon: const Icon(Icons.phone),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email cá nhân',
+                            prefixIcon: Icon(Icons.email),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (isMobileForm) ...[
+                  TextField(
+                    controller: emergencyContactNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tên người thân',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emergencyContactController,
+                    decoration: const InputDecoration(
+                      labelText: 'SĐT người thân',
+                      prefixIcon: Icon(Icons.contact_phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: emergencyContactNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tên người thân',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: emergencyContactController,
+                          decoration: const InputDecoration(
+                            labelText: 'SĐT người thân',
+                            prefixIcon: Icon(Icons.contact_phone),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: permanentAddressController,
+                  decoration: InputDecoration(
+                    labelText: _l10n.address,
+                    prefixIcon: const Icon(Icons.home),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: temporaryAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Địa chỉ tạm trú',
+                    prefixIcon: Icon(Icons.location_on),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Thông tin công việc
+                _buildSectionHeader('Thông tin công việc'),
+                if (isMobileForm) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _departments
+                                  .where((d) => d != 'Tất cả')
+                                  .contains(departmentController.text)
+                              ? departmentController.text
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: _l10n.department,
+                            prefixIcon: const Icon(Icons.business),
+                            hintText: 'Select department',
+                          ),
+                          items: _departments
+                              .where((d) => d != 'Tất cả')
+                              .map((d) =>
+                                  DropdownMenuItem(value: d, child: Text(d)))
+                              .toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              departmentController.text = value ?? '';
+                              positionController.text = '';
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline,
+                            color: Color(0xFF1E3A5F)),
+                        tooltip: 'Thêm phòng ban mới',
+                        onPressed: () => _showQuickAddDepartmentDialog(
+                            setDialogState, departmentController),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(
+                    builder: (context) {
+                      final deptName = departmentController.text;
+                      final availablePositions = deptName.isNotEmpty &&
+                              _departmentPositions.containsKey(deptName)
+                          ? _departmentPositions[deptName]!
+                          : _positions;
+                      return DropdownButtonFormField<String>(
+                        initialValue:
+                            availablePositions.contains(positionController.text)
+                                ? positionController.text
+                                : null,
+                        decoration: InputDecoration(
+                          labelText: _l10n.position,
+                          prefixIcon: const Icon(Icons.work),
+                          hintText: deptName.isEmpty
+                              ? 'Select department first'
+                              : 'Select position',
+                        ),
+                        items: availablePositions
+                            .map((p) =>
+                                DropdownMenuItem(value: p, child: Text(p)))
+                            .toList(),
+                        onChanged: deptName.isEmpty
+                            ? null
+                            : (value) {
+                                setDialogState(() {
+                                  positionController.text = value ?? '';
+                                });
+                              },
+                      );
+                    },
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      // Department dropdown from API
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _departments
+                                  .where((d) => d != 'Tất cả')
+                                  .contains(departmentController.text)
+                              ? departmentController.text
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: _l10n.department,
+                            prefixIcon: const Icon(Icons.business),
+                            hintText: 'Select department',
+                          ),
+                          items: _departments
+                              .where((d) => d != 'Tất cả')
+                              .map((d) =>
+                                  DropdownMenuItem(value: d, child: Text(d)))
+                              .toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              departmentController.text = value ?? '';
+                              // Reset position when department changes
+                              positionController.text = '';
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // Quick add department button
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline,
+                            color: Color(0xFF1E3A5F)),
+                        tooltip: 'Thêm phòng ban mới',
+                        onPressed: () => _showQuickAddDepartmentDialog(
+                            setDialogState, departmentController),
+                      ),
+                      const SizedBox(width: 16),
+                      // Position dropdown linked to department
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final deptName = departmentController.text;
+                            final availablePositions = deptName.isNotEmpty &&
+                                    _departmentPositions.containsKey(deptName)
+                                ? _departmentPositions[deptName]!
+                                : _positions;
+                            return DropdownButtonFormField<String>(
+                              initialValue: availablePositions
+                                      .contains(positionController.text)
+                                  ? positionController.text
+                                  : null,
+                              decoration: InputDecoration(
+                                labelText: _l10n.position,
+                                prefixIcon: const Icon(Icons.work),
+                                hintText: deptName.isEmpty
+                                    ? 'Select department first'
+                                    : 'Select position',
+                              ),
+                              items: availablePositions
+                                  .map((p) => DropdownMenuItem(
+                                      value: p, child: Text(p)))
+                                  .toList(),
+                              onChanged: deptName.isEmpty
+                                  ? null
+                                  : (value) {
+                                      setDialogState(() {
+                                        positionController.text = value ?? '';
+                                      });
+                                    },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+
+                // Manager field - show for all positions
+                if (positionController.text.isNotEmpty) ...[
+                  Autocomplete<Employee>(
+                    initialValue:
+                        TextEditingValue(text: selectedManagerName ?? ''),
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      final managers = _employees.where((e) =>
+                          e.id != employee?.id &&
+                          e.position != null &&
+                          e.position != 'Nhân viên' &&
+                          e.position != 'Thực tập sinh');
+                      if (textEditingValue.text.isEmpty) {
+                        return managers.take(10);
+                      }
+                      return managers.where((e) => e.fullName
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase()));
+                    },
+                    displayStringForOption: (Employee emp) =>
+                        '${emp.fullName} (${emp.position ?? ""})',
+                    onSelected: (Employee selection) {
+                      setDialogState(() {
+                        selectedManagerId = selection.id;
+                        selectedManagerName = selection.fullName;
+                      });
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) {
+                      if (controller.text.isEmpty &&
+                          selectedManagerName != null) {
+                        controller.text = selectedManagerName!;
+                      }
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                          labelText: 'Người quản lý',
+                          prefixIcon: Icon(Icons.supervisor_account),
+                          hintText: 'Chọn quản lý',
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (isMobileForm) ...[
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedJoinDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) {
+                        setDialogState(() => selectedJoinDate = date);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Ngày vào làm',
+                        prefixIcon: Icon(Icons.calendar_today),
+                      ),
+                      child: Text(
+                        selectedJoinDate != null
+                            ? DateFormat('dd/MM/yyyy').format(selectedJoinDate!)
+                            : 'Chọn ngày',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: companyEmailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email công ty',
+                      prefixIcon: Icon(Icons.alternate_email),
+                      hintText: 'VD: nva@company.com',
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: selectedJoinDate ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (date != null) {
+                              setDialogState(() => selectedJoinDate = date);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Ngày vào làm',
+                              prefixIcon: Icon(Icons.calendar_today),
+                            ),
+                            child: Text(
+                              selectedJoinDate != null
+                                  ? DateFormat('dd/MM/yyyy')
+                                      .format(selectedJoinDate!)
+                                  : 'Chọn ngày',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: companyEmailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email công ty',
+                            prefixIcon: Icon(Icons.alternate_email),
+                            hintText: 'VD: nva@company.com',
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _statuses
+                                .where((s) => s != 'Tất cả')
+                                .contains(selectedWorkStatus)
+                            ? selectedWorkStatus
+                            : 'Đang làm việc',
+                        decoration: InputDecoration(
+                          labelText: _l10n.status,
+                          prefixIcon: const Icon(Icons.toggle_on),
+                        ),
+                        items: _statuses
+                            .where((s) => s != 'Tất cả')
+                            .map((s) =>
+                                DropdownMenuItem(value: s, child: Text(s)))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedWorkStatus = value);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedContractEndDate ?? DateTime.now().add(const Duration(days: 365)),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (date != null) {
+                            setDialogState(() => selectedContractEndDate = date);
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Hết hạn HĐ',
+                            prefixIcon: Icon(Icons.assignment_late_outlined),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                selectedContractEndDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(selectedContractEndDate!)
+                                    : 'Chọn ngày',
+                                style: TextStyle(
+                                  color: selectedContractEndDate != null
+                                      ? null
+                                      : Theme.of(context).hintColor,
+                                ),
+                              ),
+                              if (selectedContractEndDate != null)
+                                GestureDetector(
+                                  onTap: () => setDialogState(() => selectedContractEndDate = null),
+                                  child: const Icon(Icons.clear, size: 16),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Thông tin ngân hàng
+                _buildSectionHeader('Thông tin ngân hàng'),
+                Autocomplete<String>(
+                  initialValue: TextEditingValue(text: selectedBank ?? ''),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return _vietnamBanks;
+                    }
+                    return _vietnamBanks.where((bank) => bank
+                        .toLowerCase()
+                        .contains(textEditingValue.text.toLowerCase()));
+                  },
+                  onSelected: (String selection) {
+                    setDialogState(() => selectedBank = selection);
+                  },
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    if (controller.text.isEmpty &&
+                        selectedBank != null &&
+                        selectedBank!.isNotEmpty) {
+                      controller.text = selectedBank!;
+                    }
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: (value) =>
+                          setDialogState(() => selectedBank = value),
+                      decoration: const InputDecoration(
+                        labelText: 'Ngân hàng',
+                        prefixIcon: Icon(Icons.account_balance),
+                        hintText: 'Chọn hoặc nhập ngân hàng',
+                      ),
+                    );
+                  },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxHeight: 300,
+                              maxWidth: MediaQuery.of(context).size.width < 600
+                                  ? MediaQuery.of(context).size.width - 48
+                                  : 400),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (context, index) {
+                              final option = options.elementAt(index);
+                              return ListTile(
+                                dense: true,
+                                title: Text(option,
+                                    style: const TextStyle(fontSize: 13)),
+                                onTap: () => onSelected(option),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (isMobileForm) ...[
+                  Focus(
+                    onFocusChange: (hasFocus) {
+                      if (hasFocus &&
+                          bankAccountNameController.text.isEmpty &&
+                          fullNameController.text.isNotEmpty) {
+                        final suggestion =
+                            _removeVietnameseAccents(fullNameController.text)
+                                .toUpperCase();
+                        setDialogState(() {
+                          bankAccountNameController.text = suggestion;
+                          bankAccountNameController.selection = TextSelection(
+                              baseOffset: 0, extentOffset: suggestion.length);
+                        });
+                      }
+                    },
+                    child: TextField(
+                      controller: bankAccountNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên chủ tài khoản',
+                        prefixIcon: Icon(Icons.person_outline),
+                        hintText: 'VD: NGUYEN VAN A',
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                      onChanged: (value) {
+                        final uppercaseValue =
+                            _removeVietnameseAccents(value).toUpperCase();
+                        if (value != uppercaseValue) {
+                          bankAccountNameController.value = TextEditingValue(
+                            text: uppercaseValue,
+                            selection: TextSelection.collapsed(
+                                offset: uppercaseValue.length),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: bankAccountNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Số tài khoản',
+                      prefixIcon: Icon(Icons.numbers),
+                      hintText: 'VD: 1234567890',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Focus(
+                          onFocusChange: (hasFocus) {
+                            if (hasFocus &&
+                                bankAccountNameController.text.isEmpty &&
+                                fullNameController.text.isNotEmpty) {
+                              final suggestion = _removeVietnameseAccents(
+                                      fullNameController.text)
+                                  .toUpperCase();
+                              setDialogState(() {
+                                bankAccountNameController.text = suggestion;
+                                bankAccountNameController.selection =
+                                    TextSelection(
+                                        baseOffset: 0,
+                                        extentOffset: suggestion.length);
+                              });
+                            }
+                          },
+                          child: TextField(
+                            controller: bankAccountNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Tên chủ tài khoản',
+                              prefixIcon: Icon(Icons.person_outline),
+                              hintText: 'VD: NGUYEN VAN A',
+                            ),
+                            textCapitalization: TextCapitalization.characters,
+                            onChanged: (value) {
+                              // Convert to uppercase without accents
+                              final uppercaseValue =
+                                  _removeVietnameseAccents(value).toUpperCase();
+                              if (value != uppercaseValue) {
+                                bankAccountNameController.value =
+                                    TextEditingValue(
+                                  text: uppercaseValue,
+                                  selection: TextSelection.collapsed(
+                                      offset: uppercaseValue.length),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: bankAccountNumberController,
+                          decoration: const InputDecoration(
+                            labelText: 'Số tài khoản',
+                            prefixIcon: Icon(Icons.numbers),
+                            hintText: 'VD: 1234567890',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 24),
+
+                // ===== ẢNH CCCD =====
+                _buildSectionHeader('Ảnh CCCD'),
+                Row(
+                  children: [
+                    // CCCD front
+                    _buildImageUploadBox(
+                      label: 'CCCD mặt trước',
+                      imageUrl: cccdFrontUrl,
+                      icon: Icons.credit_card,
+                      onPick: () async {
+                        final path = await _pickAndCropImage(
+                          uploadFn: _apiService.uploadCccdFront,
+                          aspectRatio: 1.585,
+                        );
+                        if (path != null) {
+                          setDialogState(() => cccdFrontUrl = path);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    // CCCD back
+                    _buildImageUploadBox(
+                      label: 'CCCD mặt sau',
+                      imageUrl: cccdBackUrl,
+                      icon: Icons.credit_card,
+                      onPick: () async {
+                        final path = await _pickAndCropImage(
+                          uploadFn: _apiService.uploadCccdBack,
+                          aspectRatio: 1.585,
+                        );
+                        if (path != null) {
+                          setDialogState(() => cccdBackUrl = path);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
           Future<Null> onSave() async {
-                if (employeeCodeController.text.isEmpty ||
-                    fullNameController.text.isEmpty) {
-                  _showError('Vui lòng điền đầy đủ thông tin bắt buộc');
-                  return;
-                }
+            if (employeeCodeController.text.isEmpty ||
+                fullNameController.text.isEmpty) {
+              _showError('Vui lòng điền đầy đủ thông tin bắt buộc');
+              return;
+            }
 
-                Navigator.pop(context);
+            Navigator.pop(context);
 
-                // Map work status to int
-                int workStatusInt = 0;
-                if (selectedWorkStatus == 'Đang làm việc') {
-                  workStatusInt = 0;
-                } else if (selectedWorkStatus == 'Đang thử việc') {
-                  workStatusInt = 3;
-                } else if (selectedWorkStatus == 'Nghỉ phép') {
-                  workStatusInt = 1;
-                } else if (selectedWorkStatus == 'Đã nghỉ việc') {
-                  workStatusInt = 2;
-                }
+            // Map work status to int
+            int workStatusInt = 0;
+            if (selectedWorkStatus == 'Đang làm việc') {
+              workStatusInt = 0;
+            } else if (selectedWorkStatus == 'Đang thử việc') {
+              workStatusInt = 3;
+            } else if (selectedWorkStatus == 'Nghỉ phép') {
+              workStatusInt = 1;
+            } else if (selectedWorkStatus == 'Đã nghỉ việc') {
+              workStatusInt = 2;
+            }
 
-                final data = {
-                  'employeeCode': employeeCodeController.text,
-                  'firstName': fullNameController.text.split(' ').length > 1
-                      ? fullNameController.text.split(' ').last
-                      : fullNameController.text,
-                  'lastName': fullNameController.text.split(' ').length > 1
-                      ? fullNameController.text
-                          .split(' ')
-                          .sublist(
-                              0, fullNameController.text.split(' ').length - 1)
-                          .join(' ')
-                      : '',
-                  'phoneNumber': phoneController.text.isNotEmpty
-                      ? phoneController.text
+            final data = {
+              'employeeCode': employeeCodeController.text,
+              'firstName': fullNameController.text.split(' ').length > 1
+                  ? fullNameController.text.split(' ').last
+                  : fullNameController.text,
+              'lastName': fullNameController.text.split(' ').length > 1
+                  ? fullNameController.text
+                      .split(' ')
+                      .sublist(0, fullNameController.text.split(' ').length - 1)
+                      .join(' ')
+                  : '',
+              'phoneNumber':
+                  phoneController.text.isNotEmpty ? phoneController.text : null,
+              'personalEmail':
+                  emailController.text.isNotEmpty ? emailController.text : null,
+              'companyEmail': companyEmailController.text.isNotEmpty
+                  ? companyEmailController.text
+                  : '${employeeCodeController.text}@company.com',
+              'gender': selectedGender,
+              'dateOfBirth': selectedDateOfBirth?.toIso8601String(),
+              'nationalIdNumber': nationalIdController.text.isNotEmpty
+                  ? nationalIdController.text
+                  : null,
+              'permanentAddress': permanentAddressController.text.isNotEmpty
+                  ? permanentAddressController.text
+                  : null,
+              'temporaryAddress': temporaryAddressController.text.isNotEmpty
+                  ? temporaryAddressController.text
+                  : null,
+              'emergencyContactPhone':
+                  emergencyContactController.text.isNotEmpty
+                      ? emergencyContactController.text
                       : null,
-                  'personalEmail': emailController.text.isNotEmpty
-                      ? emailController.text
+              'emergencyContactName':
+                  emergencyContactNameController.text.isNotEmpty
+                      ? emergencyContactNameController.text
                       : null,
-                  'companyEmail': companyEmailController.text.isNotEmpty
-                      ? companyEmailController.text
-                      : '${employeeCodeController.text}@company.com',
-                  'gender': selectedGender,
-                  'dateOfBirth': selectedDateOfBirth?.toIso8601String(),
-                  'nationalIdNumber': nationalIdController.text.isNotEmpty
-                      ? nationalIdController.text
-                      : null,
-                  'permanentAddress': permanentAddressController.text.isNotEmpty
-                      ? permanentAddressController.text
-                      : null,
-                  'temporaryAddress': temporaryAddressController.text.isNotEmpty
-                      ? temporaryAddressController.text
-                      : null,
-                  'emergencyContactPhone':
-                      emergencyContactController.text.isNotEmpty
-                          ? emergencyContactController.text
-                          : null,
-                  'emergencyContactName':
-                      emergencyContactNameController.text.isNotEmpty
-                          ? emergencyContactNameController.text
-                          : null,
-                  'maritalStatus': selectedMaritalStatus,
-                  'hometown': (selectedHometown?.isNotEmpty == true)
-                      ? selectedHometown
-                      : null,
-                  'educationLevel': selectedEducationLevel,
-                  'department': departmentController.text.isNotEmpty
-                      ? departmentController.text
-                      : null,
-                  'position': positionController.text.isNotEmpty
-                      ? positionController.text
-                      : null,
-                  'joinDate': selectedJoinDate?.toIso8601String(),
-                  'workStatus': workStatusInt,
-                  'bankName':
-                      selectedBank?.isNotEmpty == true ? selectedBank : null,
-                  'bankAccountName': bankAccountNameController.text.isNotEmpty
-                      ? bankAccountNameController.text
-                      : null,
-                  'bankAccountNumber':
-                      bankAccountNumberController.text.isNotEmpty
-                          ? bankAccountNumberController.text
-                          : null,
-                  'photoUrl': photoUrl,
-                  'idCardFrontUrl': cccdFrontUrl,
-                  'idCardBackUrl': cccdBackUrl,
-                  'directManagerEmployeeId': selectedManagerId,
-                };
+              'maritalStatus': selectedMaritalStatus,
+              'hometown': (selectedHometown?.isNotEmpty == true)
+                  ? selectedHometown
+                  : null,
+              'educationLevel': selectedEducationLevel,
+              'department': departmentController.text.isNotEmpty
+                  ? departmentController.text
+                  : null,
+              'position': positionController.text.isNotEmpty
+                  ? positionController.text
+                  : null,
+              'joinDate': selectedJoinDate?.toIso8601String(),
+              'contractEndDate': selectedContractEndDate?.toIso8601String(),
+              'workStatus': workStatusInt,
+              'bankName':
+                  selectedBank?.isNotEmpty == true ? selectedBank : null,
+              'bankAccountName': bankAccountNameController.text.isNotEmpty
+                  ? bankAccountNameController.text
+                  : null,
+              'bankAccountNumber': bankAccountNumberController.text.isNotEmpty
+                  ? bankAccountNumberController.text
+                  : null,
+              'photoUrl': photoUrl,
+              'idCardFrontUrl': cccdFrontUrl,
+              'idCardBackUrl': cccdBackUrl,
+              'directManagerEmployeeId': selectedManagerId,
+            };
 
-                try {
-                  bool success;
-                  if (isEditing) {
-                    success =
-                        await _apiService.updateEmployee(employee.id, data);
-                  } else {
-                    success = await _apiService.createEmployee(data);
-                  }
-
-                  if (success) {
-                    _showSuccess(isEditing
-                        ? 'Đã cập nhật nhân viên'
-                        : 'Đã thêm nhân viên mới');
-                    await _loadEmployees(showLoading: false);
-                  } else {
-                    _showError(isEditing
-                        ? 'Không thể cập nhật nhân viên'
-                        : 'Không thể thêm nhân viên');
-                  }
-                } catch (e) {
-                  _showError('Lỗi: $e');
-                }
+            try {
+              bool success;
+              if (isEditing) {
+                success = await _apiService.updateEmployee(employee.id, data);
+              } else {
+                success = await _apiService.createEmployee(data);
               }
+
+              if (success) {
+                _showSuccess(isEditing
+                    ? 'Đã cập nhật nhân viên'
+                    : 'Đã thêm nhân viên mới');
+                await _loadEmployees(showLoading: false);
+              } else {
+                _showError(isEditing
+                    ? 'Không thể cập nhật nhân viên'
+                    : 'Không thể thêm nhân viên');
+              }
+            } catch (e) {
+              _showError('Lỗi: $e');
+            }
+          }
+
           if (isMobileForm) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
               child: SizedBox(
-                width: double.infinity, height: double.infinity,
+                width: double.infinity,
+                height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    title: Text(
+                        isEditing ? _l10n.editEmployee : _l10n.addNewEmployee),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: Text(_l10n.cancel)),
-                      const SizedBox(width: 12),
-                      ElevatedButton(onPressed: onSave, child: Text(isEditing ? _l10n.save : _l10n.addEmployee)),
-                    ]),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text(_l10n.cancel)),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                              onPressed: onSave,
+                              child: Text(
+                                  isEditing ? _l10n.save : _l10n.addEmployee)),
+                        ]),
                   ),
                 ),
               ),
@@ -3580,7 +3653,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         final actionButtons = [
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
-            child: Text(_l10n.cancel, style: const TextStyle(color: Colors.grey)),
+            child:
+                Text(_l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             onPressed: () => cropController.crop(),
@@ -3589,7 +3663,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E3A5F),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ];
@@ -3597,16 +3672,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           return Dialog(
             insetPadding: EdgeInsets.zero,
             child: SizedBox(
-              width: double.infinity, height: double.infinity,
+              width: double.infinity,
+              height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Cắt ảnh'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, null)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx, null)),
                 ),
-                body: Padding(padding: const EdgeInsets.all(16), child: cropWidget),
+                body: Padding(
+                    padding: const EdgeInsets.all(16), child: cropWidget),
                 bottomNavigationBar: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  child:
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                     actionButtons[0],
                     const SizedBox(width: 12),
                     actionButtons[1],
@@ -3622,13 +3702,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             children: [
               const Icon(Icons.crop, color: Color(0xFF1E3A5F)),
               const SizedBox(width: 8),
-              const Text('Cắt ảnh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Cắt ảnh',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
-              IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: () => Navigator.pop(ctx, null)),
+              IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(ctx, null)),
             ],
           ),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 500,
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width - 32
+                : 500,
             height: 450,
             child: cropWidget,
           ),
@@ -3698,7 +3783,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         return path as String;
       }
     }
-    
+
     // Handle error
     String errorMsg = res['message'] ?? 'Không thể tải ảnh lên';
     final statusCode = res['statusCode'];
@@ -3728,19 +3813,27 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           return Dialog(
             insetPadding: EdgeInsets.zero,
             child: SizedBox(
-              width: double.infinity, height: double.infinity,
+              width: double.infinity,
+              height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
                   title: Text(title),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, null)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx, null)),
                 ),
                 body: Padding(padding: const EdgeInsets.all(16), child: field),
                 bottomNavigationBar: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, null), child: Text(_l10n.cancel)),
+                  child:
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, null),
+                        child: Text(_l10n.cancel)),
                     const SizedBox(width: 12),
-                    ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Thêm')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, ctrl.text),
+                        child: const Text('Thêm')),
                   ]),
                 ),
               ),
@@ -3773,7 +3866,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           backgroundImage: employee.avatarUrl != null
               ? NetworkImage(_apiService.getFileUrl(employee.avatarUrl!))
               : null,
-          onBackgroundImageError: employee.avatarUrl != null ? (_, __) {} : null,
+          onBackgroundImageError:
+              employee.avatarUrl != null ? (_, __) {} : null,
           child: employee.avatarUrl == null
               ? Text(
                   employee.fullName.isNotEmpty
@@ -3837,7 +3931,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   : 'Chưa cập nhật'),
           _buildDetailItem(Icons.location_city, 'Quê quán',
               employee.hometown ?? 'Chưa cập nhật'),
-          _buildDetailItem(Icons.school, 'Trình độ học vấn',
+          _buildDetailItem(
+              Icons.school,
+              'Trình độ học vấn',
               employee.educationLevelDisplay.isNotEmpty
                   ? employee.educationLevelDisplay
                   : 'Chưa cập nhật'),
@@ -3848,8 +3944,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               Icons.phone, 'Số điện thoại', employee.phone ?? 'Chưa cập nhật'),
           _buildDetailItem(
               Icons.email, 'Email cá nhân', employee.email ?? 'Chưa cập nhật'),
-          _buildDetailItem(
-              Icons.alternate_email, 'Email công ty', employee.companyEmail ?? 'Chưa cập nhật'),
+          _buildDetailItem(Icons.alternate_email, 'Email công ty',
+              employee.companyEmail ?? 'Chưa cập nhật'),
           _buildDetailItem(Icons.person_outline, 'Tên người thân',
               employee.emergencyContactName ?? 'Chưa cập nhật'),
           _buildDetailItem(Icons.contact_phone, 'SĐT người thân',
@@ -3866,9 +3962,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           _buildDetailItem(
               Icons.work, 'Chức vụ', employee.position ?? 'Chưa cập nhật'),
           _buildDetailItem(
-              Icons.info_outline,
-              'Trạng thái',
-              employee.workStatusDisplay),
+              Icons.info_outline, 'Trạng thái', employee.workStatusDisplay),
           if (employee.managerName != null)
             _buildDetailItem(
                 Icons.supervisor_account, 'Quản lý', employee.managerName!),
@@ -3879,6 +3973,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ? DateFormat('dd/MM/yyyy').format(employee.joinDate!)
                 : 'Chưa cập nhật',
           ),
+          if (employee.contractEndDate != null)
+            _buildDetailItem(
+              Icons.assignment_late_outlined,
+              'Hết hạn HĐ',
+              DateFormat('dd/MM/yyyy').format(employee.contractEndDate!),
+            ),
         ]),
         const SizedBox(height: 16),
         _buildDetailSection('Thông tin ngân hàng', [
@@ -3942,14 +4042,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         child: const Text('Đóng'),
       ),
       if (_perm.canEdit(_module))
-      ElevatedButton.icon(
-        onPressed: () {
-          Navigator.pop(context);
-          _showEmployeeForm(employee);
-        },
-        icon: const Icon(Icons.edit),
-        label: const Text('Chỉnh sửa'),
-      ),
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pop(context);
+            _showEmployeeForm(employee);
+          },
+          icon: const Icon(Icons.edit),
+          label: const Text('Chỉnh sửa'),
+        ),
     ];
 
     if (isMobile) {
@@ -3980,10 +4080,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: actionButtons.map((btn) => Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: btn,
-                )).toList(),
+                children: actionButtons
+                    .map((btn) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: btn,
+                        ))
+                    .toList(),
               ),
             ),
           ),
@@ -4103,18 +4205,15 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
     _initScanner();
   }
 
-  void _initScanner() async {
+  void _initScanner() {
     try {
       _scannerController = MobileScannerController(
-        detectionSpeed: DetectionSpeed.normal,
+        detectionSpeed: DetectionSpeed.noDuplicates,
         facing: CameraFacing.back,
-        // Không filter formats: trên iOS mobile_scanner 7.x bị bổ sung bài toán
-        // đọc QR khi formats bị giới hạn. Để mặc định (all formats).
+        formats: [BarcodeFormat.qrCode],
       );
-      // mobile_scanner 7.x: phải gọi start() để iOS khởi camera.
-      await _scannerController!.start();
     } catch (e) {
-      if (mounted) setState(() => _cameraError = 'Không thể khởi tạo camera: $e');
+      setState(() => _cameraError = 'Không thể khởi tạo camera: $e');
     }
   }
 
@@ -4179,40 +4278,34 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               controller: _scannerController!,
                               errorBuilder: (context, error) {
                                 return _buildCameraError(
-                                  error.errorDetails?.message ?? 'Không thể truy cập camera',
+                                  error.errorDetails?.message ??
+                                      'Không thể truy cập camera',
                                 );
                               },
                               onDetect: (capture) {
                                 if (_hasScanned) return;
                                 final barcodes = capture.barcodes;
-                                if (barcodes.isEmpty) return;
-                                // Tìm mã đúng format CCCD (có dấu '|' và ít nhất 6 trường).
-                                String? validCode;
-                                String? anyCode;
-                                for (final b in barcodes) {
-                                  final v = b.rawValue;
-                                  if (v == null || v.isEmpty) continue;
-                                  anyCode ??= v;
-                                  if (v.contains('|') && v.split('|').length >= 6) {
-                                    validCode = v;
-                                    break;
+                                if (barcodes.isNotEmpty &&
+                                    barcodes.first.rawValue != null) {
+                                  final code = barcodes.first.rawValue!;
+                                  if (code.contains('|')) {
+                                    setState(() {
+                                      _hasScanned = true;
+                                      _scannedPreview = code;
+                                    });
+                                    Future.delayed(
+                                        const Duration(milliseconds: 300), () {
+                                      if (context.mounted)
+                                        Navigator.pop(context, code);
+                                    });
                                   }
                                 }
-                                final code = validCode ?? anyCode;
-                                if (code == null) return;
-                                setState(() {
-                                  _hasScanned = true;
-                                  _scannedPreview = code;
-                                });
-                                Future.delayed(const Duration(milliseconds: 300),
-                                    () {
-                                  if (context.mounted) Navigator.pop(context, code);
-                                });
                               },
                             ),
                           )
                         else
-                          _buildCameraError(_cameraError ?? 'Camera không khả dụng'),
+                          _buildCameraError(
+                              _cameraError ?? 'Camera không khả dụng'),
                         // Scan overlay
                         if (_cameraError == null && _scannerController != null)
                           Center(
@@ -4237,7 +4330,9 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                             ),
                           ),
                         // Torch toggle
-                        if (_cameraError == null && _scannerController != null && !_hasScanned)
+                        if (_cameraError == null &&
+                            _scannerController != null &&
+                            !_hasScanned)
                           Positioned(
                             bottom: 12,
                             right: 12,
@@ -4304,14 +4399,16 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                             Text(
                               'Mã QR nằm ở mặt sau của thẻ căn cước',
                               textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(color: Colors.grey[400], fontSize: 11),
+                              style: TextStyle(
+                                  color: Colors.grey[400], fontSize: 11),
                             ),
                             const SizedBox(height: 8),
                             TextButton.icon(
-                              onPressed: () => setState(() => _showManualInput = true),
+                              onPressed: () =>
+                                  setState(() => _showManualInput = true),
                               icon: const Icon(Icons.keyboard, size: 16),
-                              label: const Text('Nhập thủ công', style: TextStyle(fontSize: 12)),
+                              label: const Text('Nhập thủ công',
+                                  style: TextStyle(fontSize: 12)),
                             ),
                           ],
                         ),
@@ -4381,7 +4478,8 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             maxLines: 4,
             decoration: InputDecoration(
               hintText: 'VD: 079201001234|Nguyen Van A|...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               contentPadding: const EdgeInsets.all(12),
             ),
           ),

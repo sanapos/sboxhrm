@@ -48,6 +48,7 @@ public class EmployeeDto
     public EmploymentType EmploymentType { get; set; }
     public DateTime? JoinDate { get; set; }
     public DateTime? ProbationEndDate { get; set; }
+    public DateTime? ContractEndDate { get; set; }
     public EmployeeWorkStatus WorkStatus { get; set; }
     public Guid? DirectManagerEmployeeId { get; set; }
     public string? DirectManagerName { get; set; }

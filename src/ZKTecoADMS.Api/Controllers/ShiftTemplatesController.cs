@@ -33,6 +33,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
             request.EarlyLeaveGraceMinutes,
             request.OvertimeMinutesThreshold,
             request.ShiftType,
+            request.OvernightCutoffTime,
             request.Description,
             request.IsActive);   
         var result = await mediator.Send(command);
@@ -66,6 +67,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
             request.EarlyLeaveGraceMinutes,
             request.OvertimeMinutesThreshold,
             request.ShiftType,
+            request.OvernightCutoffTime,
             request.Description,
             request.IsActive);
         var result = await mediator.Send(command);

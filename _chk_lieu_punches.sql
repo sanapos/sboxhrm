@@ -1,0 +1,1 @@
+SELECT a."AttendanceTime", a."AttendanceState", a."PIN" FROM "AttendanceLogs" a JOIN "Devices" d ON a."DeviceId"=d."Id" WHERE d."StoreId"='985262f9-7166-47c9-9edd-1847f620a3a2' AND a."PIN"='0358968313' AND a."AttendanceTime" >= '2026-04-29' AND a."AttendanceTime" < '2026-05-01' ORDER BY a."AttendanceTime";

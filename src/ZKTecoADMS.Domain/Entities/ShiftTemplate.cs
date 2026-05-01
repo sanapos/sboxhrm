@@ -37,6 +37,12 @@ namespace ZKTecoADMS.Domain.Entities
         /// Loại ca: HanhChinh, TangCa, QuaDem
         /// </summary>
         public string? ShiftType { get; set; }
+
+        /// <summary>
+        /// Giờ qua đêm: mốc thời gian kết thúc ca đêm (phải > EndTime)
+        /// Ví dụ: Ca đêm 22:00-06:00, OvernightCutoffTime = 07:30
+        /// </summary>
+        public TimeSpan? OvernightCutoffTime { get; set; }
         
         public string? Description { get; set; }
         

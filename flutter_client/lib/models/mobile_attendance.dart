@@ -44,8 +44,10 @@ class WorkLocation {
       wifiSsid: json['wifiSsid'],
       wifiBssid: json['wifiBssid'],
       allowedIpRange: json['allowedIpRange'],
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
@@ -101,8 +103,12 @@ class FaceRegistration {
       faceImages: List<String>.from(json['faceImages'] ?? []),
       faceEmbedding: json['faceEmbedding'],
       isVerified: json['isVerified'] ?? false,
-      registeredAt: json['registeredAt'] != null ? DateTime.parse(json['registeredAt']) : null,
-      lastVerifiedAt: json['lastVerifiedAt'] != null ? DateTime.parse(json['lastVerifiedAt']) : null,
+      registeredAt: json['registeredAt'] != null
+          ? DateTime.parse(json['registeredAt'])
+          : null,
+      lastVerifiedAt: json['lastVerifiedAt'] != null
+          ? DateTime.parse(json['lastVerifiedAt'])
+          : null,
     );
   }
 
@@ -173,11 +179,17 @@ class AuthorizedDevice {
       canUseGps: json['canUseGps'] ?? true,
       allowOutsideCheckIn: json['allowOutsideCheckIn'] ?? false,
       wifiBssid: json['wifiBssid'],
-      authorizedAt: json['authorizedAt'] != null ? DateTime.parse(json['authorizedAt']) : null,
-      lastUsedAt: json['lastUsedAt'] != null ? DateTime.parse(json['lastUsedAt']) : null,
+      authorizedAt: json['authorizedAt'] != null
+          ? DateTime.parse(json['authorizedAt'])
+          : null,
+      lastUsedAt: json['lastUsedAt'] != null
+          ? DateTime.parse(json['lastUsedAt'])
+          : null,
       faceImages: List<String>.from(json['faceImages'] ?? []),
       faceVerified: json['faceVerified'] ?? false,
-      faceRegisteredAt: json['faceRegisteredAt'] != null ? DateTime.parse(json['faceRegisteredAt']) : null,
+      faceRegisteredAt: json['faceRegisteredAt'] != null
+          ? DateTime.parse(json['faceRegisteredAt'])
+          : null,
     );
   }
 
@@ -262,7 +274,9 @@ class MobileAttendanceRecord {
       verifyMethod: json['verifyMethod'] ?? 'face_gps',
       status: json['status'] ?? 'pending',
       approvedBy: json['approvedBy'],
-      approvedAt: json['approvedAt'] != null ? DateTime.parse(json['approvedAt']) : null,
+      approvedAt: json['approvedAt'] != null
+          ? DateTime.parse(json['approvedAt'])
+          : null,
       rejectReason: json['rejectReason'],
       deviceId: json['deviceId'],
       deviceName: json['deviceName'],
@@ -298,7 +312,8 @@ class MobileAttendanceRecord {
     };
   }
 
-  bool get isInRange => distanceFromLocation != null && distanceFromLocation! <= 100;
+  bool get isInRange =>
+      distanceFromLocation != null && distanceFromLocation! <= 100;
   bool get isFaceVerified => faceMatchScore != null && faceMatchScore! >= 80;
 }
 
@@ -391,10 +406,13 @@ class MobileAttendanceSettings {
       minFaceMatchScore: minFaceMatchScore ?? this.minFaceMatchScore,
       autoApproveInRange: autoApproveInRange ?? this.autoApproveInRange,
       allowManualApproval: allowManualApproval ?? this.allowManualApproval,
-      maxPhotosPerRegistration: maxPhotosPerRegistration ?? this.maxPhotosPerRegistration,
-      requireLivenessDetection: requireLivenessDetection ?? this.requireLivenessDetection,
+      maxPhotosPerRegistration:
+          maxPhotosPerRegistration ?? this.maxPhotosPerRegistration,
+      requireLivenessDetection:
+          requireLivenessDetection ?? this.requireLivenessDetection,
       requirePhotoProof: requirePhotoProof ?? this.requirePhotoProof,
-      minPunchIntervalMinutes: minPunchIntervalMinutes ?? this.minPunchIntervalMinutes,
+      minPunchIntervalMinutes:
+          minPunchIntervalMinutes ?? this.minPunchIntervalMinutes,
     );
   }
 }

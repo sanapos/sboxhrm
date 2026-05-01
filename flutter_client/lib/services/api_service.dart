@@ -217,18 +217,6 @@ class ApiService {
     }
   }
 
-  // Public lookup đại lý theo code (cho trang đăng ký cửa hàng)
-  Future<Map<String, dynamic>> lookupAgentByCode(String code) async {
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/api/agentregistration/lookup/$code'))
-          .timeout(const Duration(seconds: 10));
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
   // Đăng ký cửa hàng mới
   Future<Map<String, dynamic>> register(
       String storeName, String email, String password,
@@ -272,12 +260,10 @@ class ApiService {
   Future<Map<String, dynamic>> seedSampleData(String storeCode) async {
     try {
       debugPrint('🌱 Seeding sample data for store: $storeCode');
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/sampledata/seed/$storeCode'),
-            headers: {'Content-Type': 'application/json'},
-          )
-          .timeout(const Duration(seconds: 30));
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/sampledata/seed/$storeCode'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 30));
       debugPrint('📥 Seed response: ${response.statusCode}');
       return _handleResponse(response);
     } catch (e) {
@@ -728,6 +714,48 @@ class ApiService {
     return [];
   }
 
+  /// Full-store birthday list — not filtered by manager scope.
+  /// Returns lightweight objects with id, firstName, lastName, department, dateOfBirth, photoUrl.
+  Future<List<dynamic>> getBirthdays() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/employees/birthdays');
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      final data = _handleResponse(response);
+      if (data['isSuccess'] == true) {
+        final d = data['data'];
+        if (d is List) return d;
+      }
+    } catch (e) {
+      debugPrint('Error getting birthdays: $e');
+    }
+    return [];
+  }
+
+  /// Returns { 'expiring': [...], 'expired': [...] }
+  Future<Map<String, dynamic>> getExpiringContracts({int daysAhead = 30}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/employees/expiring-contracts?daysAhead=$daysAhead');
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      final data = _handleResponse(response);
+      if (data['isSuccess'] == true) {
+        final d = data['data'];
+        if (d is Map) {
+          return {
+            'expiring': (d['expiring'] as List?) ?? [],
+            'expired': (d['expired'] as List?) ?? [],
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting expiring contracts: $e');
+    }
+    return {'expiring': [], 'expired': []};
+  }
+
   /// Get current user's own employee profile (Employee role)
   Future<Map<String, dynamic>> getMyEmployee() async {
     try {
@@ -889,10 +917,15 @@ class ApiService {
       if (data['isSuccess'] == true) {
         final responseData = data['data'];
         return {
-          'items': responseData is Map ? (responseData['items'] ?? []) : (responseData ?? []),
-          'totalCount': _toInt(responseData is Map ? responseData['totalCount'] : null, 0),
-          'pageNumber': _toInt(responseData is Map ? responseData['pageNumber'] : null, page),
-          'pageSize': _toInt(responseData is Map ? responseData['pageSize'] : null, pageSize),
+          'items': responseData is Map
+              ? (responseData['items'] ?? [])
+              : (responseData ?? []),
+          'totalCount': _toInt(
+              responseData is Map ? responseData['totalCount'] : null, 0),
+          'pageNumber': _toInt(
+              responseData is Map ? responseData['pageNumber'] : null, page),
+          'pageSize': _toInt(
+              responseData is Map ? responseData['pageSize'] : null, pageSize),
         };
       }
       debugPrint('❌ Attendance response error: ${data['message']}');
@@ -1032,7 +1065,8 @@ class ApiService {
 
   // ==================== DASHBOARD ====================
   /// Get employee dashboard data (AtLeastEmployee)
-  Future<Map<String, dynamic>> getEmployeeDashboard({String period = 'week'}) async {
+  Future<Map<String, dynamic>> getEmployeeDashboard(
+      {String period = 'week'}) async {
     try {
       final response = await http
           .get(
@@ -1418,7 +1452,11 @@ class ApiService {
   }) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       // Tạo DeviceUser từ Employee
       final response = await http
@@ -1480,7 +1518,11 @@ class ApiService {
       [int fingerIndex = 0]) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       debugPrint(
           '📤 Enrolling fingerprint for PIN=$pin, FID=$fingerIndex on device $deviceId');
@@ -2035,7 +2077,8 @@ class ApiService {
   // ==================== SCHEDULE NOTIFICATIONS & STAFFING QUOTAS ====================
 
   // Gửi nhắc nhở đăng ký lịch làm việc
-  Future<Map<String, dynamic>> sendScheduleReminder(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> sendScheduleReminder(
+      Map<String, dynamic> data) async {
     try {
       debugPrint('📤 Sending schedule reminder');
       final response = await http
@@ -2053,7 +2096,8 @@ class ApiService {
   }
 
   // Yêu cầu bổ sung nhân viên cho ca
-  Future<Map<String, dynamic>> requestShiftCoverage(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> requestShiftCoverage(
+      Map<String, dynamic> data) async {
     try {
       debugPrint('📤 Requesting shift coverage');
       final response = await http
@@ -2088,7 +2132,8 @@ class ApiService {
   }
 
   // Tạo/cập nhật định mức nhân sự
-  Future<Map<String, dynamic>> upsertStaffingQuota(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> upsertStaffingQuota(
+      Map<String, dynamic> data) async {
     try {
       debugPrint('📤 Upserting staffing quota');
       final response = await http
@@ -2426,12 +2471,18 @@ class ApiService {
     }
   }
 
-  // Holiday Settings
+  // Holiday Settings. Pass year=0 to use API's default (current year).
   Future<List<dynamic>> getHolidaySettings(int year) async {
     try {
+      // year=0 means "current year" — omit query so backend defaults
+      // to DateTime.Now.Year. Otherwise the filter h.Date.Year==0 returns
+      // an empty list.
+      final url = year > 0
+          ? '$baseUrl/api/settings/holidays?year=$year'
+          : '$baseUrl/api/settings/holidays';
       final response = await http
           .get(
-            Uri.parse('$baseUrl/api/settings/holidays?year=$year'),
+            Uri.parse(url),
             headers: _headers,
           )
           .timeout(const Duration(seconds: 10));
@@ -2697,7 +2748,8 @@ class ApiService {
       final uri = storeId != null
           ? Uri.parse(
               '$baseUrl/api/permission-management/by-role?roleName=$roleName&storeId=$storeId')
-          : Uri.parse('$baseUrl/api/permission-management/by-role?roleName=$roleName');
+          : Uri.parse(
+              '$baseUrl/api/permission-management/by-role?roleName=$roleName');
       final response = await _retryOnUnauthorized(() => http
           .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 10)));
@@ -2919,9 +2971,12 @@ class ApiService {
         final responseData = data['data'];
         return {
           'items': responseData is Map ? (responseData['items'] ?? []) : [],
-          'totalCount': _toInt(responseData is Map ? responseData['totalCount'] : null, 0),
-          'pageNumber': _toInt(responseData is Map ? responseData['pageNumber'] : null, page),
-          'pageSize': _toInt(responseData is Map ? responseData['pageSize'] : null, pageSize),
+          'totalCount': _toInt(
+              responseData is Map ? responseData['totalCount'] : null, 0),
+          'pageNumber': _toInt(
+              responseData is Map ? responseData['pageNumber'] : null, page),
+          'pageSize': _toInt(
+              responseData is Map ? responseData['pageSize'] : null, pageSize),
         };
       } else {
         debugPrint('📨 Notifications API failed: ${data['message']}');
@@ -3283,7 +3338,8 @@ class ApiService {
             return {
               'isSuccess': false,
               'alreadyRegistered': true,
-              'message': data['data']['message'] ?? 'Tài khoản đã đăng ký thiết bị',
+              'message':
+                  data['data']['message'] ?? 'Tài khoản đã đăng ký thiết bị',
               'data': data['data'],
               'statusCode': 409,
             };
@@ -3338,7 +3394,8 @@ class ApiService {
   }
 
   /// Nhân viên kiểm tra yêu cầu đổi máy
-  Future<Map<String, dynamic>> getMyDeviceChangeRequest({String? employeeId}) async {
+  Future<Map<String, dynamic>> getMyDeviceChangeRequest(
+      {String? employeeId}) async {
     try {
       final uri = employeeId != null
           ? '$baseUrl/api/mobile-attendance/my-device-change-request?employeeId=$employeeId'
@@ -3382,7 +3439,8 @@ class ApiService {
       };
       final response = await http
           .post(
-            Uri.parse('$baseUrl/api/mobile-attendance/approve-device-change/$requestId'),
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/approve-device-change/$requestId'),
             headers: _headers,
             body: json.encode(body),
           )
@@ -3427,7 +3485,8 @@ class ApiService {
 
       final response = await http
           .post(
-            Uri.parse('$baseUrl/api/mobile-attendance/approve-device/$deviceId'),
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/approve-device/$deviceId'),
             headers: _headers,
             body: json.encode(body),
           )
@@ -4231,12 +4290,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> confirmAssetTransfer(String transferId, {String? notes}) async {
+  Future<Map<String, dynamic>> confirmAssetTransfer(String transferId,
+      {String? notes}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/Assets/transfers/$transferId/confirm'),
         headers: _headers,
-        body: json.encode({'transferId': transferId, if (notes != null) 'notes': notes}),
+        body: json.encode(
+            {'transferId': transferId, if (notes != null) 'notes': notes}),
       );
       return _handleResponse(response);
     } catch (e) {
@@ -4324,7 +4385,8 @@ class ApiService {
   Future<Map<String, dynamic>> lookupAssetByCode(String code) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/Assets/lookup?code=${Uri.encodeComponent(code)}'),
+        Uri.parse(
+            '$baseUrl/api/Assets/lookup?code=${Uri.encodeComponent(code)}'),
         headers: _headers,
       );
       return _handleResponse(response);
@@ -4367,7 +4429,8 @@ class ApiService {
       if (actualLocation != null) body['actualLocation'] = actualLocation;
       if (issueDescription != null) body['issueDescription'] = issueDescription;
       if (imageUrl != null) {
-        notes = '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
+        notes =
+            '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
       }
       if (notes != null) body['notes'] = notes;
 
@@ -4404,7 +4467,8 @@ class ApiService {
       if (actualLocation != null) body['actualLocation'] = actualLocation;
       if (issueDescription != null) body['issueDescription'] = issueDescription;
       if (imageUrl != null) {
-        notes = '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
+        notes =
+            '${notes ?? ''}${notes != null && notes.isNotEmpty ? '\n' : ''}[IMG]$imageUrl[/IMG]';
       }
       if (notes != null) body['notes'] = notes;
 
@@ -4459,22 +4523,29 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> uploadFile(List<int> fileBytes, String fileName, {String folder = 'uploads'}) async {
+  Future<Map<String, dynamic>> uploadFile(List<int> fileBytes, String fileName,
+      {String folder = 'uploads'}) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/Upload/file?folder=${Uri.encodeComponent(folder)}');
+      final uri = Uri.parse(
+          '$baseUrl/api/Upload/file?folder=${Uri.encodeComponent(folder)}');
       final request = http.MultipartRequest('POST', uri);
       if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
 
       final ext = fileName.toLowerCase().split('.').last;
       final mimeTypes = {
-        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
-        'gif': 'image/gif', 'webp': 'image/webp',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
       };
       final contentType = mimeTypes[ext] ?? 'image/jpeg';
       final mediaParts = contentType.split('/');
 
       request.files.add(http.MultipartFile.fromBytes(
-        'file', fileBytes, filename: fileName,
+        'file',
+        fileBytes,
+        filename: fileName,
         contentType: MediaType(mediaParts[0], mediaParts[1]),
       ));
       final streamedResponse = await request.send();
@@ -4586,12 +4657,14 @@ class ApiService {
         'pageSize': pageSize.toString(),
       };
       if (assetId != null) params['assetId'] = assetId;
-      if (transactionType != null) params['transactionType'] = transactionType.toString();
+      if (transactionType != null)
+        params['transactionType'] = transactionType.toString();
       if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       if (search != null) params['search'] = search;
 
-      final uri = Uri.parse('$baseUrl/api/Assets/stock/transactions').replace(queryParameters: params);
+      final uri = Uri.parse('$baseUrl/api/Assets/stock/transactions')
+          .replace(queryParameters: params);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -4808,7 +4881,8 @@ class ApiService {
       if (status != null) params['status'] = status.toString();
       if (searchTerm != null) params['searchTerm'] = searchTerm;
       if (sortBy != null) params['sortBy'] = sortBy;
-      if (sortDescending != null) params['sortDescending'] = sortDescending.toString();
+      if (sortDescending != null)
+        params['sortDescending'] = sortDescending.toString();
 
       final uri = Uri.parse('$baseUrl/api/communications')
           .replace(queryParameters: params);
@@ -5947,7 +6021,8 @@ class ApiService {
         if (taskType != null) 'taskType': taskType,
         if (priority != null) 'priority': priority,
         if (assigneeId != null) 'assigneeId': assigneeId,
-        if (assigneeIds != null && assigneeIds.isNotEmpty) 'assigneeIds': assigneeIds,
+        if (assigneeIds != null && assigneeIds.isNotEmpty)
+          'assigneeIds': assigneeIds,
         if (startDate != null)
           'startDate':
               startDate is DateTime ? startDate.toIso8601String() : startDate,
@@ -6031,8 +6106,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> deleteTask(String id) async {
     try {
-      final response = await http.delete(
-          Uri.parse('$baseUrl/api/Tasks/$id'),
+      final response = await http.delete(Uri.parse('$baseUrl/api/Tasks/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -6196,8 +6270,50 @@ class ApiService {
   }
 
   // ==================== REPORTS ====================
+  // Cache active overnight cutoff (HH:mm:ss) so the daily report
+  // automatically uses the configured boundary even when callers don't pass it.
+  static String? _cachedOvernightCutoff;
+  static DateTime? _cachedOvernightCutoffAt;
+
+  /// Resolve the active overnight cutoff from shift templates.
+  /// Returns "HH:mm:ss" of the first active "Qua đêm" shift, or null.
+  /// Cached for 5 minutes to avoid hitting the shifts endpoint on every report load.
+  Future<String?> resolveActiveOvernightCutoff({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedOvernightCutoffAt != null &&
+        DateTime.now().difference(_cachedOvernightCutoffAt!).inMinutes < 5) {
+      return _cachedOvernightCutoff;
+    }
+    try {
+      final shifts = await getShifts();
+      String? found;
+      for (final s in shifts) {
+        if (s is! Map) continue;
+        final type = (s['shiftType'] ?? '').toString();
+        final active = s['isActive'];
+        final cutoffStr = (s['overnightCutoffTime'] ?? '').toString();
+        if (type == 'Qua đêm' && active == true && cutoffStr.isNotEmpty) {
+          // Normalize to HH:mm:ss
+          final parts = cutoffStr.split(':');
+          if (parts.length >= 2) {
+            final h = parts[0].padLeft(2, '0');
+            final m = parts[1].padLeft(2, '0');
+            final sec = parts.length >= 3 ? parts[2].padLeft(2, '0') : '00';
+            found = '$h:$m:$sec';
+            break;
+          }
+        }
+      }
+      _cachedOvernightCutoff = found;
+      _cachedOvernightCutoffAt = DateTime.now();
+      return found;
+    } catch (_) {
+      return _cachedOvernightCutoff;
+    }
+  }
+
   Future<Map<String, dynamic>> getDailyAttendanceReport(
-      {dynamic date, String? departmentId}) async {
+      {dynamic date, String? departmentId, String? overnightCutoff}) async {
     try {
       final params = <String, String>{};
       if (date != null) {
@@ -6206,6 +6322,13 @@ class ApiService {
             : date.toString();
       }
       if (departmentId != null) params['departmentId'] = departmentId;
+      // Auto-resolve overnight cutoff when caller did not pass one.
+      // This ensures every daily-report consumer (Dashboard, Báo cáo, etc.)
+      // honors the configured "Giờ qua đêm" without manual plumbing.
+      overnightCutoff ??= await resolveActiveOvernightCutoff();
+      if (overnightCutoff != null && overnightCutoff.isNotEmpty) {
+        params['overnightCutoff'] = overnightCutoff;
+      }
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -6467,17 +6590,25 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getOvertimeReport(
-      {dynamic startDate, dynamic endDate, String? department, int? minOvertimeMinutes}) async {
+      {dynamic startDate,
+      dynamic endDate,
+      String? department,
+      int? minOvertimeMinutes}) async {
     try {
       final params = <String, String>{};
       if (startDate != null) {
-        params['startDate'] = startDate is DateTime ? startDate.toIso8601String() : startDate.toString();
+        params['startDate'] = startDate is DateTime
+            ? startDate.toIso8601String()
+            : startDate.toString();
       }
       if (endDate != null) {
-        params['endDate'] = endDate is DateTime ? endDate.toIso8601String() : endDate.toString();
+        params['endDate'] = endDate is DateTime
+            ? endDate.toIso8601String()
+            : endDate.toString();
       }
       if (department != null) params['department'] = department;
-      if (minOvertimeMinutes != null) params['minOvertimeMinutes'] = minOvertimeMinutes.toString();
+      if (minOvertimeMinutes != null)
+        params['minOvertimeMinutes'] = minOvertimeMinutes.toString();
       final uri = Uri.parse('$baseUrl/api/Reports/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -6492,10 +6623,14 @@ class ApiService {
     try {
       final params = <String, String>{};
       if (startDate != null) {
-        params['startDate'] = startDate is DateTime ? startDate.toIso8601String() : startDate.toString();
+        params['startDate'] = startDate is DateTime
+            ? startDate.toIso8601String()
+            : startDate.toString();
       }
       if (endDate != null) {
-        params['endDate'] = endDate is DateTime ? endDate.toIso8601String() : endDate.toString();
+        params['endDate'] = endDate is DateTime
+            ? endDate.toIso8601String()
+            : endDate.toString();
       }
       final uri = Uri.parse('$baseUrl/api/Reports/export/excel/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null);
@@ -6503,7 +6638,10 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.bodyBytes.toList()};
       }
-      return {'isSuccess': false, 'message': 'Export failed: ${response.statusCode}'};
+      return {
+        'isSuccess': false,
+        'message': 'Export failed: ${response.statusCode}'
+      };
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
@@ -6514,10 +6652,14 @@ class ApiService {
     try {
       final params = <String, String>{};
       if (startDate != null) {
-        params['startDate'] = startDate is DateTime ? startDate.toIso8601String() : startDate.toString();
+        params['startDate'] = startDate is DateTime
+            ? startDate.toIso8601String()
+            : startDate.toString();
       }
       if (endDate != null) {
-        params['endDate'] = endDate is DateTime ? endDate.toIso8601String() : endDate.toString();
+        params['endDate'] = endDate is DateTime
+            ? endDate.toIso8601String()
+            : endDate.toString();
       }
       if (department != null) params['department'] = department;
       final uri = Uri.parse('$baseUrl/api/Reports/leave-summary')
@@ -6534,10 +6676,14 @@ class ApiService {
     try {
       final params = <String, String>{};
       if (startDate != null) {
-        params['startDate'] = startDate is DateTime ? startDate.toIso8601String() : startDate.toString();
+        params['startDate'] = startDate is DateTime
+            ? startDate.toIso8601String()
+            : startDate.toString();
       }
       if (endDate != null) {
-        params['endDate'] = endDate is DateTime ? endDate.toIso8601String() : endDate.toString();
+        params['endDate'] = endDate is DateTime
+            ? endDate.toIso8601String()
+            : endDate.toString();
       }
       final uri = Uri.parse('$baseUrl/api/Reports/export/excel/leave-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null);
@@ -6545,7 +6691,10 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.bodyBytes.toList()};
       }
-      return {'isSuccess': false, 'message': 'Export failed: ${response.statusCode}'};
+      return {
+        'isSuccess': false,
+        'message': 'Export failed: ${response.statusCode}'
+      };
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
@@ -6800,7 +6949,8 @@ class ApiService {
   Future<Map<String, dynamic>> deleteAllStoreData(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('$baseUrl/api/system-admin/stores/$id/data?confirmDelete=true'),
+          Uri.parse(
+              '$baseUrl/api/system-admin/stores/$id/data?confirmDelete=true'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -6824,7 +6974,8 @@ class ApiService {
   Future<Map<String, dynamic>> getAvailableModules() async {
     try {
       final response = await http.get(
-          Uri.parse('$baseUrl/api/system-admin/service-packages/available-modules'),
+          Uri.parse(
+              '$baseUrl/api/system-admin/service-packages/available-modules'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -6843,7 +6994,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createServicePackage(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createServicePackage(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/service-packages'),
@@ -6855,7 +7007,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> updateServicePackage(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateServicePackage(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/system-admin/service-packages/$id'),
@@ -6878,10 +7031,12 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> assignPackageToStore(String storeId, String packageId) async {
+  Future<Map<String, dynamic>> assignPackageToStore(
+      String storeId, String packageId) async {
     try {
       final response = await http.post(
-          Uri.parse('$baseUrl/api/system-admin/stores/$storeId/assign-package/$packageId'),
+          Uri.parse(
+              '$baseUrl/api/system-admin/stores/$storeId/assign-package/$packageId'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -6914,7 +7069,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createKeyPromotion(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createKeyPromotion(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/key-promotions'),
@@ -6926,7 +7082,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> updateKeyPromotion(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateKeyPromotion(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/system-admin/key-promotions/$id'),
@@ -6949,7 +7106,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> bulkActivateLicenses(String storeId, List<String> licenseKeys) async {
+  Future<Map<String, dynamic>> bulkActivateLicenses(
+      String storeId, List<String> licenseKeys) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$storeId/activate-bulk'),
@@ -6961,10 +7119,12 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> previewBulkActivation(String storeId, List<String> licenseKeys) async {
+  Future<Map<String, dynamic>> previewBulkActivation(
+      String storeId, List<String> licenseKeys) async {
     try {
       final response = await http.post(
-          Uri.parse('$baseUrl/api/system-admin/stores/$storeId/activate-bulk-preview'),
+          Uri.parse(
+              '$baseUrl/api/system-admin/stores/$storeId/activate-bulk-preview'),
           headers: _headers,
           body: json.encode({'licenseKeys': licenseKeys}));
       return _handleResponse(response);
@@ -7115,7 +7275,11 @@ class ApiService {
     try {
       // Kiểm tra thiết bị online trước khi gửi lệnh
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       final data = <String, dynamic>{'commandType': commandType};
       if (command != null) data['command'] = command;
@@ -7376,6 +7540,17 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> lookupAgentByCode(String code) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/agents/lookup/$code');
+      final response =
+          await http.get(uri, headers: {'Content-Type': 'application/json'});
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> createAgent(
       {String? name,
       String? code,
@@ -7396,7 +7571,7 @@ class ApiService {
         if (description != null) 'description': description,
         if (maxStores != null) 'maxStores': maxStores,
         if (tokenValidDays != null) 'tokenValidDays': tokenValidDays,
-        if (password != null) 'password': password,
+        if (password != null && password.isNotEmpty) 'password': password,
       };
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/agents'),
@@ -7481,8 +7656,10 @@ class ApiService {
         'displayOrder': displayOrder,
         'isPublic': isPublic,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/system-admin/settings'),
-          headers: _headers, body: json.encode(data));
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/settings/app'),
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -7744,8 +7921,7 @@ class ApiService {
     int maxTokens = 1024,
   }) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/ai/assist'),
+      final response = await http.post(Uri.parse('$baseUrl/api/ai/assist'),
           headers: _headers,
           body: json.encode({
             'kind': kind,
@@ -7767,13 +7943,13 @@ class ApiService {
     String? provider,
   }) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/ai/assistant/chat'),
-          headers: _headers,
-          body: json.encode({
-            'messages': messages,
-            if (provider != null) 'provider': provider,
-          }));
+      final response =
+          await http.post(Uri.parse('$baseUrl/api/ai/assistant/chat'),
+              headers: _headers,
+              body: json.encode({
+                'messages': messages,
+                if (provider != null) 'provider': provider,
+              }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -7932,16 +8108,15 @@ class ApiService {
   Future<Map<String, dynamic>> verifyOtp(String storeCode, String email,
       String otp, String newPassword, String confirmPassword) async {
     try {
-      final response =
-          await http.post(Uri.parse('$baseUrl/api/Auth/VerifyOtp'),
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode({
-                'storeCode': storeCode,
-                'email': email,
-                'otp': otp,
-                'newPassword': newPassword,
-                'confirmPassword': confirmPassword
-              }));
+      final response = await http.post(Uri.parse('$baseUrl/api/Auth/VerifyOtp'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'storeCode': storeCode,
+            'email': email,
+            'otp': otp,
+            'newPassword': newPassword,
+            'confirmPassword': confirmPassword
+          }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -7953,7 +8128,11 @@ class ApiService {
       {required String deviceId, DateTime? fromDate, DateTime? toDate}) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       final params = <String, String>{};
       if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
@@ -7971,7 +8150,11 @@ class ApiService {
       {DateTime? fromTime, DateTime? toTime}) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       final body = <String, dynamic>{};
       if (fromTime != null) body['fromTime'] = fromTime.toIso8601String();
@@ -8964,7 +9147,11 @@ class ApiService {
   Future<Map<String, dynamic>> syncBiometrics(String deviceId) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
-        return {'isSuccess': false, 'message': 'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'};
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
       }
       final response = await http.post(
           Uri.parse('$baseUrl/api/biometrics/device/$deviceId/sync'),
@@ -9183,7 +9370,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> resetUserPassword(String userId, {String? newPassword}) async {
+  Future<Map<String, dynamic>> resetUserPassword(String userId,
+      {String? newPassword}) async {
     try {
       final response = await _retryOnUnauthorized(() => http.post(
           Uri.parse('$baseUrl/api/users/$userId/reset-password'),
@@ -9198,8 +9386,10 @@ class ApiService {
   Future<Map<String, dynamic>> updateUser(
       String userId, Map<String, dynamic> data) async {
     try {
-      final response = await _retryOnUnauthorized(() => http.put(Uri.parse('$baseUrl/api/users/$userId'),
-          headers: _headers, body: json.encode(data)));
+      final response = await _retryOnUnauthorized(() => http.put(
+          Uri.parse('$baseUrl/api/users/$userId'),
+          headers: _headers,
+          body: json.encode(data)));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9283,7 +9473,8 @@ class ApiService {
             errorMessage = normalized['message'].toString();
           } else if (normalized['title'] != null) {
             // ASP.NET ProblemDetails format - prefer detail over title (title is often just exception type name)
-            errorMessage = (normalized['detail'] ?? normalized['title']).toString();
+            errorMessage =
+                (normalized['detail'] ?? normalized['title']).toString();
             if (normalized['errors'] is Map) {
               final errors = (normalized['errors'] as Map)
                   .values
@@ -9336,13 +9527,33 @@ class ApiService {
       // Map Windows-1252 specific chars (U+0080–U+009F) to their byte values
       // so latin1.encode (which only handles U+0000–U+00FF) won't throw
       const cp1252Extra = {
-        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84,
-        '\u2026': 0x85, '\u2020': 0x86, '\u2021': 0x87, '\u02c6': 0x88,
-        '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
-        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93,
-        '\u201d': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97,
-        '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
-        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f,
+        '\u20ac': 0x80,
+        '\u201a': 0x82,
+        '\u0192': 0x83,
+        '\u201e': 0x84,
+        '\u2026': 0x85,
+        '\u2020': 0x86,
+        '\u2021': 0x87,
+        '\u02c6': 0x88,
+        '\u2030': 0x89,
+        '\u0160': 0x8a,
+        '\u2039': 0x8b,
+        '\u0152': 0x8c,
+        '\u017d': 0x8e,
+        '\u2018': 0x91,
+        '\u2019': 0x92,
+        '\u201c': 0x93,
+        '\u201d': 0x94,
+        '\u2022': 0x95,
+        '\u2013': 0x96,
+        '\u2014': 0x97,
+        '\u02dc': 0x98,
+        '\u2122': 0x99,
+        '\u0161': 0x9a,
+        '\u203a': 0x9b,
+        '\u0153': 0x9c,
+        '\u017e': 0x9e,
+        '\u0178': 0x9f,
       };
       final bytes = <int>[];
       for (final ch in input.runes) {
@@ -9531,7 +9742,8 @@ class ApiService {
   }
 
   /// Tạo phiếu phạt thủ công
-  Future<Map<String, dynamic>> createPenaltyTicket(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createPenaltyTicket(
+      Map<String, dynamic> data) async {
     try {
       final response = await http
           .post(
@@ -9547,7 +9759,8 @@ class ApiService {
   }
 
   /// Sửa phiếu phạt
-  Future<Map<String, dynamic>> updatePenaltyTicket(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updatePenaltyTicket(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http
           .put(
@@ -9597,8 +9810,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getAgentProfile() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/agent/profile'),
+      final response = await http.get(Uri.parse('$baseUrl/api/agent/profile'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -9634,30 +9846,34 @@ class ApiService {
   // ── Product Groups ──
   Future<Map<String, dynamic>> getProductGroups() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/production/groups'), headers: _headers);
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/production/groups'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> createProductGroup(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createProductGroup(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/groups'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateProductGroup(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateProductGroup(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/production/groups/$id'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9667,7 +9883,8 @@ class ApiService {
   Future<Map<String, dynamic>> deleteProductGroup(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('$baseUrl/api/production/groups/$id'), headers: _headers);
+          Uri.parse('$baseUrl/api/production/groups/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9688,22 +9905,26 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createProductItem(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createProductItem(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/items'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateProductItem(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateProductItem(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/production/items/$id'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9713,7 +9934,8 @@ class ApiService {
   Future<Map<String, dynamic>> deleteProductItem(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('$baseUrl/api/production/items/$id'), headers: _headers);
+          Uri.parse('$baseUrl/api/production/items/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9722,9 +9944,13 @@ class ApiService {
 
   // ── Production Entries ──
   Future<Map<String, dynamic>> getProductionEntries({
-    DateTime? fromDate, DateTime? toDate,
-    String? employeeId, String? productGroupId, String? productItemId,
-    int page = 1, int pageSize = 50,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? employeeId,
+    String? productGroupId,
+    String? productItemId,
+    int page = 1,
+    int pageSize = 50,
   }) async {
     try {
       final params = <String, String>{
@@ -9745,33 +9971,39 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createProductionEntry(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createProductionEntry(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/entries'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> createProductionEntryBatch(List<Map<String, dynamic>> entries) async {
+  Future<Map<String, dynamic>> createProductionEntryBatch(
+      List<Map<String, dynamic>> entries) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/entries/batch'),
-          headers: _headers, body: json.encode({'entries': entries}));
+          headers: _headers,
+          body: json.encode({'entries': entries}));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateProductionEntry(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateProductionEntry(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/production/entries/$id'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9781,7 +10013,8 @@ class ApiService {
   Future<Map<String, dynamic>> deleteProductionEntry(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('$baseUrl/api/production/entries/$id'), headers: _headers);
+          Uri.parse('$baseUrl/api/production/entries/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9790,8 +10023,10 @@ class ApiService {
 
   // ── Production Summary ──
   Future<Map<String, dynamic>> getProductionSummary({
-    required DateTime fromDate, required DateTime toDate,
-    String? employeeId, String? productGroupId,
+    required DateTime fromDate,
+    required DateTime toDate,
+    String? employeeId,
+    String? productGroupId,
   }) async {
     try {
       final params = <String, String>{
@@ -9811,55 +10046,65 @@ class ApiService {
 
   // ── Production Import ──
 
-  Future<Map<String, dynamic>> importProductionFromExcel(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> importProductionFromExcel(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/import'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> testProductionGSheetConnection(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> testProductionGSheetConnection(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/gsheet/test-connection'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> getProductionGSheetNames(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> getProductionGSheetNames(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/gsheet/sheet-names'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> syncProductionFromGSheet(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> syncProductionFromGSheet(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/gsheet/sync'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> syncProductionFromGSheetMulti(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> syncProductionFromGSheetMulti(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/production/gsheet/sync-multi'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9869,16 +10114,20 @@ class ApiService {
   // ══════════════════ FEEDBACK / Ý KIẾN ══════════════════
 
   Future<Map<String, dynamic>> getFeedbacks({
-    String? status, String? category, int page = 1, int pageSize = 20,
+    String? status,
+    String? category,
+    int page = 1,
+    int pageSize = 20,
   }) async {
     try {
       final params = <String, String>{
-        'page': page.toString(), 'pageSize': pageSize.toString(),
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
       };
       if (status != null) params['status'] = status;
       if (category != null) params['category'] = category;
-      final uri = Uri.parse('$baseUrl/api/feedback')
-          .replace(queryParameters: params);
+      final uri =
+          Uri.parse('$baseUrl/api/feedback').replace(queryParameters: params);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -9888,8 +10137,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> getMyFeedbacks() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/feedback/my'), headers: _headers);
+      final response = await http.get(Uri.parse('$baseUrl/api/feedback/my'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9898,8 +10147,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createFeedback(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/feedback'),
+      final response = await http.post(Uri.parse('$baseUrl/api/feedback'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -9907,11 +10155,13 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> respondFeedback(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> respondFeedback(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/feedback/$id/respond'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9920,8 +10170,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> deleteFeedback(String id) async {
     try {
-      final response = await http.delete(
-          Uri.parse('$baseUrl/api/feedback/$id'), headers: _headers);
+      final response = await http.delete(Uri.parse('$baseUrl/api/feedback/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9930,8 +10180,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> getFeedbackManagers() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/feedback/managers'), headers: _headers);
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/feedback/managers'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9941,18 +10191,21 @@ class ApiService {
   Future<Map<String, dynamic>> getFeedbackReplies(String feedbackId) async {
     try {
       final response = await http.get(
-          Uri.parse('$baseUrl/api/feedback/$feedbackId/replies'), headers: _headers);
+          Uri.parse('$baseUrl/api/feedback/$feedbackId/replies'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> createFeedbackReply(String feedbackId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createFeedbackReply(
+      String feedbackId, Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/feedback/$feedbackId/replies'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers,
+          body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9976,7 +10229,8 @@ class ApiService {
   Future<Map<String, dynamic>> uploadFeedbackReplyImage(
       String feedbackId, String replyId, String filePath) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/feedback/$feedbackId/replies/$replyId/image');
+      final uri =
+          Uri.parse('$baseUrl/api/feedback/$feedbackId/replies/$replyId/image');
       final request = http.MultipartRequest('POST', uri);
       if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
@@ -9992,27 +10246,27 @@ class ApiService {
 
   Future<Map<String, dynamic>> getMealSessions() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/meals/sessions'), headers: _headers);
+      final response = await http.get(Uri.parse('$baseUrl/api/meals/sessions'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> createMealSession(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createMealSession(
+      Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/sessions'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/sessions'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateMealSession(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateMealSession(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/meals/sessions/$id'),
@@ -10027,7 +10281,8 @@ class ApiService {
   Future<Map<String, dynamic>> deleteMealSession(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('$baseUrl/api/meals/sessions/$id'), headers: _headers);
+          Uri.parse('$baseUrl/api/meals/sessions/$id'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -10038,7 +10293,8 @@ class ApiService {
     try {
       final queryParams = <String, String>{};
       if (date != null) queryParams['date'] = date;
-      final uri = Uri.parse('$baseUrl/api/meals/estimate').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final uri = Uri.parse('$baseUrl/api/meals/estimate').replace(
+          queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10059,7 +10315,8 @@ class ApiService {
       };
       if (date != null) queryParams['date'] = date;
       if (mealSessionId != null) queryParams['mealSessionId'] = mealSessionId;
-      final uri = Uri.parse('$baseUrl/api/meals/records').replace(queryParameters: queryParams);
+      final uri = Uri.parse('$baseUrl/api/meals/records')
+          .replace(queryParameters: queryParams);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10077,8 +10334,10 @@ class ApiService {
         'fromDate': fromDate,
         'toDate': toDate,
       };
-      if (employeeUserId != null) queryParams['employeeUserId'] = employeeUserId;
-      final uri = Uri.parse('$baseUrl/api/meals/summary').replace(queryParameters: queryParams);
+      if (employeeUserId != null)
+        queryParams['employeeUserId'] = employeeUserId;
+      final uri = Uri.parse('$baseUrl/api/meals/summary')
+          .replace(queryParameters: queryParams);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10086,12 +10345,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMealMenu({String? date, String? mealSessionId}) async {
+  Future<Map<String, dynamic>> getMealMenu(
+      {String? date, String? mealSessionId}) async {
     try {
       final queryParams = <String, String>{};
       if (date != null) queryParams['date'] = date;
       if (mealSessionId != null) queryParams['mealSessionId'] = mealSessionId;
-      final uri = Uri.parse('$baseUrl/api/meals/menu').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final uri = Uri.parse('$baseUrl/api/meals/menu').replace(
+          queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10099,11 +10360,13 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getWeeklyMealMenu({String? weekStartDate}) async {
+  Future<Map<String, dynamic>> getWeeklyMealMenu(
+      {String? weekStartDate}) async {
     try {
       final queryParams = <String, String>{};
       if (weekStartDate != null) queryParams['weekStartDate'] = weekStartDate;
-      final uri = Uri.parse('$baseUrl/api/meals/menu/weekly').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final uri = Uri.parse('$baseUrl/api/meals/menu/weekly').replace(
+          queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10113,22 +10376,19 @@ class ApiService {
 
   Future<Map<String, dynamic>> createMealMenu(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/menu'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/menu'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateMealMenu(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateMealMenu(
+      String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
-          Uri.parse('$baseUrl/api/meals/menu/$id'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.put(Uri.parse('$baseUrl/api/meals/menu/$id'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -10137,9 +10397,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> deleteMealMenu(String id) async {
     try {
-      final response = await http.delete(
-          Uri.parse('$baseUrl/api/meals/menu/$id'),
-          headers: _headers);
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/meals/menu/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -10150,17 +10409,16 @@ class ApiService {
 
   Future<Map<String, dynamic>> registerMeal(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/register'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/register'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> batchRegisterMeal(List<Map<String, dynamic>> registrations) async {
+  Future<Map<String, dynamic>> batchRegisterMeal(
+      List<Map<String, dynamic>> registrations) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/meals/register/batch'),
@@ -10172,12 +10430,17 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMyMealRegistrations({DateTime? fromDate, DateTime? toDate}) async {
+  Future<Map<String, dynamic>> getMyMealRegistrations(
+      {DateTime? fromDate, DateTime? toDate}) async {
     try {
       final params = <String, String>{};
-      if (fromDate != null) params['fromDate'] = fromDate.toIso8601String().split('T')[0];
-      if (toDate != null) params['toDate'] = toDate.toIso8601String().split('T')[0];
-      final query = params.isNotEmpty ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}' : '';
+      if (fromDate != null)
+        params['fromDate'] = fromDate.toIso8601String().split('T')[0];
+      if (toDate != null)
+        params['toDate'] = toDate.toIso8601String().split('T')[0];
+      final query = params.isNotEmpty
+          ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
+          : '';
       final response = await http.get(
           Uri.parse('$baseUrl/api/meals/register/my$query'),
           headers: _headers);
@@ -10187,12 +10450,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMealRegistrationSummary({String? date, String? mealSessionId}) async {
+  Future<Map<String, dynamic>> getMealRegistrationSummary(
+      {String? date, String? mealSessionId}) async {
     try {
       final params = <String, String>{};
       if (date != null) params['date'] = date;
       if (mealSessionId != null) params['mealSessionId'] = mealSessionId;
-      final query = params.isNotEmpty ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}' : '';
+      final query = params.isNotEmpty
+          ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
+          : '';
       final response = await http.get(
           Uri.parse('$baseUrl/api/meals/register/summary$query'),
           headers: _headers);
@@ -10202,15 +10468,16 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> qrMealCheckIn({String? mealSessionId, String? qrCode}) async {
+  Future<Map<String, dynamic>> qrMealCheckIn(
+      {String? mealSessionId, String? qrCode}) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/checkin/qr'),
-          headers: _headers,
-          body: jsonEncode({
-            if (mealSessionId != null) 'mealSessionId': mealSessionId,
-            if (qrCode != null) 'qrCode': qrCode,
-          }));
+      final response =
+          await http.post(Uri.parse('$baseUrl/api/meals/checkin/qr'),
+              headers: _headers,
+              body: jsonEncode({
+                if (mealSessionId != null) 'mealSessionId': mealSessionId,
+                if (qrCode != null) 'qrCode': qrCode,
+              }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -10219,13 +10486,15 @@ class ApiService {
 
   // --- Meal Debt (Công nợ suất ăn) ---
 
-  Future<Map<String, dynamic>> getMealDebtSummary({String? period, DateTime? from, DateTime? to}) async {
+  Future<Map<String, dynamic>> getMealDebtSummary(
+      {String? period, DateTime? from, DateTime? to}) async {
     try {
       final params = <String, String>{};
       if (period != null) params['period'] = period;
       if (from != null) params['from'] = from.toIso8601String();
       if (to != null) params['to'] = to.toIso8601String();
-      final uri = Uri.parse('$baseUrl/api/meals/debt/summary').replace(queryParameters: params.isEmpty ? null : params);
+      final uri = Uri.parse('$baseUrl/api/meals/debt/summary')
+          .replace(queryParameters: params.isEmpty ? null : params);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10233,12 +10502,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMealDebtHistory({String? employeeUserId, String? period}) async {
+  Future<Map<String, dynamic>> getMealDebtHistory(
+      {String? employeeUserId, String? period}) async {
     try {
       final params = <String, String>{};
       if (employeeUserId != null) params['employeeUserId'] = employeeUserId;
       if (period != null) params['period'] = period;
-      final uri = Uri.parse('$baseUrl/api/meals/debt/history').replace(queryParameters: params.isEmpty ? null : params);
+      final uri = Uri.parse('$baseUrl/api/meals/debt/history')
+          .replace(queryParameters: params.isEmpty ? null : params);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10248,10 +10519,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> createMealDebt(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/debt'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/debt'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -10274,8 +10543,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getMealDishes() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/meals/dishes'),
+      final response = await http.get(Uri.parse('$baseUrl/api/meals/dishes'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -10285,17 +10553,16 @@ class ApiService {
 
   Future<Map<String, dynamic>> createMealDish(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/dishes'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/dishes'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateMealDish(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateMealDish(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/meals/dishes/$id'),
@@ -10320,19 +10587,19 @@ class ApiService {
 
   // ==================== MEAL RECORDS CRUD ====================
 
-  Future<Map<String, dynamic>> createMealRecord(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createMealRecord(
+      Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/meals/records'),
-          headers: _headers,
-          body: jsonEncode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/meals/records'),
+          headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> updateMealRecord(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateMealRecord(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/meals/records/$id'),
@@ -10357,7 +10624,8 @@ class ApiService {
 
   // ==================== MEAL REGISTRATIONS MANAGEMENT ====================
 
-  Future<Map<String, dynamic>> getMealRegistrations({String? date, String? mealSessionId}) async {
+  Future<Map<String, dynamic>> getMealRegistrations(
+      {String? date, String? mealSessionId}) async {
     try {
       final params = <String, String>{};
       if (date != null) params['date'] = date;
@@ -10374,7 +10642,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createMealRegistration(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createMealRegistration(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/meals/registrations'),
@@ -10401,11 +10670,13 @@ class ApiService {
 
   // --- Field Locations (Điểm bán khách hàng) ---
 
-  Future<Map<String, dynamic>> getFieldLocations({String? search, String? category}) async {
+  Future<Map<String, dynamic>> getFieldLocations(
+      {String? search, String? category}) async {
     try {
       final params = <String, String>{};
       if (search != null && search.isNotEmpty) params['search'] = search;
-      if (category != null && category.isNotEmpty) params['category'] = category;
+      if (category != null && category.isNotEmpty)
+        params['category'] = category;
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
           : '';
@@ -10418,7 +10689,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> registerFieldLocation(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> registerFieldLocation(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/locations'),
@@ -10430,7 +10702,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> updateFieldLocation(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateFieldLocation(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/field-checkin/locations/$id'),
@@ -10479,7 +10752,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createFieldAssignment(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createFieldAssignment(
+      Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/assignments'),
@@ -10491,7 +10765,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> bulkFieldAssign(List<Map<String, dynamic>> items) async {
+  Future<Map<String, dynamic>> bulkFieldAssign(
+      List<Map<String, dynamic>> items) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/assignments/bulk'),
@@ -10503,7 +10778,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> updateFieldAssignment(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateFieldAssignment(
+      String id, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/field-checkin/assignments/$id'),
@@ -10538,7 +10814,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> fieldCheckOut(String visitId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> fieldCheckOut(
+      String visitId, Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/checkout/$visitId'),
@@ -10603,7 +10880,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> reviewFieldVisit(String visitId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> reviewFieldVisit(
+      String visitId, Map<String, dynamic> data) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/review/$visitId'),
@@ -10645,7 +10923,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> trackJourneyPoints(List<Map<String, dynamic>> points) async {
+  Future<Map<String, dynamic>> trackJourneyPoints(
+      List<Map<String, dynamic>> points) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/track'),
@@ -10752,7 +11031,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> reviewJourney(String journeyId, {String? reviewNote}) async {
+  Future<Map<String, dynamic>> reviewJourney(String journeyId,
+      {String? reviewNote}) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/$journeyId/review'),
@@ -10865,8 +11145,7 @@ class ApiService {
       Map<String, dynamic> audience) async {
     try {
       final response = await http.post(
-          Uri.parse(
-              '$baseUrl/api/system-admin/announcements/preview-audience'),
+          Uri.parse('$baseUrl/api/system-admin/announcements/preview-audience'),
           headers: _headers,
           body: jsonEncode(audience));
       return _handleResponse(response);
@@ -10932,7 +11211,8 @@ class ApiService {
 
   // ============ Phase 2 — Maintenance Windows ============
 
-  Future<Map<String, dynamic>> listMaintenanceWindows({bool? activeOnly}) async {
+  Future<Map<String, dynamic>> listMaintenanceWindows(
+      {bool? activeOnly}) async {
     try {
       final qs = activeOnly == true ? '?activeOnly=true' : '';
       final response = await http.get(
@@ -10944,7 +11224,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createMaintenanceWindow(Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> createMaintenanceWindow(
+      Map<String, dynamic> body) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/system-admin/maintenance'),
@@ -10991,9 +11272,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> getActiveMaintenance() async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/maintenance/active'),
-          headers: _headers);
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/maintenance/active'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -11002,7 +11282,8 @@ class ApiService {
 
   // ============ Phase 3 — Marketing (Templates + Campaigns) ============
 
-  Future<Map<String, dynamic>> listNotificationTemplates({bool? activeOnly}) async {
+  Future<Map<String, dynamic>> listNotificationTemplates(
+      {bool? activeOnly}) async {
     try {
       final qs = activeOnly == true ? '?activeOnly=true' : '';
       final response = await http.get(
@@ -11091,8 +11372,7 @@ class ApiService {
   Future<Map<String, dynamic>> launchMarketingCampaign(String id) async {
     try {
       final response = await http.post(
-          Uri.parse(
-              '$baseUrl/api/system-admin/marketing/campaigns/$id/launch'),
+          Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id/launch'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -11103,8 +11383,7 @@ class ApiService {
   Future<Map<String, dynamic>> cancelMarketingCampaign(String id) async {
     try {
       final response = await http.post(
-          Uri.parse(
-              '$baseUrl/api/system-admin/marketing/campaigns/$id/cancel'),
+          Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id/cancel'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -11129,8 +11408,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> getAppPage(String type) async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/app-pages/$type'), headers: _headers);
+      final response = await http.get(Uri.parse('$baseUrl/api/app-pages/$type'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -11140,7 +11419,8 @@ class ApiService {
   Future<Map<String, dynamic>> adminGetAllAppPages() async {
     try {
       final response = await http.get(
-          Uri.parse('$baseUrl/api/system-admin/app-pages'), headers: _headers);
+          Uri.parse('$baseUrl/api/system-admin/app-pages'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -11167,10 +11447,8 @@ class ApiService {
   Future<Map<String, dynamic>> submitAppBugReport(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/app-reports'),
-          headers: _headers,
-          body: jsonEncode(body));
+      final response = await http.post(Uri.parse('$baseUrl/api/app-reports'),
+          headers: _headers, body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
