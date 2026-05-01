@@ -233,6 +233,10 @@ public static class DependencyInjectionExtensions
         
         // Email Service
         services.AddScoped<IEmailService, EmailService>();
+
+        // Notification target resolver
+        services.AddScoped<ZKTecoADMS.Application.Interfaces.INotificationTargetResolver,
+            ZKTecoADMS.Application.Services.NotificationTargetResolver>();
         
         return services;
     }
