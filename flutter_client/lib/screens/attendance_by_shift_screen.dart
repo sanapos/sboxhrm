@@ -5,7 +5,8 @@ import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import 'attendance/attendance_by_shift_tab.dart';
-import 'attendance/attendance_summary_tab.dart' show AttendanceCorrectionRequest;
+import 'attendance/attendance_summary_tab.dart'
+    show AttendanceCorrectionRequest;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 
@@ -15,7 +16,8 @@ class AttendanceByShiftScreen extends StatefulWidget {
   const AttendanceByShiftScreen({super.key});
 
   @override
-  State<AttendanceByShiftScreen> createState() => _AttendanceByShiftScreenState();
+  State<AttendanceByShiftScreen> createState() =>
+      _AttendanceByShiftScreenState();
 }
 
 class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
@@ -28,6 +30,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   List<Map<String, dynamic>> _salaryProfiles = [];
   List<dynamic> _holidays = [];
+  List<dynamic> _approvedLeaves = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
@@ -97,15 +100,15 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       final salaryProfilesResult = await salaryProfilesFuture;
       final holidaysResult = await holidaysFuture;
 
-      final shiftTemplates = shiftsResult
+      final shiftTemplates =
+          shiftsResult.map((s) => s as Map<String, dynamic>).toList();
+      final shiftSalaryLevels = ((salaryLevelsResult['data']?['items'] ??
+              salaryLevelsResult['data'] ??
+              []) as List)
           .map((s) => s as Map<String, dynamic>)
           .toList();
-      final shiftSalaryLevels = ((salaryLevelsResult['data']?['items'] ?? salaryLevelsResult['data'] ?? []) as List)
-          .map((s) => s as Map<String, dynamic>)
-          .toList();
-      final salaryProfiles = salaryProfilesResult
-          .map((s) => s as Map<String, dynamic>)
-          .toList();
+      final salaryProfiles =
+          salaryProfilesResult.map((s) => s as Map<String, dynamic>).toList();
 
       // Parse day_end_time
       final dayEndResult = await dayEndFuture;
@@ -120,6 +123,28 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         }
       }
 
+      // Load approved leaves
+      List<dynamic> approvedLeaves = [];
+      try {
+        final fromStr = _fromDate.toIso8601String().substring(0, 10);
+        final toStr = _toDate.toIso8601String().substring(0, 10);
+        final leavesResult = await _apiService.getAllLeaves(
+            fromDate: fromStr,
+            toDate: toStr,
+            status: 'Approved',
+            pageSize: 1000);
+        if (leavesResult['isSuccess'] == true) {
+          final data = leavesResult['data'];
+          if (data is Map) {
+            approvedLeaves = (data['items'] as List?) ?? [];
+          } else if (data is List) {
+            approvedLeaves = data;
+          }
+        }
+      } catch (e) {
+        debugPrint('Load approved leaves error: $e');
+      }
+
       if (mounted) {
         setState(() {
           _devices = devices;
@@ -128,6 +153,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _shiftSalaryLevels = shiftSalaryLevels;
           _salaryProfiles = salaryProfiles;
           _holidays = holidaysResult;
+          _approvedLeaves = approvedLeaves;
           _dayEndHour = deh;
           _dayEndMinute = dem;
           _isLoading = false;
@@ -153,7 +179,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         children: [
           // Gradient header
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, 18, isMobile ? 14 : 24, 18),
+            padding: EdgeInsets.fromLTRB(
+                isMobile ? 14 : 24, 18, isMobile ? 14 : 24, 18),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primary, primary.withValues(alpha: 0.85)],
@@ -177,7 +204,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.view_timeline, size: 22, color: Colors.white),
+                    child: const Icon(Icons.view_timeline,
+                        size: 22, color: Colors.white),
                   ),
                 if (!isMobile) const SizedBox(width: 14),
                 Expanded(
@@ -185,12 +213,17 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tổng hợp theo ca',
-                        style: TextStyle(fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold, color: Colors.white),
+                        'Tổng hợp chấm công theo ca',
+                        style: TextStyle(
+                            fontSize: isMobile ? 16 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                       ),
                       Text(
                         'Tổng hợp chấm công theo ca · ${_attendances.length} bản ghi',
-                        style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.8)),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -208,8 +241,20 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'excel', child: Row(children: [Icon(Icons.table_chart_outlined, size: 18), SizedBox(width: 8), Text('Xuất Excel')])),
-                      const PopupMenuItem(value: 'png', child: Row(children: [Icon(Icons.image_outlined, size: 18), SizedBox(width: 8), Text('Xuất PNG')])),
+                      const PopupMenuItem(
+                          value: 'excel',
+                          child: Row(children: [
+                            Icon(Icons.table_chart_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Xuất Excel')
+                          ])),
+                      const PopupMenuItem(
+                          value: 'png',
+                          child: Row(children: [
+                            Icon(Icons.image_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Xuất PNG')
+                          ])),
                     ],
                   )
                 else ...[
@@ -235,6 +280,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     shiftSalaryLevels: _shiftSalaryLevels,
                     salaryProfiles: _salaryProfiles,
                     holidays: _holidays,
+                    approvedLeaves: _approvedLeaves,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
                     onDataChanged: _loadData,
@@ -247,7 +293,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
 
   /// Gửi yêu cầu chấm công lên backend → Xử lý yêu cầu CC
   // ignore: unused_element
-  Future<void> _handleCorrectionRequest(AttendanceCorrectionRequest request) async {
+  Future<void> _handleCorrectionRequest(
+      AttendanceCorrectionRequest request) async {
     int action;
     switch (request.correctionType) {
       case 'add':
@@ -274,7 +321,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       newTime = t.contains(':') && t.split(':').length == 2 ? '$t:00' : t;
       newDate = request.correctionDate;
     }
-    if (request.correctionType == 'edit' || request.correctionType == 'delete') {
+    if (request.correctionType == 'edit' ||
+        request.correctionType == 'delete') {
       if (request.originalTime != null) {
         oldTime = DateFormat('HH:mm:ss').format(request.originalTime!);
         oldDate = request.correctionDate;
@@ -304,21 +352,26 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           // Reload data to reflect changes
           await _loadData();
           if (mounted) {
-            NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã gửi yêu cầu chấm công thành công');
+            NotificationOverlayManager().showSuccess(
+                title: 'Thành công',
+                message: 'Đã gửi yêu cầu chấm công thành công');
           }
         } else {
-          NotificationOverlayManager().showError(title: 'Lỗi', message: 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
+          NotificationOverlayManager().showError(
+              title: 'Lỗi', message: 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
         }
       }
     } catch (e) {
       debugPrint('Error creating correction request: $e');
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Lỗi: $e');
       }
     }
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String label, VoidCallback? onTap) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String label, VoidCallback? onTap) {
     return Material(
       color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(10),
@@ -332,7 +385,11 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
             children: [
               Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
         ),

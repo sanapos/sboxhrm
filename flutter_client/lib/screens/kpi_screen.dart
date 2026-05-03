@@ -97,8 +97,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         _api.getEmployees(),
       ]);
       setState(() {
-        if (r[0]['isSuccess'] == true)
+        if (r[0]['isSuccess'] == true) {
           _periods = List<Map<String, dynamic>>.from(r[0]['data'] ?? []);
+        }
         if (r[1]['isSuccess'] == true) _dashboard = r[1]['data'];
         _employees =
             (r[2] is List) ? List<Map<String, dynamic>>.from(r[2]) : [];
@@ -123,10 +124,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       ]);
       if (mounted) {
         setState(() {
-          if (r[0]['isSuccess'] == true)
+          if (r[0]['isSuccess'] == true) {
             _targets = List<Map<String, dynamic>>.from(r[0]['data'] ?? []);
-          if (r[1]['isSuccess'] == true)
+          }
+          if (r[1]['isSuccess'] == true) {
             _salaries = List<Map<String, dynamic>>.from(r[1]['data'] ?? []);
+          }
         });
       }
     } catch (e) {
@@ -389,8 +392,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   List<Map<String, dynamic>> get _filteredSalaries {
-    if (_filterDepartment == null && _filterEmployeeId == null)
+    if (_filterDepartment == null && _filterEmployeeId == null) {
       return _salaries;
+    }
     final filteredEmpIds =
         _filteredTargets.map((t) => t['employeeId']?.toString()).toSet();
     return _salaries
@@ -526,14 +530,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       final pngBytes = byteData.buffer.asUint8List();
       final fileName =
           '${filePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
-      if (mounted)
+      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+      if (mounted) {
         NotificationOverlayManager()
             .showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh: $fileName');
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -605,13 +611,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           'KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
       await file_saver.saveFileBytes(bytes, fileName,
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager().showSuccess(
             title: 'Xuất Excel', message: 'Đã xuất Excel: $fileName');
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi xuất Excel: $e');
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -719,13 +727,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           'Luong_KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
       await file_saver.saveFileBytes(bytes, fileName,
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager().showSuccess(
             title: 'Xuất Excel', message: 'Đã xuất Excel: $fileName');
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi xuất Excel: $e');
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -2174,8 +2184,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   // ------------------------------------------------
 
   Widget _buildTargetsTab(ThemeData theme) {
-    if (_selPeriodId == null)
+    if (_selPeriodId == null) {
       return _emptyState('Chọn chu kỳ ở header', Icons.calendar_today);
+    }
     final filtered = _filteredTargets;
     final isMobile = Responsive.isMobile(context);
     final btnStyle = OutlinedButton.styleFrom(
@@ -2972,11 +2983,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           final res = await _api.saveKpiEmployeeTargets(_selPeriodId!, batch);
           if (ctx.mounted) Navigator.pop(ctx);
           if (res['isSuccess'] == true) {
-            if (mounted)
+            if (mounted) {
               NotificationOverlayManager().showSuccess(
                   title: 'Thành công',
                   message:
                       'Đã giao chỉ tiêu cho ${selectedEmpIds.length} nhân viên');
+            }
             _loadPeriodData();
           }
         }
@@ -3479,8 +3491,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSalaryTab(ThemeData theme) {
-    if (_selPeriodId == null)
+    if (_selPeriodId == null) {
       return _emptyState('Chọn chu kỳ ở header', Icons.calendar_today);
+    }
 
     final maxTiers = _maxTierCount;
 
@@ -3940,11 +3953,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         value: s, child: Text('$s')))
                                     .toList(),
                                 onChanged: (v) {
-                                  if (v != null)
+                                  if (v != null) {
                                     setState(() {
                                       _salaryPageSize = v;
                                       _salaryPage = 1;
                                     });
+                                  }
                                 },
                               ),
                             ),
@@ -4402,8 +4416,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   // ------------------------------------------------
 
   Widget _buildGSheetConfigTab(ThemeData theme) {
-    if (_selPeriodId == null)
+    if (_selPeriodId == null) {
       return _emptyState('Chọn chu kỳ ở header', Icons.calendar_today);
+    }
 
     // Get current period data
     final period = _periods.firstWhere(
@@ -4614,9 +4629,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildEmployeeMappingSection(ThemeData theme) {
-    if (_targets.isEmpty)
+    if (_targets.isEmpty) {
       return _emptyState(
           'Chưa có nhân viên nào được giao chỉ tiêu', Icons.person_outlined);
+    }
 
     final configured = _targets
         .where((t) =>
@@ -5753,7 +5769,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
     if (result == null ||
         result.files.isEmpty ||
-        result.files.first.bytes == null) return;
+        result.files.first.bytes == null) {
+      return;
+    }
 
     try {
       final bytes = result.files.first.bytes!;
@@ -5763,10 +5781,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       final sheetName = excel.tables.keys.first;
       final table = excel.tables[sheetName];
       if (table == null || table.rows.length < 2) {
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager().showWarning(
               title: 'Thiếu dữ liệu',
               message: 'File không có dữ liệu (cần ít nhất 2 dòng)');
+        }
         return;
       }
 
@@ -5787,10 +5806,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       }
 
       if (importData.isEmpty) {
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager().showWarning(
               title: 'Không hợp lệ',
               message: 'Không tìm thấy dữ liệu hợp lệ trong file');
+        }
         return;
       }
 
@@ -5811,9 +5831,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi import: $e');
+      }
     }
   }
 
@@ -5849,17 +5870,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           'kpi_template_$_selPeriodId.xlsx',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager()
               .showSuccess(title: 'Thành công', message: 'Đã tải file mẫu');
+        }
       } else if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Không thể tải file mẫu');
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi: $e');
+      }
     }
   }
 
@@ -5884,9 +5907,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi ghi chỉ tiêu: $e');
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -5912,9 +5936,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi đồng bộ: $e');
+      }
     }
     if (mounted) setState(() => _loading = false);
   }

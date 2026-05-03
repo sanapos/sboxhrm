@@ -3606,12 +3606,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       ),
                       keyboardType: TextInputType.number,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty)
+                        if (v == null || v.trim().isEmpty) {
                           return 'Vui lòng nhập số tiền';
+                        }
                         final amount = double.tryParse(
                             v.replaceAll('.', '').replaceAll(',', ''));
-                        if (amount == null || amount <= 0)
+                        if (amount == null || amount <= 0) {
                           return 'Số tiền không hợp lệ';
+                        }
                         return null;
                       },
                     ),

@@ -188,7 +188,7 @@ class _BugReportFormState extends State<_BugReportForm> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: _type,
+                      initialValue: _type,
                       decoration: const InputDecoration(border: OutlineInputBorder()),
                       items: const [
                         DropdownMenuItem(value: 'Bug', child: Text('🐛 Báo lỗi')),

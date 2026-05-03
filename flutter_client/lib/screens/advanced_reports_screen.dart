@@ -1144,17 +1144,21 @@ class _ResultView extends StatelessWidget {
 
   Color _colorForKey(String k) {
     final lk = k.toLowerCase();
-    if (lk.contains('rate') || lk.contains('pct') || lk.contains('percent'))
+    if (lk.contains('rate') || lk.contains('pct') || lk.contains('percent')) {
       return const Color(0xFF059669);
+    }
     if (lk.contains('total') || lk.contains('count')) return const Color(0xFF2563EB);
     if (lk.contains('approved') || lk.contains('paid')) return const Color(0xFF16A34A);
     if (lk.contains('rejected') || lk.contains('cancelled') ||
         lk.contains('absent') || lk.contains('late') ||
         lk.contains('outstanding') || lk.contains('debt') ||
-        lk.contains('broken') || lk.contains('lost')) return const Color(0xFFDC2626);
+        lk.contains('broken') || lk.contains('lost')) {
+      return const Color(0xFFDC2626);
+    }
     if (lk.contains('pending') || lk.contains('draft')) return const Color(0xFFEA580C);
-    if (lk.contains('date') || lk == 'period' || lk == 'year' || lk == 'month')
+    if (lk.contains('date') || lk == 'period' || lk == 'year' || lk == 'month') {
       return const Color(0xFF7C3AED);
+    }
     return const Color(0xFF475569);
   }
 

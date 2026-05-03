@@ -36,7 +36,7 @@ class Attendance {
   DateTime get punchTime => attendanceTime;
   int get punchType => attendanceState;
   int get verifyType => verifyMode;
-  
+
   // Privilege text
   String get privilegeText {
     switch (privilege) {
@@ -60,13 +60,20 @@ class Attendance {
     if (parsed != null) return parsed;
     // Map string enum names to int values (matching C# enum ordinal)
     switch (s) {
-      case 'CheckIn': return 0;
-      case 'CheckOut': return 1;
-      case 'MealIn': return 2;
-      case 'MealOut': return 3;
-      case 'BreakIn': return 4;
-      case 'BreakOut': return 5;
-      default: return 0;
+      case 'CheckIn':
+        return 0;
+      case 'CheckOut':
+        return 1;
+      case 'MealIn':
+        return 2;
+      case 'MealOut':
+        return 3;
+      case 'BreakIn':
+        return 4;
+      case 'BreakOut':
+        return 5;
+      default:
+        return 0;
     }
   }
 
@@ -79,20 +86,34 @@ class Attendance {
     final parsed = int.tryParse(s);
     if (parsed != null) return parsed;
     switch (s) {
-      case 'Password': return 0;
-      case 'Finger': return 1;
-      case 'Badge': return 2;
-      case 'PIN': return 3;
-      case 'PINAndFingerprint': return 4;
-      case 'FingerAndPassword': return 5;
-      case 'BadgeAndFinger': return 6;
-      case 'BadgeAndPassword': return 7;
-      case 'BadgeAndPasswordAndFinger': return 8;
-      case 'PINAndPasswordAndFinger': return 9;
-      case 'Face': return 15;
-      case 'Manual': return 100;
-      case 'Unknown': return -1;
-      default: return 0;
+      case 'Password':
+        return 0;
+      case 'Finger':
+        return 1;
+      case 'Badge':
+        return 2;
+      case 'PIN':
+        return 3;
+      case 'PINAndFingerprint':
+        return 4;
+      case 'FingerAndPassword':
+        return 5;
+      case 'BadgeAndFinger':
+        return 6;
+      case 'BadgeAndPassword':
+        return 7;
+      case 'BadgeAndPasswordAndFinger':
+        return 8;
+      case 'PINAndPasswordAndFinger':
+        return 9;
+      case 'Face':
+        return 15;
+      case 'Manual':
+        return 100;
+      case 'Unknown':
+        return -1;
+      default:
+        return 0;
     }
   }
 
@@ -113,28 +134,51 @@ class Attendance {
       return json[pascalKey] as V?;
     }
 
-    // Parse attendance time from various possible fields
+    // Parse attendance time from various possible fields.
+    // AttendanceTime is stored as VN local time in the backend (ZKTeco device sends
+    // local time, stored as-is in timestamp without time zone column).
+    // The API returns bare ISO strings (no 'Z' suffix, no offset) — these are already
+    // VN local time values. Parse them directly without any timezone conversion.
+    // If the string has explicit timezone info (Z or +offset), honor it.
     DateTime? parsedTime;
-    for (final field in ['attendanceTime', 'punchTime', 'checkTime', 'time', 'AttendanceTime', 'PunchTime', 'CheckTime', 'Time']) {
+    for (final field in [
+      'attendanceTime',
+      'punchTime',
+      'checkTime',
+      'time',
+      'AttendanceTime',
+      'PunchTime',
+      'CheckTime',
+      'Time'
+    ]) {
       if (json[field] != null) {
-        parsedTime = DateTime.tryParse(json[field].toString());
+        final raw = json[field].toString();
+        final hasTz = raw.endsWith('Z') ||
+            raw.contains('+') ||
+            RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);
+        // Bare ISO = VN local time from device → parse as local (no conversion).
+        // With timezone info → convert to local.
+        parsedTime =
+            hasTz ? DateTime.tryParse(raw)?.toLocal() : DateTime.tryParse(raw);
         if (parsedTime != null) break;
       }
     }
-    
+
     return Attendance(
       id: (get('id'))?.toString() ?? '',
       // PIN from device - support multiple field names
       pin: get('pin') ?? get('enrollNumber') ?? get('userId'),
       // Employee code from HR system - support both employeeCode and employeeId
-      employeeId: get<Object>('employeeCode')?.toString() ?? get<Object>('employeeId')?.toString(),
+      employeeId: get<Object>('employeeCode')?.toString() ??
+          get<Object>('employeeId')?.toString(),
       employeeName: get('userName') ?? get('employeeName') ?? get('name'),
       deviceId: get<Object>('deviceId')?.toString(),
       deviceName: get('deviceName'),
       deviceUserName: get('deviceUserName'),
       privilege: _toInt(get('privilege'), 0),
       attendanceTime: parsedTime ?? DateTime.now(),
-      attendanceState: _parseAttendanceState(get('attendanceState') ?? get('punchType') ?? get('checkType')),
+      attendanceState: _parseAttendanceState(
+          get('attendanceState') ?? get('punchType') ?? get('checkType')),
       verifyMode: _parseVerifyMode(get('verifyMode') ?? get('verifyType')),
       workCode: get('workCode'),
       note: get('note') ?? get('workCode'),

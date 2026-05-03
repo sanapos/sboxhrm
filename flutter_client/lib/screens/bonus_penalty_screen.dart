@@ -10,7 +10,9 @@ import '../providers/permission_provider.dart';
 
 /// Màn hình Thưởng phạt
 class BonusPenaltyScreen extends StatefulWidget {
-  const BonusPenaltyScreen({super.key});
+  /// Khi [bonusOnly] = true, chỉ hiển thị tab Phiếu thưởng (ẩn tab Phạt)
+  final bool bonusOnly;
+  const BonusPenaltyScreen({super.key, this.bonusOnly = false});
 
   @override
   State<BonusPenaltyScreen> createState() => _BonusPenaltyScreenState();
@@ -52,18 +54,23 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
+  bool get _bonusOnly => widget.bonusOnly;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _selectedIds.clear();
-          _isSelectMode = false;
-        });
-      }
-    });
+    _tabController = TabController(length: _bonusOnly ? 1 : 2, vsync: this);
+    if (!_bonusOnly) {
+      _tabController.addListener(() {
+        if (!_tabController.indexIsChanging) {
+          setState(() {
+            _selectedIds.clear();
+            _isSelectMode = false;
+          });
+        }
+      });
+    }
+    if (_bonusOnly) _filterType = 'Bonus';
     _loadData();
   }
 
@@ -247,27 +254,29 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     return Scaffold(
       body: Column(
         children: [
-          // Row 1: Tabs
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          // Row 1: Tabs (ẩn khi bonusOnly)
+          if (!_bonusOnly)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Colors.grey,
+                indicatorWeight: 3,
+                tabs: [
+                  Tab(
+                      icon: const Icon(Icons.card_giftcard),
+                      text: '${_l10n.bonus} (${_bonusTransactions.length})'),
+                  Tab(
+                      icon: const Icon(Icons.gavel),
+                      text:
+                          '${_l10n.penalty} (${_penaltyTransactions.length})'),
+                ],
+              ),
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor: Colors.grey,
-              indicatorWeight: 3,
-              tabs: [
-                Tab(
-                    icon: const Icon(Icons.card_giftcard),
-                    text: '${_l10n.bonus} (${_bonusTransactions.length})'),
-                Tab(
-                    icon: const Icon(Icons.gavel),
-                    text: '${_l10n.penalty} (${_penaltyTransactions.length})'),
-              ],
-            ),
-          ),
           // Row 2: Filters
           if (Responsive.isMobile(context)) ...[
             _buildMobileFilterToggle(),
@@ -278,21 +287,33 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: InkWell(
-                onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+                onTap: () =>
+                    setState(() => _showMobileSummary = !_showMobileSummary),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                      Icon(Icons.analytics_outlined,
+                          size: 16, color: Colors.blue.shade700),
                       const SizedBox(width: 6),
-                      Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                      Text('Tổng quan',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: Colors.blue.shade700)),
                       const Spacer(),
-                      Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                      Icon(
+                          _showMobileSummary
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 20,
+                          color: Colors.blue.shade700),
                     ],
                   ),
                 ),
@@ -307,28 +328,38 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildTransactionList(_bonusTransactions, isBonus: true),
-                      _buildTransactionList(_penaltyTransactions,
-                          isBonus: false),
-                    ],
-                  ),
+                : _bonusOnly
+                    ? _buildTransactionList(_bonusTransactions, isBonus: true)
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildTransactionList(_bonusTransactions,
+                              isBonus: true),
+                          _buildTransactionList(_penaltyTransactions,
+                              isBonus: false),
+                        ],
+                      ),
           ),
           if (!Responsive.isMobile(context)) _buildPaginationControls(),
         ],
       ),
-      floatingActionButton: Provider.of<PermissionProvider>(context, listen: false).canCreate('BonusPenalty') ? FloatingActionButton.extended(
-        onPressed: () => _showCreateEditDialog(),
-        icon: const Icon(Icons.add),
-        label: Text(_l10n.addNew),
-      ) : null,
+      floatingActionButton:
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('BonusPenalty')
+              ? FloatingActionButton.extended(
+                  onPressed: () => _showCreateEditDialog(
+                      presetType: _bonusOnly ? 'Bonus' : null),
+                  icon: const Icon(Icons.add),
+                  label: Text(_bonusOnly ? 'Thêm thưởng' : _l10n.addNew),
+                )
+              : null,
     );
   }
 
   bool _hasActiveFilters() {
-    return _datePreset != 'thisMonth' || _filterType != 'all' || _searchQuery.isNotEmpty;
+    return _datePreset != 'thisMonth' ||
+        _filterType != 'all' ||
+        _searchQuery.isNotEmpty;
   }
 
   Widget _buildMobileFilterToggle() {
@@ -340,7 +371,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+            onTap: () =>
+                setState(() => _showMobileFilters = !_showMobileFilters),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -353,23 +385,31 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
+                    _showMobileFilters
+                        ? Icons.filter_alt
+                        : Icons.filter_alt_outlined,
                     size: 16,
-                    color: _showMobileFilters ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                    color: _showMobileFilters
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade600,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _showMobileFilters ? 'Ẩn bộ lọc' : 'Bộ lọc',
                     style: TextStyle(
                       fontSize: 12,
-                      color: _showMobileFilters ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                      color: _showMobileFilters
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade600,
                     ),
                   ),
                   if (_hasActiveFilters()) ...[
                     const SizedBox(width: 4),
                     Container(
-                      width: 8, height: 8,
-                      decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                          color: Colors.orangeAccent, shape: BoxShape.circle),
                     ),
                   ],
                 ],
@@ -437,32 +477,35 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         },
       ),
     );
-    final typeDropdown = SizedBox(
-      width: isMobile ? null : 130,
-      child: DropdownButtonFormField<String>(
-        initialValue: _filterType,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: _l10n.type,
-          isDense: true,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        items: [
-          DropdownMenuItem(value: 'all', child: Text(_l10n.all)),
-          DropdownMenuItem(value: 'Bonus', child: Text(_l10n.bonus)),
-          DropdownMenuItem(value: 'Penalty', child: Text(_l10n.penalty)),
-        ],
-        onChanged: (v) {
-          if (v != null) {
-            _filterType = v;
-            _currentPage = 1;
-            _loadData();
-          }
-        },
-      ),
-    );
+    final typeDropdown = _bonusOnly
+        ? const SizedBox.shrink()
+        : SizedBox(
+            width: isMobile ? null : 130,
+            child: DropdownButtonFormField<String>(
+              initialValue: _filterType,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: _l10n.type,
+                isDense: true,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: [
+                DropdownMenuItem(value: 'all', child: Text(_l10n.all)),
+                DropdownMenuItem(value: 'Bonus', child: Text(_l10n.bonus)),
+                DropdownMenuItem(value: 'Penalty', child: Text(_l10n.penalty)),
+              ],
+              onChanged: (v) {
+                if (v != null) {
+                  _filterType = v;
+                  _currentPage = 1;
+                  _loadData();
+                }
+              },
+            ),
+          );
     final searchField = SizedBox(
       width: isMobile ? null : 240,
       child: TextField(
@@ -612,7 +655,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           Text('Đã chọn: ${_selectedIds.length}',
               style: const TextStyle(fontWeight: FontWeight.w600)),
           // Batch approve
-          if (pendingSelected.isNotEmpty && Provider.of<PermissionProvider>(context, listen: false).canApprove('BonusPenalty'))
+          if (pendingSelected.isNotEmpty &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canApprove('BonusPenalty'))
             ElevatedButton.icon(
               onPressed: () => _batchApprove(pendingSelected),
               icon: const Icon(Icons.check_circle, size: 16),
@@ -783,7 +828,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   Widget _buildPaginationControls() {
     final totalPages = (_totalCount / _pageSize).ceil();
-    if (totalPages <= 1 && _totalCount <= _pageSize) return const SizedBox.shrink();
+    if (totalPages <= 1 && _totalCount <= _pageSize)
+      return const SizedBox.shrink();
 
     final start = _totalCount > 0 ? (_currentPage - 1) * _pageSize + 1 : 0;
     final end = (_currentPage * _pageSize).clamp(0, _totalCount);
@@ -807,7 +853,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text('Hiển thị:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -822,10 +869,16 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     value: _pageSize,
                     isDense: true,
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                    items: _pageSizeOptions
+                        .map((s) =>
+                            DropdownMenuItem(value: s, child: Text('$s')))
+                        .toList(),
                     onChanged: (v) {
                       if (v != null) {
-                        setState(() { _pageSize = v; _currentPage = 1; });
+                        setState(() {
+                          _pageSize = v;
+                          _currentPage = 1;
+                        });
                         _loadData();
                       }
                     },
@@ -840,37 +893,53 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               IconButton(
                 icon: const Icon(Icons.first_page, size: 20),
                 onPressed: _currentPage > 1
-                    ? () { setState(() => _currentPage = 1); _loadData(); }
+                    ? () {
+                        setState(() => _currentPage = 1);
+                        _loadData();
+                      }
                     : null,
                 visualDensity: VisualDensity.compact,
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_left, size: 20),
                 onPressed: _currentPage > 1
-                    ? () { setState(() => _currentPage--); _loadData(); }
+                    ? () {
+                        setState(() => _currentPage--);
+                        _loadData();
+                      }
                     : null,
                 visualDensity: VisualDensity.compact,
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('$_currentPage / $totalPages',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right, size: 20),
                 onPressed: _currentPage < totalPages
-                    ? () { setState(() => _currentPage++); _loadData(); }
+                    ? () {
+                        setState(() => _currentPage++);
+                        _loadData();
+                      }
                     : null,
                 visualDensity: VisualDensity.compact,
               ),
               IconButton(
                 icon: const Icon(Icons.last_page, size: 20),
                 onPressed: _currentPage < totalPages
-                    ? () { setState(() => _currentPage = totalPages); _loadData(); }
+                    ? () {
+                        setState(() => _currentPage = totalPages);
+                        _loadData();
+                      }
                     : null,
                 visualDensity: VisualDensity.compact,
               ),
@@ -896,13 +965,14 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            if (Provider.of<PermissionProvider>(context, listen: false).canCreate('BonusPenalty'))
-            ElevatedButton.icon(
-              onPressed: () => _showCreateEditDialog(
-                  presetType: isBonus ? 'Bonus' : 'Penalty'),
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(isBonus ? 'Thêm thưởng' : 'Thêm phạt'),
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canCreate('BonusPenalty'))
+              ElevatedButton.icon(
+                onPressed: () => _showCreateEditDialog(
+                    presetType: isBonus ? 'Bonus' : 'Penalty'),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(isBonus ? 'Thêm thưởng' : 'Thêm phạt'),
+              ),
           ],
         ),
       );
@@ -1102,7 +1172,10 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (status != 'Completed' && Provider.of<PermissionProvider>(context, listen: false).canEdit('BonusPenalty')) ...[
+                        if (status != 'Completed' &&
+                            Provider.of<PermissionProvider>(context,
+                                    listen: false)
+                                .canEdit('BonusPenalty')) ...[
                           _ActionBtn(
                               icon: Icons.edit_rounded,
                               label: _l10n.edit,
@@ -1110,7 +1183,10 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onTap: () => _handleAction('edit', tx)),
                           const SizedBox(width: 6),
                         ],
-                        if (status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canApprove('BonusPenalty')) ...[
+                        if (status == 'Pending' &&
+                            Provider.of<PermissionProvider>(context,
+                                    listen: false)
+                                .canApprove('BonusPenalty')) ...[
                           _ActionBtn(
                               icon: Icons.check_circle_outline,
                               label: _l10n.approveLabel,
@@ -1128,7 +1204,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                           ),
                           const SizedBox(width: 6),
                         ],
-                        if (status == 'Completed' && !isPaid && Provider.of<PermissionProvider>(context, listen: false).canApprove('BonusPenalty')) ...[
+                        if (status == 'Completed' &&
+                            !isPaid &&
+                            Provider.of<PermissionProvider>(context,
+                                    listen: false)
+                                .canApprove('BonusPenalty')) ...[
                           _ActionBtn(
                               icon: Icons.undo_rounded,
                               label: _l10n.reverseApproval,
@@ -1136,7 +1216,10 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onTap: () => _handleAction('unapprove', tx)),
                           const SizedBox(width: 6),
                         ],
-                        if (status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canApprove('BonusPenalty')) ...[
+                        if (status == 'Pending' &&
+                            Provider.of<PermissionProvider>(context,
+                                    listen: false)
+                                .canApprove('BonusPenalty')) ...[
                           _ActionBtn(
                               icon: Icons.cancel_outlined,
                               label: _l10n.cancel,
@@ -1144,12 +1227,14 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onTap: () => _handleAction('cancel', tx)),
                           const SizedBox(width: 6),
                         ],
-                        if (Provider.of<PermissionProvider>(context, listen: false).canDelete('BonusPenalty'))
-                        _ActionBtn(
-                            icon: Icons.delete_forever_outlined,
-                            label: _l10n.delete,
-                            color: Colors.red.shade700,
-                            onTap: () => _handleAction('delete', tx)),
+                        if (Provider.of<PermissionProvider>(context,
+                                listen: false)
+                            .canDelete('BonusPenalty'))
+                          _ActionBtn(
+                              icon: Icons.delete_forever_outlined,
+                              label: _l10n.delete,
+                              color: Colors.red.shade700,
+                              onTap: () => _handleAction('delete', tx)),
                       ],
                     ),
                   ],
@@ -1168,37 +1253,64 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     final status = tx['status']?.toString() ?? 'Pending';
     final empName = tx['employeeName']?.toString() ?? '';
     final empCode = tx['employeeCode']?.toString() ?? '';
-    final date = DateTime.tryParse(tx['transactionDate']?.toString() ?? '') ?? DateTime.now();
+    final date = DateTime.tryParse(tx['transactionDate']?.toString() ?? '') ??
+        DateTime.now();
     final desc = tx['description']?.toString() ?? '';
 
     Color statusColor;
     String statusLabel;
     switch (status) {
       case 'Completed':
-        statusColor = Colors.green; statusLabel = _l10n.approved;
+        statusColor = Colors.green;
+        statusLabel = _l10n.approved;
         break;
       case 'Cancelled':
-        statusColor = Colors.grey; statusLabel = _l10n.cancelled;
+        statusColor = Colors.grey;
+        statusLabel = _l10n.cancelled;
         break;
       default:
-        statusColor = Colors.orange; statusLabel = _l10n.pending;
+        statusColor = Colors.orange;
+        statusLabel = _l10n.pending;
     }
 
     return InkWell(
-      onTap: _isSelectMode ? () => setState(() { _selectedIds.contains(txId) ? _selectedIds.remove(txId) : _selectedIds.add(txId); }) : null,
+      onTap: _isSelectMode
+          ? () => setState(() {
+                _selectedIds.contains(txId)
+                    ? _selectedIds.remove(txId)
+                    : _selectedIds.add(txId);
+              })
+          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
-          if (_isSelectMode) Checkbox(value: _selectedIds.contains(txId), onChanged: (v) => setState(() { v == true ? _selectedIds.add(txId) : _selectedIds.remove(txId); }), visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          if (_isSelectMode)
+            Checkbox(
+                value: _selectedIds.contains(txId),
+                onChanged: (v) => setState(() {
+                      v == true
+                          ? _selectedIds.add(txId)
+                          : _selectedIds.remove(txId);
+                    }),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
           CircleAvatar(
             radius: 18,
-            backgroundColor: isBonus ? Colors.green.shade100 : Colors.red.shade100,
-            child: Icon(isBonus ? Icons.card_giftcard : Icons.gavel, size: 16, color: isBonus ? Colors.green.shade700 : Colors.red.shade700),
+            backgroundColor:
+                isBonus ? Colors.green.shade100 : Colors.red.shade100,
+            child: Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
+                size: 16,
+                color: isBonus ? Colors.green.shade700 : Colors.red.shade700),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(empName.isNotEmpty ? empName : empCode, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(empName.isNotEmpty ? empName : empCode,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
                 [
@@ -1206,20 +1318,30 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   (DateFormat('dd/MM/yyyy').format(date)),
                 ].join(' · '),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(
               '${isBonus ? '+' : '-'}${_currencyFormat.format(amount)} đ',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isBonus ? Colors.green.shade700 : Colors.red.shade700),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isBonus ? Colors.green.shade700 : Colors.red.shade700),
             ),
             const SizedBox(height: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(statusLabel, style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w600)),
+              decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(statusLabel,
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: statusColor,
+                      fontWeight: FontWeight.w600)),
             ),
           ]),
         ]),
@@ -1361,8 +1483,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     ),
                     dense: true,
                     // ignore: deprecated_member_use
-                    onChanged: (v) =>
-                        setDialogState(() => selectedMethod = v!),
+                    onChanged: (v) => setDialogState(() => selectedMethod = v!),
                   );
                 }),
                 const SizedBox(height: 8),
@@ -1380,30 +1501,39 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             Navigator.pop(ctx);
             await _executeBatchPay(ids, selectedMethod);
           }
+
           if (isMobile) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
               child: SizedBox(
-                width: double.infinity, height: double.infinity,
+                width: double.infinity,
+                height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
                     title: Text(dialogTitle),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: onPay,
-                        icon: const Icon(Icons.check),
-                        label: Text(btnLabel),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: isPenaltyTab ? Colors.teal : Colors.blue),
-                      ),
-                    ]),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text(_l10n.cancel)),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: onPay,
+                            icon: const Icon(Icons.check),
+                            label: Text(btnLabel),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    isPenaltyTab ? Colors.teal : Colors.blue),
+                          ),
+                        ]),
                   ),
                 ),
               ),
@@ -1817,8 +1947,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.person,
-                          size: 18, color: Colors.grey),
+                      const Icon(Icons.person, size: 18, color: Colors.grey),
                       const SizedBox(width: 8),
                       Text(
                         editTx['employeeName']?.toString() ??
@@ -1863,9 +1992,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: categories.contains(category)
-                    ? category
-                    : categories.first,
+                initialValue:
+                    categories.contains(category) ? category : categories.first,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Danh mục *',
@@ -1874,8 +2002,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                       borderRadius: BorderRadius.circular(8)),
                 ),
                 items: categories
-                    .map(
-                        (c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 onChanged: (v) =>
                     setDialogState(() => category = v ?? category),
@@ -1987,9 +2114,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   child: CircularProgressIndicator(strokeWidth: 2))
               : Icon(isEdit ? Icons.save : Icons.add);
 
-          final saveLabel = Text(isSaving
-              ? 'Đang lưu...'
-              : (isEdit ? 'Cập nhật' : 'Tạo phiếu'));
+          final saveLabel = Text(
+              isSaving ? 'Đang lưu...' : (isEdit ? 'Cập nhật' : 'Tạo phiếu'));
 
           if (isMobile) {
             return Dialog(

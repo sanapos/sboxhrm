@@ -11,6 +11,7 @@ import '../widgets/app_button.dart';
 import '../utils/responsive_helper.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import 'mobile_attendance_approval_screen.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
   final String? highlightId;
@@ -157,7 +158,10 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     if (id == null || id.isEmpty) return;
     Map<String, dynamic>? match;
     for (final r in _requests) {
-      if (r['id']?.toString() == id) { match = r; break; }
+      if (r['id']?.toString() == id) {
+        match = r;
+        break;
+      }
     }
     if (match == null) return;
     _highlightOpened = true;
@@ -552,34 +556,52 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
 
   String _getApprovalStatusLabel(int status) {
     switch (status) {
-      case 0: return 'Chờ duyệt';
-      case 1: return 'Đã duyệt';
-      case 2: return 'Từ chối';
-      case 3: return 'Đã hủy';
-      case 4: return 'Hết hạn';
-      default: return 'Không rõ';
+      case 0:
+        return 'Chờ duyệt';
+      case 1:
+        return 'Đã duyệt';
+      case 2:
+        return 'Từ chối';
+      case 3:
+        return 'Đã hủy';
+      case 4:
+        return 'Hết hạn';
+      default:
+        return 'Không rõ';
     }
   }
 
   Color _getApprovalStatusColor(int status) {
     switch (status) {
-      case 0: return Colors.orange;
-      case 1: return Colors.green;
-      case 2: return Colors.red;
-      case 3: return Colors.grey;
-      case 4: return Colors.grey;
-      default: return Colors.grey;
+      case 0:
+        return Colors.orange;
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.red;
+      case 3:
+        return Colors.grey;
+      case 4:
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 
   IconData _getApprovalStatusIcon(int status) {
     switch (status) {
-      case 0: return Icons.hourglass_empty;
-      case 1: return Icons.check_circle;
-      case 2: return Icons.cancel;
-      case 3: return Icons.block;
-      case 4: return Icons.timer_off;
-      default: return Icons.help_outline;
+      case 0:
+        return Icons.hourglass_empty;
+      case 1:
+        return Icons.check_circle;
+      case 2:
+        return Icons.cancel;
+      case 3:
+        return Icons.block;
+      case 4:
+        return Icons.timer_off;
+      default:
+        return Icons.help_outline;
     }
   }
 
@@ -602,7 +624,10 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
             const SizedBox(width: 4),
             Text(
               'Tiến trình duyệt ($currentStep/$totalLevels)',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blueGrey),
             ),
           ],
         ),
@@ -610,32 +635,48 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
         if (records.isNotEmpty) ...[
           ...records.map((record) {
             final stepStatus = record['status'] ?? 0;
-            final stepStatusInt = stepStatus is int ? stepStatus : int.tryParse(stepStatus.toString()) ?? 0;
+            final stepStatusInt = stepStatus is int
+                ? stepStatus
+                : int.tryParse(stepStatus.toString()) ?? 0;
             final color = _getApprovalStatusColor(stepStatusInt);
             return Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
                 children: [
-                  Icon(_getApprovalStatusIcon(stepStatusInt), size: 16, color: color),
+                  Icon(_getApprovalStatusIcon(stepStatusInt),
+                      size: 16, color: color),
                   const SizedBox(width: 6),
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.black87),
                         children: [
                           TextSpan(
-                            text: record['stepName'] ?? 'Bước ${record['stepOrder'] ?? '?'}',
-                            style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                            text: record['stepName'] ??
+                                'Bước ${record['stepOrder'] ?? '?'}',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, color: color),
                           ),
                           const TextSpan(text: ': '),
                           TextSpan(
                             text: stepStatusInt == 0
-                              ? (record['assignedUserName'] ?? 'Chưa xác định')
-                              : (record['actualUserName'] ?? record['assignedUserName'] ?? '--'),
+                                ? (record['assignedUserName'] ??
+                                    'Chưa xác định')
+                                : (record['actualUserName'] ??
+                                    record['assignedUserName'] ??
+                                    '--'),
                           ),
-                          if (record['note'] != null && record['note'].toString().isNotEmpty) ...[
-                            TextSpan(text: ' - ', style: TextStyle(color: Colors.grey[500])),
-                            TextSpan(text: record['note'], style: TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                          if (record['note'] != null &&
+                              record['note'].toString().isNotEmpty) ...[
+                            TextSpan(
+                                text: ' - ',
+                                style: TextStyle(color: Colors.grey[500])),
+                            TextSpan(
+                                text: record['note'],
+                                style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic)),
                           ],
                         ],
                       ),
@@ -655,10 +696,14 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: statusInt == 2 ? 1.0 : (totalLevels > 0 ? currentStep / totalLevels : 0),
+              value: statusInt == 2
+                  ? 1.0
+                  : (totalLevels > 0 ? currentStep / totalLevels : 0),
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(
-                statusInt == 2 ? Colors.red : (currentStep >= totalLevels ? Colors.green : Colors.blue),
+                statusInt == 2
+                    ? Colors.red
+                    : (currentStep >= totalLevels ? Colors.green : Colors.blue),
               ),
               minHeight: 6,
             ),
@@ -692,35 +737,49 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
               // Header
               Center(
                 child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: _getStatusColor(req['status']).withValues(alpha: 0.15),
-                    child: Icon(Icons.description, color: _getStatusColor(req['status'])),
+                    backgroundColor:
+                        _getStatusColor(req['status']).withValues(alpha: 0.15),
+                    child: Icon(Icons.description,
+                        color: _getStatusColor(req['status'])),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(req['employeeName'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text(req['employeeCode'] ?? '', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                        Text(req['employeeName'] ?? '',
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(req['employeeCode'] ?? '',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey[600])),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(req['status']).withValues(alpha: 0.1),
+                      color:
+                          _getStatusColor(req['status']).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(_getStatusLabel(req['status']),
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _getStatusColor(req['status']))),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _getStatusColor(req['status']))),
                   ),
                 ],
               ),
@@ -738,7 +797,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
               // Approval progress section
               if (totalLevels > 1 || records.isNotEmpty) ...[
                 const Divider(height: 24),
-                const Text('Tiến trình duyệt đa cấp', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text('Tiến trình duyệt đa cấp',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 _buildApprovalTimeline(records, statusInt),
               ] else ...[
@@ -762,7 +823,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            child: Text(label,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
@@ -772,7 +834,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
 
   Widget _buildApprovalTimeline(List records, int requestStatus) {
     if (records.isEmpty) {
-      return const Text('Chưa có dữ liệu duyệt', style: TextStyle(fontSize: 12, color: Colors.grey));
+      return const Text('Chưa có dữ liệu duyệt',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
     }
 
     return Column(
@@ -781,7 +844,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
         final record = entry.value;
         final isLast = idx == records.length - 1;
         final stepStatus = record['status'] ?? 0;
-        final stepStatusInt = stepStatus is int ? stepStatus : int.tryParse(stepStatus.toString()) ?? 0;
+        final stepStatusInt = stepStatus is int
+            ? stepStatus
+            : int.tryParse(stepStatus.toString()) ?? 0;
         final color = _getApprovalStatusColor(stepStatusInt);
 
         return IntrinsicHeight(
@@ -794,13 +859,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                 child: Column(
                   children: [
                     Container(
-                      width: 20, height: 20,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(color: color, width: 2),
                       ),
-                      child: Icon(_getApprovalStatusIcon(stepStatusInt), size: 12, color: color),
+                      child: Icon(_getApprovalStatusIcon(stepStatusInt),
+                          size: 12, color: color),
                     ),
                     if (!isLast)
                       Expanded(
@@ -820,19 +887,27 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                       Row(
                         children: [
                           Text(
-                            record['stepName'] ?? 'Bước ${record['stepOrder'] ?? idx + 1}',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                            record['stepName'] ??
+                                'Bước ${record['stepOrder'] ?? idx + 1}',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: color),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               _getApprovalStatusLabel(stepStatusInt),
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: color),
                             ),
                           ),
                         ],
@@ -840,16 +915,20 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                       const SizedBox(height: 4),
                       Text(
                         stepStatusInt == 0
-                          ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
-                          : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}',
+                            ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
+                            : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       ),
-                      if (record['note'] != null && record['note'].toString().isNotEmpty)
+                      if (record['note'] != null &&
+                          record['note'].toString().isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             'Ghi chú: ${record['note']}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic),
                           ),
                         ),
                       if (record['actionDate'] != null)
@@ -857,7 +936,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             _formatDateTime(record['actionDate']),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[500]),
                           ),
                         ),
                     ],
@@ -877,7 +957,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     final statusInt = _parseStatus(req['status']);
 
     if (totalLevels <= 1) {
-      return Text(statusInt == 0 ? 'Đơn cấp' : '--', style: TextStyle(fontSize: 11, color: Colors.grey[500]));
+      return Text(statusInt == 0 ? 'Đơn cấp' : '--',
+          style: TextStyle(fontSize: 11, color: Colors.grey[500]));
     }
 
     return Row(
@@ -886,12 +967,19 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
         ...List.generate(totalLevels, (i) {
           Color dotColor;
           if (statusInt == 2) {
-            dotColor = i < currentStep ? Colors.green : (i == currentStep ? Colors.red : Colors.grey[300]!);
+            dotColor = i < currentStep
+                ? Colors.green
+                : (i == currentStep ? Colors.red : Colors.grey[300]!);
           } else {
-            dotColor = i < currentStep ? Colors.green : (i == currentStep && statusInt == 0 ? Colors.orange : Colors.grey[300]!);
+            dotColor = i < currentStep
+                ? Colors.green
+                : (i == currentStep && statusInt == 0
+                    ? Colors.orange
+                    : Colors.grey[300]!);
           }
           return Container(
-            width: 12, height: 12,
+            width: 12,
+            height: 12,
             margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
               color: dotColor.withValues(alpha: 0.2),
@@ -899,10 +987,10 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
               border: Border.all(color: dotColor, width: 1.5),
             ),
             child: i < currentStep
-              ? Icon(Icons.check, size: 8, color: dotColor)
-              : (i == currentStep && statusInt == 2
-                  ? Icon(Icons.close, size: 8, color: dotColor)
-                  : null),
+                ? Icon(Icons.check, size: 8, color: dotColor)
+                : (i == currentStep && statusInt == 2
+                    ? Icon(Icons.close, size: 8, color: dotColor)
+                    : null),
           );
         }),
         const SizedBox(width: 4),
@@ -915,12 +1003,56 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(child: _buildContent()),
-        ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        body: Column(
+          children: [
+            Container(
+              color: Theme.of(context).cardColor,
+              child: TabBar(
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Colors.grey[600],
+                indicatorColor: Theme.of(context).primaryColor,
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.fact_check_outlined, size: 16),
+                        SizedBox(width: 6),
+                        Text('Duyệt chấm công'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.how_to_reg_outlined, size: 16),
+                        SizedBox(width: 6),
+                        Text('Chấm công Mobile'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  Column(
+                    children: [
+                      _buildHeader(),
+                      Expanded(child: _buildContent()),
+                    ],
+                  ),
+                  const MobileAttendanceApprovalScreen(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -928,7 +1060,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   Widget _buildHeader() {
     final isMobile = Responsive.isMobile(context);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 10),
+      padding:
+          EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border:
@@ -956,41 +1089,69 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           const SizedBox(width: 8),
           if (isMobile) ...[
             GestureDetector(
-              onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+              onTap: () =>
+                  setState(() => _showMobileFilters = !_showMobileFilters),
               child: Container(
                 padding: const EdgeInsets.all(6),
                 child: Stack(
                   children: [
                     Icon(
-                      _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                      size: 20, color: Theme.of(context).primaryColor,
+                      _showMobileFilters
+                          ? Icons.filter_alt
+                          : Icons.filter_alt_outlined,
+                      size: 20,
+                      color: Theme.of(context).primaryColor,
                     ),
-                    if (_selectedDatePreset != 'all' || _selectedEmployeeIds.isNotEmpty || _actionFilter != -1)
+                    if (_selectedDatePreset != 'all' ||
+                        _selectedEmployeeIds.isNotEmpty ||
+                        _actionFilter != -1)
                       Positioned(
-                        right: 0, top: 0,
-                        child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle)),
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: Colors.orangeAccent,
+                                shape: BoxShape.circle)),
                       ),
                   ],
                 ),
               ),
             ),
             PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: Theme.of(context).primaryColor),
+              icon:
+                  Icon(Icons.more_vert, color: Theme.of(context).primaryColor),
               onSelected: (value) {
                 if (value == 'excel') _exportToExcel();
                 if (value == 'png') _exportToPng();
               },
               itemBuilder: (context) => [
-                if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceApproval'))
-                const PopupMenuItem(value: 'excel', child: Row(children: [Icon(Icons.table_chart_outlined, size: 18, color: Colors.green), SizedBox(width: 8), Text('Xuất Excel')])),
-                if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceApproval'))
-                const PopupMenuItem(value: 'png', child: Row(children: [Icon(Icons.image_outlined, size: 18, color: Colors.blue), SizedBox(width: 8), Text('Xuất PNG')])),
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canExport('AttendanceApproval'))
+                  const PopupMenuItem(
+                      value: 'excel',
+                      child: Row(children: [
+                        Icon(Icons.table_chart_outlined,
+                            size: 18, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('Xuất Excel')
+                      ])),
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canExport('AttendanceApproval'))
+                  const PopupMenuItem(
+                      value: 'png',
+                      child: Row(children: [
+                        Icon(Icons.image_outlined,
+                            size: 18, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('Xuất PNG')
+                      ])),
               ],
             ),
-          ]
-          else ...[
-            _buildHeaderButton(Icons.table_chart_outlined, 'Excel', Colors.green,
-                _exportToExcel),
+          ] else ...[
+            _buildHeaderButton(Icons.table_chart_outlined, 'Excel',
+                Colors.green, _exportToExcel),
             const SizedBox(width: 8),
             _buildHeaderButton(
                 Icons.image_outlined, 'PNG', Colors.blue, _exportToPng),
@@ -1658,7 +1819,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                               child: InkWell(
                                 onTap: () => _showRequestDetail(req),
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 160),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 160),
                                   child: _buildApprovalProgressCompact(req),
                                 ),
                               ),
@@ -1684,90 +1846,135 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: _requests.length,
       itemBuilder: (_, index) {
-          final req = _requests[index];
-          final status = _parseStatus(req['status']);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => _showRequestDetail(req),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Column(
-                    children: [
-                      Row(children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: _getStatusColor(req['status']).withValues(alpha: 0.15),
-                          child: Icon(Icons.access_time, color: _getStatusColor(req['status']), size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(req['employeeName'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 2),
-                            Text([req['employeeCode'] ?? '', '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}'].where((s) => s.isNotEmpty).join(' · '),
-                              style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ]),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: _getStatusColor(req['status']).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Text(_getStatusLabel(req['status']), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _getStatusColor(req['status']))),
-                        ),
-                        if (status == 0) ...[
-                          const SizedBox(width: 6),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('AttendanceApproval'))
-                          InkWell(onTap: () => _approveRequest(req), child: const Icon(Icons.check_circle_outline, size: 22, color: Colors.green)),
-                          const SizedBox(width: 4),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('AttendanceApproval'))
-                          InkWell(onTap: () => _rejectRequest(req), child: const Icon(Icons.cancel_outlined, size: 22, color: Colors.red)),
-                        ],
-                      ]),
-                      if ((req['totalApprovalLevels'] ?? 1) > 1) ...[
-                        const SizedBox(height: 8),
-                        _buildApprovalProgress(req),
+        final req = _requests[index];
+        final status = _parseStatus(req['status']);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ],
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _showRequestDetail(req),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
+                  children: [
+                    Row(children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: _getStatusColor(req['status'])
+                            .withValues(alpha: 0.15),
+                        child: Icon(Icons.access_time,
+                            color: _getStatusColor(req['status']), size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(req['employeeName'] ?? '',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 2),
+                              Text(
+                                  [
+                                    req['employeeCode'] ?? '',
+                                    '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}'
+                                  ].where((s) => s.isNotEmpty).join(' · '),
+                                  style: const TextStyle(
+                                      color: Color(0xFF71717A), fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ]),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: _getStatusColor(req['status'])
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(_getStatusLabel(req['status']),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _getStatusColor(req['status']))),
+                      ),
+                      if (status == 0) ...[
+                        const SizedBox(width: 6),
+                        if (Provider.of<PermissionProvider>(context,
+                                listen: false)
+                            .canApprove('AttendanceApproval'))
+                          InkWell(
+                              onTap: () => _approveRequest(req),
+                              child: const Icon(Icons.check_circle_outline,
+                                  size: 22, color: Colors.green)),
+                        const SizedBox(width: 4),
+                        if (Provider.of<PermissionProvider>(context,
+                                listen: false)
+                            .canApprove('AttendanceApproval'))
+                          InkWell(
+                              onTap: () => _rejectRequest(req),
+                              child: const Icon(Icons.cancel_outlined,
+                                  size: 22, color: Colors.red)),
                       ],
+                    ]),
+                    if ((req['totalApprovalLevels'] ?? 1) > 1) ...[
+                      const SizedBox(height: 8),
+                      _buildApprovalProgress(req),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          );
-        },
+          ),
+        );
+      },
     );
   }
+
   Widget _buildActionButtons(Map<String, dynamic> req, int status) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Pending: Approve + Reject
         if (status == 0) ...[
-          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('AttendanceApproval'))
-          _buildActionBtn(
-            icon: Icons.check_circle_outline,
-            tooltip: 'Duyệt',
-            color: Colors.green,
-            onTap: () => _approveRequest(req),
-          ),
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canApprove('AttendanceApproval'))
+            _buildActionBtn(
+              icon: Icons.check_circle_outline,
+              tooltip: 'Duyệt',
+              color: Colors.green,
+              onTap: () => _approveRequest(req),
+            ),
           const SizedBox(width: 4),
-          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('AttendanceApproval'))
-          _buildActionBtn(
-            icon: Icons.cancel_outlined,
-            tooltip: 'Từ chối',
-            color: Colors.red,
-            onTap: () => _rejectRequest(req),
-          ),
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canApprove('AttendanceApproval'))
+            _buildActionBtn(
+              icon: Icons.cancel_outlined,
+              tooltip: 'Từ chối',
+              color: Colors.red,
+              onTap: () => _rejectRequest(req),
+            ),
         ],
         // Approved: Undo
-        if (status == 1 && Provider.of<PermissionProvider>(context, listen: false).canApprove('AttendanceApproval'))
+        if (status == 1 &&
+            Provider.of<PermissionProvider>(context, listen: false)
+                .canApprove('AttendanceApproval'))
           _buildActionBtn(
             icon: Icons.undo,
             tooltip: 'Hoàn duyệt',
@@ -1775,7 +1982,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
             onTap: () => _undoApproval(req),
           ),
         // Pending or Rejected: Delete
-        if ((status == 0 || status == 2) && Provider.of<PermissionProvider>(context, listen: false).canDelete('AttendanceApproval')) ...[
+        if ((status == 0 || status == 2) &&
+            Provider.of<PermissionProvider>(context, listen: false)
+                .canDelete('AttendanceApproval')) ...[
           const SizedBox(width: 4),
           _buildActionBtn(
             icon: Icons.delete_outline,
@@ -1846,31 +2055,31 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           ),
           child: Text('$_currentPage / $totalPages',
               style: TextStyle(fontSize: 12, color: Colors.grey[800])),
-          ),
-          IconButton(
-            onPressed: _currentPage < totalPages
-                ? () {
-                    setState(() => _currentPage++);
-                    _loadData();
-                  }
-                : null,
-            icon: const Icon(Icons.chevron_right, size: 18),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            splashRadius: 16,
-          ),
-          IconButton(
-            onPressed: _currentPage < totalPages
-                ? () {
-                    setState(() => _currentPage = totalPages);
-                    _loadData();
-                  }
-                : null,
-            icon: const Icon(Icons.last_page, size: 18),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            splashRadius: 16,
-          ),
-        ],
-      );
+        ),
+        IconButton(
+          onPressed: _currentPage < totalPages
+              ? () {
+                  setState(() => _currentPage++);
+                  _loadData();
+                }
+              : null,
+          icon: const Icon(Icons.chevron_right, size: 18),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          splashRadius: 16,
+        ),
+        IconButton(
+          onPressed: _currentPage < totalPages
+              ? () {
+                  setState(() => _currentPage = totalPages);
+                  _loadData();
+                }
+              : null,
+          icon: const Icon(Icons.last_page, size: 18),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          splashRadius: 16,
+        ),
+      ],
+    );
 
     final infoRow = Row(
       mainAxisSize: MainAxisSize.min,
@@ -1980,7 +2189,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
 
       final bytes = wb.encode();
       if (bytes != null) {
-        await file_saver.saveFileBytes(bytes,
+        await file_saver.saveFileBytes(
+            bytes,
             'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
@@ -2099,7 +2309,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       );
 
       if (canvas != null) {
-        await file_saver.saveDataUrl(canvas,
+        await file_saver.saveAndOpenDataUrl(canvas,
             'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png');
         appNotification.showSuccess(
             title: 'Thành công', message: 'Đã xuất file PNG');
@@ -2115,7 +2325,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
             ctx.font = 'bold 16px Arial';
             ctx.fillText('Duyệt chấm công', 10, 28);
             ctx.fillStyle = '#f5f5f5';
-            ctx.fillRect(0, titleHeight.toDouble(), totalWidth.toDouble(), headerHeight.toDouble());
+            ctx.fillRect(0, titleHeight.toDouble(), totalWidth.toDouble(),
+                headerHeight.toDouble());
             ctx.fillStyle = '#333333';
             ctx.font = 'bold 12px Arial';
             double x2 = 10;
@@ -2129,7 +2340,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
               final y = titleHeight + headerHeight + (r * rowHeight);
               if (r % 2 == 1) {
                 ctx.fillStyle = '#fafafa';
-                ctx.fillRect(0, y.toDouble(), totalWidth.toDouble(), rowHeight.toDouble());
+                ctx.fillRect(0, y.toDouble(), totalWidth.toDouble(),
+                    rowHeight.toDouble());
               }
               ctx.fillStyle = '#333333';
               x2 = 10;
@@ -2149,7 +2361,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                 req['approverNote'] ?? '',
               ];
               for (int i = 0; i < cells.length; i++) {
-                final text = cells[i].length > 20 ? '${cells[i].substring(0, 20)}...' : cells[i];
+                final text = cells[i].length > 20
+                    ? '${cells[i].substring(0, 20)}...'
+                    : cells[i];
                 ctx.fillText(text, x2, y + 19);
                 x2 += colWidths[i];
               }
@@ -2157,11 +2371,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           },
         );
         if (pngBytes != null) {
-          final fileName = 'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
-          await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã xuất file PNG');
+          final fileName =
+              'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
+          await file_saver.saveAndOpenFileBytes(
+              pngBytes, fileName, 'image/png');
+          appNotification.showSuccess(
+              title: 'Thành công', message: 'Đã xuất file PNG');
         } else {
-          appNotification.showError(title: 'Lỗi', message: 'Không thể xuất PNG');
+          appNotification.showError(
+              title: 'Lỗi', message: 'Không thể xuất PNG');
         }
       }
     } catch (e) {

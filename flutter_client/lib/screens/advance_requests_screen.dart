@@ -66,13 +66,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   bool get _isEmployeeRole {
-    final role = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
+    final role = Provider.of<AuthProvider>(context, listen: false)
+        .userRole
+        .toLowerCase();
     return role == 'employee';
   }
 
   bool get _isManagerOrAbove {
-    final role = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
-    return role == 'admin' || role == 'manager' || role == 'director' || role == 'superadmin' || role == 'departmenthead' || role == 'agent';
+    final role = Provider.of<AuthProvider>(context, listen: false)
+        .userRole
+        .toLowerCase();
+    return role == 'admin' ||
+        role == 'manager' ||
+        role == 'director' ||
+        role == 'superadmin' ||
+        role == 'departmenthead' ||
+        role == 'agent';
   }
 
   Future<void> _loadMyEmployee() async {
@@ -80,7 +89,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       final result = await _apiService.getMyEmployee();
       if (result['isSuccess'] == true && result['data'] != null && mounted) {
         setState(() {
-          _myEmployee = Employee.fromJson(result['data'] as Map<String, dynamic>);
+          _myEmployee =
+              Employee.fromJson(result['data'] as Map<String, dynamic>);
         });
       }
     } catch (e) {
@@ -112,7 +122,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       switch (preset) {
         case 'today':
           _fromDate = today;
-          _toDate = today.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+          _toDate = today
+              .add(const Duration(days: 1))
+              .subtract(const Duration(milliseconds: 1));
           break;
         case 'yesterday':
           _fromDate = today.subtract(const Duration(days: 1));
@@ -123,7 +135,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _toDate = now;
           break;
         case 'last_week':
-          final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
+          final startOfThisWeek =
+              today.subtract(Duration(days: today.weekday - 1));
           _fromDate = startOfThisWeek.subtract(const Duration(days: 7));
           _toDate = startOfThisWeek.subtract(const Duration(milliseconds: 1));
           break;
@@ -163,7 +176,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       setState(() {
         _selectedTimePreset = 'custom';
         _fromDate = picked.start;
-        _toDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
+        _toDate = DateTime(
+            picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
         _currentPage = 1;
       });
       _loadData();
@@ -210,7 +224,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     if (id == null || id.isEmpty) return;
     AdvanceRequest? match;
     for (final r in _allRequests) {
-      if (r.id == id) { match = r; break; }
+      if (r.id == id) {
+        match = r;
+        break;
+      }
     }
     if (match == null) return;
     _highlightOpened = true;
@@ -224,7 +241,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   List<AdvanceRequest> get _filteredRequests {
     var list = _allRequests;
     if (_selectedEmployee != null) {
-      list = list.where((r) => r.employeeCode == _selectedEmployee!.employeeCode).toList();
+      list = list
+          .where((r) => r.employeeCode == _selectedEmployee!.employeeCode)
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -251,9 +270,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   int? _getSortColumnIndex() {
     switch (_sortColumn) {
-      case 'amount': return 3;
-      case 'requestDate': return 7;
-      default: return null;
+      case 'amount':
+        return 3;
+      case 'requestDate':
+        return 7;
+      default:
+        return null;
     }
   }
 
@@ -265,26 +287,41 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     });
   }
 
-  List<AdvanceRequest> get _pendingList => _filteredRequests.where((r) => r.status == AdvanceRequestStatus.pending).toList();
-  List<AdvanceRequest> get _waitingPaymentList => _filteredRequests.where((r) => r.status == AdvanceRequestStatus.approved && !r.isPaid).toList();
-  List<AdvanceRequest> get _rejectedList => _filteredRequests.where((r) => r.status == AdvanceRequestStatus.rejected).toList();
-  List<AdvanceRequest> get _paidList => _filteredRequests.where((r) => r.status == AdvanceRequestStatus.approved && r.isPaid).toList();
-  double _sumAmount(List<AdvanceRequest> list) => list.fold(0.0, (s, r) => s + r.amount);
+  List<AdvanceRequest> get _pendingList => _filteredRequests
+      .where((r) => r.status == AdvanceRequestStatus.pending)
+      .toList();
+  List<AdvanceRequest> get _waitingPaymentList => _filteredRequests
+      .where((r) => r.status == AdvanceRequestStatus.approved && !r.isPaid)
+      .toList();
+  List<AdvanceRequest> get _rejectedList => _filteredRequests
+      .where((r) => r.status == AdvanceRequestStatus.rejected)
+      .toList();
+  List<AdvanceRequest> get _paidList => _filteredRequests
+      .where((r) => r.status == AdvanceRequestStatus.approved && r.isPaid)
+      .toList();
+  double _sumAmount(List<AdvanceRequest> list) =>
+      list.fold(0.0, (s, r) => s + r.amount);
 
   // ==================== ACTIONS ====================
-  Future<void> _approveRequest(AdvanceRequest request, bool isApproved, {String? reason}) async {
+  Future<void> _approveRequest(AdvanceRequest request, bool isApproved,
+      {String? reason}) async {
     if (isApproved) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Xác nhận duyệt'),
-          content: Text('Bạn có chắc muốn duyệt yêu cầu ứng lương ${_currencyFormat.format(request.amount)} của ${request.employeeName}?'),
+          content: Text(
+              'Bạn có chắc muốn duyệt yêu cầu ứng lương ${_currencyFormat.format(request.amount)} của ${request.employeeName}?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_l10n.cancel)),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(_l10n.cancel)),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
-              child: Text(_l10n.approveLabel, style: const TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F)),
+              child: Text(_l10n.approveLabel,
+                  style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -304,7 +341,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       );
       _loadData();
     } else {
-      appNotification.showError(title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -313,9 +351,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(_l10n.reverseApproval),
-        content: const Text('Bạn có chắc muốn hoàn duyệt yêu cầu này? Trạng thái sẽ quay lại "Chờ duyệt".'),
+        content: const Text(
+            'Bạn có chắc muốn hoàn duyệt yêu cầu này? Trạng thái sẽ quay lại "Chờ duyệt".'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_l10n.cancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(_l10n.cancel)),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -328,10 +369,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
     final result = await _apiService.undoApproveAdvanceRequest(request.id);
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Thành công', message: _l10n.reversedMsg);
+      appNotification.showSuccess(
+          title: 'Thành công', message: _l10n.reversedMsg);
       _loadData();
     } else {
-      appNotification.showError(title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -361,19 +404,28 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.person, size: 18, color: Colors.blue),
+                          const Icon(Icons.person,
+                              size: 18, color: Colors.blue),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(request.employeeName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          Expanded(
+                              child: Text(request.employeeName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold))),
                         ],
                       ),
                       if (request.employeeCode.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text('${_l10n.employeeCode}: ${request.employeeCode}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        Text('${_l10n.employeeCode}: ${request.employeeCode}',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600])),
                       ],
                       const SizedBox(height: 8),
                       Text(
                         _currencyFormat.format(request.amount),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.blue),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: Colors.blue),
                       ),
                     ],
                   ),
@@ -392,7 +444,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             value: m,
                             child: Row(
                               children: [
-                                Icon(_getPaymentMethodIcon(m), size: 18, color: Colors.grey[700]),
+                                Icon(_getPaymentMethodIcon(m),
+                                    size: 18, color: Colors.grey[700]),
                                 const SizedBox(width: 8),
                                 Text(m.label),
                               ],
@@ -411,7 +464,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.amber.shade700),
+                      Icon(Icons.info_outline,
+                          size: 16, color: Colors.amber.shade700),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
@@ -446,13 +500,18 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Hủy')),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          icon: const Icon(Icons.payment, color: Colors.white, size: 18),
-                          label: const Text('Thanh toán', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green),
+                          icon: const Icon(Icons.payment,
+                              color: Colors.white, size: 18),
+                          label: const Text('Thanh toán',
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -466,12 +525,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             title: Text(_l10n.payAdvance),
             content: formContent,
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Hủy')),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 icon: const Icon(Icons.payment, color: Colors.white, size: 18),
-                label: const Text('Thanh toán', style: TextStyle(color: Colors.white)),
+                label: const Text('Thanh toán',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -485,10 +547,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       paymentMethod: selectedMethod.name,
     );
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Thành công', message: _l10n.paymentSuccess);
+      appNotification.showSuccess(
+          title: 'Thành công', message: _l10n.paymentSuccess);
       _loadData();
     } else {
-      appNotification.showError(title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -526,14 +590,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               _approveRequest(request, false, reason: reasonController.text);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(_l10n.reject, style: const TextStyle(color: Colors.white)),
+            child:
+                Text(_l10n.reject, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -551,11 +617,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               : 'Bạn có chắc muốn xóa yêu cầu ứng lương này?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_l10n.cancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(_l10n.cancel)),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(_l10n.delete, style: const TextStyle(color: Colors.white)),
+            child:
+                Text(_l10n.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -564,10 +633,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
     final result = await _apiService.deleteAdvanceRequest(request.id);
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa yêu cầu');
+      appNotification.showSuccess(
+          title: 'Thành công', message: 'Đã xóa yêu cầu');
       _loadData();
     } else {
-      appNotification.showError(title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -578,11 +649,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         title: const Text('Hủy yêu cầu'),
         content: const Text('Bạn có chắc muốn hủy yêu cầu ứng lương này?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_l10n.cancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(_l10n.cancel)),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Hủy yêu cầu', style: TextStyle(color: Colors.white)),
+            child: const Text('Hủy yêu cầu',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -591,10 +665,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
     final result = await _apiService.cancelAdvanceRequest(request.id);
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Thành công', message: 'Đã hủy yêu cầu');
+      appNotification.showSuccess(
+          title: 'Thành công', message: 'Đã hủy yêu cầu');
       _loadData();
     } else {
-      appNotification.showError(title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -610,10 +686,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       Color dotColor;
       IconData dotIcon;
       switch (record.status) {
-        case ApprovalStatus.approved: dotColor = Colors.green; dotIcon = Icons.check_circle; break;
-        case ApprovalStatus.rejected: dotColor = Colors.red; dotIcon = Icons.cancel; break;
-        case ApprovalStatus.cancelled: dotColor = Colors.grey; dotIcon = Icons.block; break;
-        default: dotColor = Colors.orange; dotIcon = Icons.radio_button_unchecked; break;
+        case ApprovalStatus.approved:
+          dotColor = Colors.green;
+          dotIcon = Icons.check_circle;
+          break;
+        case ApprovalStatus.rejected:
+          dotColor = Colors.red;
+          dotIcon = Icons.cancel;
+          break;
+        case ApprovalStatus.cancelled:
+          dotColor = Colors.grey;
+          dotIcon = Icons.block;
+          break;
+        default:
+          dotColor = Colors.orange;
+          dotIcon = Icons.radio_button_unchecked;
+          break;
       }
 
       return IntrinsicHeight(
@@ -625,7 +713,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               child: Column(
                 children: [
                   Icon(dotIcon, size: 18, color: dotColor),
-                  if (!isLast) Expanded(child: Container(width: 2, color: Colors.grey.shade300)),
+                  if (!isLast)
+                    Expanded(
+                        child:
+                            Container(width: 2, color: Colors.grey.shade300)),
                 ],
               ),
             ),
@@ -635,17 +726,36 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(record.stepName ?? 'Cấp ${record.stepOrder}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: dotColor)),
-                    if (record.assignedUserName != null && record.assignedUserName!.isNotEmpty)
-                      Text('Phân công: ${record.assignedUserName}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    if (record.actualUserName != null && record.actualUserName!.isNotEmpty && record.status != ApprovalStatus.pending)
-                      Text('Thực hiện: ${record.actualUserName}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    Text(record.stepName ?? 'Cấp ${record.stepOrder}',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: dotColor)),
+                    if (record.assignedUserName != null &&
+                        record.assignedUserName!.isNotEmpty)
+                      Text('Phân công: ${record.assignedUserName}',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
+                    if (record.actualUserName != null &&
+                        record.actualUserName!.isNotEmpty &&
+                        record.status != ApprovalStatus.pending)
+                      Text('Thực hiện: ${record.actualUserName}',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
                     if (record.actionDate != null)
-                      Text(DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      Text(
+                          DateFormat('dd/MM/yyyy HH:mm')
+                              .format(record.actionDate!),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade500)),
                     if (record.note != null && record.note!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text('"${record.note}"', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade700)),
+                        child: Text('"${record.note}"',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey.shade700)),
                       ),
                   ],
                 ),
@@ -676,17 +786,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
           Future<Null> onSubmit() async {
             if (selectedEmployee == null) {
-              appNotification.showWarning(title: 'Cảnh báo', message: 'Vui lòng chọn nhân viên');
+              appNotification.showWarning(
+                  title: 'Cảnh báo', message: 'Vui lòng chọn nhân viên');
               return;
             }
-            final amount = parseFormattedNumber(amountController.text)?.toDouble();
+            final amount =
+                parseFormattedNumber(amountController.text)?.toDouble();
             if (amount == null || amount <= 0) {
-              appNotification.showWarning(title: 'Cảnh báo', message: 'Vui lòng nhập số tiền hợp lệ');
+              appNotification.showWarning(
+                  title: 'Cảnh báo', message: 'Vui lòng nhập số tiền hợp lệ');
               return;
             }
             final result = await _apiService.createAdvanceRequest(
               amount: amount,
-              reason: reasonController.text.isNotEmpty ? reasonController.text : null,
+              reason: reasonController.text.isNotEmpty
+                  ? reasonController.text
+                  : null,
               note: noteController.text.isNotEmpty ? noteController.text : null,
               forMonth: selectedMonth,
               forYear: selectedYear,
@@ -695,10 +810,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             );
             if (result['isSuccess'] == true) {
               if (context.mounted) Navigator.pop(context);
-              appNotification.showSuccess(title: 'Thành công', message: 'Đã gửi yêu cầu ứng lương');
+              appNotification.showSuccess(
+                  title: 'Thành công', message: 'Đã gửi yêu cầu ứng lương');
               _loadData();
             } else {
-              appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
+              appNotification.showError(
+                  title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
             }
           }
 
@@ -711,7 +828,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 if (isEmployeeMode) ...[
                   // Employee role: show their own info as read-only
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(8),
@@ -720,32 +838,52 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     child: Row(children: [
                       Icon(Icons.person, size: 18, color: Colors.blue.shade700),
                       const SizedBox(width: 8),
-                      Expanded(child: selectedEmployee != null
-                          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('${selectedEmployee!.lastName} ${selectedEmployee!.firstName}',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue.shade800)),
-                              if (selectedEmployee!.employeeCode.isNotEmpty)
-                                Text('${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}',
-                                    style: TextStyle(fontSize: 12, color: Colors.blue.shade600)),
-                            ])
-                          : Text('Chưa tìm thấy hồ sơ nhân viên',
-                              style: TextStyle(fontSize: 13, color: Colors.orange.shade700))),
+                      Expanded(
+                          child: selectedEmployee != null
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                      Text(
+                                          '${selectedEmployee!.lastName} ${selectedEmployee!.firstName}',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue.shade800)),
+                                      if (selectedEmployee!
+                                          .employeeCode.isNotEmpty)
+                                        Text(
+                                            '${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.blue.shade600)),
+                                    ])
+                              : Text('Chưa tìm thấy hồ sơ nhân viên',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.orange.shade700))),
                     ]),
                   ),
                 ] else ...[
                   // Manager/Admin role: autocomplete to pick any employee
                   Autocomplete<Employee>(
-                    displayStringForOption: (e) => '${e.lastName} ${e.firstName} (${e.employeeCode})',
+                    displayStringForOption: (e) =>
+                        '${e.lastName} ${e.firstName} (${e.employeeCode})',
                     optionsBuilder: (textEditingValue) {
-                      if (textEditingValue.text.isEmpty) return _employees.take(20);
+                      if (textEditingValue.text.isEmpty) {
+                        return _employees.take(20);
+                      }
                       final q = textEditingValue.text.toLowerCase();
                       return _employees.where((e) {
-                        final fullName = '${e.lastName} ${e.firstName}'.toLowerCase();
-                        return fullName.contains(q) || e.employeeCode.toLowerCase().contains(q);
+                        final fullName =
+                            '${e.lastName} ${e.firstName}'.toLowerCase();
+                        return fullName.contains(q) ||
+                            e.employeeCode.toLowerCase().contains(q);
                       }).take(20);
                     },
-                    onSelected: (e) => setDialogState(() => selectedEmployee = e),
-                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    onSelected: (e) =>
+                        setDialogState(() => selectedEmployee = e),
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) {
                       return TextField(
                         controller: controller,
                         focusNode: focusNode,
@@ -759,7 +897,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   icon: const Icon(Icons.clear, size: 18),
                                   onPressed: () {
                                     controller.clear();
-                                    setDialogState(() => selectedEmployee = null);
+                                    setDialogState(
+                                        () => selectedEmployee = null);
                                   },
                                 )
                               : null,
@@ -773,7 +912,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           elevation: 4,
                           borderRadius: BorderRadius.circular(8),
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: 250, maxWidth: isMobile ? MediaQuery.of(context).size.width - 32 : Responsive.dialogWidth(context)),
+                            constraints: BoxConstraints(
+                                maxHeight: 250,
+                                maxWidth: isMobile
+                                    ? MediaQuery.of(context).size.width - 32
+                                    : Responsive.dialogWidth(context)),
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
                               shrinkWrap: true,
@@ -786,17 +929,23 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                     radius: 16,
                                     backgroundColor: Colors.blue.shade100,
                                     child: Icon(
-                                      employee.gender?.toLowerCase() == 'female' || employee.gender?.toLowerCase() == 'nữ'
+                                      employee.gender?.toLowerCase() ==
+                                                  'female' ||
+                                              employee.gender?.toLowerCase() ==
+                                                  'nữ'
                                           ? Icons.woman_rounded
                                           : Icons.man_rounded,
                                       size: 18,
                                       color: Colors.blue.shade700,
                                     ),
                                   ),
-                                  title: Text('${employee.lastName} ${employee.firstName}', style: const TextStyle(fontSize: 14)),
+                                  title: Text(
+                                      '${employee.lastName} ${employee.firstName}',
+                                      style: const TextStyle(fontSize: 14)),
                                   subtitle: Text(
                                     '${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600]),
                                   ),
                                   onTap: () => onSelected(employee),
                                 );
@@ -810,7 +959,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   if (selectedEmployee != null) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -818,18 +968,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
+                          Icon(Icons.check_circle,
+                              size: 16, color: Colors.green.shade700),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})',
-                              style: TextStyle(fontSize: 13, color: Colors.green.shade700, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w500),
                             ),
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ], // end if selectedEmployee != null
+                  ], // end if selectedEmployee != null
                 ], // end else (manager/admin block)
                 const SizedBox(height: 16),
                 TextField(
@@ -853,8 +1007,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.calendar_month),
                         ),
-                        items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'))),
-                        onChanged: (v) => setDialogState(() => selectedMonth = v!),
+                        items: List.generate(
+                            12,
+                            (i) => DropdownMenuItem(
+                                value: i + 1, child: Text('Tháng ${i + 1}'))),
+                        onChanged: (v) =>
+                            setDialogState(() => selectedMonth = v!),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -866,8 +1024,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.date_range),
                         ),
-                        items: List.generate(5, (i) => DropdownMenuItem(value: now.year - 2 + i, child: Text('${now.year - 2 + i}'))),
-                        onChanged: (v) => setDialogState(() => selectedYear = v!),
+                        items: List.generate(
+                            5,
+                            (i) => DropdownMenuItem(
+                                value: now.year - 2 + i,
+                                child: Text('${now.year - 2 + i}'))),
+                        onChanged: (v) =>
+                            setDialogState(() => selectedYear = v!),
                       ),
                     ),
                   ],
@@ -903,7 +1066,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Yêu cầu ứng lương', overflow: TextOverflow.ellipsis, maxLines: 1),
+                    title: const Text('Yêu cầu ứng lương',
+                        overflow: TextOverflow.ellipsis, maxLines: 1),
                     leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
@@ -915,7 +1079,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: Text(_l10n.cancel)),
+                        TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(_l10n.cancel)),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: onSubmit,
@@ -937,7 +1103,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               child: formContent,
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: Text(_l10n.cancel)),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(_l10n.cancel)),
               ElevatedButton.icon(
                 onPressed: onSubmit,
                 icon: const Icon(Icons.send, size: 18),
@@ -956,13 +1124,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   // ==================== STATUS HELPERS ====================
   String _getStatusLabel(AdvanceRequest request) {
-    if (request.status == AdvanceRequestStatus.approved && !request.isPaid) return 'Chờ thanh toán';
-    if (request.status == AdvanceRequestStatus.approved && request.isPaid) return 'Đã thanh toán';
+    if (request.status == AdvanceRequestStatus.approved && !request.isPaid) {
+      return 'Chờ thanh toán';
+    }
+    if (request.status == AdvanceRequestStatus.approved && request.isPaid) {
+      return 'Đã thanh toán';
+    }
     return getAdvanceStatusLabel(request.status);
   }
 
   Color _getStatusColor(AdvanceRequest request) {
-    if (request.status == AdvanceRequestStatus.approved && request.isPaid) return const Color(0xFF0F2340);
+    if (request.status == AdvanceRequestStatus.approved && request.isPaid) {
+      return const Color(0xFF0F2340);
+    }
     switch (request.status) {
       case AdvanceRequestStatus.pending:
         return const Color(0xFFF59E0B);
@@ -976,7 +1150,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   IconData _getStatusIcon(AdvanceRequest request) {
-    if (request.status == AdvanceRequestStatus.approved && request.isPaid) return Icons.check_circle;
+    if (request.status == AdvanceRequestStatus.approved && request.isPaid) {
+      return Icons.check_circle;
+    }
     switch (request.status) {
       case AdvanceRequestStatus.pending:
         return Icons.hourglass_empty;
@@ -994,7 +1170,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     try {
       final data = _filteredRequests;
       if (data.isEmpty) {
-        appNotification.showError(title: 'Lỗi', message: 'Không có dữ liệu để xuất');
+        appNotification.showError(
+            title: 'Lỗi', message: 'Không có dữ liệu để xuất');
         return;
       }
 
@@ -1002,7 +1179,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       final sheet = wb['Ứng lương'];
 
       sheet.appendRow([excel_lib.TextCellValue('DANH SÁCH ỨNG LƯƠNG')]);
-      sheet.merge(excel_lib.CellIndex.indexByString('A1'), excel_lib.CellIndex.indexByString('J1'));
+      sheet.merge(excel_lib.CellIndex.indexByString('A1'),
+          excel_lib.CellIndex.indexByString('J1'));
 
       final dateInfo = _selectedTimePreset == 'all'
           ? 'Tất cả thời gian'
@@ -1010,10 +1188,25 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               ? '${DateFormat('dd/MM/yyyy').format(_fromDate!)} - ${DateFormat('dd/MM/yyyy').format(_toDate!)}'
               : '';
       sheet.appendRow([excel_lib.TextCellValue(dateInfo)]);
-      sheet.merge(excel_lib.CellIndex.indexByString('A2'), excel_lib.CellIndex.indexByString('J2'));
+      sheet.merge(excel_lib.CellIndex.indexByString('A2'),
+          excel_lib.CellIndex.indexByString('J2'));
       sheet.appendRow([]);
 
-      final headers = ['STT', 'Mã NV', 'Họ tên', 'Số tiền', 'Tháng/Năm', 'Lý do', 'Trạng thái', 'Thanh toán', 'PT thanh toán', 'Ngày yêu cầu', 'Ngày duyệt', 'Người duyệt', 'Ngày TT'];
+      final headers = [
+        'STT',
+        'Mã NV',
+        'Họ tên',
+        'Số tiền',
+        'Tháng/Năm',
+        'Lý do',
+        'Trạng thái',
+        'Thanh toán',
+        'PT thanh toán',
+        'Ngày yêu cầu',
+        'Ngày duyệt',
+        'Người duyệt',
+        'Ngày TT'
+      ];
       sheet.appendRow(headers.map((h) => excel_lib.TextCellValue(h)).toList());
 
       for (int i = 0; i < data.length; i++) {
@@ -1036,15 +1229,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           excel_lib.TextCellValue(r.employeeCode),
           excel_lib.TextCellValue(r.employeeName),
           excel_lib.DoubleCellValue(r.amount),
-          excel_lib.TextCellValue(r.forMonth != null && r.forYear != null ? 'T${r.forMonth}/${r.forYear}' : ''),
+          excel_lib.TextCellValue(r.forMonth != null && r.forYear != null
+              ? 'T${r.forMonth}/${r.forYear}'
+              : ''),
           excel_lib.TextCellValue(r.reason ?? ''),
           excel_lib.TextCellValue(statusLabel),
           excel_lib.TextCellValue(r.isPaid ? 'Đã TT' : 'Chưa TT'),
           excel_lib.TextCellValue(r.paymentMethod ?? ''),
-          excel_lib.TextCellValue(DateFormat('dd/MM/yyyy HH:mm').format(r.requestDate)),
-          excel_lib.TextCellValue(r.approvedDate != null ? DateFormat('dd/MM/yyyy HH:mm').format(r.approvedDate!) : ''),
+          excel_lib.TextCellValue(
+              DateFormat('dd/MM/yyyy HH:mm').format(r.requestDate)),
+          excel_lib.TextCellValue(r.approvedDate != null
+              ? DateFormat('dd/MM/yyyy HH:mm').format(r.approvedDate!)
+              : ''),
           excel_lib.TextCellValue(r.approvedByName ?? ''),
-          excel_lib.TextCellValue(r.paidDate != null ? DateFormat('dd/MM/yyyy HH:mm').format(r.paidDate!) : ''),
+          excel_lib.TextCellValue(r.paidDate != null
+              ? DateFormat('dd/MM/yyyy HH:mm').format(r.paidDate!)
+              : ''),
         ]);
       }
 
@@ -1060,11 +1260,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
       final bytes = wb.encode();
       if (bytes != null) {
-        await file_saver.saveFileBytes(bytes, 'ung_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã xuất file Excel (${data.length} bản ghi)');
+        await file_saver.saveFileBytes(
+            bytes,
+            'ung_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        appNotification.showSuccess(
+            title: 'Thành công',
+            message: 'Đã xuất file Excel (${data.length} bản ghi)');
       }
     } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      appNotification.showError(
+          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
     }
   }
 
@@ -1078,14 +1284,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       children: [
         Icon(_getStatusIcon(request), color: statusColor, size: 22),
         const SizedBox(width: 10),
-        const Expanded(child: Text('Chi tiết ứng lương', style: TextStyle(fontSize: 17))),
+        const Expanded(
+            child: Text('Chi tiết ứng lương', style: TextStyle(fontSize: 17))),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+          child: Text(statusLabel,
+              style: TextStyle(
+                  color: statusColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12)),
         ),
       ],
     );
@@ -1095,24 +1306,36 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       children: [
         _detailRow(Icons.person, 'Nhân viên', request.employeeName),
         _detailRow(Icons.badge, _l10n.employeeCode, request.employeeCode),
-        _detailRow(Icons.attach_money, _l10n.amount, _currencyFormat.format(request.amount), valueColor: Colors.blue),
+        _detailRow(Icons.attach_money, _l10n.amount,
+            _currencyFormat.format(request.amount),
+            valueColor: Colors.blue),
         if (request.forMonth != null && request.forYear != null)
-          _detailRow(Icons.calendar_month, _l10n.monthYear, 'T${request.forMonth}/${request.forYear}'),
-        _detailRow(Icons.access_time, _l10n.requestDate, DateFormat('dd/MM/yyyy HH:mm').format(request.requestDate)),
+          _detailRow(Icons.calendar_month, _l10n.monthYear,
+              'T${request.forMonth}/${request.forYear}'),
+        _detailRow(Icons.access_time, _l10n.requestDate,
+            DateFormat('dd/MM/yyyy HH:mm').format(request.requestDate)),
         if (request.reason != null && request.reason!.isNotEmpty)
           _detailRow(Icons.note, _l10n.reason, request.reason!),
         if (request.note != null && request.note!.isNotEmpty)
           _detailRow(Icons.comment, 'Ghi chú', request.note!),
         if (request.approvedByName != null)
-          _detailRow(Icons.verified_user, 'Người duyệt', request.approvedByName!),
+          _detailRow(
+              Icons.verified_user, 'Người duyệt', request.approvedByName!),
         if (request.approvedDate != null)
-          _detailRow(Icons.event_available, _l10n.approvedDate, DateFormat('dd/MM/yyyy HH:mm').format(request.approvedDate!)),
-        if (request.rejectionReason != null && request.rejectionReason!.isNotEmpty)
-          _detailRow(Icons.info_outline, _l10n.rejectReason, request.rejectionReason!, valueColor: Colors.red),
+          _detailRow(Icons.event_available, _l10n.approvedDate,
+              DateFormat('dd/MM/yyyy HH:mm').format(request.approvedDate!)),
+        if (request.rejectionReason != null &&
+            request.rejectionReason!.isNotEmpty)
+          _detailRow(
+              Icons.info_outline, _l10n.rejectReason, request.rejectionReason!,
+              valueColor: Colors.red),
         if (request.isPaid) ...[
-          _detailRow(Icons.payment, 'PT thanh toán', request.paymentMethod ?? 'N/A'),
+          _detailRow(
+              Icons.payment, 'PT thanh toán', request.paymentMethod ?? 'N/A'),
           if (request.paidDate != null)
-            _detailRow(Icons.check_circle, 'Ngày TT', DateFormat('dd/MM/yyyy HH:mm').format(request.paidDate!), valueColor: const Color(0xFF0F2340)),
+            _detailRow(Icons.check_circle, 'Ngày TT',
+                DateFormat('dd/MM/yyyy HH:mm').format(request.paidDate!),
+                valueColor: const Color(0xFF0F2340)),
         ],
         // Approval timeline
         if (request.approvalRecords.isNotEmpty) ...[
@@ -1120,28 +1343,37 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           if (request.totalApprovalLevels > 1) ...[
             Row(
               children: [
-                const Icon(Icons.linear_scale_rounded, size: 18, color: Colors.blueGrey),
+                const Icon(Icons.linear_scale_rounded,
+                    size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
-                Text('Tiến trình duyệt: ${request.currentApprovalStep}/${request.totalApprovalLevels} cấp', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                    'Tiến trình duyệt: ${request.currentApprovalStep}/${request.totalApprovalLevels} cấp',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: request.totalApprovalLevels > 0 ? request.currentApprovalStep / request.totalApprovalLevels : 0,
+                value: request.totalApprovalLevels > 0
+                    ? request.currentApprovalStep / request.totalApprovalLevels
+                    : 0,
                 minHeight: 6,
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  request.status == AdvanceRequestStatus.approved ? Colors.green 
-                  : request.status == AdvanceRequestStatus.rejected ? Colors.red 
-                  : Colors.blue,
+                  request.status == AdvanceRequestStatus.approved
+                      ? Colors.green
+                      : request.status == AdvanceRequestStatus.rejected
+                          ? Colors.red
+                          : Colors.blue,
                 ),
               ),
             ),
             const SizedBox(height: 12),
           ],
-          const Text('Lịch sử phê duyệt', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const Text('Lịch sử phê duyệt',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ..._buildApprovalTimeline(request),
         ],
@@ -1162,7 +1394,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: const Text('Chi tiết ứng lương', overflow: TextOverflow.ellipsis, maxLines: 1),
+                title: const Text('Chi tiết ứng lương',
+                    overflow: TextOverflow.ellipsis, maxLines: 1),
               ),
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -1182,7 +1415,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   spacing: 8,
                   children: [
                     ..._buildDialogActions(request, ctx),
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Đóng')),
                   ],
                 ),
               ),
@@ -1201,7 +1436,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           ),
           actions: [
             ..._buildDialogActions(request, ctx),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
           ],
         ),
       );
@@ -1213,46 +1449,72 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     if (request.status == AdvanceRequestStatus.pending) {
       actions.addAll([
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _approveRequest(request, true); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _approveRequest(request, true);
+          },
           icon: const Icon(Icons.check, size: 16, color: Colors.green),
-          label: Text(_l10n.approveLabel, style: const TextStyle(color: Colors.green)),
+          label: Text(_l10n.approveLabel,
+              style: const TextStyle(color: Colors.green)),
         ),
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _showRejectDialog(request); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _showRejectDialog(request);
+          },
           icon: const Icon(Icons.close, size: 16, color: Colors.red),
           label: Text(_l10n.reject, style: const TextStyle(color: Colors.red)),
         ),
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _cancelRequest(request); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _cancelRequest(request);
+          },
           icon: const Icon(Icons.block, size: 16, color: Colors.orange),
           label: const Text('Hủy', style: TextStyle(color: Colors.orange)),
         ),
       ]);
-    } else if (request.status == AdvanceRequestStatus.approved && !request.isPaid) {
+    } else if (request.status == AdvanceRequestStatus.approved &&
+        !request.isPaid) {
       actions.addAll([
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _undoApprove(request); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _undoApprove(request);
+          },
           icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
-          label: Text(_l10n.reverseApproval, style: const TextStyle(color: Colors.orange)),
+          label: Text(_l10n.reverseApproval,
+              style: const TextStyle(color: Colors.orange)),
         ),
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _payRequest(request); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _payRequest(request);
+          },
           icon: const Icon(Icons.payment, size: 16, color: Colors.green),
-          label: Text(_l10n.payment, style: const TextStyle(color: Colors.green)),
+          label:
+              Text(_l10n.payment, style: const TextStyle(color: Colors.green)),
         ),
       ]);
     } else if (request.status == AdvanceRequestStatus.rejected) {
       actions.add(
         TextButton.icon(
-          onPressed: () { Navigator.pop(ctx); _undoApprove(request); },
+          onPressed: () {
+            Navigator.pop(ctx);
+            _undoApprove(request);
+          },
           icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
-          label: Text(_l10n.reverseApproval, style: const TextStyle(color: Colors.orange)),
+          label: Text(_l10n.reverseApproval,
+              style: const TextStyle(color: Colors.orange)),
         ),
       );
     }
     actions.add(
       TextButton.icon(
-        onPressed: () { Navigator.pop(ctx); _deleteRequest(request); },
+        onPressed: () {
+          Navigator.pop(ctx);
+          _deleteRequest(request);
+        },
         icon: Icon(Icons.delete, size: 16, color: Colors.red.shade300),
         label: Text(_l10n.delete, style: TextStyle(color: Colors.red.shade300)),
       ),
@@ -1260,7 +1522,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     return actions;
   }
 
-  Widget _detailRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _detailRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1268,8 +1531,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         children: [
           Icon(icon, size: 16, color: Colors.grey[500]),
           const SizedBox(width: 10),
-          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
-          Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: valueColor))),
+          SizedBox(
+              width: 100,
+              child: Text(label,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
+          Expanded(
+              child: Text(value,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: valueColor))),
         ],
       ),
     );
@@ -1289,19 +1560,25 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 : _employees.where((e) {
                     final name = '${e.lastName} ${e.firstName}'.toLowerCase();
                     return name.contains(dialogSearch.toLowerCase()) ||
-                        e.employeeCode.toLowerCase().contains(dialogSearch.toLowerCase());
+                        e.employeeCode
+                            .toLowerCase()
+                            .contains(dialogSearch.toLowerCase());
                   }).toList();
 
             final searchField = Padding(
-              padding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16),
+              padding: isMobile
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'Tìm theo tên, mã nhân viên...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
                 style: const TextStyle(fontSize: 13),
                 onChanged: (v) => setDialogState(() => dialogSearch = v),
@@ -1315,7 +1592,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 backgroundColor: Colors.grey.shade200,
                 child: const Icon(Icons.people, size: 16, color: Colors.grey),
               ),
-              title: const Text('Tất cả nhân viên', style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
+              title: const Text('Tất cả nhân viên',
+                  style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
               selected: _selectedEmployee == null,
               onTap: () {
                 setState(() {
@@ -1327,7 +1605,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             );
 
             final employeeList = filtered.isEmpty
-                ? const Center(child: Text('Không tìm thấy nhân viên', style: TextStyle(color: Colors.grey)))
+                ? const Center(
+                    child: Text('Không tìm thấy nhân viên',
+                        style: TextStyle(color: Colors.grey)))
                 : ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
@@ -1339,18 +1619,27 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         selectedTileColor: Colors.blue.shade50,
                         leading: CircleAvatar(
                           radius: 14,
-                          backgroundColor: isSelected ? Colors.blue.shade200 : Colors.blue.shade100,
+                          backgroundColor: isSelected
+                              ? Colors.blue.shade200
+                              : Colors.blue.shade100,
                           child: Icon(
-                            emp.gender?.toLowerCase() == 'female' || emp.gender?.toLowerCase() == 'nữ'
+                            emp.gender?.toLowerCase() == 'female' ||
+                                    emp.gender?.toLowerCase() == 'nữ'
                                 ? Icons.woman_rounded
                                 : Icons.man_rounded,
                             size: 16,
                             color: Colors.blue.shade700,
                           ),
                         ),
-                        title: Text('${emp.lastName} ${emp.firstName}', style: const TextStyle(fontSize: 13)),
-                        subtitle: Text(emp.employeeCode, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                        trailing: isSelected ? Icon(Icons.check, size: 18, color: Colors.blue.shade700) : null,
+                        title: Text('${emp.lastName} ${emp.firstName}',
+                            style: const TextStyle(fontSize: 13)),
+                        subtitle: Text(emp.employeeCode,
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[600])),
+                        trailing: isSelected
+                            ? Icon(Icons.check,
+                                size: 18, color: Colors.blue.shade700)
+                            : null,
                         onTap: () {
                           setState(() {
                             _selectedEmployee = emp;
@@ -1393,7 +1682,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             }
 
             return AlertDialog(
-              title: const Text('Chọn nhân viên', style: TextStyle(fontSize: 16)),
+              title:
+                  const Text('Chọn nhân viên', style: TextStyle(fontSize: 16)),
               contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
               content: SizedBox(
                 width: Responsive.dialogWidth(context),
@@ -1408,7 +1698,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   ],
                 ),
               ),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Đóng'))
+              ],
             );
           },
         );
@@ -1428,7 +1722,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         children: [
           // ── Gradient Header ──
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, isMobile ? 12 : 14),
+            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
+                isMobile ? 14 : 24, isMobile ? 12 : 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primary, primary.withValues(alpha: 0.85)],
@@ -1436,7 +1731,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
-                BoxShadow(color: primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                BoxShadow(
+                    color: primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4)),
               ],
             ),
             child: Row(
@@ -1447,68 +1745,107 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.account_balance_wallet, size: isMobile ? 18 : 22, color: Colors.white),
+                  child: Icon(Icons.account_balance_wallet,
+                      size: isMobile ? 18 : 22, color: Colors.white),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_l10n.salaryAdvance, style: TextStyle(fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text(_l10n.salaryAdvance,
+                          style: TextStyle(
+                              fontSize: isMobile ? 16 : 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
                       if (!isMobile)
                         Text(
                           'Quản lý yêu cầu ứng lương nhân viên',
-                          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.8)),
                         ),
                     ],
                   ),
                 ),
                 if (isMobile) ...[
                   GestureDetector(
-                    onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                    onTap: () => setState(
+                        () => _showMobileFilters = !_showMobileFilters),
                     child: Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: _showMobileFilters ? 0.25 : 0.15),
+                        color: Colors.white.withValues(
+                            alpha: _showMobileFilters ? 0.25 : 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Stack(
                         children: [
-                          Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: Colors.white),
-                          if (_selectedStatus != null || _selectedTimePreset != 'all' || _searchQuery.isNotEmpty || _selectedEmployee != null)
-                            Positioned(right: 0, top: 0, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
+                          Icon(
+                              _showMobileFilters
+                                  ? Icons.filter_alt
+                                  : Icons.filter_alt_outlined,
+                              size: 18,
+                              color: Colors.white),
+                          if (_selectedStatus != null ||
+                              _selectedTimePreset != 'all' ||
+                              _searchQuery.isNotEmpty ||
+                              _selectedEmployee != null)
+                            Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                        color: Colors.orangeAccent,
+                                        shape: BoxShape.circle))),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('AdvanceRequests'))
-                  GestureDetector(
-                    onTap: _showCreateDialog,
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.add_circle_outline, size: 18, color: Colors.white),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canCreate('AdvanceRequests'))
+                    GestureDetector(
+                      onTap: _showCreateDialog,
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Icon(Icons.add_circle_outline,
+                            size: 18, color: Colors.white),
+                      ),
                     ),
-                  ),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canExport('AdvanceRequests'))
-                  const SizedBox(width: 4),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canExport('AdvanceRequests'))
-                  GestureDetector(
-                    onTap: _exportAdvanceRequestsExcel,
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.file_download_outlined, size: 18, color: Colors.white),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canExport('AdvanceRequests'))
+                    const SizedBox(width: 4),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canExport('AdvanceRequests'))
+                    GestureDetector(
+                      onTap: _exportAdvanceRequestsExcel,
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Icon(Icons.file_download_outlined,
+                            size: 18, color: Colors.white),
+                      ),
                     ),
-                  ),
                 ] else ...[
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('AdvanceRequests'))
-                  _buildHeaderBtn(Icons.add_circle_outline, 'Tạo yêu cầu mới', _showCreateDialog),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canExport('AdvanceRequests'))
-                  const SizedBox(width: 8),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canExport('AdvanceRequests'))
-                  _buildHeaderBtn(Icons.file_download_outlined, 'Xuất Excel', _exportAdvanceRequestsExcel),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canCreate('AdvanceRequests'))
+                    _buildHeaderBtn(Icons.add_circle_outline, 'Tạo yêu cầu mới',
+                        _showCreateDialog),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canExport('AdvanceRequests'))
+                    const SizedBox(width: 8),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canExport('AdvanceRequests'))
+                    _buildHeaderBtn(Icons.file_download_outlined, 'Xuất Excel',
+                        _exportAdvanceRequestsExcel),
                 ],
               ],
             ),
@@ -1521,21 +1858,33 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 children: [
                   if (isMobile) ...[
                     InkWell(
-                      onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+                      onTap: () => setState(
+                          () => _showMobileSummary = !_showMobileSummary),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                            Icon(Icons.analytics_outlined,
+                                size: 16, color: Colors.blue.shade700),
                             const SizedBox(width: 6),
-                            Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                            Text('Tổng quan',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.blue.shade700)),
                             const Spacer(),
-                            Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                            Icon(
+                                _showMobileSummary
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 20,
+                                color: Colors.blue.shade700),
                           ],
                         ),
                       ),
@@ -1579,7 +1928,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     );
   }
 
-  Widget _buildHeaderBtn(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildHeaderBtn(
+      IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -1588,7 +1938,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(10),
-          child: Container(padding: const EdgeInsets.all(10), child: Icon(icon, size: 20, color: Colors.white)),
+          child: Container(
+              padding: const EdgeInsets.all(10),
+              child: Icon(icon, size: 20, color: Colors.white)),
         ),
       ),
     );
@@ -1597,45 +1949,83 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   // ── Stats Row ──
   Widget _buildStatsRow() {
     final cards = [
-      (label: _l10n.pending, count: _pendingList.length, amount: _sumAmount(_pendingList), icon: Icons.hourglass_empty, color: const Color(0xFFF59E0B)),
-      (label: _l10n.pendingPayment, count: _waitingPaymentList.length, amount: _sumAmount(_waitingPaymentList), icon: Icons.payment, color: const Color(0xFF1E3A5F)),
-      (label: _l10n.rejected, count: _rejectedList.length, amount: _sumAmount(_rejectedList), icon: Icons.cancel, color: const Color(0xFFEF4444)),
-      (label: _l10n.paid, count: _paidList.length, amount: _sumAmount(_paidList), icon: Icons.check_circle, color: const Color(0xFF0F2340)),
+      (
+        label: _l10n.pending,
+        count: _pendingList.length,
+        amount: _sumAmount(_pendingList),
+        icon: Icons.hourglass_empty,
+        color: const Color(0xFFF59E0B)
+      ),
+      (
+        label: _l10n.pendingPayment,
+        count: _waitingPaymentList.length,
+        amount: _sumAmount(_waitingPaymentList),
+        icon: Icons.payment,
+        color: const Color(0xFF1E3A5F)
+      ),
+      (
+        label: _l10n.rejected,
+        count: _rejectedList.length,
+        amount: _sumAmount(_rejectedList),
+        icon: Icons.cancel,
+        color: const Color(0xFFEF4444)
+      ),
+      (
+        label: _l10n.paid,
+        count: _paidList.length,
+        amount: _sumAmount(_paidList),
+        icon: Icons.check_circle,
+        color: const Color(0xFF0F2340)
+      ),
     ];
     return LayoutBuilder(builder: (context, constraints) {
       if (constraints.maxWidth < 500) {
         return Column(
-          children: cards.map((c) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _buildStatCard(c.label, c.count, c.amount, c.icon, c.color, fullWidth: true),
-          )).toList(),
+          children: cards
+              .map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _buildStatCard(
+                        c.label, c.count, c.amount, c.icon, c.color,
+                        fullWidth: true),
+                  ))
+              .toList(),
         );
       }
       return Row(
         children: [
           for (int i = 0; i < cards.length; i++) ...[
             if (i > 0) const SizedBox(width: 12),
-            _buildStatCard(cards[i].label, cards[i].count, cards[i].amount, cards[i].icon, cards[i].color),
+            _buildStatCard(cards[i].label, cards[i].count, cards[i].amount,
+                cards[i].icon, cards[i].color),
           ],
         ],
       );
     });
   }
 
-  Widget _buildStatCard(String label, int count, double amount, IconData icon, Color color, {bool fullWidth = false}) {
+  Widget _buildStatCard(
+      String label, int count, double amount, IconData icon, Color color,
+      {bool fullWidth = false}) {
     final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: color.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(width: 12),
@@ -1643,12 +2033,20 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                Text('$count',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: color)),
+                Text(label,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                 const SizedBox(height: 2),
                 Text(
                   _currencyFormat.format(amount),
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.7)),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: color.withValues(alpha: 0.7)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1691,9 +2089,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       icon: Icons.flag,
       items: [
         const DropdownMenuItem(value: null, child: Text('Tất cả trạng thái')),
-        DropdownMenuItem(value: AdvanceRequestStatus.pending, child: Text(_l10n.pending)),
-        DropdownMenuItem(value: AdvanceRequestStatus.approved, child: Text(_l10n.approved)),
-        DropdownMenuItem(value: AdvanceRequestStatus.rejected, child: Text(_l10n.rejected)),
+        DropdownMenuItem(
+            value: AdvanceRequestStatus.pending, child: Text(_l10n.pending)),
+        DropdownMenuItem(
+            value: AdvanceRequestStatus.approved, child: Text(_l10n.approved)),
+        DropdownMenuItem(
+            value: AdvanceRequestStatus.rejected, child: Text(_l10n.rejected)),
       ],
       onChanged: (v) {
         setState(() {
@@ -1715,10 +2116,18 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           isDense: true,
           filled: true,
           fillColor: const Color(0xFFFAFAFA),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                  color: Theme.of(context).primaryColor, width: 1.5)),
         ),
         style: const TextStyle(fontSize: 13),
         onChanged: (v) => setState(() {
@@ -1737,11 +2146,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.analytics_outlined, size: 14, color: Theme.of(context).primaryColor),
+          Icon(Icons.analytics_outlined,
+              size: 14, color: Theme.of(context).primaryColor),
           const SizedBox(width: 6),
           Text(
             '${_filteredRequests.length} yêu cầu',
-            style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -1753,12 +2166,20 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(spacing: 8, runSpacing: 8, children: [timePreset, statusDropdown]),
+            Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [timePreset, statusDropdown]),
             const SizedBox(height: 8),
             searchField,
             const SizedBox(height: 8),
@@ -1781,7 +2202,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Row(
         children: [
@@ -1823,19 +2249,31 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey[500]),
-          style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+          icon: Icon(Icons.keyboard_arrow_down,
+              size: 18, color: Colors.grey[500]),
+          style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color),
           dropdownColor: Colors.white,
           items: items
               .map((item) => DropdownMenuItem<T>(
                     value: item.value,
                     child: Row(
                       children: [
-                        Icon(icon, size: 15, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                        Icon(icon,
+                            size: 15,
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.7)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: DefaultTextStyle(
-                            style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color),
                             overflow: TextOverflow.ellipsis,
                             child: item.child,
                           ),
@@ -1847,11 +2285,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           selectedItemBuilder: (context) => items
               .map((item) => Row(
                     children: [
-                      Icon(icon, size: 15, color: Theme.of(context).primaryColor),
+                      Icon(icon,
+                          size: 15, color: Theme.of(context).primaryColor),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DefaultTextStyle(
-                          style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.color),
                           overflow: TextOverflow.ellipsis,
                           child: item.child,
                         ),
@@ -1880,7 +2324,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.date_range, size: 15, color: Theme.of(context).primaryColor),
+            Icon(Icons.date_range,
+                size: 15, color: Theme.of(context).primaryColor),
             const SizedBox(width: 8),
             Text(
               '${DateFormat('dd/MM/yyyy').format(_fromDate!)} - ${DateFormat('dd/MM/yyyy').format(_toDate!)}',
@@ -1910,14 +2355,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_search, size: 15, color: Theme.of(context).primaryColor),
+            Icon(Icons.person_search,
+                size: 15, color: Theme.of(context).primaryColor),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
                 _selectedEmployee != null
                     ? '${_selectedEmployee!.lastName} ${_selectedEmployee!.firstName}'
                     : 'Tất cả nhân viên',
-                style: TextStyle(fontSize: 13, color: _selectedEmployee != null ? null : Colors.grey[600]),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: _selectedEmployee != null ? null : Colors.grey[600]),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1928,7 +2376,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 child: Icon(Icons.close, size: 14, color: Colors.grey[500]),
               ),
             ] else
-              Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey[500]),
+              Icon(Icons.keyboard_arrow_down,
+                  size: 16, color: Colors.grey[500]),
           ],
         ),
       ),
@@ -1950,7 +2399,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ],
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
@@ -1964,10 +2418,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       children: [
                         CircleAvatar(
                           radius: 18,
-                          backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          backgroundColor:
+                              const Color(0xFF1E3A5F).withValues(alpha: 0.1),
                           child: Text(
                             r.employeeName.isNotEmpty ? r.employeeName[0] : '?',
-                            style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 14),
+                            style: const TextStyle(
+                                color: Color(0xFF1E3A5F),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1975,24 +2433,42 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(r.employeeName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(r.employeeName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
                               Text(
-                                [r.employeeCode, if (r.forMonth != null && r.forYear != null) 'T${r.forMonth}/${r.forYear}'].join(' · '),
-                                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                                [
+                                  r.employeeCode,
+                                  if (r.forMonth != null && r.forYear != null)
+                                    'T${r.forMonth}/${r.forYear}'
+                                ].join(' · '),
+                                style: const TextStyle(
+                                    color: Color(0xFF71717A), fontSize: 12),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_getStatusIcon(r), size: 12, color: statusColor),
+                              Icon(_getStatusIcon(r),
+                                  size: 12, color: statusColor),
                               const SizedBox(width: 4),
-                              Text(_getStatusLabel(r), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
+                              Text(_getStatusLabel(r),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor)),
                             ],
                           ),
                         ),
@@ -2004,36 +2480,63 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       children: [
                         Text(
                           _currencyFormat.format(r.amount),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F2340)),
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F2340)),
                         ),
                         Text(
                           DateFormat('dd/MM/yyyy').format(r.requestDate),
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF71717A)),
                         ),
                       ],
                     ),
                     if (r.reason != null && r.reason!.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(r.reason!, style: TextStyle(fontSize: 12, color: Colors.grey[600]), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(r.reason!,
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
                     ],
-                    if (r.status == AdvanceRequestStatus.pending || (r.status == AdvanceRequestStatus.approved && !r.isPaid)) ...[
+                    if (r.status == AdvanceRequestStatus.pending ||
+                        (r.status == AdvanceRequestStatus.approved &&
+                            !r.isPaid)) ...[
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          if (r.status == AdvanceRequestStatus.pending && Provider.of<PermissionProvider>(context, listen: false).canApprove('AdvanceRequests')) ...[
-                            _miniBtn(Icons.check, const Color(0xFF1E3A5F), _l10n.approveLabel, () => _approveRequest(r, true)),
+                          if (r.status == AdvanceRequestStatus.pending &&
+                              Provider.of<PermissionProvider>(context,
+                                      listen: false)
+                                  .canApprove('AdvanceRequests')) ...[
+                            _miniBtn(
+                                Icons.check,
+                                const Color(0xFF1E3A5F),
+                                _l10n.approveLabel,
+                                () => _approveRequest(r, true)),
                             const SizedBox(width: 6),
-                            _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject, () => _showRejectDialog(r)),
+                            _miniBtn(Icons.close, const Color(0xFFEF4444),
+                                _l10n.reject, () => _showRejectDialog(r)),
                           ],
-                          if (r.status == AdvanceRequestStatus.approved && !r.isPaid && Provider.of<PermissionProvider>(context, listen: false).canApprove('AdvanceRequests')) ...[
-                            _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval, () => _undoApprove(r)),
+                          if (r.status == AdvanceRequestStatus.approved &&
+                              !r.isPaid &&
+                              Provider.of<PermissionProvider>(context,
+                                      listen: false)
+                                  .canApprove('AdvanceRequests')) ...[
+                            _miniBtn(Icons.undo, const Color(0xFFF59E0B),
+                                _l10n.reverseApproval, () => _undoApprove(r)),
                             const SizedBox(width: 6),
-                            _miniBtn(Icons.payment, const Color(0xFF1E3A5F), _l10n.payment, () => _payRequest(r)),
+                            _miniBtn(Icons.payment, const Color(0xFF1E3A5F),
+                                _l10n.payment, () => _payRequest(r)),
                           ],
-                          if (Provider.of<PermissionProvider>(context, listen: false).canDelete('AdvanceRequests')) ...[
-                          const SizedBox(width: 6),
-                          _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete, () => _deleteRequest(r)),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canDelete('AdvanceRequests')) ...[
+                            const SizedBox(width: 6),
+                            _miniBtn(Icons.delete_outline, Colors.grey,
+                                _l10n.delete, () => _deleteRequest(r)),
                           ],
                         ],
                       ),
@@ -2058,98 +2561,149 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+        borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12), topRight: Radius.circular(12)),
         child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 250),
-                child: DataTable(
-                  showCheckboxColumn: false,
-                  sortColumnIndex: _getSortColumnIndex(),
-                  sortAscending: _sortAscending,
-                  headingRowColor: WidgetStateProperty.all(const Color(0xFFFAFAFA)),
-                  dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                    if (states.contains(WidgetState.hovered)) return Theme.of(context).primaryColor.withValues(alpha: 0.04);
-                    return null;
-                  }),
-                  columnSpacing: 16,
-                  horizontalMargin: 16,
-                  headingRowHeight: 44,
-                  dataRowMinHeight: 42,
-                  dataRowMaxHeight: 48,
-                  dividerThickness: 0.5,
-                  columns: [
-                    const DataColumn(label: _ColHeader('Số thứ tự')),
-                    DataColumn(label: _ColHeader(_l10n.employeeCode)),
-                    DataColumn(label: _ColHeader(_l10n.fullName)),
-                    DataColumn(label: _ColHeader(_l10n.amount), onSort: (_, asc) => _onSort('amount', asc)),
-                    DataColumn(label: _ColHeader(_l10n.monthYear)),
-                    DataColumn(label: _ColHeader(_l10n.reason)),
-                    DataColumn(label: _ColHeader(_l10n.status)),
-                    DataColumn(label: _ColHeader(_l10n.requestDate), onSort: (_, asc) => _onSort('requestDate', asc)),
-                    const DataColumn(label: _ColHeader('Người duyệt')),
-                    const DataColumn(label: _ColHeader('Thao tác')),
-                  ],
-                  rows: displayed.asMap().entries.map((entry) {
-                    final idx = startIndex + entry.key;
-                    final r = entry.value;
-                    final statusColor = _getStatusColor(r);
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width - 250),
+              child: DataTable(
+                showCheckboxColumn: false,
+                sortColumnIndex: _getSortColumnIndex(),
+                sortAscending: _sortAscending,
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return Theme.of(context)
+                        .primaryColor
+                        .withValues(alpha: 0.04);
+                  }
+                  return null;
+                }),
+                columnSpacing: 16,
+                horizontalMargin: 16,
+                headingRowHeight: 44,
+                dataRowMinHeight: 42,
+                dataRowMaxHeight: 48,
+                dividerThickness: 0.5,
+                columns: [
+                  const DataColumn(label: _ColHeader('Số thứ tự')),
+                  DataColumn(label: _ColHeader(_l10n.employeeCode)),
+                  DataColumn(label: _ColHeader(_l10n.fullName)),
+                  DataColumn(
+                      label: _ColHeader(_l10n.amount),
+                      onSort: (_, asc) => _onSort('amount', asc)),
+                  DataColumn(label: _ColHeader(_l10n.monthYear)),
+                  DataColumn(label: _ColHeader(_l10n.reason)),
+                  DataColumn(label: _ColHeader(_l10n.status)),
+                  DataColumn(
+                      label: _ColHeader(_l10n.requestDate),
+                      onSort: (_, asc) => _onSort('requestDate', asc)),
+                  const DataColumn(label: _ColHeader('Người duyệt')),
+                  const DataColumn(label: _ColHeader('Thao tác')),
+                ],
+                rows: displayed.asMap().entries.map((entry) {
+                  final idx = startIndex + entry.key;
+                  final r = entry.value;
+                  final statusColor = _getStatusColor(r);
 
-                    return DataRow(
-                      onSelectChanged: (_) => _showDetailDialog(r),
-                      cells: [
-                        DataCell(Text('${idx + 1}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
-                        DataCell(Text(r.employeeCode, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F)))),
-                        DataCell(Text(r.employeeName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                        DataCell(Text(
-                          _currencyFormat.format(r.amount),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F2340)),
-                        )),
-                        DataCell(
-                          r.forMonth != null && r.forYear != null
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
-                                  child: Text('T${r.forMonth}/${r.forYear}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                )
-                              : const Text('-', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  return DataRow(
+                    onSelectChanged: (_) => _showDetailDialog(r),
+                    cells: [
+                      DataCell(Text('${idx + 1}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey))),
+                      DataCell(Text(r.employeeCode,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E3A5F)))),
+                      DataCell(Text(r.employeeName,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w500))),
+                      DataCell(Text(
+                        _currencyFormat.format(r.amount),
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F2340)),
+                      )),
+                      DataCell(
+                        r.forMonth != null && r.forYear != null
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: Text('T${r.forMonth}/${r.forYear}',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600)),
+                              )
+                            : const Text('-',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                      ),
+                      DataCell(
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: Text(r.reason ?? '-',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[600]),
+                              overflow: TextOverflow.ellipsis),
                         ),
-                        DataCell(
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 150),
-                            child: Text(r.reason ?? '-', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_getStatusIcon(r),
+                                  size: 12, color: statusColor),
+                              const SizedBox(width: 4),
+                              Text(_getStatusLabel(r),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor)),
+                            ],
                           ),
                         ),
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_getStatusIcon(r), size: 12, color: statusColor),
-                                const SizedBox(width: 4),
-                                Text(_getStatusLabel(r), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(DateFormat('dd/MM/yyyy').format(r.requestDate), style: const TextStyle(fontSize: 12))),
-                        DataCell(Text(r.approvedByName ?? '-', style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
-                        DataCell(_buildRowActions(r)),
-                      ],
-                    );
-                  }).toList(),
-                ),
+                      ),
+                      DataCell(Text(
+                          DateFormat('dd/MM/yyyy').format(r.requestDate),
+                          style: const TextStyle(fontSize: 12))),
+                      DataCell(Text(r.approvedByName ?? '-',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey[600]))),
+                      DataCell(_buildRowActions(r)),
+                    ],
+                  );
+                }).toList(),
               ),
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -2158,25 +2712,34 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (r.status == AdvanceRequestStatus.pending && p.canApprove('AdvanceRequests')) ...[
-          _miniBtn(Icons.check, const Color(0xFF1E3A5F), _l10n.approveLabel, () => _approveRequest(r, true)),
+        if (r.status == AdvanceRequestStatus.pending &&
+            p.canApprove('AdvanceRequests')) ...[
+          _miniBtn(Icons.check, const Color(0xFF1E3A5F), _l10n.approveLabel,
+              () => _approveRequest(r, true)),
           const SizedBox(width: 4),
-          _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject, () => _showRejectDialog(r)),
+          _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject,
+              () => _showRejectDialog(r)),
         ],
-        if (r.status == AdvanceRequestStatus.approved && !r.isPaid && p.canApprove('AdvanceRequests')) ...[
-          _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval, () => _undoApprove(r)),
+        if (r.status == AdvanceRequestStatus.approved &&
+            !r.isPaid &&
+            p.canApprove('AdvanceRequests')) ...[
+          _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval,
+              () => _undoApprove(r)),
           const SizedBox(width: 4),
-          _miniBtn(Icons.payment, const Color(0xFF1E3A5F), _l10n.payment, () => _payRequest(r)),
+          _miniBtn(Icons.payment, const Color(0xFF1E3A5F), _l10n.payment,
+              () => _payRequest(r)),
         ],
         if (p.canDelete('AdvanceRequests')) ...[
-        const SizedBox(width: 4),
-        _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete, () => _deleteRequest(r)),
+          const SizedBox(width: 4),
+          _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete,
+              () => _deleteRequest(r)),
         ],
       ],
     );
   }
 
-  Widget _miniBtn(IconData icon, Color color, String tooltip, VoidCallback onPressed) {
+  Widget _miniBtn(
+      IconData icon, Color color, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -2204,10 +2767,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final isMobile = Responsive.isMobile(context);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 20, vertical: 12),
+      padding:
+          EdgeInsets.symmetric(horizontal: isMobile ? 10 : 20, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
+        borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
         border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
       ),
       child: isMobile
@@ -2218,12 +2783,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   children: [
                     Text(
                       'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500),
                     ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        Text('Hiển thị:',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[500])),
                         const SizedBox(width: 8),
                         Container(
                           height: 34,
@@ -2237,10 +2807,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             child: DropdownButton<int>(
                               value: _itemsPerPage,
                               isDense: true,
-                              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                              items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[800]),
+                              items: _pageSizeOptions
+                                  .map((s) => DropdownMenuItem(
+                                      value: s, child: Text('$s')))
+                                  .toList(),
                               onChanged: (v) {
-                                if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; });
+                                if (v != null) {
+                                  setState(() {
+                                    _itemsPerPage = v;
+                                    _currentPage = 1;
+                                  });
+                                }
                               },
                             ),
                           ),
@@ -2253,77 +2832,113 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() => _currentPage = 1)),
-                    _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+                    _buildPageNavBtn(Icons.first_page, _currentPage > 1,
+                        () => setState(() => _currentPage = 1)),
+                    _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                        () => setState(() => _currentPage--)),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: Text('$_currentPage / $totalPages',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white)),
                     ),
                     const SizedBox(width: 8),
-                    _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
-                    _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() => _currentPage = totalPages)),
+                    _buildPageNavBtn(
+                        Icons.chevron_right,
+                        _currentPage < totalPages,
+                        () => setState(() => _currentPage++)),
+                    _buildPageNavBtn(Icons.last_page, _currentPage < totalPages,
+                        () => setState(() => _currentPage = totalPages)),
                   ],
                 ),
               ],
             )
           : Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
-          ),
-          Row(
-            children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-              const SizedBox(width: 8),
-              Container(
-                height: 34,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _itemsPerPage,
-                    isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; });
-                    },
-                  ),
+                Row(
+                  children: [
+                    Text('Hiển thị:',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: _itemsPerPage,
+                          isDense: true,
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[800]),
+                          items: _pageSizeOptions
+                              .map((s) =>
+                                  DropdownMenuItem(value: s, child: Text('$s')))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() {
+                                _itemsPerPage = v;
+                                _currentPage = 1;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() => _currentPage = 1)),
-              _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+                Row(
+                  children: [
+                    _buildPageNavBtn(Icons.first_page, _currentPage > 1,
+                        () => setState(() => _currentPage = 1)),
+                    _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                        () => setState(() => _currentPage--)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$_currentPage / $totalPages',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white)),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPageNavBtn(
+                        Icons.chevron_right,
+                        _currentPage < totalPages,
+                        () => setState(() => _currentPage++)),
+                    _buildPageNavBtn(Icons.last_page, _currentPage < totalPages,
+                        () => setState(() => _currentPage = totalPages)),
+                  ],
                 ),
-                child: Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-              ),
-              const SizedBox(width: 8),
-              _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
-              _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() => _currentPage = totalPages)),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
     );
   }
 
@@ -2336,7 +2951,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 20, color: enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+          child: Icon(icon,
+              size: 20,
+              color:
+                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
         ),
       ),
     );
@@ -2351,7 +2969,8 @@ class _ColHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)),
+      style: const TextStyle(
+          fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)),
     );
   }
 }

@@ -449,7 +449,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (id == null || id.isEmpty) return;
     Employee? match;
     for (final e in _employees) {
-      if (e.id == id) { match = e; break; }
+      if (e.id == id) {
+        match = e;
+        break;
+      }
     }
     if (match == null) return;
     _highlightOpened = true;
@@ -3117,12 +3120,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         onTap: () async {
                           final date = await showDatePicker(
                             context: context,
-                            initialDate: selectedContractEndDate ?? DateTime.now().add(const Duration(days: 365)),
+                            initialDate: selectedContractEndDate ??
+                                DateTime.now().add(const Duration(days: 365)),
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
                           );
                           if (date != null) {
-                            setDialogState(() => selectedContractEndDate = date);
+                            setDialogState(
+                                () => selectedContractEndDate = date);
                           }
                         },
                         child: InputDecorator(
@@ -3135,7 +3140,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             children: [
                               Text(
                                 selectedContractEndDate != null
-                                    ? DateFormat('dd/MM/yyyy').format(selectedContractEndDate!)
+                                    ? DateFormat('dd/MM/yyyy')
+                                        .format(selectedContractEndDate!)
                                     : 'Chọn ngày',
                                 style: TextStyle(
                                   color: selectedContractEndDate != null
@@ -3145,7 +3151,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               ),
                               if (selectedContractEndDate != null)
                                 GestureDetector(
-                                  onTap: () => setDialogState(() => selectedContractEndDate = null),
+                                  onTap: () => setDialogState(
+                                      () => selectedContractEndDate = null),
                                   child: const Icon(Icons.clear, size: 16),
                                 ),
                             ],
@@ -4295,8 +4302,9 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                     });
                                     Future.delayed(
                                         const Duration(milliseconds: 300), () {
-                                      if (context.mounted)
+                                      if (context.mounted) {
                                         Navigator.pop(context, code);
+                                      }
                                     });
                                   }
                                 }

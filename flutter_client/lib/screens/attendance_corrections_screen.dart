@@ -12,10 +12,12 @@ class AttendanceCorrectionsScreen extends StatefulWidget {
   const AttendanceCorrectionsScreen({super.key, this.highlightId});
 
   @override
-  State<AttendanceCorrectionsScreen> createState() => _AttendanceCorrectionsScreenState();
+  State<AttendanceCorrectionsScreen> createState() =>
+      _AttendanceCorrectionsScreenState();
 }
 
-class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScreen>
+class _AttendanceCorrectionsScreenState
+    extends State<AttendanceCorrectionsScreen>
     with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   List<AttendanceCorrectionRequest> _requests = [];
@@ -47,7 +49,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
         setState(() {
           if (result['isSuccess'] == true && result['data'] != null) {
             final data = result['data'];
-            final items = List<Map<String, dynamic>>.from(data['items'] ?? data is List ? data : []);
+            final items = List<Map<String, dynamic>>.from(
+                data['items'] ?? data is List ? data : []);
             _requests = items
                 .map((e) => AttendanceCorrectionRequest.fromJson(e))
                 .toList();
@@ -81,7 +84,10 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
     if (id == null || id.isEmpty) return;
     AttendanceCorrectionRequest? match;
     for (final r in _requests) {
-      if (r.id == id) { match = r; break; }
+      if (r.id == id) {
+        match = r;
+        break;
+      }
     }
     if (match == null) return;
     _highlightOpened = true;
@@ -114,11 +120,14 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                     labelText: 'Loại yêu cầu *',
                     border: OutlineInputBorder(),
                   ),
-                  items: CorrectionAction.values.map((action) => DropdownMenuItem(
-                    value: action,
-                    child: Text(getCorrectionActionLabel(action)),
-                  )).toList(),
-                  onChanged: (val) => setDialogState(() => selectedAction = val!),
+                  items: CorrectionAction.values
+                      .map((action) => DropdownMenuItem(
+                            value: action,
+                            child: Text(getCorrectionActionLabel(action)),
+                          ))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => selectedAction = val!),
                 ),
                 const SizedBox(height: 16),
                 InkWell(
@@ -126,7 +135,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                     final date = await showDatePicker(
                       context: context,
                       initialDate: selectedDate,
-                      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                      firstDate:
+                          DateTime.now().subtract(const Duration(days: 30)),
                       lastDate: DateTime.now(),
                     );
                     if (date != null) {
@@ -212,38 +222,39 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
             ),
           );
           Future<Null> onSubmit() async {
-                if (reasonController.text.trim().isEmpty) {
-                  appNotification.showWarning(
-                      title: 'Cảnh báo', message: 'Vui lòng nhập lý do');
-                  return;
-                }
-                try {
-                  final result = await _apiService.createAttendanceCorrection(
-                    action: selectedAction.index,
-                    newDate: selectedDate,
-                    newTime: newCheckIn != null
-                        ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
-                        : null,
-                    reason: reasonController.text.trim(),
-                  );
-                  if (result['isSuccess'] == true) {
-                    if (context.mounted) Navigator.pop(context);
-                    appNotification.showSuccess(
-                        title: 'Thành công',
-                        message: 'Đã gửi yêu cầu sửa chấm công');
-                    _loadData();
-                  } else {
-                    appNotification.showError(
-                        title: 'Lỗi',
-                        message: result['message'] ?? 'Không thể gửi yêu cầu');
-                  }
-                } catch (e) {
-                  appNotification.showError(
-                      title: 'Lỗi', message: 'Lỗi kết nối: $e');
-                } finally {
-                  reasonController.dispose();
-                }
+            if (reasonController.text.trim().isEmpty) {
+              appNotification.showWarning(
+                  title: 'Cảnh báo', message: 'Vui lòng nhập lý do');
+              return;
+            }
+            try {
+              final result = await _apiService.createAttendanceCorrection(
+                action: selectedAction.index,
+                newDate: selectedDate,
+                newTime: newCheckIn != null
+                    ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
+                    : null,
+                reason: reasonController.text.trim(),
+              );
+              if (result['isSuccess'] == true) {
+                if (context.mounted) Navigator.pop(context);
+                appNotification.showSuccess(
+                    title: 'Thành công',
+                    message: 'Đã gửi yêu cầu sửa chấm công');
+                _loadData();
+              } else {
+                appNotification.showError(
+                    title: 'Lỗi',
+                    message: result['message'] ?? 'Không thể gửi yêu cầu');
+              }
+            } catch (e) {
+              appNotification.showError(
+                  title: 'Lỗi', message: 'Lỗi kết nối: $e');
+            } finally {
+              reasonController.dispose();
+            }
           }
+
           if (isMobile) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
@@ -252,8 +263,11 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Yêu cầu sửa chấm công', overflow: TextOverflow.ellipsis, maxLines: 1),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    title: const Text('Yêu cầu sửa chấm công',
+                        overflow: TextOverflow.ellipsis, maxLines: 1),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
@@ -261,9 +275,13 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSubmit, child: const Text('Gửi yêu cầu')),
+                        ElevatedButton(
+                            onPressed: onSubmit,
+                            child: const Text('Gửi yêu cầu')),
                       ],
                     ),
                   ),
@@ -275,8 +293,11 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
             title: const Text('Yêu cầu sửa chấm công'),
             content: formContent,
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSubmit, child: const Text('Gửi yêu cầu')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Hủy')),
+              ElevatedButton(
+                  onPressed: onSubmit, child: const Text('Gửi yêu cầu')),
             ],
           );
         },
@@ -308,31 +329,46 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
 
   Color _getApprovalStatusColor(ApprovalStatus status) {
     switch (status) {
-      case ApprovalStatus.pending: return Colors.orange;
-      case ApprovalStatus.approved: return Colors.green;
-      case ApprovalStatus.rejected: return Colors.red;
-      case ApprovalStatus.cancelled: return Colors.grey;
-      case ApprovalStatus.expired: return Colors.grey;
+      case ApprovalStatus.pending:
+        return Colors.orange;
+      case ApprovalStatus.approved:
+        return Colors.green;
+      case ApprovalStatus.rejected:
+        return Colors.red;
+      case ApprovalStatus.cancelled:
+        return Colors.grey;
+      case ApprovalStatus.expired:
+        return Colors.grey;
     }
   }
 
   IconData _getApprovalStatusIcon(ApprovalStatus status) {
     switch (status) {
-      case ApprovalStatus.pending: return Icons.hourglass_empty;
-      case ApprovalStatus.approved: return Icons.check_circle;
-      case ApprovalStatus.rejected: return Icons.cancel;
-      case ApprovalStatus.cancelled: return Icons.block;
-      case ApprovalStatus.expired: return Icons.timer_off;
+      case ApprovalStatus.pending:
+        return Icons.hourglass_empty;
+      case ApprovalStatus.approved:
+        return Icons.check_circle;
+      case ApprovalStatus.rejected:
+        return Icons.cancel;
+      case ApprovalStatus.cancelled:
+        return Icons.block;
+      case ApprovalStatus.expired:
+        return Icons.timer_off;
     }
   }
 
   String _getApprovalStatusLabel(ApprovalStatus status) {
     switch (status) {
-      case ApprovalStatus.pending: return 'Chờ duyệt';
-      case ApprovalStatus.approved: return 'Đã duyệt';
-      case ApprovalStatus.rejected: return 'Từ chối';
-      case ApprovalStatus.cancelled: return 'Đã hủy';
-      case ApprovalStatus.expired: return 'Hết hạn';
+      case ApprovalStatus.pending:
+        return 'Chờ duyệt';
+      case ApprovalStatus.approved:
+        return 'Đã duyệt';
+      case ApprovalStatus.rejected:
+        return 'Từ chối';
+      case ApprovalStatus.cancelled:
+        return 'Đã hủy';
+      case ApprovalStatus.expired:
+        return 'Hết hạn';
     }
   }
 
@@ -355,8 +391,11 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -364,12 +403,15 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
               Row(
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: _getActionColor(request.action).withValues(alpha: 0.1),
+                      color: _getActionColor(request.action)
+                          .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.edit_calendar, color: _getActionColor(request.action)),
+                    child: Icon(Icons.edit_calendar,
+                        color: _getActionColor(request.action)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -378,22 +420,31 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                       children: [
                         Text(
                           '${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                        if (request.reason != null && request.reason!.isNotEmpty)
-                          Text(request.reason!, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                        if (request.reason != null &&
+                            request.reason!.isNotEmpty)
+                          Text(request.reason!,
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[600])),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(request.status).withValues(alpha: 0.1),
+                      color: _getStatusColor(request.status)
+                          .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       getCorrectionStatusLabel(request.status),
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _getStatusColor(request.status)),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _getStatusColor(request.status)),
                     ),
                   ),
                 ],
@@ -402,21 +453,27 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
 
               // Time info
               if (request.action != CorrectionAction.delete) ...[
-                _detailRow('Giờ cũ', '${request.originalCheckIn ?? '--:--'} / ${request.originalCheckOut ?? '--:--'}'),
-                _detailRow('Giờ mới', '${request.newCheckIn ?? '--:--'} / ${request.newCheckOut ?? '--:--'}'),
+                _detailRow('Giờ cũ',
+                    '${request.originalCheckIn ?? '--:--'} / ${request.originalCheckOut ?? '--:--'}'),
+                _detailRow('Giờ mới',
+                    '${request.newCheckIn ?? '--:--'} / ${request.newCheckOut ?? '--:--'}'),
               ],
-              _detailRow('Ngày tạo', DateFormat('dd/MM/yyyy HH:mm').format(request.createdAt)),
+              _detailRow('Ngày tạo',
+                  DateFormat('dd/MM/yyyy HH:mm').format(request.createdAt)),
 
               // Multi-level approval progress
-              if (request.totalApprovalLevels > 1 || request.approvalRecords.isNotEmpty) ...[
+              if (request.totalApprovalLevels > 1 ||
+                  request.approvalRecords.isNotEmpty) ...[
                 const Divider(height: 24),
                 Row(
                   children: [
-                    const Icon(Icons.account_tree, size: 16, color: Colors.blueGrey),
+                    const Icon(Icons.account_tree,
+                        size: 16, color: Colors.blueGrey),
                     const SizedBox(width: 6),
                     Text(
                       'Tiến trình duyệt (${request.currentApprovalStep}/${request.totalApprovalLevels})',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -427,8 +484,12 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                 if (request.approvedByName != null)
                   _detailRow('Người duyệt', request.approvedByName!),
                 if (request.approvedAt != null)
-                  _detailRow('Ngày duyệt', DateFormat('dd/MM/yyyy HH:mm').format(request.approvedAt!)),
-                if (request.rejectReason != null && request.rejectReason!.isNotEmpty)
+                  _detailRow(
+                      'Ngày duyệt',
+                      DateFormat('dd/MM/yyyy HH:mm')
+                          .format(request.approvedAt!)),
+                if (request.rejectReason != null &&
+                    request.rejectReason!.isNotEmpty)
                   _detailRow('Lý do từ chối', request.rejectReason!),
               ],
             ],
@@ -446,7 +507,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            child: Text(label,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
@@ -457,7 +519,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
   Widget _buildApprovalTimeline(AttendanceCorrectionRequest request) {
     final records = request.approvalRecords;
     if (records.isEmpty) {
-      return const Text('Chưa có dữ liệu duyệt', style: TextStyle(fontSize: 12, color: Colors.grey));
+      return const Text('Chưa có dữ liệu duyệt',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
     }
 
     return Column(
@@ -476,16 +539,19 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                 child: Column(
                   children: [
                     Container(
-                      width: 20, height: 20,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(color: color, width: 2),
                       ),
-                      child: Icon(_getApprovalStatusIcon(record.status), size: 12, color: color),
+                      child: Icon(_getApprovalStatusIcon(record.status),
+                          size: 12, color: color),
                     ),
                     if (!isLast)
-                      Expanded(child: Container(width: 2, color: Colors.grey[300])),
+                      Expanded(
+                          child: Container(width: 2, color: Colors.grey[300])),
                   ],
                 ),
               ),
@@ -500,18 +566,25 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                         children: [
                           Text(
                             record.stepName ?? 'Bước ${record.stepOrder}',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: color),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               _getApprovalStatusLabel(record.status),
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: color),
                             ),
                           ),
                         ],
@@ -519,8 +592,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                       const SizedBox(height: 4),
                       Text(
                         record.status == ApprovalStatus.pending
-                          ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
-                          : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}',
+                            ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
+                            : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       ),
                       if (record.note != null && record.note!.isNotEmpty)
@@ -528,15 +601,20 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             'Ghi chú: ${record.note}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic),
                           ),
                         ),
                       if (record.actionDate != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!.toLocal()),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            DateFormat('dd/MM/yyyy HH:mm')
+                                .format(record.actionDate!.toLocal()),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[500]),
                           ),
                         ),
                     ],
@@ -562,9 +640,13 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
             Row(
               children: [
                 Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(color: actionColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Icon(Icons.edit_calendar, color: actionColor, size: 18),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                      color: actionColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8)),
+                  child:
+                      Icon(Icons.edit_calendar, color: actionColor, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -573,27 +655,37 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                     children: [
                       Text(
                         '${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         [
                           if (request.action != CorrectionAction.delete)
                             '${request.originalCheckIn ?? '--:--'}/${request.originalCheckOut ?? '--:--'} → ${request.newCheckIn ?? '--:--'}/${request.newCheckOut ?? '--:--'}',
-                          if (request.reason != null && request.reason!.isNotEmpty)
+                          if (request.reason != null &&
+                              request.reason!.isNotEmpty)
                             request.reason!,
                         ].join(' · '),
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text(getCorrectionStatusLabel(request.status), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w600)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4)),
+                  child: Text(getCorrectionStatusLabel(request.status),
+                      style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -602,24 +694,36 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
               Row(
                 children: [
                   const SizedBox(width: 48),
-                  const Icon(Icons.account_tree, size: 12, color: Colors.blueGrey),
+                  const Icon(Icons.account_tree,
+                      size: 12, color: Colors.blueGrey),
                   const SizedBox(width: 4),
                   Text(
                     'Duyệt ${request.currentApprovalStep}/${request.totalApprovalLevels}',
-                    style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.blueGrey),
                   ),
                   const SizedBox(width: 8),
                   ...List.generate(request.totalApprovalLevels, (i) {
                     Color dotColor;
-                    final isRejected = request.status == CorrectionStatus.rejected;
+                    final isRejected =
+                        request.status == CorrectionStatus.rejected;
                     if (isRejected) {
-                      dotColor = i < request.currentApprovalStep ? Colors.green : (i == request.currentApprovalStep ? Colors.red : Colors.grey[300]!);
+                      dotColor = i < request.currentApprovalStep
+                          ? Colors.green
+                          : (i == request.currentApprovalStep
+                              ? Colors.red
+                              : Colors.grey[300]!);
                     } else {
-                      dotColor = i < request.currentApprovalStep ? Colors.green
-                        : (i == request.currentApprovalStep && request.status == CorrectionStatus.pending ? Colors.orange : Colors.grey[300]!);
+                      dotColor = i < request.currentApprovalStep
+                          ? Colors.green
+                          : (i == request.currentApprovalStep &&
+                                  request.status == CorrectionStatus.pending
+                              ? Colors.orange
+                              : Colors.grey[300]!);
                     }
                     return Container(
-                      width: 10, height: 10,
+                      width: 10,
+                      height: 10,
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
                         color: dotColor.withValues(alpha: 0.2),
@@ -681,7 +785,8 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sửa chấm công', overflow: TextOverflow.ellipsis, maxLines: 1),
+        title: const Text('Sửa chấm công',
+            overflow: TextOverflow.ellipsis, maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -693,14 +798,16 @@ class _AttendanceCorrectionsScreenState extends State<AttendanceCorrectionsScree
                   if (_pendingRequests.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.orange,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${_pendingRequests.length}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                   ],

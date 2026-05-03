@@ -258,9 +258,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: _handleLogout,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(mainAxisSize: MainAxisSize.min, children: const [
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.logout, color: Colors.white, size: 14),
               SizedBox(width: 6),
               Text('Đăng xuất',

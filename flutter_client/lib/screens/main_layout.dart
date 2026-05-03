@@ -39,9 +39,12 @@ import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
 import 'dashboard_screen.dart';
 
-import 'attendance_report_screen.dart';
 import 'payroll_report_screen.dart';
 import 'hr_report_screen.dart';
+import 'penalty_report_screen.dart';
+import 'cash_report_screen.dart';
+import 'advance_report_screen.dart';
+import 'leave_report_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
@@ -95,6 +98,44 @@ class NavigationNotifier {
   static final ValueNotifier<int?> navigateTo = ValueNotifier<int?>(null);
 
   // Screen indices mapping - must match _navItems order
+  // [0]  Trang chủ
+  // [1]  Thông báo
+  // [2]  Tổng quan (Dashboard)
+  // [3]  Hồ sơ nhân sự
+  // [4]  Nhân sự chấm công
+  // [5]  Phòng ban
+  // [6]  Nghỉ phép
+  // [7]  Thiết lập lương
+  // [8]  Chấm công
+  // [9]  Lịch làm việc
+  // [10] Tổng hợp chấm công
+  // [11] Tổng hợp theo ca
+  // [12] Duyệt chấm công
+  // [13] Duyệt lịch làm việc
+  // [14] Tổng hợp lương (Payroll)
+  // [15] Đăng ký chấm công Mobile
+  // [16] Chấm công Mobile
+  // [17] Duyệt chấm công Mobile
+  // [18] Chấm cơm (Meal)
+  // [19] Thưởng / Phạt
+  // [20] Ứng lương
+  // [21] Thu chi
+  // [22] Tài sản
+  // [23] Công việc
+  // [24] Truyền thông
+  // [25] KPI
+  // [26] Sản lượng
+  // [27] Phản ánh / Ý kiến
+  // [28] Check-in điểm bán
+  // [29] Báo cáo chấm công
+  // [30] Báo cáo lương
+  // [31] Báo cáo nhân sự
+  // [32] License Keys
+  // [33] Thiết lập HRM
+  // [34] Cài đặt
+  // [35] Quản trị hệ thống
+  // [36] Phiếu phạt
+  // [37] Thiết lập thông báo
   static const int home = 0;
   static const int notifications = 1;
   static const int dashboard = 2;
@@ -110,25 +151,29 @@ class NavigationNotifier {
   static const int attendanceApproval = 12;
   static const int scheduleApproval = 13;
   static const int payroll = 14;
-  static const int bonusPenalty = 15;
-  static const int advanceRequests = 16;
-  static const int cashTransaction = 17;
-  static const int assetManagement = 18;
-  static const int taskManagement = 19;
-  static const int communication = 20;
-  static const int kpi = 21;
-  static const int production = 22;
-  static const int feedback = 23;
-  static const int attendanceReport = 25;
-  static const int payrollReport = 26;
-  static const int agentLicenseKeys = 27;
-  static const int settingsHub = 28;
-  static const int settings = 29;
-  static const int systemAdmin = 30;
-  static const int penaltyTickets = 31;
-  static const int meals = 32;
-  static const int notificationSettings = 33;
-  static const int fieldCheckIn = 34;
+  static const int meals = 18;
+  static const int bonusPenalty = 19;
+  static const int advanceRequests = 20;
+  static const int cashTransaction = 21;
+  static const int assetManagement = 22;
+  static const int taskManagement = 23;
+  static const int communication = 24;
+  static const int kpi = 25;
+  static const int production = 26;
+  static const int feedback = 27;
+  static const int fieldCheckIn = 28;
+  static const int attendanceReport = 29;
+  static const int payrollReport = 30;
+  static const int agentLicenseKeys = 32;
+  static const int settingsHub = 33;
+  static const int settings = 34;
+  static const int systemAdmin = 35;
+  static const int penaltyTickets = 36;
+  static const int notificationSettings = 37;
+  static const int penaltyReport = 38;
+  static const int cashReport = 39;
+  static const int advanceReport = 40;
+  static const int leaveReport = 41;
 
   static final ValueNotifier<bool> goBackNotifier = ValueNotifier<bool>(false);
 
@@ -213,7 +258,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Load quyền hiệu lực cho user hiện tại
   void _loadPermissions() {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-    final permProvider = Provider.of<PermissionProvider>(context, listen: false);
+    final permProvider =
+        Provider.of<PermissionProvider>(context, listen: false);
     if (!permProvider.isLoaded && !permProvider.isLoading) {
       permProvider.loadPermissions(role: authUser?.role);
     }
@@ -268,7 +314,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
-  bool get _canGoBack => _navigationHistory.isNotEmpty || SettingsHubScreen.internalBackCallback != null;
+  bool get _canGoBack =>
+      _navigationHistory.isNotEmpty ||
+      SettingsHubScreen.internalBackCallback != null;
 
   @override
   void dispose() {
@@ -324,8 +372,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Get a valid (non-expired) token, refreshing if necessary
       final token = await authProvider.getValidToken();
       // Pass token factory for auto-refresh on reconnection
-      await _signalRService.connect(null, token, () => authProvider.getValidToken());
-      
+      await _signalRService.connect(
+          null, token, () => authProvider.getValidToken());
+
       if (!mounted) return;
       // Join store group for store-scoped notifications
       final storeId = authProvider.user?.storeId;
@@ -337,7 +386,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (userId != null && userId.isNotEmpty) {
         await _signalRService.joinUserGroup(userId);
       }
-      
+
       _notificationSubscription =
           _signalRService.onNewNotification.listen(_handleNewNotification);
       // Listen for new attendance from ADMS devices
@@ -347,8 +396,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       _deviceStatusSubscription = _signalRService.onDeviceStatusChanged
           .listen(_handleDeviceStatusChanged);
       // Listen for communication events (messages, comments, reactions)
-      _communicationSubscription =
-          _signalRService.onCommunicationEvent.listen(_handleCommunicationEvent);
+      _communicationSubscription = _signalRService.onCommunicationEvent
+          .listen(_handleCommunicationEvent);
     } catch (e) {
       debugPrint('Error connecting SignalR in MainLayout: $e');
     }
@@ -381,13 +430,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Show device status popup via queue
   void _showDeviceStatusPopup(DeviceStatusNotification notification) {
     _enqueuePopup((onDismiss) => _DeviceStatusPopup(
-      notification: notification,
-      onDismiss: onDismiss,
-      onTap: () {
-        onDismiss();
-        _navigateToIndex(NavigationNotifier.deviceUsers);
-      },
-    ));
+          notification: notification,
+          onDismiss: onDismiss,
+          onTap: () {
+            onDismiss();
+            _navigateToIndex(NavigationNotifier.deviceUsers);
+          },
+        ));
   }
 
   /// Handle new attendance from ADMS device - show popup globally
@@ -438,18 +487,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     required String verifyType,
   }) {
     _enqueuePopup((onDismiss) => _AttendanceNotificationPopup(
-      userName: userName,
-      stateText: stateText,
-      timeStr: timeStr,
-      deviceName: deviceName,
-      isCheckIn: isCheckIn,
-      verifyType: verifyType,
-      onDismiss: onDismiss,
-      onTap: () {
-        onDismiss();
-        _navigateToIndex(NavigationNotifier.attendance);
-      },
-    ));
+          userName: userName,
+          stateText: stateText,
+          timeStr: timeStr,
+          deviceName: deviceName,
+          isCheckIn: isCheckIn,
+          verifyType: verifyType,
+          onDismiss: onDismiss,
+          onTap: () {
+            onDismiss();
+            _navigateToIndex(NavigationNotifier.attendance);
+          },
+        ));
   }
 
   void _handleNewNotification(Map<String, dynamic> data) {
@@ -510,7 +559,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Parse NotificationType an toàn từ int value
   NotificationType _parseNotificationType(dynamic typeValue) {
-    if (typeValue is int && typeValue >= 0 && typeValue < NotificationType.values.length) {
+    if (typeValue is int &&
+        typeValue >= 0 &&
+        typeValue < NotificationType.values.length) {
       return NotificationType.values[typeValue];
     }
     // Fallback: map theo tên nếu là string
@@ -529,7 +580,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     debugPrint('📡 Communication event received: $data');
 
     final title = data['title'] as String? ?? 'Tin nhắn mới';
-    final message = data['message'] as String? ?? data['content'] as String? ?? '';
+    final message =
+        data['message'] as String? ?? data['content'] as String? ?? '';
 
     // Cập nhật badge
     _loadNotificationCount();
@@ -753,18 +805,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Tổng hợp chấm công',
       subtitle: 'Bảng tổng hợp công theo tháng',
       screen: const AttendanceSummaryScreen(),
-      group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
       moduleCode: 'AttendanceSummary',
     ),
     NavItem(
       icon: Icons.schedule_outlined,
       activeIcon: Icons.schedule,
-      label: 'Tổng hợp theo ca',
+      label: 'Tổng hợp chấm công theo ca',
       subtitle: 'Thống kê giờ công theo ca làm',
       screen: const AttendanceByShiftScreen(),
-      group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
       moduleCode: 'AttendanceByShift',
     ),
     NavItem(
@@ -795,8 +847,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Tổng hợp lương',
       subtitle: 'Bảng lương nhân viên',
       screen: const PayrollScreen(),
-      group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
       moduleCode: 'Payroll',
     ),
 
@@ -911,7 +963,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'Communication',
     ),
 
-
     // ══════════ KPI ══════════
     NavItem(
       icon: Icons.trending_up_outlined,
@@ -962,17 +1013,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // ══════════ BÁO CÁO ══════════
     NavItem(
-      icon: Icons.schedule_outlined,
-      activeIcon: Icons.schedule,
-      label: 'Báo cáo chấm công',
-      subtitle: 'Ngày, tháng, đi muộn, phòng ban',
-      screen: const AttendanceReportScreen(),
-      group: 'Báo cáo',
-      showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'AttendanceReport',
-    ),
-    NavItem(
       icon: Icons.payments_outlined,
       activeIcon: Icons.payments,
       label: 'Báo cáo lương',
@@ -993,6 +1033,50 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: const Color(0xFF7C3AED),
       moduleCode: 'HrReport',
+    ),
+    NavItem(
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      label: 'Báo cáo phạt',
+      subtitle: 'Thống kê phiếu phạt nhân viên',
+      screen: const PenaltyReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFFEC4899),
+      moduleCode: 'PenaltyReport',
+    ),
+    NavItem(
+      icon: Icons.account_balance_wallet_outlined,
+      activeIcon: Icons.account_balance_wallet,
+      label: 'Báo cáo thu chi',
+      subtitle: 'Tổng hợp thu chi, quỹ tiền mặt',
+      screen: const CashReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF0EA5E9),
+      moduleCode: 'CashReport',
+    ),
+    NavItem(
+      icon: Icons.money_outlined,
+      activeIcon: Icons.money,
+      label: 'Báo cáo ứng lương',
+      subtitle: 'Thống kê yêu cầu ứng lương',
+      screen: const AdvanceReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFFF59E0B),
+      moduleCode: 'AdvanceReport',
+    ),
+    NavItem(
+      icon: Icons.event_busy_outlined,
+      activeIcon: Icons.event_busy,
+      label: 'Báo cáo nghỉ phép',
+      subtitle: 'Thống kê đơn nghỉ phép',
+      screen: const LeaveReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF0284C7),
+      moduleCode: 'LeaveReport',
     ),
 
     // ══════════ ĐẠI LÝ ══════════
@@ -1092,7 +1176,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return _HomeMenuScreen(
         navItems: _navItems,
         onItemTap: (idx) => _navigateToIndex(idx),
-        allowedModules: (isSuperAdmin || isAgent || isDirector) ? null : authUser?.allowedModules,
+        allowedModules: (isSuperAdmin || isAgent || isDirector)
+            ? null
+            : authUser?.allowedModules,
       );
     }
     return _navItems[index].screen;
@@ -1150,7 +1236,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         .map((item) => NavigationRailDestination(
                               icon: Icon(item.icon),
                               selectedIcon: Icon(item.activeIcon),
-                              label: Text(item.localizedLabel(AppLocalizations.of(context))),
+                              label: Text(item.localizedLabel(
+                                  AppLocalizations.of(context))),
                             ))
                         .toList(),
                   ),
@@ -1178,32 +1265,59 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // Mobile bottom nav: 4 key screens + "Thêm" (opens drawer)
   // Each entry: (navIndex, icon, activeIcon, moduleCode)
   static const _mobileBottomNavDefs = [
-    (navIndex: 0, icon: Icons.home_outlined, activeIcon: Icons.home, moduleCode: 'Home'),
-    (navIndex: 2, icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, moduleCode: 'Dashboard'),
-    (navIndex: 16, icon: Icons.fingerprint_outlined, activeIcon: Icons.fingerprint, moduleCode: 'MobileAttendance'),
-    (navIndex: 14, icon: Icons.payments_outlined, activeIcon: Icons.payments, moduleCode: 'Payroll'),
+    (
+      navIndex: 0,
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home,
+      moduleCode: 'Home'
+    ),
+    (
+      navIndex: 2,
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard,
+      moduleCode: 'Dashboard'
+    ),
+    (
+      navIndex: 16,
+      icon: Icons.fingerprint_outlined,
+      activeIcon: Icons.fingerprint,
+      moduleCode: 'MobileAttendance'
+    ),
+    (
+      navIndex: 14,
+      icon: Icons.payments_outlined,
+      activeIcon: Icons.payments,
+      moduleCode: 'Payroll'
+    ),
   ];
 
   static String _mobileNavLabel(String moduleCode, AppLocalizations l) {
     // Short labels for bottom nav to prevent overflow
     switch (moduleCode) {
-      case 'Payroll': return l.payrollShort;
-      case 'Home': return l.home;
-      case 'Dashboard': return l.overview;
-      case 'MobileAttendance': return 'Chấm công';
-      default: return moduleCode;
+      case 'Payroll':
+        return l.payrollShort;
+      case 'Home':
+        return l.home;
+      case 'Dashboard':
+        return l.overview;
+      case 'MobileAttendance':
+        return 'Chấm công';
+      default:
+        return moduleCode;
     }
   }
 
   // Scaffold key for programmatic drawer open from bottom nav "Thêm"
-  final GlobalKey<ScaffoldState> _mobileScaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<ScaffoldState> _mobileScaffoldKey =
+      GlobalKey<ScaffoldState>();
 
   // Mobile Layout với Bottom Navigation
   Widget _buildMobileLayout() {
     final l = AppLocalizations.of(context);
 
     // Map _selectedIndex → bottom nav position; 4 = "Thêm" (drawer)
-    final bottomNavIndex = _mobileBottomNavDefs.indexWhere((d) => d.navIndex == _selectedIndex);
+    final bottomNavIndex =
+        _mobileBottomNavDefs.indexWhere((d) => d.navIndex == _selectedIndex);
     final safeBottomIndex = bottomNavIndex == -1 ? 4 : bottomNavIndex;
 
     return PopScope(
@@ -1218,67 +1332,68 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         }
       },
       child: NotificationOverlay(
-      child: Scaffold(
-        key: _mobileScaffoldKey,
-        appBar: AppBar(
-          toolbarHeight: 44,
-          leading: _canGoBack
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 22),
-                  onPressed: _goBack,
-                  tooltip: l.goBack,
-                  visualDensity: VisualDensity.compact,
-                )
-              : null,
-          titleTextStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(fontSize: 17),
-          title: Text(_navItems[_selectedIndex].localizedLabel(l)),
-          actions: [
-            IconButton(
-              icon: Badge(
-                isLabelVisible: _unreadNotificationsCount > 0,
-                label: Text(_unreadNotificationsCount > 99
-                    ? '99+'
-                    : '$_unreadNotificationsCount'),
-                child: const Icon(Icons.notifications_outlined),
+        child: Scaffold(
+          key: _mobileScaffoldKey,
+          appBar: AppBar(
+            toolbarHeight: 44,
+            leading: _canGoBack
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back, size: 22),
+                    onPressed: _goBack,
+                    tooltip: l.goBack,
+                    visualDensity: VisualDensity.compact,
+                  )
+                : null,
+            titleTextStyle: Theme.of(context)
+                .textTheme
+                .headlineLarge
+                ?.copyWith(fontSize: 17),
+            title: Text(_navItems[_selectedIndex].localizedLabel(l)),
+            actions: [
+              IconButton(
+                icon: Badge(
+                  isLabelVisible: _unreadNotificationsCount > 0,
+                  label: Text(_unreadNotificationsCount > 99
+                      ? '99+'
+                      : '$_unreadNotificationsCount'),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                onPressed: () {
+                  _navigateToIndex(_notificationsIndex);
+                  _loadNotificationCount();
+                },
+                tooltip: l.notifications,
               ),
-              onPressed: () {
-                _navigateToIndex(_notificationsIndex);
-                _loadNotificationCount();
-              },
-              tooltip: l.notifications,
-            ),
-            _buildUserMenu(),
-          ],
+              _buildUserMenu(),
+            ],
+          ),
+          body: Column(
+            children: [
+              const AnnouncementBanner(),
+              Expanded(child: _buildMobileBody()),
+            ],
+          ),
+          bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
+          drawer: _buildDrawer(),
         ),
-        body: Column(
-          children: [
-            const AnnouncementBanner(),
-            Expanded(child: _buildMobileBody()),
-          ],
-        ),
-        bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
-        drawer: _buildDrawer(),
       ),
-    ),
     );
   }
 
   /// Mobile body: IndexedStack keeps bottom-nav screen states alive (scroll position preserved).
   /// Non-bottom-nav screens are overlaid on top so IndexedStack stays in tree.
   Widget _buildMobileBody() {
-    final bottomNavIndices = _mobileBottomNavDefs.map((d) => d.navIndex).toList();
+    final bottomNavIndices =
+        _mobileBottomNavDefs.map((d) => d.navIndex).toList();
     final isBottomNav = bottomNavIndices.contains(_selectedIndex);
     final stackIdx = isBottomNav ? bottomNavIndices.indexOf(_selectedIndex) : 0;
     return Stack(
       children: [
         IndexedStack(
           index: stackIdx,
-          children: bottomNavIndices
-              .map((i) => _getScreenForIndex(i))
-              .toList(),
+          children: bottomNavIndices.map((i) => _getScreenForIndex(i)).toList(),
         ),
-        if (!isBottomNav)
-          _getScreenForIndex(_selectedIndex),
+        if (!isBottomNav) _getScreenForIndex(_selectedIndex),
       ],
     );
   }
@@ -1293,12 +1408,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     // All items: 4 defs + "Thêm"
     final allItems = [
       ..._mobileBottomNavDefs.map((d) => (
-        icon: d.icon,
-        activeIcon: d.activeIcon,
-        label: _mobileNavLabel(d.moduleCode, l),
-        navIndex: d.navIndex,
-        isCenterAction: d.moduleCode == 'MobileAttendance',
-      )),
+            icon: d.icon,
+            activeIcon: d.activeIcon,
+            label: _mobileNavLabel(d.moduleCode, l),
+            navIndex: d.navIndex,
+            isCenterAction: d.moduleCode == 'MobileAttendance',
+          )),
       (
         icon: Icons.grid_view_outlined,
         activeIcon: Icons.grid_view_rounded,
@@ -1389,12 +1504,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 end: Alignment.bottomRight,
                 colors: isSelected
                     ? [primaryColor, primaryColor.withValues(alpha: 0.8)]
-                    : [primaryColor.withValues(alpha: 0.85), primaryColor.withValues(alpha: 0.65)],
+                    : [
+                        primaryColor.withValues(alpha: 0.85),
+                        primaryColor.withValues(alpha: 0.65)
+                      ],
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: primaryColor.withValues(alpha: isSelected ? 0.35 : 0.2),
+                  color:
+                      primaryColor.withValues(alpha: isSelected ? 0.35 : 0.2),
                   blurRadius: isSelected ? 12 : 8,
                   offset: const Offset(0, 3),
                 ),
@@ -1411,7 +1530,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: isSelected ? primaryColor : primaryColor.withValues(alpha: 0.7),
+              color: isSelected
+                  ? primaryColor
+                  : primaryColor.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -1467,7 +1588,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // Sidebar cho Desktop
   Widget _buildSidebar() {
     // Group order
-    const groupOrder = ['Tổng quan', 'Hồ sơ nhân sự', 'Chấm công', 'Tài chính', 'Quản lý Vận hành', 'Báo cáo', 'Đại lý', 'Cài đặt'];
+    const groupOrder = [
+      'Tổng quan',
+      'Hồ sơ nhân sự',
+      'Chấm công',
+      'Tài chính',
+      'Quản lý Vận hành',
+      'Báo cáo',
+      'Đại lý',
+      'Cài đặt'
+    ];
 
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final userRole = authUser?.role ?? '';
@@ -1483,12 +1613,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     for (int i = 0; i < _navItems.length; i++) {
       if (!_navItems[i].showInSidebar) continue;
       if (_navItems[i].adminOnly && !isSuperAdmin) continue;
-      if (_navItems[i].requiredRole != null && _navItems[i].requiredRole != userRole) continue;
+      if (_navItems[i].requiredRole != null &&
+          _navItems[i].requiredRole != userRole) {
+        continue;
+      }
       // Agents only see items with requiredRole == 'Agent'
       if (isAgent && _navItems[i].requiredRole != 'Agent') continue;
       // Lọc theo gói dịch vụ - SuperAdmin/Agent không bị giới hạn
-      if (!isSuperAdmin && !isAgent && !isDirector && allowedModules != null && allowedModules.isNotEmpty
-          && _navItems[i].moduleCode != null && !allowedModules.contains(_navItems[i].moduleCode)) {
+      if (!isSuperAdmin &&
+          !isAgent &&
+          !isDirector &&
+          allowedModules != null &&
+          allowedModules.isNotEmpty &&
+          _navItems[i].moduleCode != null &&
+          !allowedModules.contains(_navItems[i].moduleCode)) {
         continue;
       }
       // Lọc theo quyền canView - ẩn module nếu không có quyền xem
@@ -1515,17 +1653,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(7),
-                    child: Image.asset('assets/logo.png', width: _isExpanded ? 32 : 28, height: _isExpanded ? 32 : 28),
+                    child: Image.asset('assets/logo.png',
+                        width: _isExpanded ? 32 : 28,
+                        height: _isExpanded ? 32 : 28),
                   ),
                   if (_isExpanded) ...[
                     const SizedBox(width: 10),
                     const Expanded(
-                      child: Text('SBOX HRM', style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w900,
-                        color: Color(0xFF0C56D0), letterSpacing: -0.5,
-                      ), overflow: TextOverflow.ellipsis),
+                      child: Text('SBOX HRM',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0C56D0),
+                            letterSpacing: -0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis),
                     ),
-                    Icon(Icons.chevron_left_rounded, color: const Color(0xFF586064).withValues(alpha: 0.5), size: 22),
+                    Icon(Icons.chevron_left_rounded,
+                        color: const Color(0xFF586064).withValues(alpha: 0.5),
+                        size: 22),
                   ],
                 ],
               ),
@@ -1536,10 +1682,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              children: groupOrder.where((g) => groupedItems.containsKey(g)).expand((groupName) {
+              children: groupOrder
+                  .where((g) => groupedItems.containsKey(g))
+                  .expand((groupName) {
                 final items = groupedItems[groupName]!;
                 final isCollapsed = _collapsedGroups.contains(groupName);
-                final groupColor = _HomeMenuScreen._groupColors[groupName] ?? const Color(0xFF586064);
+                final groupColor = _HomeMenuScreen._groupColors[groupName] ??
+                    const Color(0xFF586064);
 
                 return [
                   // Group header (only when expanded)
@@ -1555,7 +1704,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         });
                       },
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 20, right: 12, top: 16, bottom: 4),
+                        padding: const EdgeInsets.only(
+                            left: 20, right: 12, top: 16, bottom: 4),
                         child: Row(
                           children: [
                             Expanded(
@@ -1570,7 +1720,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               ),
                             ),
                             Icon(
-                              isCollapsed ? Icons.expand_more_rounded : Icons.expand_less_rounded,
+                              isCollapsed
+                                  ? Icons.expand_more_rounded
+                                  : Icons.expand_less_rounded,
                               size: 16,
                               color: const Color(0xFFABB3B7),
                             ),
@@ -1590,7 +1742,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       final accentColor = item.themeColor ?? groupColor;
 
                       final navWidget = Padding(
-                        padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 10 : 6, vertical: 2),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: _isExpanded ? 10 : 6, vertical: 2),
                         child: Material(
                           color: isSelected
                               ? accentColor.withValues(alpha: 0.08)
@@ -1599,20 +1752,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           child: InkWell(
                             onTap: () => _navigateToIndex(index),
                             borderRadius: BorderRadius.circular(10),
-                            hoverColor: const Color(0xFFE2E9EC), // surface-container-high
+                            hoverColor: const Color(
+                                0xFFE2E9EC), // surface-container-high
                             child: Container(
                               height: 40,
-                              padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 12 : 0),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: _isExpanded ? 12 : 0),
                               decoration: isSelected && _isExpanded
                                   ? BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border(
-                                        left: BorderSide(color: accentColor, width: 3),
+                                        left: BorderSide(
+                                            color: accentColor, width: 3),
                                       ),
                                     )
                                   : null,
                               child: Row(
-                                mainAxisAlignment: _isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+                                mainAxisAlignment: _isExpanded
+                                    ? MainAxisAlignment.start
+                                    : MainAxisAlignment.center,
                                 children: [
                                   Icon(
                                     isSelected ? item.activeIcon : item.icon,
@@ -1625,20 +1783,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        item.localizedLabel(AppLocalizations.of(context)),
+                                        item.localizedLabel(
+                                            AppLocalizations.of(context)),
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: isSelected
                                               ? const Color(0xFF2B3437)
                                               : const Color(0xFF586064),
-                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     if (item.highlight)
                                       Container(
-                                        width: 7, height: 7,
+                                        width: 7,
+                                        height: 7,
                                         decoration: BoxDecoration(
                                           color: accentColor,
                                           shape: BoxShape.circle,
@@ -1654,7 +1816,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       return _isExpanded
                           ? navWidget
                           : Tooltip(
-                              message: item.localizedLabel(AppLocalizations.of(context)),
+                              message: item
+                                  .localizedLabel(AppLocalizations.of(context)),
                               preferBelow: false,
                               verticalOffset: 0,
                               waitDuration: const Duration(milliseconds: 200),
@@ -1679,7 +1842,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final user = authProvider.user;
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: _isExpanded ? 10 : 6, vertical: 8),
+      margin:
+          EdgeInsets.symmetric(horizontal: _isExpanded ? 10 : 6, vertical: 8),
       padding: EdgeInsets.all(_isExpanded ? 10 : 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA), // surface
@@ -1735,7 +1899,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 hoverColor: const Color(0xFFE2E9EC),
                 child: Padding(
                   padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.logout_rounded, size: 18, color: const Color(0xFF586064).withValues(alpha: 0.7)),
+                  child: Icon(Icons.logout_rounded,
+                      size: 18,
+                      color: const Color(0xFF586064).withValues(alpha: 0.7)),
                 ),
               ),
             ),
@@ -1760,13 +1926,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           if (_canGoBack)
             IconButton(
-              icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
+              icon: Icon(Icons.arrow_back,
+                  color: Theme.of(context).colorScheme.onSurface),
               onPressed: _goBack,
               tooltip: AppLocalizations.of(context).goBack,
             ),
           if (_canGoBack) const SizedBox(width: 4),
           Text(
-            _navItems[_selectedIndex].localizedLabel(AppLocalizations.of(context)),
+            _navItems[_selectedIndex]
+                .localizedLabel(AppLocalizations.of(context)),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -1829,7 +1997,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+            backgroundColor:
+                Theme.of(context).primaryColor.withValues(alpha: 0.2),
             child: Text(
               (user?.fullName ?? 'U')[0].toUpperCase(),
               style: TextStyle(
@@ -1888,7 +2057,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             children: [
               const Icon(Icons.logout, size: 20, color: Colors.red),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context).logout, style: const TextStyle(color: Colors.red)),
+              Text(AppLocalizations.of(context).logout,
+                  style: const TextStyle(color: Colors.red)),
             ],
           ),
         ),
@@ -1911,7 +2081,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Drawer cho mobile
   Widget _buildDrawer() {
-    const groupOrder = ['Tổng quan', 'Hồ sơ nhân sự', 'Chấm công', 'Tài chính', 'Quản lý Vận hành', 'Báo cáo', 'Đại lý', 'Cài đặt'];
+    const groupOrder = [
+      'Tổng quan',
+      'Hồ sơ nhân sự',
+      'Chấm công',
+      'Tài chính',
+      'Quản lý Vận hành',
+      'Báo cáo',
+      'Đại lý',
+      'Cài đặt'
+    ];
     final l = AppLocalizations.of(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final authUser = authProvider.user;
@@ -1930,8 +2109,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (item.adminOnly && !isSuperAdmin) continue;
       if (item.requiredRole != null && item.requiredRole != userRole) continue;
       if (isAgent && item.requiredRole != 'Agent') continue;
-      if (!isSuperAdmin && !isAgent && !isDirector && allowedModules != null && allowedModules.isNotEmpty
-          && item.moduleCode != null && !allowedModules.contains(item.moduleCode)) {
+      if (!isSuperAdmin &&
+          !isAgent &&
+          !isDirector &&
+          allowedModules != null &&
+          allowedModules.isNotEmpty &&
+          item.moduleCode != null &&
+          !allowedModules.contains(item.moduleCode)) {
         continue;
       }
       // Lọc theo quyền canView
@@ -1949,7 +2133,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: const BoxDecoration(
               color: Color(0xFFF8F9FA),
-              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+              border: Border(
+                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
             ),
             child: Row(
               children: [
@@ -1959,13 +2144,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
-                  child: Text('SBOX HRM', style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w900,
-                    color: Color(0xFF0C56D0), letterSpacing: -0.5,
-                  ), overflow: TextOverflow.ellipsis),
+                  child: Text('SBOX HRM',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0C56D0),
+                        letterSpacing: -0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, color: const Color(0xFF586064).withValues(alpha: 0.5), size: 22),
+                  icon: Icon(Icons.close_rounded,
+                      color: const Color(0xFF586064).withValues(alpha: 0.5),
+                      size: 22),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -1976,7 +2167,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              children: groupOrder.where((g) => groupedItems.containsKey(g)).map((groupName) {
+              children: groupOrder
+                  .where((g) => groupedItems.containsKey(g))
+                  .map((groupName) {
                 final items = groupedItems[groupName]!;
                 // Translate group name
                 final groupLabel = NavItem._groupMap[groupName] != null
@@ -2005,21 +2198,31 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         dense: true,
                         leading: Icon(
                           isSelected ? item.activeIcon : item.icon,
-                          color: isSelected ? Theme.of(context).primaryColor : const Color(0xFF71717A),
+                          color: isSelected
+                              ? Theme.of(context).primaryColor
+                              : const Color(0xFF71717A),
                           size: 22,
                         ),
                         title: Text(
                           item.localizedLabel(l),
                           style: TextStyle(
-                            color: isSelected ? Theme.of(context).primaryColor : null,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected
+                                ? Theme.of(context).primaryColor
+                                : null,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                             fontSize: 14,
                           ),
                         ),
                         selected: isSelected,
-                        selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        selectedTileColor: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.08),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 0),
                         onTap: () {
                           _navigateToIndex(index);
                           Navigator.pop(context);
@@ -2112,7 +2315,9 @@ class NavItem {
 
   /// Get localized subtitle
   String? localizedSubtitle(AppLocalizations l) {
-    return _subtitleMap[moduleCode] != null ? _subtitleMap[moduleCode]!(l) : subtitle;
+    return _subtitleMap[moduleCode] != null
+        ? _subtitleMap[moduleCode]!(l)
+        : subtitle;
   }
 
   /// Get localized group name
@@ -2148,6 +2353,10 @@ class NavItem {
     'HrReport': (l) => l.hrReport,
     'AttendanceReport': (l) => l.attendanceReport,
     'PayrollReport': (l) => l.payrollReport,
+    'PenaltyReport': (l) => 'Báo cáo phạt',
+    'CashReport': (l) => 'Báo cáo thu chi',
+    'AdvanceReport': (l) => 'Báo cáo ứng lương',
+    'LeaveReport': (l) => 'Báo cáo nghỉ phép',
     'SettingsHub': (l) => l.hrmSetup,
     'Settings': (l) => l.settings,
   };
@@ -2211,12 +2420,12 @@ class _HomeMenuScreen extends StatefulWidget {
   };
 
   static const _groupColors = {
-    'Hồ sơ nhân sự': Color(0xFF1E3A5F),      // Navy
-    'Chấm công': Color(0xFF0284C7),           // Sky 600
-    'Tài chính': Color(0xFFEC4899),           // Pink 500
-    'Quản lý Vận hành': Color(0xFF059669),   // Emerald 600
-    'Báo cáo': Color(0xFF7C3AED),             // Violet 600
-    'Cài đặt': Color(0xFF64748B),             // Slate 500
+    'Hồ sơ nhân sự': Color(0xFF1E3A5F), // Navy
+    'Chấm công': Color(0xFF0284C7), // Sky 600
+    'Tài chính': Color(0xFFEC4899), // Pink 500
+    'Quản lý Vận hành': Color(0xFF059669), // Emerald 600
+    'Báo cáo': Color(0xFF7C3AED), // Violet 600
+    'Cài đặt': Color(0xFF64748B), // Slate 500
   };
 
   static const _groupDescriptions = {
@@ -2271,8 +2480,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       if (item.group == 'Tổng quan') continue;
       if (item.adminOnly) continue;
       if (item.requiredRole != null) continue;
-      if (widget.allowedModules != null && widget.allowedModules!.isNotEmpty
-          && item.moduleCode != null && !widget.allowedModules!.contains(item.moduleCode)) {
+      if (widget.allowedModules != null &&
+          widget.allowedModules!.isNotEmpty &&
+          item.moduleCode != null &&
+          !widget.allowedModules!.contains(item.moduleCode)) {
         continue;
       }
       // Lọc theo quyền canView
@@ -2331,7 +2542,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -2376,8 +2588,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
               children: _HomeMenuScreen._groupOrder
                   .where((g) => groupedItems.containsKey(g))
                   .map((groupName) {
-                final groupColor = _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
-                final groupIcon = _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
+                final groupColor =
+                    _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
+                final groupIcon =
+                    _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
@@ -2387,13 +2601,17 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         final l = AppLocalizations.of(context);
                         return Text(
                           NavItem._groupMap[groupName]?.call(l) ?? groupName,
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: groupColor),
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: groupColor),
                         );
                       },
                     ),
                     backgroundColor: groupColor.withValues(alpha: 0.06),
                     side: BorderSide(color: groupColor.withValues(alpha: 0.15)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
                     onPressed: () {
                       // Scroll to group — scroll to first item of group
                       final items = groupedItems[groupName];
@@ -2414,9 +2632,12 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
               .where((g) => groupedItems.containsKey(g))
               .map((groupName) {
             final items = groupedItems[groupName]!;
-            final groupColor = _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
-            final groupIcon = _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
-            final groupDesc = _HomeMenuScreen._groupDescriptions[groupName] ?? '';
+            final groupColor =
+                _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
+            final groupIcon =
+                _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
+            final groupDesc =
+                _HomeMenuScreen._groupDescriptions[groupName] ?? '';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 28),
@@ -2430,7 +2651,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [groupColor, groupColor.withValues(alpha: 0.7)],
+                            colors: [
+                              groupColor,
+                              groupColor.withValues(alpha: 0.7)
+                            ],
                           ),
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -2445,7 +2669,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                               builder: (context) {
                                 final l = AppLocalizations.of(context);
                                 return Text(
-                                  NavItem._groupMap[groupName]?.call(l) ?? groupName,
+                                  NavItem._groupMap[groupName]?.call(l) ??
+                                      groupName,
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
@@ -2467,7 +2692,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: groupColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
@@ -2521,7 +2747,9 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                           final item = entry.value;
                           final index = entry.key;
                           final itemColor = item.themeColor ?? groupColor;
-                          final cardWidth = (constraints.maxWidth - (crossAxisCount - 1) * 10) / crossAxisCount;
+                          final cardWidth = (constraints.maxWidth -
+                                  (crossAxisCount - 1) * 10) /
+                              crossAxisCount;
 
                           final l = AppLocalizations.of(context);
                           return SizedBox(
@@ -2549,8 +2777,29 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
 
   String _formatTodayDate() {
     final now = DateTime.now();
-    final weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
-    final months = ['Th01', 'Th02', 'Th03', 'Th04', 'Th05', 'Th06', 'Th07', 'Th08', 'Th09', 'Th10', 'Th11', 'Th12'];
+    final weekdays = [
+      'Thứ 2',
+      'Thứ 3',
+      'Thứ 4',
+      'Thứ 5',
+      'Thứ 6',
+      'Thứ 7',
+      'CN'
+    ];
+    final months = [
+      'Th01',
+      'Th02',
+      'Th03',
+      'Th04',
+      'Th05',
+      'Th06',
+      'Th07',
+      'Th08',
+      'Th09',
+      'Th10',
+      'Th11',
+      'Th12'
+    ];
     return '${weekdays[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
   }
 }
@@ -2574,7 +2823,8 @@ class _MenuCard extends StatefulWidget {
   State<_MenuCard> createState() => _MenuCardState();
 }
 
-class _MenuCardState extends State<_MenuCard> with SingleTickerProviderStateMixin {
+class _MenuCardState extends State<_MenuCard>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late final AnimationController _animController;
   late final Animation<double> _scaleAnim;
@@ -2674,14 +2924,17 @@ class _MenuCardState extends State<_MenuCard> with SingleTickerProviderStateMixi
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: _isHovered ? widget.color : const Color(0xFF2B3437),
+                          color: _isHovered
+                              ? widget.color
+                              : const Color(0xFF2B3437),
                           letterSpacing: -0.1,
                           height: 1.3,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+                      if (widget.subtitle != null &&
+                          widget.subtitle!.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
                           widget.subtitle!,
@@ -2744,8 +2997,7 @@ class _AttendanceNotificationPopup extends StatefulWidget {
 }
 
 class _AttendanceNotificationPopupState
-    extends State<_AttendanceNotificationPopup>
-    with TickerProviderStateMixin {
+    extends State<_AttendanceNotificationPopup> with TickerProviderStateMixin {
   late AnimationController _controller;
   late AnimationController _progressController;
   late Animation<Offset> _slideAnimation;
@@ -2841,7 +3093,8 @@ class _AttendanceNotificationPopupState
                         color: Colors.grey.shade200,
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
-                          widthFactor: (1.0 - _progressController.value).clamp(0.0, 1.0),
+                          widthFactor:
+                              (1.0 - _progressController.value).clamp(0.0, 1.0),
                           child: Container(color: accentColor),
                         ),
                       ),
@@ -3159,7 +3412,8 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                         color: Colors.grey.shade200,
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
-                          widthFactor: (1.0 - _progressController.value).clamp(0.0, 1.0),
+                          widthFactor:
+                              (1.0 - _progressController.value).clamp(0.0, 1.0),
                           child: Container(color: _statusColor),
                         ),
                       ),

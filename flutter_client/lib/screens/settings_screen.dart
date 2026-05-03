@@ -105,7 +105,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-
               ],
             ),
             const SizedBox(height: 24),
@@ -288,7 +287,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           CircleAvatar(
             radius: 32,
-            backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+            backgroundColor:
+                Theme.of(context).primaryColor.withValues(alpha: 0.2),
             child: Text(
               (user?.fullName ?? 'U')[0].toUpperCase(),
               style: TextStyle(
@@ -322,7 +322,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -376,7 +377,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       title: Text(title),
       subtitle: subtitleWidget,
-      trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
+      trailing:
+          trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
       onTap: onTap,
     );
   }
@@ -449,7 +451,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.pop(context);
               appNotification.showInfo(
                 title: l.serverConfig,
-                message: 'URL Server được tùy chỉnh qua biến môi trường API_BASE_URL khi build.\nURL hiện tại: ${ApiService.baseUrl}',
+                message:
+                    'URL Server được tùy chỉnh qua biến môi trường API_BASE_URL khi build.\nURL hiện tại: ${ApiService.baseUrl}',
               );
             },
             child: Text(l.save),
@@ -465,7 +468,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.autoSync),
-        content: const Text('Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.'),
+        content: const Text(
+            'Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -514,8 +518,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+          SizedBox(
+              width: 80,
+              child: Text(label,
+                  style:
+                      const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w500, fontSize: 13))),
         ],
       ),
     );
@@ -621,13 +632,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Try storeId from auth provider first, fallback to saved_store_code
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final storeId = authProvider.user?.storeId ?? '';
-    
+
     String storeIdentifier = storeId;
     if (storeIdentifier.isEmpty) {
       final prefs = await SharedPreferences.getInstance();
       storeIdentifier = prefs.getString('saved_store_code') ?? '';
     }
-    
+
     if (storeIdentifier.isEmpty) {
       if (mounted) {
         appNotification.showError(
@@ -644,7 +655,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       if (result['isSuccess'] == true) {
         final data = result['data'];
-        final msg = data is Map ? (data['message'] ?? 'Đã xóa dữ liệu mẫu') : 'Đã xóa dữ liệu mẫu';
+        final msg = data is Map
+            ? (data['message'] ?? 'Đã xóa dữ liệu mẫu')
+            : 'Đã xóa dữ liệu mẫu';
         appNotification.showSuccess(
           title: 'Thành công',
           message: msg.toString(),

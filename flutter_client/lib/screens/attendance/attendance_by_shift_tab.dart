@@ -22,6 +22,7 @@ class AttendanceByShiftTab extends StatefulWidget {
   final List<dynamic> holidays;
   final int dayEndHour;
   final int dayEndMinute;
+  final List<dynamic> approvedLeaves;
   final VoidCallback? onDataChanged;
 
   const AttendanceByShiftTab({
@@ -36,6 +37,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.holidays = const [],
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
+    this.approvedLeaves = const [],
     this.onDataChanged,
   });
 
@@ -51,10 +53,53 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   bool _showMobileSummary = false;
 
   // Sorting
-  bool _sortAscending = false;
+  final bool _sortAscending = false;
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
+
+  // Cross-tab scroll controllers (sync 4 sections)
+  final ScrollController _ctAttScroll = ScrollController();
+  final ScrollController _ctHrsScroll = ScrollController();
+  final ScrollController _ctLateScroll = ScrollController();
+  final ScrollController _ctWrkScroll = ScrollController();
+  bool _ctSyncing = false;
+
+  void _ctSyncFromAtt() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctHrsScroll.hasClients) _ctHrsScroll.jumpTo(_ctAttScroll.offset);
+    if (_ctLateScroll.hasClients) _ctLateScroll.jumpTo(_ctAttScroll.offset);
+    if (_ctWrkScroll.hasClients) _ctWrkScroll.jumpTo(_ctAttScroll.offset);
+    _ctSyncing = false;
+  }
+
+  void _ctSyncFromHrs() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctAttScroll.hasClients) _ctAttScroll.jumpTo(_ctHrsScroll.offset);
+    if (_ctLateScroll.hasClients) _ctLateScroll.jumpTo(_ctHrsScroll.offset);
+    if (_ctWrkScroll.hasClients) _ctWrkScroll.jumpTo(_ctHrsScroll.offset);
+    _ctSyncing = false;
+  }
+
+  void _ctSyncFromLate() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctAttScroll.hasClients) _ctAttScroll.jumpTo(_ctLateScroll.offset);
+    if (_ctHrsScroll.hasClients) _ctHrsScroll.jumpTo(_ctLateScroll.offset);
+    if (_ctWrkScroll.hasClients) _ctWrkScroll.jumpTo(_ctLateScroll.offset);
+    _ctSyncing = false;
+  }
+
+  void _ctSyncFromWrk() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctAttScroll.hasClients) _ctAttScroll.jumpTo(_ctWrkScroll.offset);
+    if (_ctHrsScroll.hasClients) _ctHrsScroll.jumpTo(_ctWrkScroll.offset);
+    if (_ctLateScroll.hasClients) _ctLateScroll.jumpTo(_ctWrkScroll.offset);
+    _ctSyncing = false;
+  }
 
   // Cached lookup maps built from props
   Map<String, String> _employeeCodeToGuid = {};
@@ -73,6 +118,23 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   void initState() {
     super.initState();
     _buildLookupMaps();
+    _ctAttScroll.addListener(_ctSyncFromAtt);
+    _ctHrsScroll.addListener(_ctSyncFromHrs);
+    _ctLateScroll.addListener(_ctSyncFromLate);
+    _ctWrkScroll.addListener(_ctSyncFromWrk);
+  }
+
+  @override
+  void dispose() {
+    _ctAttScroll.removeListener(_ctSyncFromAtt);
+    _ctHrsScroll.removeListener(_ctSyncFromHrs);
+    _ctLateScroll.removeListener(_ctSyncFromLate);
+    _ctWrkScroll.removeListener(_ctSyncFromWrk);
+    _ctAttScroll.dispose();
+    _ctHrsScroll.dispose();
+    _ctLateScroll.dispose();
+    _ctWrkScroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -273,8 +335,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final weeklyOff = _employeeCodeToWeeklyOffDays[employeeCode] ?? 'Sunday';
     final weekday = date.weekday; // 1=Mon, 7=Sun
     if (weeklyOff.contains('Sunday') && weekday == DateTime.sunday) return true;
-    if (weeklyOff.contains('Saturday') && weekday == DateTime.saturday)
+    if (weeklyOff.contains('Saturday') && weekday == DateTime.saturday) {
       return true;
+    }
     return false;
   }
 
@@ -299,12 +362,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final scopeList = <String>[
         if (employeeCodes != null)
           ...employeeCodes.map((e) => e?.toString() ?? ''),
-        if (employeeIds != null)
-          ...employeeIds.map((e) => e?.toString() ?? ''),
+        if (employeeIds != null) ...employeeIds.map((e) => e?.toString() ?? ''),
       ].where((s) => s.isNotEmpty).toList();
       if (scopeList.isNotEmpty) {
-        final inScope = scopeList.any((s) =>
-            s == employeeCode || (empGuid != null && s == empGuid));
+        final inScope = scopeList
+            .any((s) => s == employeeCode || (empGuid != null && s == empGuid));
         if (!inScope) continue;
       }
       return (h['salaryRate'] as num?)?.toDouble() ?? 3.0;
@@ -494,15 +556,20 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           bool isCrossMidnight = false;
           int overtimeThreshold = 0;
           if (matchedShift != null) {
-            shiftStartMin = _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
-            shiftEndMin = _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+            shiftStartMin =
+                _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+            shiftEndMin =
+                _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
             isCrossMidnight = shiftStartMin > shiftEndMin;
             shiftDurationMin = isCrossMidnight
                 ? (1440 - shiftStartMin + shiftEndMin)
                 : (shiftEndMin - shiftStartMin);
-            lateGrace = (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
-            earlyGrace = (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
-            overtimeThreshold = (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+            lateGrace =
+                (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+            earlyGrace =
+                (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+            overtimeThreshold =
+                (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
 
             if (isCrossMidnight) {
               if (punchInMinutes >= shiftStartMin) {
@@ -652,9 +719,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           // màu cam thay vì giữ "Hợp lệ (lẻ)" gây hiểu nhầm.
           if (missingOutShiftNames.isNotEmpty) {
             final extra = 'Thiếu ra ${missingOutShiftNames.join(", ")}';
-            status = totalLate > 0 || totalEarly > 0
-                ? '$status • $extra'
-                : extra;
+            status =
+                totalLate > 0 || totalEarly > 0 ? '$status • $extra' : extra;
           } else {
             status = totalLate > 0 || totalEarly > 0
                 ? '$status • Thiếu chấm'
@@ -740,41 +806,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final records = _shiftData;
     final range = _selectedDateRange;
 
-    // Calculate totals
+    // Calculate totals for stats cards
     int totalLate = records.where((r) => r.lateMinutes > 0).length;
     int totalEarly = records.where((r) => r.earlyMinutes > 0).length;
     int totalOT = records.where((r) => r.overtimeMinutes > 0).length;
     double totalHours = records.fold(0.0, (sum, r) => sum + r.workHours);
     int totalRecords = records.length;
     final uniqueEmployees = records.map((r) => r.employeeId).toSet().length;
-
-    // Sum totals for column headers
-    int sumLateMinutes = records.fold(0, (sum, r) => sum + r.lateMinutes);
-    int sumEarlyMinutes = records.fold(0, (sum, r) => sum + r.earlyMinutes);
-    int sumOTMinutes = records.fold(0, (sum, r) => sum + r.overtimeMinutes);
-    double sumWorkHours = records.fold(0.0, (sum, r) => sum + r.workHours);
-    double sumDecimalHours =
-        records.fold(0.0, (sum, r) => sum + r.decimalHours);
-    double sumWorkCount = records.fold(0.0, (sum, r) => sum + r.workCount);
-
-    // Pagination
-    final totalRows = records.length;
-    final totalPages = (totalRows / _rowsPerPage).ceil();
-    if (_currentPage >= totalPages && totalPages > 0) {
-      _currentPage = totalPages - 1;
-    }
-    final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage).clamp(0, totalRows);
-    final pagedRecords = totalRows > 0
-        ? records.sublist(startIndex, endIndex)
-        : <_DailyShiftRecord>[];
-
-    // Compute dynamic punch column count: max punches across all records, rounded up to even, min 4
-    int maxPunches = records.fold(
-        0, (m, r) => r.punchTimes.length > m ? r.punchTimes.length : m);
-    if (maxPunches < 4) maxPunches = 4;
-    // Round up to even so that odd-punch rows get a "+" slot at the next even position
-    final punchColCount = maxPunches.isEven ? maxPunches : maxPunches + 1;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -830,464 +868,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           _buildFilters(range),
           const SizedBox(height: 12),
 
-          // Table
+          // Cross-tab view
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                child: records.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inbox_outlined,
-                                size: 56, color: Color(0xFFCBD5E1)),
-                            SizedBox(height: 12),
-                            Text('Không có dữ liệu',
-                                style: TextStyle(color: Color(0xFFA1A1AA))),
-                          ],
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isMobileLayout = constraints.maxWidth < 600;
-                          if (isMobileLayout) {
-                            return Column(
-                              children: [
-                                Expanded(
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    itemCount: records.length,
-                                    itemBuilder: (_, index) {
-                                      final record = records[index];
-                                      return Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 10),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                                color: const Color(0xFFE4E4E7)),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.05),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(0, 2))
-                                            ],
-                                          ),
-                                          child: _buildShiftDeckItem(record),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          }
-                          return Column(
-                            children: [
-                              Expanded(
-                                child: Scrollbar(
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minWidth: constraints.maxWidth,
-                                      ),
-                                      child: Scrollbar(
-                                        thumbVisibility: true,
-                                        notificationPredicate: (n) =>
-                                            n.depth == 0,
-                                        child: SingleChildScrollView(
-                                          child: DataTable(
-                                            showCheckboxColumn: false,
-                                            sortColumnIndex: 4,
-                                            sortAscending: _sortAscending,
-                                            headingRowColor:
-                                                WidgetStateProperty.all(
-                                              const Color(0xFFFAFAFA),
-                                            ),
-                                            dataRowColor: WidgetStateProperty
-                                                .resolveWith<Color?>((states) {
-                                              if (states.contains(
-                                                  WidgetState.hovered)) {
-                                                return const Color(0xFFF1F5F9);
-                                              }
-                                              return null;
-                                            }),
-                                            dividerThickness: 0.5,
-                                            columnSpacing: 16,
-                                            horizontalMargin: 12,
-                                            headingRowHeight: 44,
-                                            dataRowMinHeight: 40,
-                                            dataRowMaxHeight: 46,
-                                            columns: [
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text('STT',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text(
-                                                          'Tên nhân viên',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text(
-                                                          'Mã nhân viên',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text('Thứ',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                              DataColumn(
-                                                  label: const Expanded(
-                                                      child: Text('Ngày',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A)))),
-                                                  onSort: (_, asc) {
-                                                    setState(() {
-                                                      _sortAscending = asc;
-                                                    });
-                                                  }),
-                                              ...List.generate(
-                                                  punchColCount,
-                                                  (i) => DataColumn(
-                                                        label: Expanded(
-                                                            child: Text(
-                                                                'Lần ${i + 1}',
-                                                                textAlign:
-                                                                    TextAlign
-                                                                        .center,
-                                                                style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontSize:
-                                                                        12,
-                                                                    color: Color(
-                                                                        0xFF71717A)))),
-                                                      )),
-                                              DataColumn(
-                                                  label:
-                                                      _buildColumnHeaderWithTotal(
-                                                          'Đi trễ',
-                                                          '${sumLateMinutes}P',
-                                                          Colors.orange)),
-                                              DataColumn(
-                                                  label:
-                                                      _buildColumnHeaderWithTotal(
-                                                          'Về sớm',
-                                                          '${sumEarlyMinutes}P',
-                                                          Colors.red)),
-                                              DataColumn(
-                                                  label:
-                                                      _buildColumnHeaderWithTotal(
-                                                          'Tăng ca',
-                                                          '${sumOTMinutes}P',
-                                                          Colors.purple)),
-                                              DataColumn(
-                                                  label:
-                                                      _buildColumnHeaderWithTotal(
-                                                          'Tổng giờ',
-                                                          _formatHoursMinutes(
-                                                              sumWorkHours),
-                                                          Colors.green)),
-                                              DataColumn(
-                                                  label:
-                                                      _buildColumnHeaderWithTotal(
-                                                          'Giờ (thập phân)',
-                                                          sumDecimalHours
-                                                              .toStringAsFixed(
-                                                                  2),
-                                                          Colors.teal)),
-                                              DataColumn(
-                                                  label: _buildColumnHeaderWithTotal(
-                                                      'Công',
-                                                      sumWorkCount ==
-                                                              sumWorkCount
-                                                                  .roundToDouble()
-                                                          ? '${sumWorkCount.toInt()}'
-                                                          : sumWorkCount
-                                                              .toStringAsFixed(
-                                                                  2),
-                                                      Colors.blue)),
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text('Tên ca',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                              const DataColumn(
-                                                  label: Expanded(
-                                                      child: Text('Trạng thái',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 12,
-                                                              color: Color(
-                                                                  0xFF71717A))))),
-                                            ],
-                                            rows: pagedRecords
-                                                .asMap()
-                                                .entries
-                                                .map((entry) {
-                                              final index = entry.key;
-                                              final record = entry.value;
-
-                                              return DataRow(
-                                                onSelectChanged: (_) =>
-                                                    _showRecordDetail(record),
-                                                cells: [
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          '${startIndex + index + 1}',
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey)))),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          record.employeeName,
-                                                          style: const TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500)))),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          record.employeeCode,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  DataCell(Center(
-                                                      child: _buildDayBadge(
-                                                          record.dayOfWeek,
-                                                          record
-                                                              .date.weekday))),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          DateFormat(
-                                                                  'dd/MM/yyyy')
-                                                              .format(
-                                                                  record.date),
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  // Dynamic punch time cells
-                                                  ...List.generate(
-                                                      punchColCount, (i) {
-                                                    if (i <
-                                                        record.punchTimes
-                                                            .length) {
-                                                      // Has punch data: clickable for editing
-                                                      final isIn = i
-                                                          .isEven; // Chẵn=Vào(xanh), Lẻ=Ra(đỏ)
-                                                      return DataCell(Center(
-                                                        child: InkWell(
-                                                          onTap: () =>
-                                                              _showEditPunchDialog(
-                                                                  record, i),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(4),
-                                                          child: _buildPunchTimeBadge(
-                                                              record.punchTimes[
-                                                                  i],
-                                                              isIn),
-                                                        ),
-                                                      ));
-                                                    } else {
-                                                      // Empty slot → show "+" button to add punch (neutral style)
-                                                      return DataCell(Center(
-                                                        child: InkWell(
-                                                          onTap: () =>
-                                                              _showManualPunchDialog(
-                                                                  record),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(4),
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                                    horizontal:
-                                                                        8,
-                                                                    vertical:
-                                                                        4),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              border: Border.all(
-                                                                  color: Colors
-                                                                      .grey
-                                                                      .withValues(
-                                                                          alpha:
-                                                                              0.3)),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          4),
-                                                            ),
-                                                            child: const Icon(
-                                                                Icons.add,
-                                                                size: 14,
-                                                                color: Colors
-                                                                    .grey),
-                                                          ),
-                                                        ),
-                                                      ));
-                                                    }
-                                                  }),
-                                                  DataCell(Center(
-                                                      child: record.lateMinutes >
-                                                              0
-                                                          ? _buildMinutesBadge(
-                                                              record
-                                                                  .lateMinutes,
-                                                              Colors.orange)
-                                                          : const Text('-',
-                                                              style: TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  DataCell(Center(
-                                                      child: record
-                                                                  .earlyMinutes >
-                                                              0
-                                                          ? _buildMinutesBadge(
-                                                              record
-                                                                  .earlyMinutes,
-                                                              Colors.red)
-                                                          : const Text('-',
-                                                              style: TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  DataCell(Center(
-                                                      child: record
-                                                                  .overtimeMinutes >
-                                                              0
-                                                          ? _buildMinutesBadge(
-                                                              record
-                                                                  .overtimeMinutes,
-                                                              Colors.purple)
-                                                          : const Text('-',
-                                                              style: TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  DataCell(Center(
-                                                      child: _buildHoursBadge(
-                                                          record.workHours))),
-                                                  DataCell(Center(
-                                                      child: _buildDecimalHoursBadge(
-                                                          record
-                                                              .decimalHours))),
-                                                  DataCell(Center(
-                                                      child:
-                                                          _buildWorkCountBadge(
-                                                              record
-                                                                  .workCount))),
-                                                  DataCell(Center(
-                                                      child: _buildShiftNameBadge(
-                                                          record.shiftNames
-                                                                  .isNotEmpty
-                                                              ? record
-                                                                  .shiftNames
-                                                                  .join(', ')
-                                                              : null))),
-                                                  DataCell(Center(
-                                                      child: _buildStatusBadge(
-                                                          record.status,
-                                                          record.statusColor))),
-                                                ],
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Pagination bar
-                              _buildPaginationBar(totalRows, totalPages),
-                            ],
-                          );
-                        },
-                      ),
-              ),
-            ),
+            child: _buildCrossTabView(records),
           ),
         ],
       ),
@@ -1308,11 +891,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
       ],
       onChanged: (v) {
-        if (v != null)
+        if (v != null) {
           setState(() {
             _selectedPreset = v;
             _currentPage = 0;
           });
+        }
       },
       icon: Icons.calendar_today,
       width: isMobile ? 120 : null,
@@ -1330,11 +914,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         DropdownMenuItem(value: 'complete', child: Text('Đủ chấm công')),
       ],
       onChanged: (v) {
-        if (v != null)
+        if (v != null) {
           setState(() {
             _shiftFilter = v;
             _currentPage = 0;
           });
+        }
       },
       icon: Icons.warning_amber_rounded,
       width: isMobile ? 150 : null,
@@ -1879,8 +1464,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       firstDate: record.date,
                       lastDate: record.date.add(const Duration(days: 1)),
                     );
-                    if (picked != null)
+                    if (picked != null) {
                       setDialogState(() => selectedDate = picked);
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -1927,8 +1513,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   onTap: () async {
                     final picked = await showTimePicker(
                         context: ctx, initialTime: selectedTime);
-                    if (picked != null)
+                    if (picked != null) {
                       setDialogState(() => selectedTime = picked);
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -2452,11 +2039,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 DropdownMenuItem(value: 100, child: Text('100')),
               ],
               onChanged: (v) {
-                if (v != null)
+                if (v != null) {
                   setState(() {
                     _rowsPerPage = v;
                     _currentPage = 0;
                   });
+                }
               },
             ),
           ),
@@ -2629,8 +2217,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       firstDate: record.date,
                       lastDate: record.date.add(const Duration(days: 1)),
                     );
-                    if (picked != null)
+                    if (picked != null) {
                       setDialogState(() => selectedDate = picked);
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -2679,8 +2268,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   onTap: () async {
                     final picked = await showTimePicker(
                         context: ctx, initialTime: selectedTime);
-                    if (picked != null)
+                    if (picked != null) {
                       setDialogState(() => selectedTime = picked);
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -2997,9 +2587,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             'Tong_hop_theo_ca_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
         await file_saver.saveFileBytes(bytes, fileName,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+              title: 'Xuất Excel', message: 'Đã xuất file Excel: $fileName');
+        }
       }
     } catch (e) {
       debugPrint('Error exporting Excel: $e');
+      if (mounted) {
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -3200,7 +2798,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       if (dataUrl != null) {
         final fileName =
             'Tong_hop_theo_ca_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-        await file_saver.saveDataUrl(dataUrl, fileName);
+        await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
 
         if (mounted) {
           NotificationOverlayManager().showSuccess(
@@ -3285,7 +2883,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (pngBytes != null && mounted) {
           final fileName =
               'Tong_hop_theo_ca_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-          await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
+          await file_saver.saveAndOpenFileBytes(
+              pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
               title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
         } else if (mounted) {
@@ -3301,6 +2900,520 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  Widget _legendItem(IconData icon, Color color, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF52525B))),
+        ],
+      );
+
+  Widget _buildCrossTabView(List<_DailyShiftRecord> records) {
+    if (records.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inbox_outlined, size: 56, color: Color(0xFFCBD5E1)),
+              SizedBox(height: 12),
+              Text('Không có dữ liệu',
+                  style: TextStyle(color: Color(0xFFA1A1AA))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Build employee and code maps
+    final empMap = <String, String>{}; // empId -> empName
+    final empCodeMap = <String, String>{}; // empId -> empCode
+    for (final r in records) {
+      empMap[r.employeeId] = r.employeeName;
+      empCodeMap[r.employeeId] = r.employeeCode;
+    }
+    final employees = empMap.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    // Generate all dates in selected range
+    final range = _selectedDateRange;
+    final dates = <DateTime>[];
+    var cur = DateTime(range.start.year, range.start.month, range.start.day);
+    final endDay = DateTime(range.end.year, range.end.month, range.end.day);
+    while (!cur.isAfter(endDay)) {
+      dates.add(cur);
+      cur = cur.add(const Duration(days: 1));
+    }
+
+    // Record lookup map
+    final recordMap = <String, _DailyShiftRecord>{};
+    for (final r in records) {
+      recordMap['${r.employeeId}|${DateFormat('yyyy-MM-dd').format(r.date)}'] =
+          r;
+    }
+    _DailyShiftRecord? getRecord(String empId, DateTime day) =>
+        recordMap['$empId|${DateFormat('yyyy-MM-dd').format(day)}'];
+
+    // Build leave set from approvedLeaves
+    final leaveSet = <String>{};
+    for (final lv in widget.approvedLeaves) {
+      if (lv is Map<String, dynamic>) {
+        final empCode = lv['employeeCode']?.toString() ?? '';
+        final from = DateTime.tryParse(lv['fromDate']?.toString() ?? '');
+        final to = DateTime.tryParse(lv['toDate']?.toString() ?? '');
+        if (empCode.isNotEmpty && from != null && to != null) {
+          for (var ld = DateTime(from.year, from.month, from.day);
+              !ld.isAfter(DateTime(to.year, to.month, to.day));
+              ld = ld.add(const Duration(days: 1))) {
+            leaveSet.add('$empCode|${DateFormat('yyyy-MM-dd').format(ld)}');
+          }
+        }
+      }
+    }
+
+    // Absence widget for days with no punch data
+    Widget absenceWidget(String empId, DateTime d) {
+      final code = empCodeMap[empId] ?? '';
+      final dateKey = DateFormat('yyyy-MM-dd').format(d);
+      if (_getHolidayRate(d, code) != null) {
+        return const Center(
+            child: Text('Lễ',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFEA580C))));
+      }
+      if (_isWeeklyOffDay(d, code)) {
+        return const Center(
+            child: Text('Nghỉ',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8B5CF6))));
+      }
+      if (leaveSet.contains('$code|$dateKey')) {
+        return const Center(
+            child: Text('Phép',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0891B2))));
+      }
+      return const Center(
+          child: Text('Vắng',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEF4444))));
+    }
+
+    const empColW = 130.0;
+    const dayColW = 72.0;
+    const rowH = 50.0;
+    const headerH = 52.0;
+
+    String dayLabel(DateTime d) {
+      const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      return '${days[d.weekday - 1]}\n${DateFormat('dd/MM').format(d)}';
+    }
+
+    Color headerBg(DateTime d) {
+      if (d.weekday == DateTime.sunday) return Colors.red.shade700;
+      if (d.weekday == DateTime.saturday) return Colors.orange.shade700;
+      return const Color(0xFF1E3A5F);
+    }
+
+    // BẢNG ĐIỂM DANH cell
+    Widget attCell(String empId, DateTime d, _DailyShiftRecord? r) {
+      if (r == null) return absenceWidget(empId, d);
+      Color? bg;
+      if (r.status.contains('Tăng ca ngày lễ')) {
+        bg = Colors.deepOrange.withValues(alpha: 0.10);
+      } else if (r.status.contains('Tăng ca ngày nghỉ')) {
+        bg = Colors.purple.withValues(alpha: 0.08);
+      }
+      final p1 = r.punchTimes.isNotEmpty ? r.punchTimes.first : null;
+      final p2 = r.punchTimes.length >= 2 ? r.punchTimes[1] : null;
+      return Container(
+        color: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (p1 != null)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.login, size: 10, color: Color(0xFF22C55E)),
+                const SizedBox(width: 2),
+                Text(DateFormat('HH:mm').format(p1),
+                    style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFF22C55E),
+                        fontWeight: FontWeight.w600)),
+              ])
+            else
+              const Text('— v',
+                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
+            if (p2 != null)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.logout, size: 10, color: Color(0xFF3B82F6)),
+                const SizedBox(width: 2),
+                Text(DateFormat('HH:mm').format(p2),
+                    style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFF3B82F6),
+                        fontWeight: FontWeight.w600)),
+              ])
+            else if (p1 != null)
+              const Text('— r',
+                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
+          ],
+        ),
+      );
+    }
+
+    // BẢNG GIỜ LÀM cell
+    Widget hrsCell(String empId, DateTime d, _DailyShiftRecord? r) {
+      if (r == null) return absenceWidget(empId, d);
+      if (r.workHours <= 0) {
+        return const Center(
+            child: Text('—',
+                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
+      }
+      final h = r.workHours;
+      final color = h >= 8
+          ? const Color(0xFF22C55E)
+          : (h >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+      final caStr = r.shiftNames.isNotEmpty ? r.shiftNames.first : '';
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_formatHoursMinutes(h),
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+            if (caStr.isNotEmpty)
+              Text(caStr,
+                  style: const TextStyle(fontSize: 8, color: Color(0xFF71717A)),
+                  overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      );
+    }
+
+    // BẢNG ĐI TRỄ VỀ SỚM cell (NEW)
+    Widget lateEarlyCell(String empId, DateTime d, _DailyShiftRecord? r) {
+      if (r == null) return absenceWidget(empId, d);
+      if (r.lateMinutes <= 0 && r.earlyMinutes <= 0) {
+        return const Center(
+            child: Text('Hợp lệ',
+                style: TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFF22C55E),
+                    fontWeight: FontWeight.w600)));
+      }
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (r.lateMinutes > 0)
+              Text('Trễ ${r.lateMinutes}p',
+                  style: const TextStyle(
+                      fontSize: 9,
+                      color: Color(0xFFF59E0B),
+                      fontWeight: FontWeight.w600)),
+            if (r.earlyMinutes > 0)
+              Text('Sớm ${r.earlyMinutes}p',
+                  style: const TextStyle(
+                      fontSize: 9,
+                      color: Color(0xFFEF4444),
+                      fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+    }
+
+    // BẢNG CÔNG CA cell
+    Widget wrkCell(String empId, DateTime d, _DailyShiftRecord? r) {
+      if (r == null) return absenceWidget(empId, d);
+      if (r.workCount <= 0) {
+        return const Center(
+            child: Text('—',
+                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
+      }
+      final wc = r.workCount;
+      final str = wc % 1 == 0 ? wc.toInt().toString() : wc.toStringAsFixed(2);
+      final color =
+          wc >= 1.0 ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
+      return Center(
+        child: Text(str,
+            style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+      );
+    }
+
+    // Generic section builder (frozen emp col + scrollable date cols)
+    Widget buildSection({
+      required String title,
+      required Color titleColor,
+      required Widget Function(String empId, DateTime d, _DailyShiftRecord?)
+          cellFn,
+      required ScrollController scrollCtrl,
+      String? subtitle,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            color: titleColor.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            child: Row(children: [
+              Container(
+                  width: 3,
+                  height: 12,
+                  color: titleColor,
+                  margin: const EdgeInsets.only(right: 6)),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: titleColor)),
+              if (subtitle != null) ...[
+                const SizedBox(width: 6),
+                Text(subtitle,
+                    style: TextStyle(fontSize: 9, color: titleColor)),
+              ],
+            ]),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Frozen employee column
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: empColW,
+                      height: headerH,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E3A5F),
+                        border: Border(
+                          right: BorderSide(color: Colors.white24),
+                          bottom: BorderSide(color: Colors.white24, width: 0.5),
+                        ),
+                      ),
+                      child: const Text('Nhân viên',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    ...employees.asMap().entries.map((e) {
+                      final isEven = e.key.isEven;
+                      return Container(
+                        width: empColW,
+                        height: rowH,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color:
+                              isEven ? const Color(0xFFF4F4F5) : Colors.white,
+                          border: const Border(
+                            right: BorderSide(color: Color(0xFFD4D4D8)),
+                            bottom: BorderSide(
+                                color: Color(0xFFE4E4E7), width: 0.5),
+                          ),
+                        ),
+                        child: Text(e.value.value,
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF18181B)),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2),
+                      );
+                    }),
+                  ],
+                ),
+                // Scrollable date columns
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollCtrl,
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    child: SizedBox(
+                      width: dayColW * dates.length,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header row
+                          Row(
+                            children: dates.map((d) {
+                              final isToday = d.year == DateTime.now().year &&
+                                  d.month == DateTime.now().month &&
+                                  d.day == DateTime.now().day;
+                              return Container(
+                                width: dayColW,
+                                height: headerH,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isToday
+                                      ? const Color(0xFF2563EB)
+                                      : headerBg(d),
+                                  border: const Border(
+                                    right: BorderSide(
+                                        color: Colors.white12, width: 0.5),
+                                    bottom: BorderSide(
+                                        color: Colors.white24, width: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  dayLabel(d),
+                                  style: TextStyle(
+                                    color: isToday
+                                        ? Colors.yellow.shade200
+                                        : Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          // Data rows
+                          ...employees.asMap().entries.map((e) {
+                            final empId = e.value.key;
+                            final isEven = e.key.isEven;
+                            return Row(
+                              children: dates.map((d) {
+                                final r = getRecord(empId, d);
+                                return GestureDetector(
+                                  onTap: r != null
+                                      ? () => _showRecordDetail(r)
+                                      : null,
+                                  child: Container(
+                                    width: dayColW,
+                                    height: rowH,
+                                    decoration: BoxDecoration(
+                                      color: isEven
+                                          ? const Color(0xFFF9F9F9)
+                                          : Colors.white,
+                                      border: const Border(
+                                        right: BorderSide(
+                                            color: Color(0xFFE4E4E7),
+                                            width: 0.5),
+                                        bottom: BorderSide(
+                                            color: Color(0xFFE4E4E7),
+                                            width: 0.5),
+                                      ),
+                                    ),
+                                    child: cellFn(empId, d, r),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Legend
+              Container(
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Wrap(
+                  spacing: 14,
+                  children: [
+                    _legendItem(Icons.login, const Color(0xFF22C55E), 'Vào'),
+                    _legendItem(Icons.logout, const Color(0xFF3B82F6), 'Ra'),
+                    _legendItem(Icons.error_outline, const Color(0xFFEF4444),
+                        'Thiếu lượt'),
+                    _legendItem(Icons.celebration, Colors.deepOrange, 'Lễ'),
+                    _legendItem(Icons.weekend, Colors.purple, 'Nghỉ/T7-CN'),
+                    _legendItem(Icons.beach_access, Colors.teal, 'Nghỉ phép'),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              buildSection(
+                title: 'BẢNG ĐIỂM DANH',
+                titleColor: const Color(0xFF16A34A),
+                cellFn: attCell,
+                scrollCtrl: _ctAttScroll,
+              ),
+              const SizedBox(height: 8),
+              buildSection(
+                title: 'BẢNG GIỜ LÀM',
+                titleColor: const Color(0xFF2563EB),
+                cellFn: hrsCell,
+                scrollCtrl: _ctHrsScroll,
+              ),
+              const SizedBox(height: 8),
+              buildSection(
+                title: 'BẢNG ĐI TRỄ VỀ SỚM',
+                titleColor: const Color(0xFFF59E0B),
+                cellFn: lateEarlyCell,
+                scrollCtrl: _ctLateScroll,
+              ),
+              const SizedBox(height: 8),
+              buildSection(
+                title: 'BẢNG CÔNG CA',
+                titleColor: const Color(0xFF7C3AED),
+                cellFn: wrkCell,
+                scrollCtrl: _ctWrkScroll,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildDayBadge(String day, int weekday) {
@@ -3349,8 +3462,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildShiftNameBadge(String? name) {
-    if (name == null || name.isEmpty)
+    if (name == null || name.isEmpty) {
       return const Text('-', style: TextStyle(fontSize: 12));
+    }
     // Assign colors based on common shift name patterns
     Color color = Colors.blue;
     final lower = name.toLowerCase();
@@ -3416,8 +3530,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (status.contains('Thiếu chấm')) icon = Icons.help;
     if (status.contains('Đi trễ')) icon = Icons.timer_off;
     if (status.contains('Về sớm')) icon = Icons.exit_to_app;
-    if (status.contains('Đi trễ') && status.contains('Về sớm'))
+    if (status.contains('Đi trễ') && status.contains('Về sớm')) {
       icon = Icons.warning;
+    }
     if (status.contains('Tăng ca ngày nghỉ')) icon = Icons.event_busy;
     if (status.contains('Tăng ca ngày lễ')) icon = Icons.celebration;
 

@@ -59,6 +59,7 @@ class AttendanceSummaryTab extends StatefulWidget {
   final int dayEndMinute;
   final List<dynamic> holidays;
   final List<dynamic> salaryProfiles;
+  final List<dynamic> approvedLeaves;
 
   const AttendanceSummaryTab({
     super.key,
@@ -71,6 +72,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.dayEndMinute = 0,
     this.holidays = const [],
     this.salaryProfiles = const [],
+    this.approvedLeaves = const [],
   });
 
   @override
@@ -79,7 +81,8 @@ class AttendanceSummaryTab extends StatefulWidget {
 
 class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   String _selectedPreset = 'month';
-  Set<String> _selectedEmployeeIds = {}; // Set of selected employee IDs for multi-select
+  Set<String> _selectedEmployeeIds =
+      {}; // Set of selected employee IDs for multi-select
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
@@ -100,11 +103,57 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   // Map employeeCode -> employeeGuid (Employee.Id) so we can match against
   // holiday.employeeIds which stores GUIDs.
   Map<String, String> _employeeCodeToGuid = {};
+  // Map employeeCode -> rateType (0=hourly,1=monthly,2=daily,3=shift)
+  Map<String, int> _employeeCodeToRateType = {};
+
+  // Cross-tab view scroll controllers (sync 3 tables)
+  final ScrollController _ctAttScroll = ScrollController();
+  final ScrollController _ctHrsScroll = ScrollController();
+  final ScrollController _ctWrkScroll = ScrollController();
+  bool _ctSyncing = false;
+
+  void _ctSyncFromAtt() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctHrsScroll.hasClients) _ctHrsScroll.jumpTo(_ctAttScroll.offset);
+    if (_ctWrkScroll.hasClients) _ctWrkScroll.jumpTo(_ctAttScroll.offset);
+    _ctSyncing = false;
+  }
+
+  void _ctSyncFromHrs() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctAttScroll.hasClients) _ctAttScroll.jumpTo(_ctHrsScroll.offset);
+    if (_ctWrkScroll.hasClients) _ctWrkScroll.jumpTo(_ctHrsScroll.offset);
+    _ctSyncing = false;
+  }
+
+  void _ctSyncFromWrk() {
+    if (_ctSyncing) return;
+    _ctSyncing = true;
+    if (_ctAttScroll.hasClients) _ctAttScroll.jumpTo(_ctWrkScroll.offset);
+    if (_ctHrsScroll.hasClients) _ctHrsScroll.jumpTo(_ctWrkScroll.offset);
+    _ctSyncing = false;
+  }
 
   @override
   void initState() {
     super.initState();
     _buildLookupMaps();
+    _ctAttScroll.addListener(_ctSyncFromAtt);
+    _ctHrsScroll.addListener(_ctSyncFromHrs);
+    _ctWrkScroll.addListener(_ctSyncFromWrk);
+  }
+
+  @override
+  void dispose() {
+    _ctAttScroll.removeListener(_ctSyncFromAtt);
+    _ctHrsScroll.removeListener(_ctSyncFromHrs);
+    _ctWrkScroll.removeListener(_ctSyncFromWrk);
+    _ctAttScroll.dispose();
+    _ctHrsScroll.dispose();
+    _ctWrkScroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -121,6 +170,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     _employeeCodeToHolidayOvertimeType = {};
     _employeeCodeToShiftsPerDay = {};
     _employeeCodeToGuid = {};
+    _employeeCodeToRateType = {};
     for (final profile in widget.salaryProfiles) {
       if (profile is! Map<String, dynamic>) continue;
       final shiftsPerDay = (profile['shiftsPerDay'] as num?)?.toInt() ?? 1;
@@ -129,6 +179,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
       final holidayOvertimeType =
           (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
+      final rateType = _parseRateType(profile['rateType']);
       final employees = profile['employees'] as List? ?? [];
       for (final emp in employees) {
         if (emp is Map<String, dynamic>) {
@@ -139,6 +190,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             _employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             _employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
             _employeeCodeToShiftsPerDay[code] = shiftsPerDay;
+            _employeeCodeToRateType[code] = rateType;
             if (guid.isNotEmpty) _employeeCodeToGuid[code] = guid;
           }
         }
@@ -176,12 +228,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final employeeIds = h['employeeIds'] as List?;
       // Combine both lists – any match (by code or GUID) is enough.
       final scopeList = <String>[
-        if (employeeCodes != null) ...employeeCodes.map((e) => e?.toString() ?? ''),
+        if (employeeCodes != null)
+          ...employeeCodes.map((e) => e?.toString() ?? ''),
         if (employeeIds != null) ...employeeIds.map((e) => e?.toString() ?? ''),
       ].where((s) => s.isNotEmpty).toList();
       if (scopeList.isNotEmpty) {
-        final inScope = scopeList.any((s) =>
-            s == employeeCode || (empGuid != null && s == empGuid));
+        final inScope = scopeList
+            .any((s) => s == employeeCode || (empGuid != null && s == empGuid));
         if (!inScope) continue;
       }
       return (h['salaryRate'] as num?)?.toDouble() ?? 3.0;
@@ -460,10 +513,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     // Lọc theo trạng thái ca
     if (_shiftFilter == 'missing') {
       // Ca thiếu chấm công: số lần chấm lẻ (thiếu vào hoặc ra)
-      return summaries.where((s) => s.totalPunches % 2 != 0 || s.totalPunches < 2).toList();
+      return summaries
+          .where((s) => s.totalPunches % 2 != 0 || s.totalPunches < 2)
+          .toList();
     } else if (_shiftFilter == 'complete') {
       // Ca đủ chấm công: số lần chấm chẵn >= 2
-      return summaries.where((s) => s.totalPunches >= 2 && s.totalPunches % 2 == 0).toList();
+      return summaries
+          .where((s) => s.totalPunches >= 2 && s.totalPunches % 2 == 0)
+          .toList();
     }
 
     return summaries;
@@ -488,6 +545,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       default:
         return '-';
     }
+  }
+
+  /// Parse rateType: backend can send string ("Hourly","Monthly","Daily","Shift") or int
+  static int _parseRateType(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toInt();
+    final s = v.toString().toLowerCase();
+    if (s == 'monthly' || s == '1') return 1;
+    if (s == 'daily' || s == '2') return 2;
+    if (s == 'shift' || s == '3') return 3;
+    return 0; // hourly
   }
 
   Color _getDayColor(int weekday) {
@@ -534,7 +602,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }
     final startIndex = _currentPage * _rowsPerPage;
     final endIndex = (startIndex + _rowsPerPage).clamp(0, totalRows);
-    final pagedSummaries = totalRows > 0 ? summaries.sublist(startIndex, endIndex) : <_DailySummary>[];
+    final pagedSummaries = totalRows > 0
+        ? summaries.sublist(startIndex, endIndex)
+        : <_DailySummary>[];
 
     // Tìm số lần chấm công tối đa thực tế trong dữ liệu
     int actualMaxPunches = 0;
@@ -561,28 +631,41 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           // Stat cards row
           if (Responsive.isMobile(context)) ...[
             InkWell(
-              onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
                     const Spacer(),
-                    Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
             ),
             if (_showMobileSummary) ...[
               const SizedBox(height: 8),
-              _buildStatsRow(totalRows, uniqueEmployees, totalHours, totalShifts),
+              _buildStatsRow(
+                  totalRows, uniqueEmployees, totalHours, totalShifts),
             ],
           ] else ...[
             _buildStatsRow(totalRows, uniqueEmployees, totalHours, totalShifts),
@@ -598,7 +681,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -608,330 +692,421 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 ],
               ),
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: summaries.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inbox_outlined, size: 56, color: Colors.grey.shade300),
-                          const SizedBox(height: 12),
-                          Text('Không có dữ liệu',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
-                        ],
-                      ),
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isMobileLayout = constraints.maxWidth < 600;
-                        if (isMobileLayout) {
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                child: summaries.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inbox_outlined,
+                                size: 56, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('Không có dữ liệu',
+                                style: TextStyle(
+                                    color: Colors.grey.shade400, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobileLayout = constraints.maxWidth < 600;
+                          if (isMobileLayout) {
+                            return _buildCrossTabView(
+                                summaries, maxPunches, maxShifts);
+                          }
+                          // Tạo columns động
+                          final columns = <DataColumn>[
+                            const DataColumn(
+                                label: Expanded(
+                                    child: Text('STT',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A))))),
+                            DataColumn(
+                                label: const Expanded(
+                                    child: Text('Tên nhân viên',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A)))),
+                                onSort: (_, asc) {
+                                  setState(() {
+                                    _sortColumn = 'name';
+                                    _sortAscending = asc;
+                                  });
+                                }),
+                            DataColumn(
+                                label: const Expanded(
+                                    child: Text('Mã nhân viên',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A)))),
+                                onSort: (_, asc) {
+                                  setState(() {
+                                    _sortColumn = 'code';
+                                    _sortAscending = asc;
+                                  });
+                                }),
+                            const DataColumn(
+                                label: Expanded(
+                                    child: Text('Thứ',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A))))),
+                            DataColumn(
+                                label: const Expanded(
+                                    child: Text('Ngày',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A)))),
+                                onSort: (_, asc) {
+                                  setState(() {
+                                    _sortColumn = 'date';
+                                    _sortAscending = asc;
+                                  });
+                                }),
+                          ];
+
+                          // Thêm cột cho các lần chấm công (động theo maxPunches)
+                          for (int i = 1; i <= maxPunches; i++) {
+                            columns.add(DataColumn(
+                                label: Expanded(
+                                    child: Text('Lần $i',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A))))));
+                          }
+
+                          // Thêm cột cho các ca (động theo maxShifts)
+                          final shiftColors = [
+                            Colors.teal,
+                            Colors.indigo,
+                            Colors.purple,
+                            Colors.orange,
+                            Colors.brown
+                          ];
+                          for (int i = 1; i <= maxShifts; i++) {
+                            columns.add(DataColumn(
+                                label: Expanded(
+                                    child: Text('Giờ ca $i',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Color(0xFF71717A))))));
+                          }
+
+                          // Cột tổng giờ
+                          columns.add(DataColumn(
+                              label: const Expanded(
+                                  child: Text('Tổng giờ',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                          color: Color(0xFF71717A)))),
+                              onSort: (_, asc) {
+                                setState(() {
+                                  _sortColumn = 'totalHours';
+                                  _sortAscending = asc;
+                                });
+                              }));
+
+                          // Cột số công (đã nhân hệ số ngày lễ/nghỉ nếu có)
+                          columns.add(const DataColumn(
+                              label: Expanded(
+                                  child: Text('Số công',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                          color: Color(0xFF71717A))))));
+
+                          // Cột giờ thập phân
+                          columns.add(const DataColumn(
+                              label: Expanded(
+                                  child: Text('Giờ thập phân',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                          color: Color(0xFF71717A))))));
+
                           return Column(
                             children: [
                               Expanded(
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  itemCount: summaries.length,
-                                  itemBuilder: (_, index) {
-                                    final summary = summaries[index];
-                                    final dateStr = DateFormat('dd/MM/yyyy').format(summary.date);
-                                    final dayOfWeek = _getDayOfWeekVN(summary.date.weekday);
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 10),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-                                        ),
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(12),
-                                          onTap: () => _showRowDetailDialog(summary, maxPunches, maxShifts),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                            child: Row(children: [
-                                              Container(
-                                                width: 36, height: 36,
-                                                decoration: BoxDecoration(color: _getDayColor(summary.date.weekday).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                                                child: Center(child: Text(dayOfWeek.substring(0, 2), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _getDayColor(summary.date.weekday)))),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                                  Text(summary.employeeName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                                  const SizedBox(height: 2),
-                                                  Text([summary.employeeCode, dateStr].join(' \u00b7 '),
-                                                    style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
-                                                ]),
-                                              ),
-                                              _buildHoursBadge(summary.totalHours, Colors.green, isBold: true),
-                                              const SizedBox(width: 4),
-                                              const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
-                                            ]),
-                                          ),
-                                        ),
+                                child: Scrollbar(
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minWidth: constraints.maxWidth,
                                       ),
-                                    );
-                                    },
-                                  ),
-                              ),
-                            ],
-                          );
-                        }
-                        // Tạo columns động
-                        final columns = <DataColumn>[
-                          const DataColumn(
-                              label: Expanded(child: Text('STT', textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A))))),
-                          DataColumn(
-                              label: const Expanded(child: Text('Tên nhân viên', textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A)))),
-                              onSort: (_, asc) { setState(() { _sortColumn = 'name'; _sortAscending = asc; }); }),
-                          DataColumn(
-                              label: const Expanded(child: Text('Mã nhân viên', textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A)))),
-                              onSort: (_, asc) { setState(() { _sortColumn = 'code'; _sortAscending = asc; }); }),
-                          const DataColumn(
-                              label: Expanded(child: Text('Thứ', textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A))))),
-                          DataColumn(
-                              label: const Expanded(child: Text('Ngày', textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A)))),
-                              onSort: (_, asc) { setState(() { _sortColumn = 'date'; _sortAscending = asc; }); }),
-                        ];
+                                      child: Scrollbar(
+                                        thumbVisibility: true,
+                                        notificationPredicate: (n) =>
+                                            n.depth == 0,
+                                        child: SingleChildScrollView(
+                                          child: RepaintBoundary(
+                                            key: _tableKey,
+                                            child: DataTable(
+                                              showCheckboxColumn: false,
+                                              sortColumnIndex:
+                                                  _sortColumn == 'name'
+                                                      ? 1
+                                                      : _sortColumn == 'code'
+                                                          ? 2
+                                                          : _sortColumn ==
+                                                                  'totalHours'
+                                                              ? (5 +
+                                                                  maxPunches +
+                                                                  maxShifts)
+                                                              : 4,
+                                              sortAscending: _sortAscending,
+                                              headingRowColor:
+                                                  WidgetStateProperty.all(
+                                                const Color(0xFFFAFAFA),
+                                              ),
+                                              dataRowColor: WidgetStateProperty
+                                                  .resolveWith((states) {
+                                                if (states.contains(
+                                                    WidgetState.hovered)) {
+                                                  return Theme.of(context)
+                                                      .primaryColor
+                                                      .withValues(alpha: 0.04);
+                                                }
+                                                return null;
+                                              }),
+                                              columnSpacing: 16,
+                                              horizontalMargin: 12,
+                                              headingRowHeight: 44,
+                                              dataRowMinHeight: 40,
+                                              dataRowMaxHeight: 46,
+                                              dividerThickness: 0.5,
+                                              columns: columns,
+                                              rows: pagedSummaries
+                                                  .asMap()
+                                                  .entries
+                                                  .map((entry) {
+                                                final index = entry.key;
+                                                final summary = entry.value;
+                                                final dayOfWeek =
+                                                    _getDayOfWeekVN(
+                                                        summary.date.weekday);
 
-                        // Thêm cột cho các lần chấm công (động theo maxPunches)
-                        for (int i = 1; i <= maxPunches; i++) {
-                          columns.add(DataColumn(
-                              label: Expanded(child: Text('Lần $i', textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A))))));
-                        }
+                                                // Tạo cells động
+                                                final cells = <DataCell>[
+                                                  DataCell(Center(
+                                                      child: Text(
+                                                          '${startIndex + index + 1}',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Colors
+                                                                      .grey)))),
+                                                  DataCell(Center(
+                                                      child: Text(
+                                                          summary.employeeName,
+                                                          style: const TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500)))),
+                                                  DataCell(Center(
+                                                      child: Text(
+                                                          summary.employeeCode,
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      12)))),
+                                                  DataCell(Center(
+                                                    child: Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: _getDayColor(
+                                                                summary.date
+                                                                    .weekday)
+                                                            .withValues(
+                                                                alpha: 0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        dayOfWeek,
+                                                        style: TextStyle(
+                                                          color: _getDayColor(
+                                                              summary.date
+                                                                  .weekday),
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )),
+                                                  DataCell(Center(
+                                                      child: Text(
+                                                          DateFormat(
+                                                                  'dd/MM/yyyy')
+                                                              .format(
+                                                                  summary.date),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      12)))),
+                                                ];
 
-                        // Thêm cột cho các ca (động theo maxShifts)
-                        final shiftColors = [
-                          Colors.teal,
-                          Colors.indigo,
-                          Colors.purple,
-                          Colors.orange,
-                          Colors.brown
-                        ];
-                        for (int i = 1; i <= maxShifts; i++) {
-                          columns.add(DataColumn(
-                              label: Expanded(child: Text('Giờ ca $i', textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A))))));
-                        }
+                                                // Thêm cells cho các lần chấm công
+                                                for (int i = 1;
+                                                    i <= maxPunches;
+                                                    i++) {
+                                                  final isIn = i % 2 ==
+                                                      1; // Lẻ = vào, chẵn = ra
+                                                  cells.add(DataCell(Center(
+                                                      child: _buildPunchTime(
+                                                    summary.getPunch(i),
+                                                    isIn: isIn,
+                                                    summary: summary,
+                                                    punchIndex: i,
+                                                  ))));
+                                                }
 
-                        // Cột tổng giờ
-                        columns.add(DataColumn(
-                            label: const Expanded(child: Text('Tổng giờ', textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                    color: Color(0xFF71717A)))),
-                            onSort: (_, asc) { setState(() { _sortColumn = 'totalHours'; _sortAscending = asc; }); }));
+                                                // Thêm cells cho các ca
+                                                for (int i = 1;
+                                                    i <= maxShifts;
+                                                    i++) {
+                                                  cells.add(DataCell(Center(
+                                                      child: _buildHoursBadge(
+                                                          summary
+                                                              .getShiftHours(i),
+                                                          shiftColors[
+                                                              i - 1]))));
+                                                }
 
-                        // Cột số công (đã nhân hệ số ngày lễ/nghỉ nếu có)
-                        columns.add(const DataColumn(
-                            label: Expanded(child: Text('Số công', textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                    color: Color(0xFF71717A))))));
+                                                // Cell tổng giờ
+                                                cells.add(DataCell(Center(
+                                                    child: _buildHoursBadge(
+                                                        summary.totalHours,
+                                                        Colors.green,
+                                                        isBold: true))));
 
-                        // Cột giờ thập phân
-                        columns.add(const DataColumn(
-                            label: Expanded(child: Text('Giờ thập phân', textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                    color: Color(0xFF71717A))))));
-
-                        return Column(
-                          children: [
-                            Expanded(
-                              child: Scrollbar(
-                                thumbVisibility: true,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minWidth: constraints.maxWidth,
-                                    ),
-                                    child: Scrollbar(
-                                      thumbVisibility: true,
-                                      notificationPredicate: (n) => n.depth == 0,
-                                      child: SingleChildScrollView(
-                                        child: RepaintBoundary(
-                                          key: _tableKey,
-                                          child: DataTable(
-                                          showCheckboxColumn: false,
-                                          sortColumnIndex: _sortColumn == 'name' ? 1 : _sortColumn == 'code' ? 2 : _sortColumn == 'totalHours' ? (5 + maxPunches + maxShifts) : 4,
-                                          sortAscending: _sortAscending,
-                                          headingRowColor: WidgetStateProperty.all(
-                                            const Color(0xFFFAFAFA),
-                                          ),
-                                          dataRowColor: WidgetStateProperty.resolveWith((states) {
-                                            if (states.contains(WidgetState.hovered)) {
-                                              return Theme.of(context).primaryColor.withValues(alpha: 0.04);
-                                            }
-                                            return null;
-                                          }),
-                                          columnSpacing: 16,
-                                          horizontalMargin: 12,
-                                          headingRowHeight: 44,
-                                          dataRowMinHeight: 40,
-                                          dataRowMaxHeight: 46,
-                                          dividerThickness: 0.5,
-                                          columns: columns,
-                                          rows: pagedSummaries.asMap().entries.map((entry) {
-                                            final index = entry.key;
-                                            final summary = entry.value;
-                                            final dayOfWeek =
-                                                _getDayOfWeekVN(summary.date.weekday);
-
-                                            // Tạo cells động
-                                            final cells = <DataCell>[
-                                              DataCell(Center(child: Text('${startIndex + index + 1}',
-                                                  style: const TextStyle(
-                                                      fontSize: 12, color: Colors.grey)))),
-                                              DataCell(Center(child: Text(summary.employeeName,
-                                                  style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w500)))),
-                                              DataCell(Center(child: Text(summary.employeeCode,
-                                                  style: const TextStyle(fontSize: 12)))),
-                                              DataCell(Center(
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
+                                                // Cell số công
+                                                cells.add(DataCell(Center(
+                                                    child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color:
-                                                        _getDayColor(summary.date.weekday)
-                                                            .withValues(alpha: 0.1),
+                                                    color: summary.isHoliday
+                                                        ? Colors.deepOrange
+                                                            .withValues(
+                                                                alpha: 0.12)
+                                                        : (summary.isRestDay &&
+                                                                summary
+                                                                        .effectiveMultiplier >
+                                                                    1
+                                                            ? Colors.purple
+                                                                .withValues(
+                                                                    alpha: 0.12)
+                                                            : (summary.workCount >
+                                                                    0
+                                                                ? Colors.blue
+                                                                    .withValues(
+                                                                        alpha:
+                                                                            0.10)
+                                                                : Colors
+                                                                    .transparent)),
                                                     borderRadius:
-                                                        BorderRadius.circular(4),
+                                                        BorderRadius.circular(
+                                                            6),
                                                   ),
                                                   child: Text(
-                                                    dayOfWeek,
+                                                    summary.workCount > 0
+                                                        ? (summary.effectiveMultiplier !=
+                                                                1.0
+                                                            ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
+                                                            : summary.workCount
+                                                                .toStringAsFixed(
+                                                                    2))
+                                                        : '-',
                                                     style: TextStyle(
-                                                      color: _getDayColor(
-                                                          summary.date.weekday),
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: summary.isHoliday
+                                                          ? Colors.deepOrange
+                                                          : (summary.isRestDay &&
+                                                                  summary.effectiveMultiplier >
+                                                                      1
+                                                              ? Colors.purple
+                                                              : (summary.workCount >
+                                                                      0
+                                                                  ? Colors.blue
+                                                                      .shade700
+                                                                  : Colors
+                                                                      .grey)),
                                                     ),
                                                   ),
-                                                ),
-                                              )),
-                                              DataCell(Center(child: Text(
-                                                  DateFormat('dd/MM/yyyy')
-                                                      .format(summary.date),
-                                                  style: const TextStyle(fontSize: 12)))),
-                                            ];
+                                                ))));
 
-                                            // Thêm cells cho các lần chấm công
-                                            for (int i = 1; i <= maxPunches; i++) {
-                                              final isIn =
-                                                  i % 2 == 1; // Lẻ = vào, chẵn = ra
-                                              cells.add(DataCell(Center(child: _buildPunchTime(
-                                                summary.getPunch(i),
-                                                isIn: isIn,
-                                                summary: summary,
-                                                punchIndex: i,
-                                              ))));
-                                            }
+                                                // Cell giờ thập phân
+                                                cells.add(DataCell(Center(
+                                                    child: Text(
+                                                  _formatDecimalHours(
+                                                      summary.totalHours),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: summary.totalHours >
+                                                            0
+                                                        ? Colors.blue.shade700
+                                                        : Colors.grey,
+                                                  ),
+                                                ))));
 
-                                            // Thêm cells cho các ca
-                                            for (int i = 1; i <= maxShifts; i++) {
-                                              cells.add(DataCell(Center(child: _buildHoursBadge(
-                                                  summary.getShiftHours(i),
-                                                  shiftColors[i - 1]))));
-                                            }
-
-                                            // Cell tổng giờ
-                                            cells.add(DataCell(Center(child: _buildHoursBadge(
-                                                summary.totalHours, Colors.green,
-                                                isBold: true))));
-
-                                            // Cell số công
-                                            cells.add(DataCell(Center(child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: summary.isHoliday
-                                                    ? Colors.deepOrange.withValues(alpha: 0.12)
-                                                    : (summary.isRestDay && summary.effectiveMultiplier > 1
-                                                        ? Colors.purple.withValues(alpha: 0.12)
-                                                        : (summary.workCount > 0 ? Colors.blue.withValues(alpha: 0.10) : Colors.transparent)),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                summary.workCount > 0
-                                                    ? (summary.effectiveMultiplier != 1.0
-                                                        ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
-                                                        : summary.workCount.toStringAsFixed(2))
-                                                    : '-',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: summary.isHoliday
-                                                      ? Colors.deepOrange
-                                                      : (summary.isRestDay && summary.effectiveMultiplier > 1
-                                                          ? Colors.purple
-                                                          : (summary.workCount > 0 ? Colors.blue.shade700 : Colors.grey)),
-                                                ),
-                                              ),
-                                            ))));
-
-                                            // Cell giờ thập phân
-                                            cells.add(DataCell(Center(child: Text(
-                                              _formatDecimalHours(summary.totalHours),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: summary.totalHours > 0 ? Colors.blue.shade700 : Colors.grey,
-                                              ),
-                                            ))));
-
-                                            return DataRow(
-                                              cells: cells,
-                                              onSelectChanged: (_) => _showRowDetailDialog(summary, maxPunches, maxShifts),
-                                            );
-                                          }).toList(),
+                                                return DataRow(
+                                                  cells: cells,
+                                                  onSelectChanged: (_) =>
+                                                      _showRowDetailDialog(
+                                                          summary,
+                                                          maxPunches,
+                                                          maxShifts),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
                                         ),
-                                      ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            // Pagination bar
-                            _buildPaginationBar(totalRows, totalPages),
-                          ],
-                        );
-                      },
-                    ),
-            ),),
+                              // Pagination bar
+                              _buildPaginationBar(totalRows, totalPages),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ),
           ),
         ],
       ),
@@ -939,23 +1114,37 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   /// Stats cards row
-  Widget _buildStatsRow(int totalRows, int uniqueEmployees, double totalHours, int totalShifts) {
+  Widget _buildStatsRow(
+      int totalRows, int uniqueEmployees, double totalHours, int totalShifts) {
     final cards = [
-      _buildModernStatCard('Bản ghi', '$totalRows', Icons.list_alt, const Color(0xFF1E3A5F)),
-      _buildModernStatCard('Nhân viên', '$uniqueEmployees', Icons.people, const Color(0xFF0F2340)),
-      _buildModernStatCard('Tổng giờ', '${_formatHours(totalHours)} (${totalHours.toStringAsFixed(1)}h)', Icons.schedule, const Color(0xFF1E3A5F)),
-      _buildModernStatCard('Số ca', '$totalShifts', Icons.work_history, const Color(0xFFF59E0B)),
+      _buildModernStatCard(
+          'Bản ghi', '$totalRows', Icons.list_alt, const Color(0xFF1E3A5F)),
+      _buildModernStatCard('Nhân viên', '$uniqueEmployees', Icons.people,
+          const Color(0xFF0F2340)),
+      _buildModernStatCard(
+          'Tổng giờ',
+          '${_formatHours(totalHours)} (${totalHours.toStringAsFixed(1)}h)',
+          Icons.schedule,
+          const Color(0xFF1E3A5F)),
+      _buildModernStatCard(
+          'Số ca', '$totalShifts', Icons.work_history, const Color(0xFFF59E0B)),
     ];
     final isMobile = MediaQuery.of(context).size.width < 768;
     if (isMobile) {
       return Wrap(spacing: 10, runSpacing: 10, children: cards);
     }
     return Row(
-      children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: c))).toList(),
+      children: cards
+          .map((c) => Expanded(
+              child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: c)))
+          .toList(),
     );
   }
 
-  Widget _buildModernStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildModernStatCard(
+      String label, String value, IconData icon, Color color) {
     final screenWidth = MediaQuery.of(context).size.width;
     final cardWidth = screenWidth < 600 ? (screenWidth - 52) / 2 : null;
     return SizedBox(
@@ -988,9 +1177,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                Text(label,
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 const SizedBox(height: 2),
-                Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: color),
                     overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -1014,11 +1209,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.format_list_numbered, size: 13, color: Colors.green.shade600),
+          Icon(Icons.format_list_numbered,
+              size: 13, color: Colors.green.shade600),
           const SizedBox(width: 4),
           Text(
             'Hiển thị $startRow-$endRow / $totalRows bản ghi',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.green.shade700),
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.green.shade700),
           ),
         ],
       ),
@@ -1027,7 +1226,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final rowsPerPage = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Số dòng:', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        Text('Số dòng:',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         const SizedBox(width: 6),
         Container(
           height: 32,
@@ -1041,14 +1241,21 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             child: DropdownButton<int>(
               value: _rowsPerPage,
               isDense: true,
-              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodyMedium?.color),
               items: const [
                 DropdownMenuItem(value: 20, child: Text('20')),
                 DropdownMenuItem(value: 50, child: Text('50')),
                 DropdownMenuItem(value: 100, child: Text('100')),
               ],
               onChanged: (v) {
-                if (v != null) setState(() { _rowsPerPage = v; _currentPage = 0; });
+                if (v != null) {
+                  setState(() {
+                    _rowsPerPage = v;
+                    _currentPage = 0;
+                  });
+                }
               },
             ),
           ),
@@ -1059,8 +1266,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final pageNav = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildPageNavBtn(Icons.first_page, _currentPage > 0 ? () => setState(() => _currentPage = 0) : null),
-        _buildPageNavBtn(Icons.chevron_left, _currentPage > 0 ? () => setState(() => _currentPage--) : null),
+        _buildPageNavBtn(Icons.first_page,
+            _currentPage > 0 ? () => setState(() => _currentPage = 0) : null),
+        _buildPageNavBtn(Icons.chevron_left,
+            _currentPage > 0 ? () => setState(() => _currentPage--) : null),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
@@ -1069,11 +1278,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ),
           child: Text(
             '${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
         ),
-        _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null),
-        _buildPageNavBtn(Icons.last_page, _currentPage < totalPages - 1 ? () => setState(() => _currentPage = totalPages - 1) : null),
+        _buildPageNavBtn(
+            Icons.chevron_right,
+            _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null),
+        _buildPageNavBtn(
+            Icons.last_page,
+            _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage = totalPages - 1)
+                : null),
       ],
     );
 
@@ -1122,9 +1340,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(6),
           child: Container(
-            width: 32, height: 32,
+            width: 32,
+            height: 32,
             alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: onPressed != null ? Colors.grey.shade700 : Colors.grey.shade300),
+            child: Icon(icon,
+                size: 18,
+                color: onPressed != null
+                    ? Colors.grey.shade700
+                    : Colors.grey.shade300),
           ),
         ),
       ),
@@ -1141,7 +1364,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       // Tìm maxPunches/maxShifts
       int actualMaxPunches = 0;
       for (final s in summaries) {
-        if (s.totalPunches > actualMaxPunches) actualMaxPunches = s.totalPunches;
+        if (s.totalPunches > actualMaxPunches) {
+          actualMaxPunches = s.totalPunches;
+        }
       }
       int maxPunches = 2;
       if (actualMaxPunches > 2) {
@@ -1155,7 +1380,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final sheet = excelFile['Chấm công'];
 
       // Headers
-      final headers = <String>['STT', 'Tên nhân viên', 'Mã nhân viên', 'Thứ', 'Ngày'];
+      final headers = <String>[
+        'STT',
+        'Tên nhân viên',
+        'Mã nhân viên',
+        'Thứ',
+        'Ngày'
+      ];
       for (int i = 1; i <= maxPunches; i++) {
         headers.add('Lần $i');
       }
@@ -1165,49 +1396,81 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
 
       for (int i = 0; i < headers.length; i++) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0)).value =
-            excel_lib.TextCellValue(headers[i]);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: i, rowIndex: 0))
+            .value = excel_lib.TextCellValue(headers[i]);
       }
 
       // Data rows
       for (int idx = 0; idx < summaries.length; idx++) {
         final s = summaries[idx];
         int col = 0;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.IntCellValue(idx + 1);
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.TextCellValue(s.employeeName);
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.TextCellValue(s.employeeCode);
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday));
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: col++, rowIndex: idx + 1))
+            .value = excel_lib.IntCellValue(idx + 1);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: col++, rowIndex: idx + 1))
+            .value = excel_lib.TextCellValue(s.employeeName);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: col++, rowIndex: idx + 1))
+            .value = excel_lib.TextCellValue(s.employeeCode);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: col++, rowIndex: idx + 1))
+            .value = excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday));
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: col++, rowIndex: idx + 1))
+                .value =
             excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date));
 
         for (int i = 1; i <= maxPunches; i++) {
           final punch = s.getPunch(i);
-          sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-              excel_lib.TextCellValue(punch != null ? DateFormat('HH:mm').format(punch) : '');
+          sheet
+                  .cell(excel_lib.CellIndex.indexByColumnRow(
+                      columnIndex: col++, rowIndex: idx + 1))
+                  .value =
+              excel_lib.TextCellValue(
+                  punch != null ? DateFormat('HH:mm').format(punch) : '');
         }
 
         for (int i = 1; i <= maxShifts; i++) {
-          sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
+          sheet
+                  .cell(excel_lib.CellIndex.indexByColumnRow(
+                      columnIndex: col++, rowIndex: idx + 1))
+                  .value =
               excel_lib.TextCellValue(_formatHours(s.getShiftHours(i)));
         }
 
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.TextCellValue(_formatHours(s.totalHours));
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.DoubleCellValue(double.parse(s.workCount.toStringAsFixed(2)));
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: col++, rowIndex: idx + 1)).value =
-            excel_lib.DoubleCellValue(double.parse(s.totalHours.toStringAsFixed(2)));
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: col++, rowIndex: idx + 1))
+            .value = excel_lib.TextCellValue(_formatHours(s.totalHours));
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: col++, rowIndex: idx + 1))
+                .value =
+            excel_lib.DoubleCellValue(
+                double.parse(s.workCount.toStringAsFixed(2)));
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: col++, rowIndex: idx + 1))
+                .value =
+            excel_lib.DoubleCellValue(
+                double.parse(s.totalHours.toStringAsFixed(2)));
       }
 
       final bytes = excelFile.encode();
       if (bytes != null) {
         final range = _selectedDateRange;
-        final fileName = 'Tong_hop_cham_cong_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
-        await file_saver.saveFileBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final fileName =
+            'Tong_hop_cham_cong_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
+        await file_saver.saveFileBytes(bytes, fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       }
     } catch (e) {
       debugPrint('Error exporting Excel: $e');
@@ -1220,7 +1483,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   Future<void> exportToPng() async {
     final summaries = _dailySummaryData;
     if (summaries.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
+      NotificationOverlayManager().showWarning(
+          title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
       return;
     }
 
@@ -1230,7 +1494,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       // Tính maxPunches & maxShifts giống logic build()
       int actualMaxPunches = 0;
       for (final s in summaries) {
-        if (s.totalPunches > actualMaxPunches) actualMaxPunches = s.totalPunches;
+        if (s.totalPunches > actualMaxPunches) {
+          actualMaxPunches = s.totalPunches;
+        }
       }
       int maxPunches = 2;
       if (actualMaxPunches > 2) {
@@ -1241,7 +1507,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       if (maxShifts > 5) maxShifts = 5;
 
       // Xây dựng headers
-      final headers = <String>['STT', 'Tên nhân viên', 'Mã nhân viên', 'Thứ', 'Ngày'];
+      final headers = <String>[
+        'STT',
+        'Tên nhân viên',
+        'Mã nhân viên',
+        'Thứ',
+        'Ngày'
+      ];
       for (int i = 1; i <= maxPunches; i++) {
         headers.add('Lần $i');
       }
@@ -1299,7 +1571,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
 
       final totalWidth = colWidths.fold(0.0, (sum, w) => sum + w) + 2;
-      final totalHeight = titleHeight + headerHeight + rows.length * rowHeight + 2;
+      final totalHeight =
+          titleHeight + headerHeight + rows.length * rowHeight + 2;
 
       // Tạo canvas
       final dataUrl = web_canvas.renderToPngDataUrl(
@@ -1314,7 +1587,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ctx.fillStyle = '#1a1a1a';
           ctx.font = 'bold 16px Arial, sans-serif';
           final range = _selectedDateRange;
-          final title = 'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
+          final title =
+              'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
           ctx.fillText(title, 10, 30);
 
           // Vẽ header
@@ -1329,7 +1603,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           for (int c = 0; c < headers.length; c++) {
             ctx.fillStyle = '#334155';
             ctx.font = 'bold ${headerFontSize}px Arial, sans-serif';
-            ctx.fillText(headers[c], x + cellPadding, headerY + headerHeight / 2 + 5);
+            ctx.fillText(
+                headers[c], x + cellPadding, headerY + headerHeight / 2 + 5);
             // Vẽ đường kẻ cột
             ctx.strokeStyle = '#E2E8F0';
             ctx.beginPath();
@@ -1362,8 +1637,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               // Màu cho lần chấm vào (lẻ) và ra (chẵn)
               if (c >= 5 && c < 5 + maxPunches && cellText.isNotEmpty) {
                 final punchIndex = c - 4; // 1-based
-                ctx.fillStyle = punchIndex % 2 == 1 ? '#059669' : '#DC2626'; // Xanh=vào, Đỏ=ra
-              } else if (c >= 5 + maxPunches && c < 5 + maxPunches + maxShifts && cellText != '-') {
+                ctx.fillStyle = punchIndex % 2 == 1
+                    ? '#059669'
+                    : '#DC2626'; // Xanh=vào, Đỏ=ra
+              } else if (c >= 5 + maxPunches &&
+                  c < 5 + maxPunches + maxShifts &&
+                  cellText != '-') {
                 ctx.fillStyle = '#0D9488'; // Teal cho ca
               } else if (c == headers.length - 2 && cellText != '-') {
                 ctx.fillStyle = '#16A34A'; // Xanh lá cho tổng giờ
@@ -1381,16 +1660,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           // Border ngoài
           ctx.strokeStyle = '#CBD5E1';
           ctx.lineWidth = 1;
-          ctx.strokeRect(1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
+          ctx.strokeRect(
+              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
         },
       );
 
       if (dataUrl != null) {
-        final fileName = 'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-        await file_saver.saveDataUrl(dataUrl, fileName);
+        final fileName =
+            'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
+        await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
 
         if (mounted) {
-          NotificationOverlayManager().showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+          NotificationOverlayManager().showSuccess(
+              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
         }
       } else {
         // Mobile fallback: use async renderer with same draw callback
@@ -1400,7 +1682,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ctx.fillStyle = '#1a1a1a';
           ctx.font = 'bold 16px Arial, sans-serif';
           final range = _selectedDateRange;
-          final title = 'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
+          final title =
+              'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
           ctx.fillText(title, 10, 30);
           double x = 1;
           const hdrY = titleHeight;
@@ -1412,7 +1695,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           for (int c = 0; c < headers.length; c++) {
             ctx.fillStyle = '#334155';
             ctx.font = 'bold ${headerFontSize}px Arial, sans-serif';
-            ctx.fillText(headers[c], x + cellPadding, hdrY + headerHeight / 2 + 5);
+            ctx.fillText(
+                headers[c], x + cellPadding, hdrY + headerHeight / 2 + 5);
             ctx.strokeStyle = '#E2E8F0';
             ctx.beginPath();
             ctx.moveTo(x + colWidths[c], hdrY);
@@ -1437,7 +1721,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               if (c >= 5 && c < 5 + maxPunches && cellText.isNotEmpty) {
                 final punchIndex = c - 4;
                 ctx.fillStyle = punchIndex % 2 == 1 ? '#059669' : '#DC2626';
-              } else if (c >= 5 + maxPunches && c < 5 + maxPunches + maxShifts && cellText != '-') {
+              } else if (c >= 5 + maxPunches &&
+                  c < 5 + maxPunches + maxShifts &&
+                  cellText != '-') {
                 ctx.fillStyle = '#0D9488';
               } else if (c == headers.length - 2 && cellText != '-') {
                 ctx.fillStyle = '#16A34A';
@@ -1453,24 +1739,31 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           }
           ctx.strokeStyle = '#CBD5E1';
           ctx.lineWidth = 1;
-          ctx.strokeRect(1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
+          ctx.strokeRect(
+              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
         }
+
         final pngBytes = await web_canvas.renderToPngBytes(
           width: totalWidth.toInt(),
           height: totalHeight.toInt(),
           draw: drawFn,
         );
         if (pngBytes != null && mounted) {
-          final fileName = 'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-          await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
-          NotificationOverlayManager().showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+          final fileName =
+              'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
+          await file_saver.saveAndOpenFileBytes(
+              pngBytes, fileName, 'image/png');
+          NotificationOverlayManager().showSuccess(
+              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
         } else if (mounted) {
-          NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể xuất PNG');
+          NotificationOverlayManager()
+              .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
         }
       }
     } catch (e) {
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -1493,13 +1786,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           color: const Color(0xFFFAFAFA),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selectedCount > 0 ? Theme.of(context).primaryColor : const Color(0xFFE4E4E7),
+            color: selectedCount > 0
+                ? Theme.of(context).primaryColor
+                : const Color(0xFFE4E4E7),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people, size: 14, color: selectedCount > 0 ? Theme.of(context).primaryColor : Colors.grey[500]),
+            Icon(Icons.people,
+                size: 14,
+                color: selectedCount > 0
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey[500]),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1508,8 +1807,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     : '$selectedCount nhân viên đã chọn',
                 style: TextStyle(
                   fontSize: 12,
-                  color: selectedCount > 0 ? Theme.of(context).primaryColor : Colors.grey[600],
-                  fontWeight: selectedCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                  color: selectedCount > 0
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[600],
+                  fontWeight:
+                      selectedCount > 0 ? FontWeight.w600 : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1517,7 +1819,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             if (selectedCount > 0) ...[
               const SizedBox(width: 4),
               InkWell(
-                onTap: () => setState(() { _selectedEmployeeIds = {}; _currentPage = 0; }),
+                onTap: () => setState(() {
+                  _selectedEmployeeIds = {};
+                  _currentPage = 0;
+                }),
                 child: Icon(Icons.close, size: 14, color: Colors.grey[500]),
               ),
             ],
@@ -1541,27 +1846,36 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           builder: (ctx, setDialogState) {
             final filtered = searchText.isEmpty
                 ? employees
-                : employees.where((e) =>
-                    e.name.toLowerCase().contains(searchText.toLowerCase()) ||
-                    e.code.toLowerCase().contains(searchText.toLowerCase())).toList();
+                : employees
+                    .where((e) =>
+                        e.name
+                            .toLowerCase()
+                            .contains(searchText.toLowerCase()) ||
+                        e.code.toLowerCase().contains(searchText.toLowerCase()))
+                    .toList();
 
             return AlertDialog(
               title: Row(
                 children: [
                   const Icon(Icons.people, color: Colors.blue, size: 22),
                   const SizedBox(width: 8),
-                  const Text('Chọn nhân viên', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text('Chọn nhân viên',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   TextButton(
                     onPressed: () {
                       if (tempSelected.length == employees.length) {
                         setDialogState(() => tempSelected.clear());
                       } else {
-                        setDialogState(() => tempSelected.addAll(employees.map((e) => e.id)));
+                        setDialogState(() =>
+                            tempSelected.addAll(employees.map((e) => e.id)));
                       }
                     },
                     child: Text(
-                      tempSelected.length == employees.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả',
+                      tempSelected.length == employees.length
+                          ? 'Bỏ chọn tất cả'
+                          : 'Chọn tất cả',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -1569,7 +1883,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               ),
               contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               content: SizedBox(
-                width: math.min(380, MediaQuery.of(context).size.width - 32).toDouble(),
+                width: math
+                    .min(380, MediaQuery.of(context).size.width - 32)
+                    .toDouble(),
                 height: 400,
                 child: Column(
                   children: [
@@ -1580,8 +1896,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         hintStyle: const TextStyle(fontSize: 13),
                         prefixIcon: const Icon(Icons.search, size: 18),
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       style: const TextStyle(fontSize: 13),
                       onChanged: (v) => setDialogState(() => searchText = v),
@@ -1589,15 +1907,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     const SizedBox(height: 8),
                     // Info bar
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         children: [
-                          Text('Đã chọn: ${tempSelected.length}/${employees.length}',
-                              style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.w500)),
+                          Text(
+                              'Đã chọn: ${tempSelected.length}/${employees.length}',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w500)),
                         ],
                       ),
                     ),
@@ -1620,32 +1943,56 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               });
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
-                                color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.08) : null,
-                                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                                color: isSelected
+                                    ? Theme.of(context)
+                                        .primaryColor
+                                        .withValues(alpha: 0.08)
+                                    : null,
+                                border: Border(
+                                    bottom: BorderSide(
+                                        color: Colors.grey.shade200)),
                               ),
                               child: Row(
                                 children: [
                                   Icon(
-                                    isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                                    isSelected
+                                        ? Icons.check_box
+                                        : Icons.check_box_outline_blank,
                                     size: 20,
-                                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+                                    color: isSelected
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.grey,
                                   ),
                                   const SizedBox(width: 10),
                                   CircleAvatar(
                                     radius: 14,
                                     backgroundColor: Colors.blue.shade100,
-                                    child: Text(emp.name.isNotEmpty ? emp.name[0].toUpperCase() : '?',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                                    child: Text(
+                                        emp.name.isNotEmpty
+                                            ? emp.name[0].toUpperCase()
+                                            : '?',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue.shade700)),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(emp.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                        Text(emp.code, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                        Text(emp.name,
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500)),
+                                        Text(emp.code,
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600)),
                                       ],
                                     ),
                                   ),
@@ -1666,7 +2013,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    setState(() { _selectedEmployeeIds = tempSelected; _currentPage = 0; });
+                    setState(() {
+                      _selectedEmployeeIds = tempSelected;
+                      _currentPage = 0;
+                    });
                     Navigator.pop(ctx);
                   },
                   child: const Text('Áp dụng'),
@@ -1680,22 +2030,738 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   /// Show vertical detail popup for a row
-  void _showRowDetailDialog(_DailySummary summary, int maxPunches, int maxShifts) {
+  // ─── Cross-tab table view (mobile) ────────────────────────────────────────
+
+  Widget _buildCrossTabView(
+      List<_DailySummary> summaries, int maxPunches, int maxShifts) {
+    if (summaries.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.table_chart, size: 56, color: Color(0xFFE4E4E7)),
+            SizedBox(height: 12),
+            Text('Không có dữ liệu',
+                style: TextStyle(color: Color(0xFF71717A))),
+          ],
+        ),
+      );
+    }
+
+    // Collect unique employees sorted by name
+    final empMap = <String, String>{}; // empId -> empName
+    final empCodeMap = <String, String>{}; // empId -> empCode
+    for (final s in summaries) {
+      empMap[s.employeeId] = s.employeeName;
+      empCodeMap[s.employeeId] = s.employeeCode;
+    }
+    final employees = empMap.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    // Collect unique dates sorted
+    final dateSet = <String>{};
+    for (final s in summaries) {
+      dateSet.add(DateFormat('yyyy-MM-dd').format(s.date));
+    }
+    final dates = dateSet.map((d) => DateTime.parse(d)).toList()..sort();
+
+    // Quick lookup
+    final lookup = <String, _DailySummary>{};
+    for (final s in summaries) {
+      lookup['${s.employeeId}|${DateFormat('yyyy-MM-dd').format(s.date)}'] = s;
+    }
+
+    _DailySummary? getSummary(String empId, DateTime day) =>
+        lookup['$empId|${DateFormat('yyyy-MM-dd').format(day)}'];
+
+    // Build approved leave lookup: "empCode|yyyy-MM-dd" -> true
+    final leaveSet = <String>{};
+    for (final lv in widget.approvedLeaves) {
+      if (lv is Map<String, dynamic>) {
+        final empCode = lv['employeeCode']?.toString() ?? '';
+        final from = DateTime.tryParse(lv['fromDate']?.toString() ?? '');
+        final to = DateTime.tryParse(lv['toDate']?.toString() ?? '');
+        if (empCode.isNotEmpty && from != null && to != null) {
+          for (var cur = DateTime(from.year, from.month, from.day);
+              !cur.isAfter(DateTime(to.year, to.month, to.day));
+              cur = cur.add(const Duration(days: 1))) {
+            leaveSet.add('$empCode|${DateFormat('yyyy-MM-dd').format(cur)}');
+          }
+        }
+      }
+    }
+
+    // Returns a colored label widget for days with no punch data
+    Widget absenceWidget(String empId, DateTime d) {
+      final code = empCodeMap[empId] ?? '';
+      final dateKey = DateFormat('yyyy-MM-dd').format(d);
+      if (_getHolidayRate(d, code) != null) {
+        return const Center(
+            child: Text('Lễ',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFEA580C))));
+      }
+      if (_isWeeklyOffDay(d, code)) {
+        return const Center(
+            child: Text('Nghỉ',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8B5CF6))));
+      }
+      if (leaveSet.contains('$code|$dateKey')) {
+        return const Center(
+            child: Text('Phép',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0891B2))));
+      }
+      return const Center(
+          child: Text('Vắng',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEF4444))));
+    }
+
+    const empColW = 130.0;
+    const dayColW = 72.0;
+    const rowH = 50.0;
+    const headerH = 52.0;
+
+    String dayLabel(DateTime d) {
+      const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      return '${days[d.weekday - 1]}\n${DateFormat('dd/MM').format(d)}';
+    }
+
+    Color headerBg(DateTime d) {
+      if (d.weekday == DateTime.sunday) return Colors.red.shade700;
+      if (d.weekday == DateTime.saturday) return Colors.orange.shade700;
+      return const Color(0xFF1E3A5F);
+    }
+
+    Widget attCell(String empId, DateTime d, _DailySummary? s) {
+      if (s == null) return absenceWidget(empId, d);
+      Color? bg;
+      if (s.isHoliday) {
+        bg = Colors.deepOrange.withValues(alpha: 0.10);
+      } else if (s.isRestDay) {
+        bg = Colors.purple.withValues(alpha: 0.08);
+      }
+      final p1 = s.punch1;
+      final p2 = s.punch2;
+      return Container(
+        color: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (p1 != null)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.login, size: 10, color: Color(0xFF22C55E)),
+                const SizedBox(width: 2),
+                Text(DateFormat('HH:mm').format(p1),
+                    style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFF22C55E),
+                        fontWeight: FontWeight.w600)),
+              ])
+            else
+              const Text('— v',
+                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
+            if (p2 != null)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.logout, size: 10, color: Color(0xFF3B82F6)),
+                const SizedBox(width: 2),
+                Text(DateFormat('HH:mm').format(p2),
+                    style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFF3B82F6),
+                        fontWeight: FontWeight.w600)),
+              ])
+            else if (p1 != null)
+              const Text('— r',
+                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
+          ],
+        ),
+      );
+    }
+
+    Widget hrsCell(String empId, DateTime d, _DailySummary? s) {
+      if (s == null) return absenceWidget(empId, d);
+      if (s.totalHours <= 0) {
+        return const Center(
+            child: Text('—',
+                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
+      }
+      final h = s.totalHours;
+      final color = h >= 8
+          ? const Color(0xFF22C55E)
+          : (h >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+      final workStr = s.effectiveMultiplier != 1.0
+          ? '${_formatHours(h)}\n×${s.effectiveMultiplier.toStringAsFixed(s.effectiveMultiplier % 1 == 0 ? 0 : 1)}'
+          : _formatHours(h);
+      return Center(
+        child: Text(workStr,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+      );
+    }
+
+    Widget buildSection({
+      required String title,
+      required Color titleColor,
+      required Widget Function(String empId, DateTime d, _DailySummary?) cellFn,
+      required ScrollController scrollCtrl,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            color: titleColor.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            child: Row(children: [
+              Container(
+                  width: 3,
+                  height: 12,
+                  color: titleColor,
+                  margin: const EdgeInsets.only(right: 6)),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: titleColor)),
+            ]),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Frozen employee column ─────────────────────────────
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: empColW,
+                      height: headerH,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E3A5F),
+                        border: Border(
+                          right: BorderSide(color: Colors.white24),
+                          bottom: BorderSide(color: Colors.white24, width: 0.5),
+                        ),
+                      ),
+                      child: const Text('Nhân viên',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    ...employees.asMap().entries.map((e) {
+                      final isEven = e.key.isEven;
+                      return Container(
+                        width: empColW,
+                        height: rowH,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color:
+                              isEven ? const Color(0xFFF4F4F5) : Colors.white,
+                          border: const Border(
+                            right: BorderSide(color: Color(0xFFD4D4D8)),
+                            bottom: BorderSide(
+                                color: Color(0xFFE4E4E7), width: 0.5),
+                          ),
+                        ),
+                        child: Text(e.value.value,
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF18181B)),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2),
+                      );
+                    }),
+                  ],
+                ),
+                // ── Scrollable date columns ────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollCtrl,
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    child: SizedBox(
+                      width: dayColW * dates.length,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header row
+                          Row(
+                            children: dates.map((d) {
+                              final isToday = d.year == DateTime.now().year &&
+                                  d.month == DateTime.now().month &&
+                                  d.day == DateTime.now().day;
+                              return Container(
+                                width: dayColW,
+                                height: headerH,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isToday
+                                      ? const Color(0xFF2563EB)
+                                      : headerBg(d),
+                                  border: const Border(
+                                    right: BorderSide(
+                                        color: Colors.white12, width: 0.5),
+                                    bottom: BorderSide(
+                                        color: Colors.white24, width: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  dayLabel(d),
+                                  style: TextStyle(
+                                    color: isToday
+                                        ? Colors.yellow.shade200
+                                        : Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          // Data rows
+                          ...employees.asMap().entries.map((e) {
+                            final empId = e.value.key;
+                            final isEven = e.key.isEven;
+                            return Row(
+                              children: dates.map((d) {
+                                final s = getSummary(empId, d);
+                                return GestureDetector(
+                                  onTap: s != null
+                                      ? () => _showRowDetailDialog(
+                                          s, maxPunches, maxShifts)
+                                      : null,
+                                  child: Container(
+                                    width: dayColW,
+                                    height: rowH,
+                                    decoration: BoxDecoration(
+                                      color: isEven
+                                          ? const Color(0xFFF9F9F9)
+                                          : Colors.white,
+                                      border: const Border(
+                                        right: BorderSide(
+                                            color: Color(0xFFE4E4E7),
+                                            width: 0.5),
+                                        bottom: BorderSide(
+                                            color: Color(0xFFE4E4E7),
+                                            width: 0.5),
+                                      ),
+                                    ),
+                                    child: cellFn(empId, d, s),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Legend
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Wrap(
+              spacing: 14,
+              children: [
+                _legendItem(Icons.login, const Color(0xFF22C55E), 'Vào'),
+                _legendItem(Icons.logout, const Color(0xFF3B82F6), 'Ra'),
+                _legendItem(
+                    Icons.error_outline, const Color(0xFFEF4444), 'Thiếu lượt'),
+                _legendItem(Icons.celebration, Colors.deepOrange, 'Lễ'),
+                _legendItem(Icons.weekend, Colors.purple, 'Nghỉ/T7-CN'),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          buildSection(
+            title: 'BẢNG ĐIỂM DANH',
+            titleColor: const Color(0xFF16A34A),
+            cellFn: attCell,
+            scrollCtrl: _ctAttScroll,
+          ),
+          const SizedBox(height: 8),
+          buildSection(
+            title: 'BẢNG GIỜ LÀM',
+            titleColor: const Color(0xFF2563EB),
+            cellFn: hrsCell,
+            scrollCtrl: _ctHrsScroll,
+          ),
+          // ── BẢNG NGÀY CÔNG ──────────────────────────────────────────
+          Builder(builder: (_) {
+            // Only show employees with rateType 1 (monthly) or 2 (daily)
+            final wrkEmployees = employees.where((e) {
+              final code = empCodeMap[e.key] ?? '';
+              final rt = _employeeCodeToRateType[code] ?? 0;
+              return rt == 1 || rt == 2;
+            }).toList();
+            if (wrkEmployees.isEmpty) return const SizedBox.shrink();
+
+            // Count expected working days in range per employee (exclude weekly-off)
+            int expectedDays(String empId) {
+              final code = empCodeMap[empId] ?? '';
+              return dates.where((d) => !_isWeeklyOffDay(d, code)).length;
+            }
+
+            // Total workCount per employee across all dates
+            double totalWork(String empId) => dates.fold(0.0,
+                (acc, d) => acc + (getSummary(empId, d)?.workCount ?? 0.0));
+
+            Widget wrkCell(_DailySummary s) {
+              if (s.workCount <= 0) {
+                return const Center(
+                    child: Text('—',
+                        style:
+                            TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
+              }
+              final wc = s.workCount;
+              final str =
+                  wc % 1 == 0 ? wc.toInt().toString() : wc.toStringAsFixed(1);
+              final color =
+                  wc >= 1.0 ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
+              return Center(
+                child: Text(str,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: color)),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  child: Row(children: [
+                    Container(
+                        width: 3,
+                        height: 12,
+                        color: const Color(0xFF7C3AED),
+                        margin: const EdgeInsets.only(right: 6)),
+                    const Text('BẢNG NGÀY CÔNG',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF7C3AED))),
+                    const SizedBox(width: 6),
+                    const Text('(lương tháng / ngày)',
+                        style:
+                            TextStyle(fontSize: 9, color: Color(0xFF7C3AED))),
+                  ]),
+                ),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Frozen employee column ─────────────────────
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: empColW,
+                            height: headerH,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4C1D95),
+                              border: Border(
+                                right: BorderSide(color: Colors.white24),
+                                bottom: BorderSide(
+                                    color: Colors.white24, width: 0.5),
+                              ),
+                            ),
+                            child: const Text('NV / Tổng công',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          ...wrkEmployees.asMap().entries.map((e) {
+                            final isEven = e.key.isEven;
+                            final empId = e.value.key;
+                            final empName = e.value.value;
+                            final total = totalWork(empId);
+                            final expected = expectedDays(empId);
+                            final totalStr = total % 1 == 0
+                                ? total.toInt().toString()
+                                : total.toStringAsFixed(1);
+                            return Container(
+                              width: empColW,
+                              height: rowH,
+                              alignment: Alignment.centerLeft,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: isEven
+                                    ? const Color(0xFFF4F4F5)
+                                    : Colors.white,
+                                border: const Border(
+                                  right: BorderSide(color: Color(0xFFD4D4D8)),
+                                  bottom: BorderSide(
+                                      color: Color(0xFFE4E4E7), width: 0.5),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(empName,
+                                      style: const TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF18181B)),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1),
+                                  Text('$totalStr/$expected ngày',
+                                      style: const TextStyle(
+                                          fontSize: 9,
+                                          color: Color(0xFF7C3AED),
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                      // ── Scrollable date columns ────────────────────
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: _ctWrkScroll,
+                          scrollDirection: Axis.horizontal,
+                          physics: const ClampingScrollPhysics(),
+                          child: SizedBox(
+                            width: dayColW * dates.length,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header row
+                                Row(
+                                  children: dates.map((d) {
+                                    final isToday =
+                                        d.year == DateTime.now().year &&
+                                            d.month == DateTime.now().month &&
+                                            d.day == DateTime.now().day;
+                                    return Container(
+                                      width: dayColW,
+                                      height: headerH,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isToday
+                                            ? const Color(0xFF2563EB)
+                                            : headerBg(d),
+                                        border: const Border(
+                                          right: BorderSide(
+                                              color: Colors.white12,
+                                              width: 0.5),
+                                          bottom: BorderSide(
+                                              color: Colors.white24,
+                                              width: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        dayLabel(d),
+                                        style: TextStyle(
+                                          color: isToday
+                                              ? Colors.yellow.shade200
+                                              : Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: isToday
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                // Data rows
+                                ...wrkEmployees.asMap().entries.map((e) {
+                                  final empId = e.value.key;
+                                  final isEven = e.key.isEven;
+                                  return Row(
+                                    children: dates.map((d) {
+                                      final s = getSummary(empId, d);
+                                      return GestureDetector(
+                                        onTap: s != null
+                                            ? () => _showRowDetailDialog(
+                                                s, maxPunches, maxShifts)
+                                            : null,
+                                        child: Container(
+                                          width: dayColW,
+                                          height: rowH,
+                                          decoration: BoxDecoration(
+                                            color: isEven
+                                                ? const Color(0xFFF5F3FF)
+                                                : Colors.white,
+                                            border: const Border(
+                                              right: BorderSide(
+                                                  color: Color(0xFFE4E4E7),
+                                                  width: 0.5),
+                                              bottom: BorderSide(
+                                                  color: Color(0xFFE4E4E7),
+                                                  width: 0.5),
+                                            ),
+                                          ),
+                                          child: s == null
+                                              ? absenceWidget(empId, d)
+                                              : wrkCell(s),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendItem(IconData icon, Color color, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF52525B))),
+        ],
+      );
+
+  void _showRowDetailDialog(
+      _DailySummary summary, int maxPunches, int maxShifts) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    final detailContent = Column(
-      children: [
-        // Punch times
-        for (int i = 1; i <= maxPunches; i++)
-          if (summary.getPunch(i) != null)
-            _buildDetailRow(
-              'Lần $i (${i % 2 == 1 ? "Vào" : "Ra"})',
-              DateFormat('HH:mm:ss').format(summary.getPunch(i)!),
-              icon: i % 2 == 1 ? Icons.login : Icons.logout,
-              iconColor: i % 2 == 1 ? Colors.green : Colors.orange,
+    // Build punch section with interactive add/edit buttons
+    Widget buildPunchSection() {
+      final rows = <Widget>[];
+      for (int i = 1; i <= maxPunches; i++) {
+        final time = summary.getPunch(i);
+        final isIn = i % 2 == 1;
+        // Show existing punch OR show "+" for next missing punch slot
+        final shouldShow = time != null ||
+            (i == 1) || // always show slot 1
+            (i > 1 && summary.getPunch(i - 1) != null && time == null);
+        if (!shouldShow) continue;
+        rows.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: (isIn ? Colors.green : Colors.orange)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(isIn ? Icons.login : Icons.logout,
+                    size: 15, color: isIn ? Colors.green : Colors.orange),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Lần $i (${isIn ? "Vào" : "Ra"})',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+              ),
+              _buildPunchTime(
+                time,
+                isIn: isIn,
+                summary: summary,
+                punchIndex: i,
+              ),
+            ],
+          ),
+        ));
+      }
+      if (rows.isEmpty) {
+        rows.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.login, size: 15, color: Colors.green),
             ),
-        if (summary.totalPunches > 0)
-          const Divider(height: 24),
+            const SizedBox(width: 10),
+            const Expanded(
+                child: Text('Lần 1 (Vào)',
+                    style: TextStyle(fontSize: 13, color: Colors.grey))),
+            _buildPunchTime(null, isIn: true, summary: summary, punchIndex: 1),
+          ]),
+        ));
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('Chấm công',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
+                    letterSpacing: 0.5)),
+          ),
+          ...rows,
+        ],
+      );
+    }
+
+    final detailContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Punch times — interactive
+        buildPunchSection(),
+        const Divider(height: 24),
         // Shift hours
         for (int i = 1; i <= maxShifts; i++)
           if (summary.getShiftHours(i) > 0)
@@ -1703,7 +2769,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               'Giờ ca $i',
               _formatHours(summary.getShiftHours(i)),
               icon: Icons.schedule,
-              iconColor: [Colors.teal, Colors.indigo, Colors.purple, Colors.orange, Colors.brown][i - 1],
+              iconColor: [
+                Colors.teal,
+                Colors.indigo,
+                Colors.purple,
+                Colors.orange,
+                Colors.brown
+              ][i - 1],
             ),
         const Divider(height: 24),
         // Totals
@@ -1740,8 +2812,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             height: double.infinity,
             child: Scaffold(
               appBar: AppBar(
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                title: Text(summary.employeeName, overflow: TextOverflow.ellipsis),
+                leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx)),
+                title:
+                    Text(summary.employeeName, overflow: TextOverflow.ellipsis),
               ),
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -1754,8 +2829,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           radius: 20,
                           backgroundColor: Colors.blue.shade100,
                           child: Text(
-                            summary.employeeName.isNotEmpty ? summary.employeeName[0].toUpperCase() : '?',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                            summary.employeeName.isNotEmpty
+                                ? summary.employeeName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1763,8 +2843,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(summary.employeeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                              Text('Mã: ${summary.employeeCode}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              Text(summary.employeeName,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold)),
+                              Text('Mã: ${summary.employeeCode}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600)),
                             ],
                           ),
                         ),
@@ -1773,18 +2859,21 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     const SizedBox(height: 12),
                     // Date info
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                          Icon(Icons.calendar_today,
+                              size: 16, color: Colors.grey.shade600),
                           const SizedBox(width: 8),
                           Text(
                             '${_getDayOfWeekVN(summary.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(summary.date)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -1803,7 +2892,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         context: context,
         builder: (ctx) {
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420, maxHeight: 600),
               child: Column(
@@ -1813,8 +2903,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                      color: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.08),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(12)),
                     ),
                     child: Row(
                       children: [
@@ -1822,8 +2915,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           radius: 20,
                           backgroundColor: Colors.blue.shade100,
                           child: Text(
-                            summary.employeeName.isNotEmpty ? summary.employeeName[0].toUpperCase() : '?',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                            summary.employeeName.isNotEmpty
+                                ? summary.employeeName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1831,8 +2929,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(summary.employeeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                              Text('Mã: ${summary.employeeCode}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              Text(summary.employeeName,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold)),
+                              Text('Mã: ${summary.employeeCode}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600)),
                             ],
                           ),
                         ),
@@ -1840,24 +2944,29 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           icon: const Icon(Icons.close, size: 20),
                           onPressed: () => Navigator.pop(ctx),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
                         ),
                       ],
                     ),
                   ),
                   // Date info
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                      border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                        Icon(Icons.calendar_today,
+                            size: 16, color: Colors.grey.shade600),
                         const SizedBox(width: 8),
                         Text(
                           '${_getDayOfWeekVN(summary.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(summary.date)}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -1865,7 +2974,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   // Detail rows
                   Flexible(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: detailContent,
                     ),
                   ),
@@ -1889,7 +2999,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }
   }
 
-  Widget _buildDetailRow(String label, String value, {IconData? icon, Color? iconColor, bool isBold = false}) {
+  Widget _buildDetailRow(String label, String value,
+      {IconData? icon, Color? iconColor, bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1907,7 +3018,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             const SizedBox(width: 10),
           ],
           Expanded(
-            child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+            child: Text(label,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
           ),
           Text(
             value,
@@ -1939,7 +3051,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
       ],
       onChanged: (v) {
-        if (v != null) setState(() { _selectedPreset = v; _currentPage = 0; });
+        if (v != null) {
+          setState(() {
+            _selectedPreset = v;
+            _currentPage = 0;
+          });
+        }
       },
     );
 
@@ -1957,7 +3074,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         DropdownMenuItem(value: 'complete', child: Text('Đủ chấm công')),
       ],
       onChanged: (v) {
-        if (v != null) setState(() { _shiftFilter = v; _currentPage = 0; });
+        if (v != null) {
+          setState(() {
+            _shiftFilter = v;
+            _currentPage = 0;
+          });
+        }
       },
     );
 
@@ -1970,7 +3092,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.table_chart, color: Theme.of(context).primaryColor, size: 14),
+          Icon(Icons.table_chart,
+              color: Theme.of(context).primaryColor, size: 14),
           const SizedBox(width: 5),
           Text(
             '${_dailySummaryData.length} bản ghi',
@@ -2005,21 +3128,49 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     recordCount,
                     const Spacer(),
                     InkWell(
-                      onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                      onTap: () => setState(
+                          () => _showMobileFilters = !_showMobileFilters),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         height: 36,
                         width: 36,
                         decoration: BoxDecoration(
-                          color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : const Color(0xFFFAFAFA),
+                          color: _showMobileFilters
+                              ? Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.1)
+                              : const Color(0xFFFAFAFA),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
+                          border: Border.all(
+                              color: _showMobileFilters
+                                  ? Theme.of(context)
+                                      .primaryColor
+                                      .withValues(alpha: 0.3)
+                                  : const Color(0xFFE4E4E7)),
                         ),
                         child: Stack(
                           children: [
-                            Center(child: Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: _showMobileFilters ? Theme.of(context).primaryColor : Colors.grey.shade600)),
-                            if (_selectedPreset != 'month' || _selectedEmployeeIds.isNotEmpty || _shiftFilter != 'all')
-                              Positioned(top: 4, right: 4, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle))),
+                            Center(
+                                child: Icon(
+                                    _showMobileFilters
+                                        ? Icons.filter_alt
+                                        : Icons.filter_alt_outlined,
+                                    size: 18,
+                                    color: _showMobileFilters
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.grey.shade600)),
+                            if (_selectedPreset != 'month' ||
+                                _selectedEmployeeIds.isNotEmpty ||
+                                _shiftFilter != 'all')
+                              Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle))),
                           ],
                         ),
                       ),
@@ -2174,7 +3325,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.3), style: BorderStyle.solid),
+                color: Colors.grey.withValues(alpha: 0.3),
+                style: BorderStyle.solid),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Icon(Icons.add, size: 14, color: Colors.grey),
@@ -2258,7 +3410,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
                         Text('Mã NV: ${summary.employeeCode}'),
-                        Text('Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
+                        Text(
+                            'Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
                         Text('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})'),
                       ],
                     ),
@@ -2283,7 +3436,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
                       borderRadius: BorderRadius.circular(8),
@@ -2294,17 +3448,22 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         const SizedBox(width: 8),
                         Text(
                           DateFormat('dd/MM/yyyy').format(selectedDate),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         if (selectedDate != summary.date) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text('Ngày hôm sau', style: TextStyle(fontSize: 10, color: Colors.orange.shade800)),
+                            child: Text('Ngày hôm sau',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange.shade800)),
                           ),
                         ],
                         const Spacer(),

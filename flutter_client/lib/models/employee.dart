@@ -19,19 +19,19 @@ class Employee {
   final DateTime? contractEndDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  
+
   // Địa chỉ
   final String? permanentAddress;
   final String? temporaryAddress;
-  
+
   // Liên hệ khẩn cấp
   final String? emergencyContactName;
   final String? emergencyContactPhone;
-  
+
   // Alias for easier access
   String? get emergencyContact => emergencyContactPhone;
   String? get nationalId => nationalIdNumber;
-  
+
   // Hôn nhân
   final String? maritalStatus;
 
@@ -44,14 +44,14 @@ class Employee {
   final String? bankAccountName;
   final String? bankAccountNumber;
   final String? bankBranch;
-  
+
   // CCCD
   final String? nationalIdNumber;
   final DateTime? nationalIdIssueDate;
   final String? nationalIdIssuePlace;
   final String? idCardFrontUrl;
   final String? idCardBackUrl;
-  
+
   // Quản lý
   final String? managerId;
   final String? managerName;
@@ -107,12 +107,13 @@ class Employee {
 
   // Computed property for full name (Vietnamese order: Họ rồi đến Tên)
   String get fullName => '$lastName $firstName'.trim();
-  
+
   // Computed property for enrollNumber (PIN)
   String get enrollNumber => pin ?? employeeCode;
-  
+
   // Check if active
-  bool get isActive => workStatus == 'Active' || workStatus == '0' || workStatus == null;
+  bool get isActive =>
+      workStatus == 'Active' || workStatus == '0' || workStatus == null;
 
   // Factory constructor for empty employee
   factory Employee.empty() {
@@ -126,8 +127,9 @@ class Employee {
 
   factory Employee.fromJson(Map<String, dynamic> json) {
     // Handle both old format (enrollNumber/fullName) and new format (employeeCode/firstName/lastName)
-    final hasNewFormat = json.containsKey('firstName') || json.containsKey('employeeCode');
-    
+    final hasNewFormat =
+        json.containsKey('firstName') || json.containsKey('employeeCode');
+
     if (hasNewFormat) {
       return Employee(
         id: json['id']?.toString() ?? '',
@@ -178,7 +180,8 @@ class Employee {
         nationalIdIssuePlace: json['nationalIdIssuePlace'],
         idCardFrontUrl: json['idCardFrontUrl'],
         idCardBackUrl: json['idCardBackUrl'],
-        managerId: json['directManagerEmployeeId']?.toString() ?? json['managerId']?.toString(),
+        managerId: json['directManagerEmployeeId']?.toString() ??
+            json['managerId']?.toString(),
         managerName: json['directManagerName'] ?? json['managerName'],
         branchName: json['branchName'],
         applicationUserId: json['applicationUserId']?.toString(),
@@ -251,7 +254,7 @@ class Employee {
       'contractEndDate': contractEndDate?.toIso8601String(),
     };
   }
-  
+
   // Helper to get work status display text
   String get workStatusDisplay {
     switch (workStatus) {
@@ -265,7 +268,7 @@ class Employee {
         return 'Đang làm việc';
     }
   }
-  
+
   // Helper to get gender display text
   String get genderDisplay {
     switch (gender?.toLowerCase()) {
@@ -279,7 +282,7 @@ class Employee {
         return gender ?? '';
     }
   }
-  
+
   // Helper to get marital status display text
   String get maritalStatusDisplay {
     switch (maritalStatus?.toLowerCase()) {

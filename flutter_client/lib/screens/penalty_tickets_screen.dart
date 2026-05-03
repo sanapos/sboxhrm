@@ -10,7 +10,11 @@ import '../providers/permission_provider.dart';
 /// Màn hình quản lý phiếu phạt
 class PenaltyTicketsScreen extends StatefulWidget {
   final String? highlightId;
-  const PenaltyTicketsScreen({super.key, this.highlightId});
+
+  /// Numeric status string to pre-filter: '0'=Pending, '1'=Approved, '2'=Cancelled, '3'=AutoApproved
+  final String? initialFilterStatus;
+  const PenaltyTicketsScreen(
+      {super.key, this.highlightId, this.initialFilterStatus});
 
   @override
   State<PenaltyTicketsScreen> createState() => _PenaltyTicketsScreenState();
@@ -33,7 +37,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   String? _filterStatus;
   String? _filterType;
   DateTimeRange? _dateRange;
-  String _datePreset = 'this_month'; // today, yesterday, this_week, last_week, this_month, last_month, custom, all
+  String _datePreset =
+      'this_month'; // today, yesterday, this_week, last_week, this_month, last_month, custom, all
 
   // Multi-select for bulk approve
   final Set<String> _selectedIds = {};
@@ -45,7 +50,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   @override
   void initState() {
     super.initState();
-    _applyDatePreset('this_month', reload: false);
+    if (widget.initialFilterStatus != null) {
+      _filterStatus = widget.initialFilterStatus;
+      // Show all time periods when opened with a status filter from dashboard
+      _applyDatePreset('all', reload: false);
+    } else {
+      _applyDatePreset('this_month', reload: false);
+    }
     _loadData();
   }
 
@@ -72,7 +83,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         range = DateTimeRange(start: lastWeekStart, end: lastWeekEnd);
         break;
       case 'this_month':
-        range = DateTimeRange(start: DateTime(today.year, today.month, 1), end: today);
+        range = DateTimeRange(
+            start: DateTime(today.year, today.month, 1), end: today);
         break;
       case 'last_month':
         final firstThis = DateTime(today.year, today.month, 1);
@@ -116,7 +128,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     if (id == null || id.isEmpty) return;
     Map<String, dynamic>? match;
     for (final t in _tickets) {
-      if (t['id']?.toString() == id) { match = t; break; }
+      if (t['id']?.toString() == id) {
+        match = t;
+        break;
+      }
     }
     if (match == null) return;
     _highlightOpened = true;
@@ -138,7 +153,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
     if (mounted && result['isSuccess'] == true && result['data'] != null) {
       setState(() {
-        _tickets = List<Map<String, dynamic>>.from(result['data']['items'] ?? []);
+        _tickets =
+            List<Map<String, dynamic>>.from(result['data']['items'] ?? []);
         _totalCount = result['data']['totalCount'] ?? 0;
       });
     }
@@ -170,44 +186,67 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
   String _getTypeLabel(String type) {
     switch (type) {
-      case 'Late': return 'Đi trễ';
-      case 'EarlyLeave': return 'Về sớm';
-      case 'ForgotCheck': return 'Quên chấm công';
-      case 'UnauthorizedLeave': return 'Nghỉ không phép';
-      case 'Violation': return 'Vi phạm';
-      case 'Repeat': return 'Tái phạm';
-      default: return type;
+      case 'Late':
+        return 'Đi trễ';
+      case 'EarlyLeave':
+        return 'Về sớm';
+      case 'ForgotCheck':
+        return 'Quên chấm công';
+      case 'UnauthorizedLeave':
+        return 'Nghỉ không phép';
+      case 'Violation':
+        return 'Vi phạm';
+      case 'Repeat':
+        return 'Tái phạm';
+      default:
+        return type;
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'Pending': return Colors.orange;
-      case 'Approved': return Colors.green;
-      case 'AutoApproved': return Colors.blue;
-      case 'Cancelled': return Colors.grey;
-      default: return Colors.black;
+      case 'Pending':
+        return Colors.orange;
+      case 'Approved':
+        return Colors.green;
+      case 'AutoApproved':
+        return Colors.blue;
+      case 'Cancelled':
+        return Colors.grey;
+      default:
+        return Colors.black;
     }
   }
 
   String _getStatusLabel(String status) {
     switch (status) {
-      case 'Pending': return 'Chờ duyệt';
-      case 'Approved': return 'Đã duyệt';
-      case 'AutoApproved': return 'Tự động duyệt';
-      case 'Cancelled': return 'Đã hủy';
-      default: return status;
+      case 'Pending':
+        return 'Chờ duyệt';
+      case 'Approved':
+        return 'Đã duyệt';
+      case 'AutoApproved':
+        return 'Tự động duyệt';
+      case 'Cancelled':
+        return 'Đã hủy';
+      default:
+        return status;
     }
   }
 
   IconData _getTypeIcon(String type) {
     switch (type) {
-      case 'Late': return Icons.schedule;
-      case 'EarlyLeave': return Icons.exit_to_app;
-      case 'ForgotCheck': return Icons.fingerprint;
-      case 'UnauthorizedLeave': return Icons.event_busy;
-      case 'Violation': return Icons.warning;
-      default: return Icons.gavel;
+      case 'Late':
+        return Icons.schedule;
+      case 'EarlyLeave':
+        return Icons.exit_to_app;
+      case 'ForgotCheck':
+        return Icons.fingerprint;
+      case 'UnauthorizedLeave':
+        return Icons.event_busy;
+      case 'Violation':
+        return Icons.warning;
+      default:
+        return Icons.gavel;
     }
   }
 
@@ -238,13 +277,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Duyệt phiếu phạt', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Duyệt phiếu phạt sẽ tạo phiếu thu tương ứng. Bạn có chắc?'),
+        title: const Text('Duyệt phiếu phạt',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+            'Duyệt phiếu phạt sẽ tạo phiếu thu tương ứng. Bạn có chắc?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không',
+                  style: TextStyle(color: Color(0xFF71717A)))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A)),
             child: const Text('Duyệt', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -254,10 +299,22 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       final result = await _apiService.approvePenaltyTicket(id);
       if (mounted) {
         if (result['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã duyệt phiếu phạt và tạo phiếu thu');
+          // Optimistic update: immediately reflect Approved status in the list
+          setState(() {
+            final idx = _tickets.indexWhere((t) => t['id'].toString() == id);
+            if (idx >= 0) {
+              _tickets[idx] = Map<String, dynamic>.from(_tickets[idx])
+                ..['status'] = 'Approved'
+                ..['processedDate'] = DateTime.now().toIso8601String();
+            }
+          });
+          appNotification.showSuccess(
+              title: 'Thành công',
+              message: 'Đã duyệt phiếu phạt và tạo phiếu thu');
           await _loadData(showLoading: false);
         } else {
-          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
+          appNotification.showError(
+              title: 'Lỗi', message: result['message'] ?? 'Lỗi');
         }
       }
     }
@@ -269,14 +326,20 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hoàn duyệt phiếu phạt', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Hoàn duyệt sẽ xóa phiếu thu liên quan và đưa phiếu phạt về trạng thái chờ duyệt. Bạn có chắc?'),
+        title: const Text('Hoàn duyệt phiếu phạt',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+            'Hoàn duyệt sẽ xóa phiếu thu liên quan và đưa phiếu phạt về trạng thái chờ duyệt. Bạn có chắc?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không',
+                  style: TextStyle(color: Color(0xFF71717A)))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Hoàn duyệt', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Hoàn duyệt', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -285,10 +348,12 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       final result = await _apiService.unapprovePenaltyTicket(id);
       if (mounted) {
         if (result['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã hoàn duyệt phiếu phạt');
+          appNotification.showSuccess(
+              title: 'Thành công', message: 'Đã hoàn duyệt phiếu phạt');
           await _loadData(showLoading: false);
         } else {
-          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
+          appNotification.showError(
+              title: 'Lỗi', message: result['message'] ?? 'Lỗi');
         }
       }
     }
@@ -301,7 +366,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hủy phiếu phạt', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Hủy phiếu phạt',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -312,7 +378,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 controller: reasonController,
                 decoration: InputDecoration(
                   labelText: 'Lý do hủy',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 maxLines: 2,
               ),
@@ -320,11 +387,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không',
+                  style: TextStyle(color: Color(0xFF71717A)))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phạt', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Hủy phạt', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -335,10 +406,12 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       final result = await _apiService.cancelPenaltyTicket(id, reason: reason);
       if (mounted) {
         if (result['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã hủy phiếu phạt');
+          appNotification.showSuccess(
+              title: 'Thành công', message: 'Đã hủy phiếu phạt');
           await _loadData(showLoading: false);
         } else {
-          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
+          appNotification.showError(
+              title: 'Lỗi', message: result['message'] ?? 'Lỗi');
         }
       }
     } else {
@@ -352,10 +425,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xóa phiếu phạt', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Bạn có chắc muốn xóa phiếu phạt này? Chỉ xóa được phiếu đang chờ duyệt.'),
+        title: const Text('Xóa phiếu phạt',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+            'Bạn có chắc muốn xóa phiếu phạt này? Chỉ xóa được phiếu đang chờ duyệt.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không',
+                  style: TextStyle(color: Color(0xFF71717A)))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -368,10 +446,12 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       final result = await _apiService.deletePenaltyTicket(id);
       if (mounted) {
         if (result['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa phiếu phạt');
+          appNotification.showSuccess(
+              title: 'Thành công', message: 'Đã xóa phiếu phạt');
           await _loadData(showLoading: false);
         } else {
-          appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
+          appNotification.showError(
+              title: 'Lỗi', message: result['message'] ?? 'Lỗi');
         }
       }
     }
@@ -382,13 +462,18 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       firstDate: DateTime(2024),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      initialDateRange: _dateRange ?? DateTimeRange(
-        start: DateTime.now().subtract(const Duration(days: 30)),
-        end: DateTime.now(),
-      ),
+      initialDateRange: _dateRange ??
+          DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            end: DateTime.now(),
+          ),
     );
     if (picked != null) {
-      setState(() { _dateRange = picked; _datePreset = 'custom'; _currentPage = 1; });
+      setState(() {
+        _dateRange = picked;
+        _datePreset = 'custom';
+        _currentPage = 1;
+      });
       await _loadTickets();
     }
   }
@@ -402,14 +487,21 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Duyệt nhanh', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Duyệt ${ids.length} phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu.'),
+        title: const Text('Duyệt nhanh',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(
+            'Duyệt ${ids.length} phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Không', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không',
+                  style: TextStyle(color: Color(0xFF71717A)))),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
-            child: Text('Duyệt ${ids.length}', style: const TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A)),
+            child: Text('Duyệt ${ids.length}',
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -421,15 +513,23 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     for (final id in ids) {
       try {
         final r = await _apiService.approvePenaltyTicket(id);
-        if (r['isSuccess'] == true) { ok++; } else { fail++; }
-      } catch (_) { fail++; }
+        if (r['isSuccess'] == true) {
+          ok++;
+        } else {
+          fail++;
+        }
+      } catch (_) {
+        fail++;
+      }
     }
     if (mounted) {
       _selectedIds.clear();
       if (fail == 0) {
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã duyệt $ok phiếu');
+        appNotification.showSuccess(
+            title: 'Thành công', message: 'Đã duyệt $ok phiếu');
       } else {
-        appNotification.showWarning(title: 'Hoàn tất', message: 'Duyệt thành công $ok, lỗi $fail');
+        appNotification.showWarning(
+            title: 'Hoàn tất', message: 'Duyệt thành công $ok, lỗi $fail');
       }
       await _loadData(showLoading: false);
     }
@@ -461,16 +561,23 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     final isPending = ticket?['status'] == 'Pending';
 
     if (isEditing && !isPending) {
-      appNotification.showWarning(title: 'Không thể sửa', message: 'Chỉ sửa được phiếu đang chờ duyệt');
+      appNotification.showWarning(
+          title: 'Không thể sửa', message: 'Chỉ sửa được phiếu đang chờ duyệt');
       return;
     }
 
-    final amountCtrl = TextEditingController(text: isEditing ? (ticket['amount'] ?? 0).toString() : '');
+    final amountCtrl = TextEditingController(
+        text: isEditing ? (ticket['amount'] ?? 0).toString() : '');
     final descCtrl = TextEditingController(text: ticket?['description'] ?? '');
-    final minutesCtrl = TextEditingController(text: isEditing ? (ticket['minutesLateOrEarly'] ?? '').toString() : '');
-    String selectedType = isEditing ? (ticket['type'] ?? 'Violation') : 'Violation';
-    String? selectedEmployeeId = isEditing ? ticket['employeeId']?.toString() : null;
-    DateTime selectedDate = isEditing ? (DateTime.tryParse(ticket['violationDate'] ?? '') ?? DateTime.now()) : DateTime.now();
+    final minutesCtrl = TextEditingController(
+        text: isEditing ? (ticket['minutesLateOrEarly'] ?? '').toString() : '');
+    String selectedType =
+        isEditing ? (ticket['type'] ?? 'Violation') : 'Violation';
+    String? selectedEmployeeId =
+        isEditing ? ticket['employeeId']?.toString() : null;
+    DateTime selectedDate = isEditing
+        ? (DateTime.tryParse(ticket['violationDate'] ?? '') ?? DateTime.now())
+        : DateTime.now();
 
     showDialog(
       context: context,
@@ -480,12 +587,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
           Future<void> onSubmit() async {
             if (!isEditing && selectedEmployeeId == null) {
-              appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn nhân viên');
+              appNotification.showWarning(
+                  title: 'Thiếu thông tin', message: 'Vui lòng chọn nhân viên');
               return;
             }
             final amount = double.tryParse(amountCtrl.text);
             if (amount == null || amount <= 0) {
-              appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập số tiền hợp lệ');
+              appNotification.showWarning(
+                  title: 'Thiếu thông tin',
+                  message: 'Vui lòng nhập số tiền hợp lệ');
               return;
             }
 
@@ -493,7 +603,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
             Map<String, dynamic> result;
             if (isEditing) {
-              result = await _apiService.updatePenaltyTicket(ticket['id'].toString(), {
+              result = await _apiService
+                  .updatePenaltyTicket(ticket['id'].toString(), {
                 'type': selectedType,
                 'amount': amount,
                 'description': descCtrl.text,
@@ -511,10 +622,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
             if (mounted) {
               if (result['isSuccess'] == true) {
-                appNotification.showSuccess(title: 'Thành công', message: isEditing ? 'Đã cập nhật phiếu phạt' : 'Đã tạo phiếu phạt');
+                appNotification.showSuccess(
+                    title: 'Thành công',
+                    message: isEditing
+                        ? 'Đã cập nhật phiếu phạt'
+                        : 'Đã tạo phiếu phạt');
                 await _loadData(showLoading: false);
               } else {
-                appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
+                appNotification.showError(
+                    title: 'Lỗi', message: result['message'] ?? 'Lỗi');
               }
             }
           }
@@ -535,7 +651,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isEditing) ...[
-                  const Text('Nhân viên *', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                  const Text('Nhân viên *',
+                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     initialValue: selectedEmployeeId,
@@ -543,15 +660,22 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     isExpanded: true,
                     decoration: _inputDecor('Chọn nhân viên'),
                     items: _employees.map<DropdownMenuItem<String>>((emp) {
-                      final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
+                      final name =
+                          '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                              .trim();
                       final code = emp['employeeCode'] ?? '';
-                      return DropdownMenuItem(value: emp['id'].toString(), child: Text('$code - $name', overflow: TextOverflow.ellipsis));
+                      return DropdownMenuItem(
+                          value: emp['id'].toString(),
+                          child: Text('$code - $name',
+                              overflow: TextOverflow.ellipsis));
                     }).toList(),
-                    onChanged: (v) => setDialogState(() => selectedEmployeeId = v),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedEmployeeId = v),
                   ),
                   const SizedBox(height: 16),
                 ],
-                const Text('Loại phạt *', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                const Text('Loại phạt *',
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: selectedType,
@@ -559,22 +683,28 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   isExpanded: true,
                   decoration: _inputDecor('Chọn loại phạt'),
                   items: types.map<DropdownMenuItem<String>>((t) {
-                    return DropdownMenuItem(value: t['value'] as String, child: Text(t['label'] as String));
+                    return DropdownMenuItem(
+                        value: t['value'] as String,
+                        child: Text(t['label'] as String));
                   }).toList(),
-                  onChanged: (v) => setDialogState(() => selectedType = v ?? 'Violation'),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedType = v ?? 'Violation'),
                 ),
                 const SizedBox(height: 16),
-                const Text('Số tiền phạt (VNĐ) *', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                const Text('Số tiền phạt (VNĐ) *',
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                  style:
+                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                   decoration: _inputDecor('50000'),
                 ),
                 const SizedBox(height: 16),
                 if (!isEditing) ...[
-                  const Text('Ngày vi phạm *', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                  const Text('Ngày vi phạm *',
+                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                   const SizedBox(height: 6),
                   InkWell(
                     onTap: () async {
@@ -584,40 +714,49 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                         firstDate: DateTime(2024),
                         lastDate: DateTime.now(),
                       );
-                      if (picked != null) setDialogState(() => selectedDate = picked);
+                      if (picked != null) {
+                        setDialogState(() => selectedDate = picked);
+                      }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
                       decoration: BoxDecoration(
                         border: Border.all(color: const Color(0xFFE4E4E7)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Color(0xFF71717A)),
+                          const Icon(Icons.calendar_today,
+                              size: 16, color: Color(0xFF71717A)),
                           const SizedBox(width: 8),
-                          Text(DateFormat('dd/MM/yyyy').format(selectedDate), style: const TextStyle(fontSize: 14)),
+                          Text(DateFormat('dd/MM/yyyy').format(selectedDate),
+                              style: const TextStyle(fontSize: 14)),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                 ],
-                const Text('Số phút trễ/sớm', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                const Text('Số phút trễ/sớm',
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: minutesCtrl,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                  style:
+                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                   decoration: _inputDecor('15'),
                 ),
                 const SizedBox(height: 16),
-                const Text('Mô tả', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                const Text('Mô tả',
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: descCtrl,
                   maxLines: 2,
-                  style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                  style:
+                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                   decoration: _inputDecor('Ghi chú thêm...'),
                 ),
               ],
@@ -638,14 +777,18 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   ),
                   title: Text(
                     isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt',
-                    style: const TextStyle(color: Color(0xFF18181B), fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Color(0xFF18181B),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold),
                   ),
                   actions: [
                     TextButton.icon(
                       onPressed: onSubmit,
                       icon: const Icon(Icons.save, size: 18),
                       label: Text(isEditing ? 'Cập nhật' : 'Tạo'),
-                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF0F2340)),
+                      style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F2340)),
                     ),
                   ],
                 ),
@@ -656,11 +799,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
 
           return Dialog(
             backgroundColor: Colors.white,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
-              width: math.min(480, MediaQuery.of(context).size.width - 32).toDouble(),
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+              width: math
+                  .min(480, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
+              constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85),
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -668,8 +816,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt', style: const TextStyle(color: Color(0xFF18181B), fontSize: 18, fontWeight: FontWeight.bold))),
-                      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Color(0xFF71717A))),
+                      Expanded(
+                          child: Text(
+                              isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt',
+                              style: const TextStyle(
+                                  color: Color(0xFF18181B),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold))),
+                      IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close,
+                              color: Color(0xFF71717A))),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -679,18 +836,24 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Hủy',
+                              style: TextStyle(color: Color(0xFF71717A)))),
                       const Spacer(),
                       ElevatedButton.icon(
                         onPressed: onSubmit,
-                        icon: Icon(isEditing ? Icons.save : Icons.add, size: 18),
+                        icon:
+                            Icon(isEditing ? Icons.save : Icons.add, size: 18),
                         label: Text(isEditing ? 'Cập nhật' : 'Tạo phiếu'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F2340),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
@@ -709,9 +872,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF0F2340))),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF0F2340))),
     );
   }
 
@@ -728,7 +897,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.65,
         minChildSize: 0.3,
@@ -739,138 +909,203 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           child: Column(
             children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE4E4E7), borderRadius: BorderRadius.circular(2))),
+              Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFE4E4E7),
+                      borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 20),
               CircleAvatar(
                 radius: 28,
-                backgroundColor: _getStatusColor(status).withValues(alpha: 0.15),
-                child: Icon(_getTypeIcon(type), color: _getStatusColor(status), size: 28),
+                backgroundColor:
+                    _getStatusColor(status).withValues(alpha: 0.15),
+                child: Icon(_getTypeIcon(type),
+                    color: _getStatusColor(status), size: 28),
               ),
               const SizedBox(height: 12),
-              Text(ticket['employeeName'] ?? 'N/A', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+              Text(ticket['employeeName'] ?? 'N/A',
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF18181B))),
               if (ticket['employeeCode'] != null)
-                Text(ticket['employeeCode'], style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                Text(ticket['employeeCode'],
+                    style: const TextStyle(
+                        color: Color(0xFFA1A1AA), fontSize: 13)),
               const SizedBox(height: 8),
-              Text(ticket['ticketCode'] ?? '', style: const TextStyle(color: Color(0xFF71717A), fontSize: 12, fontWeight: FontWeight.w500)),
+              Text(ticket['ticketCode'] ?? '',
+                  style: const TextStyle(
+                      color: Color(0xFF71717A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: _getStatusColor(status).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Text(_getStatusLabel(status), style: TextStyle(color: _getStatusColor(status), fontSize: 12, fontWeight: FontWeight.w600)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: _getStatusColor(status).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text(_getStatusLabel(status),
+                        style: TextStyle(
+                            color: _getStatusColor(status),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(width: 10),
                   Text('${_currencyFormat.format(amount)}đ',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red[700])),
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red[700])),
                 ],
               ),
               const SizedBox(height: 16),
               const Divider(color: Color(0xFFE4E4E7)),
               const SizedBox(height: 8),
-              _detailRow(Icons.category_outlined, 'Loại phạt', _getTypeLabel(type)),
-              _detailRow(Icons.calendar_today, 'Ngày vi phạm', _formatDate(ticket['violationDate'])),
+              _detailRow(
+                  Icons.category_outlined, 'Loại phạt', _getTypeLabel(type)),
+              _detailRow(Icons.calendar_today, 'Ngày vi phạm',
+                  _formatDate(ticket['violationDate'])),
               if (ticket['minutesLateOrEarly'] != null)
-                _detailRow(Icons.timer_outlined, 'Số phút', '${ticket['minutesLateOrEarly']} phút'),
+                _detailRow(Icons.timer_outlined, 'Số phút',
+                    '${ticket['minutesLateOrEarly']} phút'),
               if (ticket['shiftStartTime'] != null)
-                _detailRow(Icons.access_time, 'Ca làm', '${ticket['shiftStartTime']} - ${ticket['shiftEndTime'] ?? ''}'),
+                _detailRow(Icons.access_time, 'Ca làm',
+                    '${ticket['shiftStartTime']} - ${ticket['shiftEndTime'] ?? ''}'),
               if (ticket['actualPunchTime'] != null)
-                _detailRow(Icons.fingerprint, 'Giờ chấm thực tế', _formatDateTime(ticket['actualPunchTime'])),
-              _detailRow(Icons.layers, 'Bậc phạt', 'Bậc ${ticket['penaltyTier'] ?? 1}'),
-              if (ticket['description'] != null && (ticket['description'] as String).isNotEmpty)
+                _detailRow(Icons.fingerprint, 'Giờ chấm thực tế',
+                    _formatDateTime(ticket['actualPunchTime'])),
+              _detailRow(Icons.layers, 'Bậc phạt',
+                  'Bậc ${ticket['penaltyTier'] ?? 1}'),
+              if (ticket['description'] != null &&
+                  (ticket['description'] as String).isNotEmpty)
                 _detailRow(Icons.notes, 'Mô tả', ticket['description']),
               if (ticket['processedByName'] != null)
-                _detailRow(Icons.person_outline, 'Người xử lý', ticket['processedByName']),
+                _detailRow(Icons.person_outline, 'Người xử lý',
+                    ticket['processedByName']),
               if (ticket['processedDate'] != null)
-                _detailRow(Icons.event_available, 'Ngày xử lý', _formatDateTime(ticket['processedDate'])),
+                _detailRow(Icons.event_available, 'Ngày xử lý',
+                    _formatDateTime(ticket['processedDate'])),
               if (isCancelled && ticket['cancellationReason'] != null)
-                _detailRow(Icons.cancel_outlined, 'Lý do hủy', ticket['cancellationReason']),
+                _detailRow(Icons.cancel_outlined, 'Lý do hủy',
+                    ticket['cancellationReason']),
               if (isApproved && ticket['cashTransactionCode'] != null)
-                _detailRow(Icons.receipt_long, 'Phiếu thu', ticket['cashTransactionCode']),
-              _detailRow(Icons.access_time_filled, 'Ngày tạo', _formatDateTime(ticket['createdAt'])),
+                _detailRow(Icons.receipt_long, 'Phiếu thu',
+                    ticket['cashTransactionCode']),
+              _detailRow(Icons.access_time_filled, 'Ngày tạo',
+                  _formatDateTime(ticket['createdAt'])),
               const SizedBox(height: 16),
               const Divider(color: Color(0xFFE4E4E7)),
               const SizedBox(height: 16),
               if (isPending) ...[
                 Row(
                   children: [
-                    if (Provider.of<PermissionProvider>(context, listen: false).canEdit('PenaltyTickets'))
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _showTicketDialog(ticket: ticket); },
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('Sửa'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF71717A),
-                          side: const BorderSide(color: Color(0xFFE4E4E7)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    if (Provider.of<PermissionProvider>(context, listen: false)
+                        .canEdit('PenaltyTickets'))
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showTicketDialog(ticket: ticket);
+                          },
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Sửa'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF71717A),
+                            side: const BorderSide(color: Color(0xFFE4E4E7)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(width: 8),
-                    if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _cancelTicket(ticket['id'].toString()); },
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Hủy phạt'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.orange,
-                          side: const BorderSide(color: Colors.orange),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    if (Provider.of<PermissionProvider>(context, listen: false)
+                        .canApprove('PenaltyTickets'))
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _cancelTicket(ticket['id'].toString());
+                          },
+                          icon: const Icon(Icons.close, size: 18),
+                          label: const Text('Hủy phạt'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            side: const BorderSide(color: Colors.orange),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(width: 8),
-                    if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(context); _approveTicket(ticket['id'].toString()); },
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Duyệt'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    if (Provider.of<PermissionProvider>(context, listen: false)
+                        .canApprove('PenaltyTickets'))
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _approveTicket(ticket['id'].toString());
+                          },
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Duyệt'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
-                if (Provider.of<PermissionProvider>(context, listen: false).canDelete('PenaltyTickets')) ...[
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canDelete('PenaltyTickets')) ...[
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () { Navigator.pop(context); _deleteTicket(ticket['id'].toString()); },
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _deleteTicket(ticket['id'].toString());
+                      },
                       icon: const Icon(Icons.delete_outline, size: 18),
                       label: const Text('Xóa phiếu'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
                 ],
               ],
-              if (isApproved && Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
+              if (isApproved &&
+                  Provider.of<PermissionProvider>(context, listen: false)
+                      .canApprove('PenaltyTickets'))
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () { Navigator.pop(context); _unapproveTicket(ticket['id'].toString()); },
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _unapproveTicket(ticket['id'].toString());
+                    },
                     icon: const Icon(Icons.undo, size: 18),
                     label: const Text('Hoàn duyệt'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.orange,
                       side: const BorderSide(color: Colors.orange),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
@@ -889,8 +1124,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         children: [
           Icon(icon, size: 18, color: const Color(0xFF71717A)),
           const SizedBox(width: 12),
-          SizedBox(width: 110, child: Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13, fontWeight: FontWeight.w500))),
+          SizedBox(
+              width: 110,
+              child: Text(label,
+                  style:
+                      const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -905,21 +1149,38 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Phiếu phạt', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+        title: const Text('Phiếu phạt',
+            style: TextStyle(
+                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
         actions: [
           if (isMobile)
             IconButton(
               icon: Stack(
                 children: [
-                  Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: const Color(0xFF18181B)),
+                  Icon(
+                      _showMobileFilters
+                          ? Icons.filter_alt
+                          : Icons.filter_alt_outlined,
+                      color: const Color(0xFF18181B)),
                   if (_filterStatus != null || _filterType != null)
-                    Positioned(right: 0, top: 0, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
+                    Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: Colors.orangeAccent,
+                                shape: BoxShape.circle))),
                 ],
               ),
-              onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
+              onPressed: () =>
+                  setState(() => _showMobileFilters = !_showMobileFilters),
               tooltip: 'Bộ lọc',
             ),
-          if (!isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('PenaltyTickets'))
+          if (!isMobile &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('PenaltyTickets'))
             ElevatedButton.icon(
               onPressed: () => _showTicketDialog(),
               icon: const Icon(Icons.add, size: 18),
@@ -928,15 +1189,22 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 backgroundColor: const Color(0xFF0F2340),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
-          IconButton(icon: const Icon(Icons.date_range, color: Color(0xFF18181B)), onPressed: _pickDateRange, tooltip: 'Chọn khoảng thời gian'),
+          IconButton(
+              icon: const Icon(Icons.date_range, color: Color(0xFF18181B)),
+              onPressed: _pickDateRange,
+              tooltip: 'Chọn khoảng thời gian'),
           const SizedBox(width: 4),
         ],
       ),
-      floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('PenaltyTickets')
+      floatingActionButton: isMobile &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('PenaltyTickets')
           ? FloatingActionButton(
               onPressed: () => _showTicketDialog(),
               backgroundColor: const Color(0xFF0F2340),
@@ -951,18 +1219,32 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                     child: InkWell(
-                      onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+                      onTap: () => setState(
+                          () => _showMobileSummary = !_showMobileSummary),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8)),
                         child: Row(
                           children: [
-                            Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                            Icon(Icons.analytics_outlined,
+                                size: 16, color: Colors.blue.shade700),
                             const SizedBox(width: 6),
-                            Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                            Text('Tổng quan',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.blue.shade700)),
                             const Spacer(),
-                            Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                            Icon(
+                                _showMobileSummary
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 20,
+                                color: Colors.blue.shade700),
                           ],
                         ),
                       ),
@@ -986,32 +1268,55 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          Expanded(child: _buildStatCard('Chờ duyệt', _stats['totalPending'] ?? 0, Colors.orange,
-            amount: (_stats['pendingAmount'] as num?)?.toDouble())),
+          Expanded(
+              child: _buildStatCard(
+                  'Chờ duyệt', _stats['totalPending'] ?? 0, Colors.orange,
+                  amount: (_stats['pendingAmount'] as num?)?.toDouble())),
           const SizedBox(width: 8),
-          Expanded(child: _buildStatCard('Đã duyệt', ((_stats['totalApproved'] ?? 0) as int) + ((_stats['totalAutoApproved'] ?? 0) as int), Colors.green,
-            amount: (_stats['approvedAmount'] as num?)?.toDouble())),
+          Expanded(
+              child: _buildStatCard(
+                  'Đã duyệt',
+                  ((_stats['totalApproved'] ?? 0) as int) +
+                      ((_stats['totalAutoApproved'] ?? 0) as int),
+                  Colors.green,
+                  amount: (_stats['approvedAmount'] as num?)?.toDouble())),
           const SizedBox(width: 8),
-          Expanded(child: _buildStatCard('Đã hủy', _stats['totalCancelled'] ?? 0, Colors.grey)),
+          Expanded(
+              child: _buildStatCard(
+                  'Đã hủy', _stats['totalCancelled'] ?? 0, Colors.grey)),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, dynamic count, Color color, {double? amount}) {
+  Widget _buildStatCard(String label, dynamic count, Color color,
+      {double? amount}) {
     return Card(
       color: Colors.white,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE4E4E7))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFFE4E4E7))),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text('$count',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            Text(label,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             if (amount != null && amount > 0)
-              Text('${_currencyFormat.format(amount)}đ', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('${_currencyFormat.format(amount)}đ',
+                  style: TextStyle(
+                      fontSize: 10, color: color, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -1048,8 +1353,14 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   label: Text(_datePreset == 'custom' && _dateRange != null
                       ? '${DateFormat('dd/MM').format(_dateRange!.start)} - ${DateFormat('dd/MM').format(_dateRange!.end)}'
                       : 'Lựa chọn khác'),
-                  backgroundColor: _datePreset == 'custom' ? const Color(0xFF0F2340) : Colors.white,
-                  labelStyle: TextStyle(fontSize: 12, color: _datePreset == 'custom' ? Colors.white : const Color(0xFF18181B)),
+                  backgroundColor: _datePreset == 'custom'
+                      ? const Color(0xFF0F2340)
+                      : Colors.white,
+                  labelStyle: TextStyle(
+                      fontSize: 12,
+                      color: _datePreset == 'custom'
+                          ? Colors.white
+                          : const Color(0xFF18181B)),
                   side: const BorderSide(color: Color(0xFFE4E4E7)),
                   onPressed: _pickDateRange,
                 ),
@@ -1065,7 +1376,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   dropdownColor: Colors.white,
                   decoration: const InputDecoration(
                     labelText: 'Trạng thái',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -1077,7 +1389,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     DropdownMenuItem(value: '2', child: Text('Đã hủy')),
                   ],
                   onChanged: (v) {
-                    setState(() { _filterStatus = v; _currentPage = 1; });
+                    setState(() {
+                      _filterStatus = v;
+                      _currentPage = 1;
+                    });
                     _loadTickets();
                   },
                 ),
@@ -1089,7 +1404,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   dropdownColor: Colors.white,
                   decoration: const InputDecoration(
                     labelText: 'Loại',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -1098,12 +1414,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     DropdownMenuItem(value: '1', child: Text('Đi trễ')),
                     DropdownMenuItem(value: '2', child: Text('Về sớm')),
                     DropdownMenuItem(value: '3', child: Text('Quên chấm công')),
-                    DropdownMenuItem(value: '4', child: Text('Nghỉ không phép')),
+                    DropdownMenuItem(
+                        value: '4', child: Text('Nghỉ không phép')),
                     DropdownMenuItem(value: '5', child: Text('Vi phạm')),
                     DropdownMenuItem(value: '6', child: Text('Tái phạm')),
                   ],
                   onChanged: (v) {
-                    setState(() { _filterType = v; _currentPage = 1; });
+                    setState(() {
+                      _filterType = v;
+                      _currentPage = 1;
+                    });
                     _loadTickets();
                   },
                 ),
@@ -1123,15 +1443,18 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       onSelected: (_) => _applyDatePreset(preset),
       backgroundColor: Colors.white,
       selectedColor: const Color(0xFF0F2340),
-      labelStyle: TextStyle(color: selected ? Colors.white : const Color(0xFF18181B)),
+      labelStyle:
+          TextStyle(color: selected ? Colors.white : const Color(0xFF18181B)),
       side: const BorderSide(color: Color(0xFFE4E4E7)),
       visualDensity: VisualDensity.compact,
     );
   }
 
   Widget _buildBulkActionBar() {
-    final canApprove = Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets');
-    final pendingOnPage = _tickets.where((t) => t['status'] == 'Pending').length;
+    final canApprove = Provider.of<PermissionProvider>(context, listen: false)
+        .canApprove('PenaltyTickets');
+    final pendingOnPage =
+        _tickets.where((t) => t['status'] == 'Pending').length;
     return Container(
       color: const Color(0xFFFFF7ED),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1143,12 +1466,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             tooltip: 'Bỏ chọn',
             visualDensity: VisualDensity.compact,
           ),
-          Text('Đã chọn ${_selectedIds.length} phiếu', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text('Đã chọn ${_selectedIds.length} phiếu',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           const Spacer(),
-          if (pendingOnPage > _selectedIds.where((id) => _tickets.any((t) => t['id'].toString() == id && t['status'] == 'Pending')).length)
+          if (pendingOnPage >
+              _selectedIds
+                  .where((id) => _tickets.any((t) =>
+                      t['id'].toString() == id && t['status'] == 'Pending'))
+                  .length)
             TextButton(
               onPressed: _selectAllPendingOnPage,
-              child: Text('Chọn tất cả chờ duyệt ($pendingOnPage)', style: const TextStyle(fontSize: 12)),
+              child: Text('Chọn tất cả chờ duyệt ($pendingOnPage)',
+                  style: const TextStyle(fontSize: 12)),
             ),
           if (canApprove) ...[
             const SizedBox(width: 8),
@@ -1159,8 +1489,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1177,13 +1509,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           children: [
             Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
             SizedBox(height: 16),
-            Text('Không có phiếu phạt', style: TextStyle(fontSize: 16, color: Colors.grey)),
+            Text('Không có phiếu phạt',
+                style: TextStyle(fontSize: 16, color: Colors.grey)),
           ],
         ),
       );
     }
 
-    return Responsive.isMobile(context) ? _buildMobileList() : _buildDesktopList();
+    return Responsive.isMobile(context)
+        ? _buildMobileList()
+        : _buildDesktopList();
   }
 
   Widget _buildMobileList() {
@@ -1219,7 +1554,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isSelected ? Colors.orange : const Color(0xFFE4E4E7), width: isSelected ? 1.5 : 1),
+                  border: Border.all(
+                      color:
+                          isSelected ? Colors.orange : const Color(0xFFE4E4E7),
+                      width: isSelected ? 1.5 : 1),
                 ),
                 child: Row(
                   children: [
@@ -1227,26 +1565,40 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Icon(
-                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: isSelected ? Colors.orange : const Color(0xFFA1A1AA),
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Colors.orange
+                              : const Color(0xFFA1A1AA),
                           size: 22,
                         ),
                       ),
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: _getStatusColor(status).withValues(alpha: 0.15),
-                      child: Icon(_getTypeIcon(type), color: _getStatusColor(status), size: 20),
+                      backgroundColor:
+                          _getStatusColor(status).withValues(alpha: 0.15),
+                      child: Icon(_getTypeIcon(type),
+                          color: _getStatusColor(status), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(ticket['employeeName'] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B))),
+                          Text(ticket['employeeName'] ?? 'N/A',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Color(0xFF18181B))),
                           const SizedBox(height: 2),
                           Text(
-                            [_getTypeLabel(type), _formatDate(ticket['violationDate'])].where((s) => s.isNotEmpty).join(' \u00b7 '),
-                            style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                            [
+                              _getTypeLabel(type),
+                              _formatDate(ticket['violationDate'])
+                            ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                            style: const TextStyle(
+                                color: Color(0xFF71717A), fontSize: 12),
                           ),
                         ],
                       ),
@@ -1256,17 +1608,29 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text('${_currencyFormat.format(amount)}\u0111',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[700], fontSize: 13)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[700],
+                                fontSize: 13)),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: _getStatusColor(status).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text(_getStatusLabel(status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _getStatusColor(status))),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: _getStatusColor(status)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6)),
+                          child: Text(_getStatusLabel(status),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getStatusColor(status))),
                         ),
                       ],
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, color: Color(0xFFA1A1AA), size: 20),
+                    const Icon(Icons.chevron_right,
+                        color: Color(0xFFA1A1AA), size: 20),
                   ],
                 ),
               ),
@@ -1296,7 +1660,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: isSelected ? Colors.orange : const Color(0xFFE4E4E7), width: isSelected ? 1.5 : 1),
+            side: BorderSide(
+                color: isSelected ? Colors.orange : const Color(0xFFE4E4E7),
+                width: isSelected ? 1.5 : 1),
           ),
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: InkWell(
@@ -1322,44 +1688,73 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           child: InkWell(
                             onTap: () => _toggleSelection(id),
                             child: Icon(
-                              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                              color: isSelected ? Colors.orange : const Color(0xFFA1A1AA),
+                              isSelected
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank,
+                              color: isSelected
+                                  ? Colors.orange
+                                  : const Color(0xFFA1A1AA),
                               size: 22,
                             ),
                           ),
                         ),
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: _getStatusColor(status).withValues(alpha: 0.15),
-                        child: Icon(_getTypeIcon(type), color: _getStatusColor(status), size: 20),
+                        backgroundColor:
+                            _getStatusColor(status).withValues(alpha: 0.15),
+                        child: Icon(_getTypeIcon(type),
+                            color: _getStatusColor(status), size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(ticket['employeeName'] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            Text(ticket['employeeName'] ?? 'N/A',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 14)),
                             const SizedBox(height: 2),
                             Text(
-                              [_getTypeLabel(type), _formatDate(ticket['violationDate']), ticket['ticketCode'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 '),
-                              style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                              [
+                                _getTypeLabel(type),
+                                _formatDate(ticket['violationDate']),
+                                ticket['ticketCode'] ?? ''
+                              ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                              style: const TextStyle(
+                                  color: Color(0xFF71717A), fontSize: 12),
                             ),
                           ],
                         ),
                       ),
                       Text('${_currencyFormat.format(amount)}\u0111',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[700], fontSize: 15)),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                              fontSize: 15)),
                       const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: _getStatusColor(status).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                        child: Text(_getStatusLabel(status), style: TextStyle(fontSize: 11, color: _getStatusColor(status), fontWeight: FontWeight.w600)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color:
+                                _getStatusColor(status).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(_getStatusLabel(status),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: _getStatusColor(status),
+                                fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
-                  if (ticket['description'] != null && (ticket['description'] as String).isNotEmpty) ...[
+                  if (ticket['description'] != null &&
+                      (ticket['description'] as String).isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(ticket['description'], style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(ticket['description'],
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF71717A)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   ],
                   if (isPending || isApproved) ...[
                     const SizedBox(height: 10),
@@ -1367,47 +1762,84 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (isPending) ...[
-                          if (Provider.of<PermissionProvider>(context, listen: false).canEdit('PenaltyTickets'))
-                          _actionBtn(Icons.edit_outlined, 'Sửa', const Color(0xFF71717A), () => _showTicketDialog(ticket: ticket)),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canEdit('PenaltyTickets'))
-                          const SizedBox(width: 6),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canDelete('PenaltyTickets'))
-                          _actionBtn(Icons.delete_outline, 'Xóa', Colors.red, () => _deleteTicket(ticket['id'].toString())),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canDelete('PenaltyTickets'))
-                          const SizedBox(width: 6),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                          _actionBtn(Icons.close, 'Hủy phạt', Colors.orange, () => _cancelTicket(ticket['id'].toString())),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                          const SizedBox(width: 6),
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                          ElevatedButton.icon(
-                            onPressed: () => _approveTicket(ticket['id'].toString()),
-                            icon: const Icon(Icons.check, size: 16),
-                            label: const Text('Duyệt', style: TextStyle(fontSize: 12)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: Size.zero,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canEdit('PenaltyTickets'))
+                            _actionBtn(
+                                Icons.edit_outlined,
+                                'Sửa',
+                                const Color(0xFF71717A),
+                                () => _showTicketDialog(ticket: ticket)),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canEdit('PenaltyTickets'))
+                            const SizedBox(width: 6),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canDelete('PenaltyTickets'))
+                            _actionBtn(Icons.delete_outline, 'Xóa', Colors.red,
+                                () => _deleteTicket(ticket['id'].toString())),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canDelete('PenaltyTickets'))
+                            const SizedBox(width: 6),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canApprove('PenaltyTickets'))
+                            _actionBtn(Icons.close, 'Hủy phạt', Colors.orange,
+                                () => _cancelTicket(ticket['id'].toString())),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canApprove('PenaltyTickets'))
+                            const SizedBox(width: 6),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canApprove('PenaltyTickets'))
+                            ElevatedButton.icon(
+                              onPressed: () =>
+                                  _approveTicket(ticket['id'].toString()),
+                              icon: const Icon(Icons.check, size: 16),
+                              label: const Text('Duyệt',
+                                  style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                minimumSize: Size.zero,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                              ),
                             ),
-                          ),
                         ],
                         if (isApproved) ...[
                           if (ticket['cashTransactionCode'] != null) ...[
-                            Text('Phiếu thu: ${ticket['cashTransactionCode']}', style: TextStyle(fontSize: 11, color: Colors.green[600])),
+                            Text('Phiếu thu: ${ticket['cashTransactionCode']}',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.green[600])),
                             const SizedBox(width: 8),
                           ],
-                          if (Provider.of<PermissionProvider>(context, listen: false).canApprove('PenaltyTickets'))
-                          _actionBtn(Icons.undo, 'Hoàn duyệt', Colors.orange, () => _unapproveTicket(ticket['id'].toString())),
+                          if (Provider.of<PermissionProvider>(context,
+                                  listen: false)
+                              .canApprove('PenaltyTickets'))
+                            _actionBtn(
+                                Icons.undo,
+                                'Hoàn duyệt',
+                                Colors.orange,
+                                () =>
+                                    _unapproveTicket(ticket['id'].toString())),
                         ],
                       ],
                     ),
                   ],
-                  if (status == 'Cancelled' && ticket['cancellationReason'] != null) ...[
+                  if (status == 'Cancelled' &&
+                      ticket['cancellationReason'] != null) ...[
                     const SizedBox(height: 6),
                     Text('Lý do hủy: ${ticket['cancellationReason']}',
-                      style: TextStyle(fontSize: 11, color: Colors.red[300], fontStyle: FontStyle.italic)),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red[300],
+                            fontStyle: FontStyle.italic)),
                   ],
                 ],
               ),
@@ -1418,7 +1850,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     );
   }
 
-  Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onPressed) {
+  Widget _actionBtn(
+      IconData icon, String label, Color color, VoidCallback onPressed) {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
@@ -1450,11 +1883,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         spacing: 12,
         runSpacing: 8,
         children: [
-          Text('Hiển thị $start-$end / $_totalCount', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Text('Hiển thị $start-$end / $_totalCount',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text('Hiển thị:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -1469,10 +1904,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     value: _pageSize,
                     isDense: true,
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                    items: _pageSizeOptions
+                        .map((s) =>
+                            DropdownMenuItem(value: s, child: Text('$s')))
+                        .toList(),
                     onChanged: (v) {
                       if (v != null) {
-                        setState(() { _pageSize = v; _currentPage = 1; });
+                        setState(() {
+                          _pageSize = v;
+                          _currentPage = 1;
+                        });
                         _loadTickets();
                       }
                     },
@@ -1486,17 +1927,34 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.chevron_left, size: 20),
-                onPressed: _currentPage > 1 ? () { setState(() => _currentPage--); _loadTickets(); } : null,
+                onPressed: _currentPage > 1
+                    ? () {
+                        setState(() => _currentPage--);
+                        _loadTickets();
+                      }
+                    : null,
                 visualDensity: VisualDensity.compact,
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFF0F2340), borderRadius: BorderRadius.circular(8)),
-                child: Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF0F2340),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text('$_currentPage / $totalPages',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right, size: 20),
-                onPressed: _currentPage < totalPages ? () { setState(() => _currentPage++); _loadTickets(); } : null,
+                onPressed: _currentPage < totalPages
+                    ? () {
+                        setState(() => _currentPage++);
+                        _loadTickets();
+                      }
+                    : null,
                 visualDensity: VisualDensity.compact,
               ),
             ],

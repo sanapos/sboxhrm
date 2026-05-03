@@ -441,8 +441,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         for (var d = monthStart;
             !d.isAfter(monthEnd);
             d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday)
+          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) {
             offDays++;
+          }
         }
         break;
       case 'sat-afternoon-sun':
@@ -985,8 +986,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (empIdsRaw != null && empIdsRaw.toString().isNotEmpty) {
         try {
           final ids = jsonDecode(empIdsRaw.toString()) as List;
-          if (empIdForAllowance == null || !ids.contains(empIdForAllowance))
+          if (empIdForAllowance == null || !ids.contains(empIdForAllowance)) {
             continue;
+          }
         } catch (_) {
           continue;
         }
@@ -1757,7 +1759,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
       final bytes = byteData.buffer.asUint8List();
-      await file_saver.saveFileBytes(
+      await file_saver.saveAndOpenFileBytes(
           bytes,
           'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png',
           'image/png');
@@ -2075,30 +2077,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     final payrollData = _buildPayrollData();
-    // Auto-hide columns where all rows have no data (0 or empty)
-    const alwaysShow = {'stt', 'name', 'code', 'netSalary'};
-    final visibleCols = _columns.where((c) {
-      if (!c.visible) return false;
-      if (alwaysShow.contains(c.key)) return true;
-      if (payrollData.isEmpty) return true;
-      for (final row in payrollData) {
-        final v = row[c.key];
-        if (v == null) continue;
-        if (v is num && v != 0) return true;
-        if (v is String && v.isNotEmpty) return true;
-      }
-      return false;
-    }).toList();
-
-    // Pagination
     final isMobile = Responsive.isMobile(context);
-    final totalRows = payrollData.length;
-    final totalPages = (totalRows / _rowsPerPage).ceil().clamp(1, 999999);
-    if (_currentPage > totalPages) _currentPage = totalPages;
-    final startIdx = isMobile ? 0 : (_currentPage - 1) * _rowsPerPage;
-    final endIdx =
-        isMobile ? totalRows : (startIdx + _rowsPerPage).clamp(0, totalRows);
-    final pagedData = payrollData.sublist(startIdx, endIdx);
 
     return Padding(
       padding: EdgeInsets.all(Responsive.isMobile(context) ? 10 : 16),
@@ -2167,282 +2146,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       ],
                     ),
                   )
-                : Responsive.isMobile(context)
-                    ? ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        itemCount: pagedData.length,
-                        itemBuilder: (_, index) {
-                          final row = pagedData[index];
-                          final name = row['name']?.toString() ?? '';
-                          final code = row['code']?.toString() ?? '';
-                          final department =
-                              row['department']?.toString() ?? '';
-                          final netSalary =
-                              ((row['netSalary'] as num?) ?? 0).round();
-                          final baseSalary =
-                              ((row['baseSalary'] as num?) ?? 0).round();
-                          final allowance =
-                              ((row['totalAllowance'] as num?) ?? 0).round();
-                          final bonus = ((row['bonus'] as num?) ?? 0).round();
-                          final penalty = (((row['penalty'] as num?) ?? 0) +
-                                  ((row['latePenalty'] as num?) ?? 0))
-                              .round();
-                          final insurance =
-                              ((row['totalInsurance'] as num?) ?? 0).round();
-                          final advance =
-                              ((row['advance'] as num?) ?? 0).round();
-                          final workDays =
-                              ((row['workDays'] as num?) ?? 0).toInt();
-                          final standardDays =
-                              ((row['standardDays'] as num?) ?? 0).toInt();
-
-                          String fmtShort(int n) {
-                            if (n == 0) return '0';
-                            final abs = n.abs();
-                            if (abs >= 1000000)
-                              return '${(n / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
-                            if (abs >= 1000)
-                              return '${(n / 1000).toStringAsFixed(0)}k';
-                            return _currencyFmt.format(n);
-                          }
-
-                          Widget statPill(IconData icon, String label,
-                              int value, Color color,
-                              {bool subtractive = false}) {
-                            if (value == 0) return const SizedBox.shrink();
-                            final prefix = subtractive ? '-' : '+';
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(icon, size: 11, color: color),
-                                  const SizedBox(width: 3),
-                                  Text(label,
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: color,
-                                          fontWeight: FontWeight.w600)),
-                                  const SizedBox(width: 3),
-                                  Text('$prefix${fmtShort(value)}',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: color,
-                                          fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            );
-                          }
-
-                          final pills = [
-                            statPill(Icons.account_balance_wallet_outlined,
-                                'CB', baseSalary, const Color(0xFF1E3A5F)),
-                            statPill(Icons.card_giftcard_outlined, 'PC',
-                                allowance, const Color(0xFF2D5F8B)),
-                            statPill(Icons.emoji_events_outlined, 'TH', bonus,
-                                const Color(0xFF8B5CF6)),
-                            statPill(Icons.health_and_safety_outlined, 'BH',
-                                insurance, const Color(0xFFF59E0B),
-                                subtractive: true),
-                            statPill(Icons.gavel_outlined, 'P', penalty,
-                                const Color(0xFFEF4444),
-                                subtractive: true),
-                            statPill(Icons.payments_outlined, 'Ứng', advance,
-                                const Color(0xFF0F2340),
-                                subtractive: true),
-                          ].where((w) => w is! SizedBox).toList();
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: const Color(0xFFE4E4E7)),
-                                boxShadow: [
-                                  BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2))
-                                ],
-                              ),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () => _showEmployeeDetail(row),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(14, 12, 12, 12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Row 1: avatar + name/code + net salary
-                                      Row(children: [
-                                        CircleAvatar(
-                                          radius: 20,
-                                          backgroundColor:
-                                              const Color(0xFF1E3A5F)
-                                                  .withValues(alpha: 0.1),
-                                          child: Text(
-                                              name.isNotEmpty
-                                                  ? name[0].toUpperCase()
-                                                  : '?',
-                                              style: const TextStyle(
-                                                  color: Color(0xFF1E3A5F),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 15)),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(name,
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        fontSize: 14.5,
-                                                        color:
-                                                            Color(0xFF1E293B)),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  [
-                                                    if (code.isNotEmpty) code,
-                                                    if (department.isNotEmpty)
-                                                      department,
-                                                  ].join(' · '),
-                                                  style: const TextStyle(
-                                                      color: Color(0xFF71717A),
-                                                      fontSize: 11.5),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ]),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              _currencyFmt.format(netSalary),
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
-                                                  color: netSalary >= 0
-                                                      ? const Color(0xFF16A34A)
-                                                      : const Color(
-                                                          0xFFDC2626)),
-                                            ),
-                                            const SizedBox(height: 1),
-                                            Text('₫ thực nhận',
-                                                style: TextStyle(
-                                                    color: Colors.grey.shade500,
-                                                    fontSize: 9.5,
-                                                    fontWeight:
-                                                        FontWeight.w500)),
-                                          ],
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.chevron_right,
-                                            size: 18, color: Color(0xFFA1A1AA)),
-                                      ]),
-                                      const SizedBox(height: 10),
-                                      // Row 2: work days bar
-                                      Row(
-                                        children: [
-                                          Icon(Icons.event_available_outlined,
-                                              size: 13,
-                                              color: Colors.grey.shade600),
-                                          const SizedBox(width: 5),
-                                          Text(
-                                            standardDays > 0
-                                                ? '$workDays / $standardDays công'
-                                                : '$workDays công',
-                                            style: TextStyle(
-                                                fontSize: 11.5,
-                                                color: Colors.grey.shade700,
-                                                fontWeight: FontWeight.w600),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          if (standardDays > 0)
-                                            Expanded(
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                child: LinearProgressIndicator(
-                                                  value:
-                                                      (workDays / standardDays)
-                                                          .clamp(0.0, 1.0),
-                                                  minHeight: 5,
-                                                  backgroundColor:
-                                                      const Color(0xFFF1F5F9),
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(
-                                                    workDays >= standardDays
-                                                        ? const Color(
-                                                            0xFF22C55E)
-                                                        : const Color(
-                                                            0xFF3B82F6),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      // Row 3: breakdown pills (only non-zero items)
-                                      if (pills.isNotEmpty) ...[
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: pills),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: _buildTable(pagedData, visibleCols,
-                              startIndex: startIdx),
-                        ),
-                      ),
+                : RepaintBoundary(
+                    key: _tableKey,
+                    child: _buildCrossTabPayroll(payrollData),
+                  ),
           ),
-          if (payrollData.isNotEmpty && !isMobile) ...[
-            const SizedBox(height: 12),
-            _buildPagination(totalRows, totalPages)
-          ],
         ],
       ),
     );
@@ -3470,8 +3178,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   Widget _buildTable(
-      List<Map<String, dynamic>> data, List<PayrollColumn> visibleCols,
-      {int startIndex = 0}) {
+      List<Map<String, dynamic>> data, List<PayrollColumn> visibleCols) {
     final frozenCols =
         visibleCols.where((c) => _frozenKeys.contains(c.key)).toList();
     final scrollableCols =
@@ -3799,8 +3506,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           final fromVal = tgt * fromPct / 100;
           final toVal = toPct < 0 ? act : tgt * toPct / 100;
           final inBand = (act < toVal ? act : toVal) - fromVal;
-          if (inBand > 0)
+          if (inBand > 0) {
             bonus = rateType == 1 ? inBand * rate / 100 : inBand * rate;
+          }
         }
       }
       return {
@@ -3859,6 +3567,376 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         if (val == 0) return '0';
         return _currencyFmt.format(val.round());
     }
+  }
+
+  // ──────── Format cell for cross-tab ────────
+  String _formatPayrollCell(String key, Map<String, dynamic> row) {
+    switch (key) {
+      case 'workDays':
+      case 'absentDays':
+      case 'lateCount':
+      case 'earlyCount':
+        return '${(row[key] as num?)?.toInt() ?? 0}';
+      case 'standardDays':
+        final sd = (row[key] as num?)?.toDouble() ?? 0;
+        return sd == sd.roundToDouble()
+            ? '${sd.toInt()}'
+            : sd.toStringAsFixed(1);
+      case 'totalHours':
+      case 'standardHours':
+      case 'otTotalHours':
+        final h = (row[key] as num?)?.toDouble() ?? 0;
+        if (h == 0) return '0';
+        return '${h.toStringAsFixed(1)}h';
+      case 'lateMinutes':
+      case 'earlyMinutes':
+        final m = (row[key] as num?)?.toInt() ?? 0;
+        if (m == 0) return '0';
+        return '${m}p';
+      case 'penalty':
+      case 'latePenalty':
+      case 'totalInsurance':
+      case 'pit':
+        final val = (row[key] as num?)?.toDouble() ?? 0;
+        if (val == 0) return '0';
+        return '-${_fmtShort(val.round())}';
+      case 'advance':
+        final val = (row[key] as num?)?.toDouble() ?? 0;
+        if (val == 0) return '0';
+        return _fmtShort(val.round());
+      default:
+        final val = (row[key] as num?)?.toDouble() ?? 0;
+        if (val == 0) return '0';
+        return _fmtShort(val.round());
+    }
+  }
+
+  String _fmtShort(int n) {
+    if (n == 0) return '0';
+    final abs = n.abs();
+    final sign = n < 0 ? '-' : '';
+    if (abs >= 1000000)
+      return '$sign${(abs / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
+    if (abs >= 1000) return '$sign${(abs / 1000).toStringAsFixed(0)}k';
+    return _currencyFmt.format(n);
+  }
+
+  // ──────── Cross-tab payroll layout ────────
+  Widget _buildCrossTabPayroll(List<Map<String, dynamic>> data) {
+    if (data.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
+            Text('Không có dữ liệu',
+                style: TextStyle(color: Colors.grey.shade500)),
+          ],
+        ),
+      );
+    }
+
+    const empColW = 150.0;
+    const rowH = 46.0;
+    const hdrH = 44.0;
+
+    Widget empCell(Map<String, dynamic> row, int idx) {
+      final isEven = idx.isEven;
+      final name = row['name']?.toString() ?? '';
+      final code = row['code']?.toString() ?? '';
+      final dept = row['department']?.toString() ?? '';
+      return InkWell(
+        onTap: () => _showEmployeeDetail(row),
+        child: Container(
+          width: empColW,
+          height: rowH,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
+            border: const Border(
+              right: BorderSide(color: Color(0xFFD4D4D8)),
+              bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF18181B)),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1),
+              Text('$code${dept.isNotEmpty ? ' · $dept' : ''}',
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildSection({
+      required String title,
+      required Color titleColor,
+      required List<String> colKeys,
+      required List<String> colLabels,
+      required List<double> colWidths,
+    }) {
+      Color cellColor(String key, Map<String, dynamic> row) {
+        final c = _getCellColor(key, row);
+        if (c != null) return c;
+        switch (key) {
+          case 'netSalary':
+            return const Color(0xFF1D4ED8);
+          case 'totalSalary':
+            return const Color(0xFF15803D);
+          case 'totalDeduction':
+            return Colors.red.shade700;
+          default:
+            return const Color(0xFF18181B);
+        }
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header bar
+          Container(
+            color: titleColor.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(children: [
+              Container(
+                  width: 3,
+                  height: 13,
+                  color: titleColor,
+                  margin: const EdgeInsets.only(right: 7)),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: titleColor)),
+            ]),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Frozen employee column
+                Column(
+                  children: [
+                    Container(
+                      width: empColW,
+                      height: hdrH,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E3A5F),
+                        border: Border(
+                          right: BorderSide(color: Colors.white24),
+                          bottom: BorderSide(color: Colors.white24, width: 0.5),
+                        ),
+                      ),
+                      child: const Text('Nhân viên',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    ...data.asMap().entries.map((e) => empCell(e.value, e.key)),
+                  ],
+                ),
+                // Scrollable columns
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    child: SizedBox(
+                      width: colWidths.fold<double>(0, (s, w) => s + w),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header row
+                          Row(
+                            children: List.generate(
+                                colKeys.length,
+                                (i) => Container(
+                                      width: colWidths[i],
+                                      height: hdrH,
+                                      alignment: Alignment.center,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF1E3A5F),
+                                        border: Border(
+                                          right: BorderSide(
+                                              color: Colors.white24,
+                                              width: 0.5),
+                                          bottom: BorderSide(
+                                              color: Colors.white24,
+                                              width: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(colLabels[i],
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600)),
+                                    )),
+                          ),
+                          // Data rows
+                          ...data.asMap().entries.map((e) {
+                            final row = e.value;
+                            final isEven = e.key.isEven;
+                            return InkWell(
+                              onTap: () => _showEmployeeDetail(row),
+                              child: Container(
+                                color: isEven
+                                    ? const Color(0xFFF9F9F9)
+                                    : Colors.white,
+                                child: Row(
+                                  children: List.generate(colKeys.length, (i) {
+                                    final key = colKeys[i];
+                                    return Container(
+                                      width: colWidths[i],
+                                      height: rowH,
+                                      alignment: Alignment.center,
+                                      decoration: const BoxDecoration(
+                                        border: Border(
+                                          right: BorderSide(
+                                              color: Color(0xFFE4E4E7),
+                                              width: 0.5),
+                                          bottom: BorderSide(
+                                              color: Color(0xFFE4E4E7),
+                                              width: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _formatPayrollCell(key, row),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: key == 'netSalary' ||
+                                                  key == 'totalSalary'
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: cellColor(key, row),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildSection(
+            title: 'BẢNG CHẤM CÔNG',
+            titleColor: const Color(0xFF16A34A),
+            colKeys: [
+              'workDays',
+              'standardDays',
+              'totalHours',
+              'otTotalHours',
+              'lateCount',
+              'lateMinutes',
+              'earlyCount',
+              'earlyMinutes'
+            ],
+            colLabels: [
+              'Công',
+              'Chuẩn',
+              'Giờ làm',
+              'Tăng ca',
+              'Đi trễ',
+              'Tổng trễ',
+              'Về sớm',
+              'Tổng sớm'
+            ],
+            colWidths: [60, 60, 70, 70, 60, 68, 60, 68],
+          ),
+          const SizedBox(height: 8),
+          buildSection(
+            title: 'BẢNG THU NHẬP',
+            titleColor: const Color(0xFF2563EB),
+            colKeys: [
+              'baseSalary',
+              'completionSalary',
+              'dailySalary',
+              'shiftSalary',
+              'hourlySalary',
+              'otSalary',
+              'totalAllowance',
+              'bonus',
+              'kpiSalary',
+              'productionAmount'
+            ],
+            colLabels: [
+              'L.Cơ bản',
+              'L.Hoàn thành',
+              'L.Ngày',
+              'L.Ca',
+              'L.Giờ',
+              'L.Tăng ca',
+              'Phụ cấp',
+              'Thưởng',
+              'KPI',
+              'Sản lượng'
+            ],
+            colWidths: [100, 100, 90, 90, 90, 100, 90, 90, 90, 100],
+          ),
+          const SizedBox(height: 8),
+          buildSection(
+            title: 'BẢNG KHẤU TRỪ',
+            titleColor: const Color(0xFFDC2626),
+            colKeys: [
+              'latePenalty',
+              'penalty',
+              'totalInsurance',
+              'pit',
+              'advance'
+            ],
+            colLabels: [
+              'Phạt trễ/sớm',
+              'Phạt khác',
+              'Bảo hiểm',
+              'TNCN',
+              'Ứng lương'
+            ],
+            colWidths: [100, 90, 100, 90, 90],
+          ),
+          const SizedBox(height: 8),
+          buildSection(
+            title: 'BẢNG TỔNG CỘNG',
+            titleColor: const Color(0xFF7C3AED),
+            colKeys: ['totalSalary', 'totalDeduction', 'netSalary'],
+            colLabels: ['Tổng lương', 'Tổng khấu trừ', 'THỰC NHẬN'],
+            colWidths: [130, 120, 140],
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
   }
 }
 

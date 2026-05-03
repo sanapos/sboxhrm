@@ -42,8 +42,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
   bool _showMobileFilters = false;
 
   // Sorting (Payslips tab)
-  String _sortColumn = 'netSalary';
-  bool _sortAscending = false;
+  final String _sortColumn = 'netSalary';
+  final bool _sortAscending = false;
 
   @override
   void initState() {
@@ -189,7 +189,9 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
   List<Map<String, dynamic>> get _filteredSalaryData {
     return _employeeSalaryData.where((e) {
       if (_selectedDepartment != null &&
-          e['department'] != _selectedDepartment) return false;
+          e['department'] != _selectedDepartment) {
+        return false;
+      }
       if (_searchText.isNotEmpty) {
         final name = (e['fullName'] ?? '').toString().toLowerCase();
         if (!name.contains(_searchText.toLowerCase())) return false;

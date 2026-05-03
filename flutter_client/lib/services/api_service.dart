@@ -734,9 +734,11 @@ class ApiService {
   }
 
   /// Returns { 'expiring': [...], 'expired': [...] }
-  Future<Map<String, dynamic>> getExpiringContracts({int daysAhead = 30}) async {
+  Future<Map<String, dynamic>> getExpiringContracts(
+      {int daysAhead = 30}) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/employees/expiring-contracts?daysAhead=$daysAhead');
+      final uri = Uri.parse(
+          '$baseUrl/api/employees/expiring-contracts?daysAhead=$daysAhead');
       final response = await http
           .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 10));
@@ -4657,8 +4659,9 @@ class ApiService {
         'pageSize': pageSize.toString(),
       };
       if (assetId != null) params['assetId'] = assetId;
-      if (transactionType != null)
+      if (transactionType != null) {
         params['transactionType'] = transactionType.toString();
+      }
       if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       if (search != null) params['search'] = search;
@@ -4881,8 +4884,9 @@ class ApiService {
       if (status != null) params['status'] = status.toString();
       if (searchTerm != null) params['searchTerm'] = searchTerm;
       if (sortBy != null) params['sortBy'] = sortBy;
-      if (sortDescending != null)
+      if (sortDescending != null) {
         params['sortDescending'] = sortDescending.toString();
+      }
 
       final uri = Uri.parse('$baseUrl/api/communications')
           .replace(queryParameters: params);
@@ -6278,7 +6282,8 @@ class ApiService {
   /// Resolve the active overnight cutoff from shift templates.
   /// Returns "HH:mm:ss" of the first active "Qua đêm" shift, or null.
   /// Cached for 5 minutes to avoid hitting the shifts endpoint on every report load.
-  Future<String?> resolveActiveOvernightCutoff({bool forceRefresh = false}) async {
+  Future<String?> resolveActiveOvernightCutoff(
+      {bool forceRefresh = false}) async {
     if (!forceRefresh &&
         _cachedOvernightCutoffAt != null &&
         DateTime.now().difference(_cachedOvernightCutoffAt!).inMinutes < 5) {
@@ -6607,8 +6612,9 @@ class ApiService {
             : endDate.toString();
       }
       if (department != null) params['department'] = department;
-      if (minOvertimeMinutes != null)
+      if (minOvertimeMinutes != null) {
         params['minOvertimeMinutes'] = minOvertimeMinutes.toString();
+      }
       final uri = Uri.parse('$baseUrl/api/Reports/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7656,10 +7662,8 @@ class ApiService {
         'displayOrder': displayOrder,
         'isPublic': isPublic,
       };
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/settings/app'),
-          headers: _headers,
-          body: json.encode(data));
+      final response = await http.post(Uri.parse('$baseUrl/api/settings/app'),
+          headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -8844,19 +8848,6 @@ class ApiService {
   }
 
   // ==================== PAYSLIPS ====================
-  Future<Map<String, dynamic>> generatePayslip(
-      Map<String, dynamic> data) async {
-    try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/payslips/generate'),
-          headers: _headers,
-          body: json.encode(data));
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
   Future<Map<String, dynamic>> getEmployeePayslips(
       String employeeUserId) async {
     try {
@@ -9723,11 +9714,16 @@ class ApiService {
 
   /// Thống kê phiếu phạt
   Future<Map<String, dynamic>> getPenaltyTicketStats(
-      {int? month, int? year}) async {
+      {int? month, int? year, String? fromDate, String? toDate}) async {
     try {
       var queryParams = '';
-      if (month != null) queryParams += 'month=$month&';
-      if (year != null) queryParams += 'year=$year';
+      if (fromDate != null && toDate != null) {
+        // Ưu tiên lọc theo khoảng ngày tường minh khi được cung cấp
+        queryParams = 'fromDate=$fromDate&toDate=$toDate';
+      } else {
+        if (month != null) queryParams += 'month=$month&';
+        if (year != null) queryParams += 'year=$year';
+      }
 
       final response = await http
           .get(
@@ -10334,8 +10330,9 @@ class ApiService {
         'fromDate': fromDate,
         'toDate': toDate,
       };
-      if (employeeUserId != null)
+      if (employeeUserId != null) {
         queryParams['employeeUserId'] = employeeUserId;
+      }
       final uri = Uri.parse('$baseUrl/api/meals/summary')
           .replace(queryParameters: queryParams);
       final response = await http.get(uri, headers: _headers);
@@ -10434,10 +10431,12 @@ class ApiService {
       {DateTime? fromDate, DateTime? toDate}) async {
     try {
       final params = <String, String>{};
-      if (fromDate != null)
+      if (fromDate != null) {
         params['fromDate'] = fromDate.toIso8601String().split('T')[0];
-      if (toDate != null)
+      }
+      if (toDate != null) {
         params['toDate'] = toDate.toIso8601String().split('T')[0];
+      }
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
           : '';
@@ -10675,8 +10674,9 @@ class ApiService {
     try {
       final params = <String, String>{};
       if (search != null && search.isNotEmpty) params['search'] = search;
-      if (category != null && category.isNotEmpty)
+      if (category != null && category.isNotEmpty) {
         params['category'] = category;
+      }
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
           : '';

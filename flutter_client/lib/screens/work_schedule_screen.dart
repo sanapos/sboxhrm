@@ -25,7 +25,8 @@ class WorkScheduleScreen extends StatefulWidget {
   State<WorkScheduleScreen> createState() => _WorkScheduleScreenState();
 }
 
-class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTickerProviderStateMixin {
+class _WorkScheduleScreenState extends State<WorkScheduleScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   bool _isEmployee = false;
   late TabController _tabController;
@@ -35,7 +36,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   // GlobalKeys for PNG export
   final GlobalKey _scheduleTableKey = GlobalKey();
   final GlobalKey _approvedTableKey = GlobalKey();
-  
+
   List<WorkSchedule> _schedules = [];
   List<ScheduleRegistration> _registrations = [];
   List<Shift> _shifts = [];
@@ -44,7 +45,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   String? _selectedDepartment;
   bool _isLoading = true;
   bool _showMobileFilters = false;
-  
+
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
   String? _selectedEmployeeId;
 
@@ -57,9 +58,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   /// Employees filtered by selected department
   List<Employee> get _filteredEmployees {
     if (_selectedDepartment == null) return _employees;
-    return _employees.where((e) => e.department == _selectedDepartment).toList();
+    return _employees
+        .where((e) => e.department == _selectedDepartment)
+        .toList();
   }
-  
+
   // Pending registrations (local, not submitted yet)
   final List<Map<String, dynamic>> _pendingRegistrations = [];
 
@@ -144,7 +147,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   Future<void> _loadDepartments() async {
     try {
-      final result = await _apiService.getDepartments(pageSize: 200, isActive: true);
+      final result =
+          await _apiService.getDepartments(pageSize: 200, isActive: true);
       if (!mounted) return;
       if (result['isSuccess'] == true && result['data'] != null) {
         final data = result['data'];
@@ -173,16 +177,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   /// Get staffing quota for a specific shift (and optionally department)
-  Map<String, dynamic>? _getQuotaForShift(String shiftId, {String? department}) {
+  Map<String, dynamic>? _getQuotaForShift(String shiftId,
+      {String? department}) {
     // First try department-specific quota
     if (department != null) {
-      final deptQuota = _staffingQuotas.where((q) =>
-        q['shiftTemplateId'] == shiftId && q['department'] == department).firstOrNull;
+      final deptQuota = _staffingQuotas
+          .where((q) =>
+              q['shiftTemplateId'] == shiftId && q['department'] == department)
+          .firstOrNull;
       if (deptQuota != null) return deptQuota;
     }
     // Fall back to global quota (department == null)
-    return _staffingQuotas.where((q) =>
-      q['shiftTemplateId'] == shiftId && (q['department'] == null || q['department'] == '')).firstOrNull;
+    return _staffingQuotas
+        .where((q) =>
+            q['shiftTemplateId'] == shiftId &&
+            (q['department'] == null || q['department'] == ''))
+        .firstOrNull;
   }
 
   Future<void> _loadSchedules() async {
@@ -191,7 +201,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     // Both employee and manager use weekly view now
     fromDate = _selectedWeekStart;
     toDate = _selectedWeekStart.add(const Duration(days: 6));
-    
+
     final Map<String, dynamic> result;
     if (_isEmployee) {
       result = await _apiService.getMyWorkSchedules(
@@ -207,13 +217,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         pageSize: 500,
       );
     }
-    
+
     if (!mounted) return;
     if (result['isSuccess'] == true && result['data'] != null) {
       final data = result['data'];
       final items = data is List ? data : (data['items'] ?? []);
       setState(() {
-        _schedules = (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
+        _schedules =
+            (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
       });
     }
   }
@@ -224,7 +235,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     // Both employee and manager use weekly view now
     fromDate = _selectedWeekStart;
     toDate = _selectedWeekStart.add(const Duration(days: 6));
-    
+
     final Map<String, dynamic> result;
     if (_isEmployee) {
       result = await _apiService.getMyScheduleRegistrations(
@@ -239,13 +250,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         pageSize: 500,
       );
     }
-    
+
     if (!mounted) return;
     if (result['isSuccess'] == true && result['data'] != null) {
       final data = result['data'];
       final items = data is List ? data : (data['items'] ?? []);
       setState(() {
-        _registrations = (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
+        _registrations = (items as List)
+            .map((r) => ScheduleRegistration.fromJson(r))
+            .toList();
       });
     }
   }
@@ -306,7 +319,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 onPressed: _submitAllRegistrations,
                 backgroundColor: const Color(0xFF1E3A5F),
                 icon: const Icon(Icons.send, size: 18),
-                label: Text('Gửi đăng ký (${_pendingRegistrations.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                label: Text('Gửi đăng ký (${_pendingRegistrations.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               )
             : null,
       );
@@ -334,7 +348,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               onPressed: _submitAllRegistrations,
               backgroundColor: const Color(0xFF1E3A5F),
               icon: const Icon(Icons.send, size: 18),
-              label: Text('Gửi (${_pendingRegistrations.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+              label: Text('Gửi (${_pendingRegistrations.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
     );
@@ -355,33 +370,52 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         indicatorColor: const Color(0xFF1E3A5F),
         indicatorWeight: 3,
         isScrollable: Responsive.isMobile(context),
-        tabAlignment: Responsive.isMobile(context) ? TabAlignment.start : TabAlignment.fill,
+        tabAlignment: Responsive.isMobile(context)
+            ? TabAlignment.start
+            : TabAlignment.fill,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         tabs: [
           Tab(
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.work_history, size: 16),
               const SizedBox(width: 6),
-              Flexible(child: Text(Responsive.isMobile(context) ? 'Theo ca' : _l10n.byShift, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                  child: Text(
+                      Responsive.isMobile(context) ? 'Theo ca' : _l10n.byShift,
+                      overflow: TextOverflow.ellipsis)),
             ]),
           ),
           Tab(
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.hourglass_empty, size: 16),
               const SizedBox(width: 6),
-              Flexible(child: Text(Responsive.isMobile(context) ? 'Chờ duyệt' : _l10n.pendingSchedule, overflow: TextOverflow.ellipsis)),
-              if (_pendingRegistrations.isNotEmpty || _registrations.where((r) => r.status == ScheduleRegistrationStatus.pending).isNotEmpty) ...[
+              Flexible(
+                  child: Text(
+                      Responsive.isMobile(context)
+                          ? 'Chờ duyệt'
+                          : _l10n.pendingSchedule,
+                      overflow: TextOverflow.ellipsis)),
+              if (_pendingRegistrations.isNotEmpty ||
+                  _registrations
+                      .where(
+                          (r) => r.status == ScheduleRegistrationStatus.pending)
+                      .isNotEmpty) ...[
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF59E0B),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${_pendingRegistrations.length + _registrations.where((r) => r.status == ScheduleRegistrationStatus.pending).length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -391,7 +425,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.check_circle, size: 16),
               const SizedBox(width: 6),
-              Flexible(child: Text(Responsive.isMobile(context) ? 'Đã duyệt' : _l10n.approvedSchedule, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                  child: Text(
+                      Responsive.isMobile(context)
+                          ? 'Đã duyệt'
+                          : _l10n.approvedSchedule,
+                      overflow: TextOverflow.ellipsis)),
             ]),
           ),
         ],
@@ -400,7 +439,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   Widget _buildTabShiftCentric() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('WorkSchedule');
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('WorkSchedule');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,11 +459,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE4E4E7)),
             ),
             child: Wrap(
-              spacing: 12, runSpacing: 6,
+              spacing: 12,
+              runSpacing: 6,
               children: [
                 _buildLegendDot(const Color(0xFF1E3A5F), 'Đã xếp lịch'),
                 _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
@@ -442,8 +484,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   Widget _buildTabPendingRegistrations() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('WorkSchedule');
-    final canApprove = Provider.of<PermissionProvider>(context, listen: false).canView('ScheduleApproval');
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('WorkSchedule');
+    final canApprove = Provider.of<PermissionProvider>(context, listen: false)
+        .canView('ScheduleApproval');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,29 +497,38 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: OutlinedButton.icon(
-                onPressed: () => NavigationNotifier.goTo(NavigationNotifier.scheduleApproval),
-                icon: const Icon(Icons.assignment_turned_in, size: 16, color: Color(0xFFF59E0B)),
-                label: const Text('Duyệt lịch làm việc', style: TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                onPressed: () => NavigationNotifier.goTo(
+                    NavigationNotifier.scheduleApproval),
+                icon: const Icon(Icons.assignment_turned_in,
+                    size: 16, color: Color(0xFFF59E0B)),
+                label: const Text('Duyệt lịch làm việc',
+                    style: TextStyle(
+                        color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFF59E0B)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
               ),
             ),
           if (canExport)
             _buildExportBar(
               onExportExcel: _exportScheduleTableExcel,
-              onExportPng: () => _exportTableToPng(_scheduleTableKey, 'DangKyChoDuyet'),
+              onExportPng: () =>
+                  _exportTableToPng(_scheduleTableKey, 'DangKyChoDuyet'),
             ),
           RepaintBoundary(
             key: _scheduleTableKey,
             child: Container(
               color: const Color(0xFFFAFAFA),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _buildExportHeader('ĐĂNG KÝ CHỜ DUYỆT', const Color(0xFFF59E0B)),
-                _buildPendingGrid(),
-                _buildCompactLegend(),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildExportHeader(
+                        'ĐĂNG KÝ CHỜ DUYỆT', const Color(0xFFF59E0B)),
+                    _buildPendingGrid(),
+                    _buildCompactLegend(),
+                  ]),
             ),
           ),
           if (_pendingRegistrations.isNotEmpty) _buildPendingRegistrations(),
@@ -485,7 +538,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   Widget _buildTabApprovedSchedule() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('WorkSchedule');
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('WorkSchedule');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,17 +547,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           if (canExport)
             _buildExportBar(
               onExportExcel: _exportApprovedExcel,
-              onExportPng: () => _exportTableToPng(_approvedTableKey, 'LichDaDuyet'),
+              onExportPng: () =>
+                  _exportTableToPng(_approvedTableKey, 'LichDaDuyet'),
             ),
           RepaintBoundary(
             key: _approvedTableKey,
             child: Container(
               color: const Color(0xFFFAFAFA),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _buildExportHeader('LỊCH LÀM VIỆC ĐÃ DUYỆT', const Color(0xFF1E3A5F)),
-                _buildApprovedGrid(),
-                _buildCompactLegend(),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildExportHeader(
+                        'LỊCH LÀM VIỆC ĐÃ DUYỆT', const Color(0xFF1E3A5F)),
+                    _buildApprovedGrid(),
+                    _buildCompactLegend(),
+                  ]),
             ),
           ),
         ],
@@ -511,7 +569,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _buildExportBar({VoidCallback? onExportExcel, VoidCallback? onExportPng}) {
+  Widget _buildExportBar(
+      {VoidCallback? onExportExcel, VoidCallback? onExportPng}) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
@@ -525,7 +584,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF22C55E),
                 side: const BorderSide(color: Color(0xFF22C55E)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
               ),
             ),
@@ -538,7 +598,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF1E3A5F),
                 side: const BorderSide(color: Color(0xFF1E3A5F)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
               ),
             ),
@@ -552,7 +613,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
     final weekNumber = _getWeekNumber(_selectedWeekStart);
     final dateFormat = DateFormat('dd/MM');
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final now = DateTime.now();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -576,8 +638,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.chevron_left, size: 20, color: Color(0xFF71717A)),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.chevron_left,
+                      size: 20, color: Color(0xFF71717A)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -585,8 +650,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 onTap: _goToThisWeek,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A5F),
+                      borderRadius: BorderRadius.circular(8)),
                   child: const Icon(Icons.today, size: 18, color: Colors.white),
                 ),
               ),
@@ -596,18 +664,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.chevron_right, size: 20, color: Color(0xFF71717A)),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.chevron_right,
+                      size: 20, color: Color(0xFF71717A)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8)),
                   child: Text(
                     'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})',
-                    style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(
+                        color: Color(0xFF18181B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -628,47 +705,82 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE4E4E7)),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2))
+                    ],
                   ),
                   child: Column(
                     children: [
                       // Header row: empty corner + day columns
                       Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          color:
+                              const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12)),
                         ),
                         child: Row(
                           children: [
                             // Corner cell
                             Container(
                               width: 90,
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                              child: const Text('Ca / Ngày', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)), textAlign: TextAlign.center),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 6),
+                              decoration: const BoxDecoration(
+                                  border: Border(
+                                      right: BorderSide(
+                                          color: Color(0xFFE4E4E7)))),
+                              child: const Text('Ca / Ngày',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1E3A5F)),
+                                  textAlign: TextAlign.center),
                             ),
                             // Day columns
                             ...List.generate(7, (di) {
                               final day = days[di];
-                              final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+                              final isToday = day.year == now.year &&
+                                  day.month == now.month &&
+                                  day.day == now.day;
                               final isSun = di == 6;
                               return Expanded(
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: isToday ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : null,
-                                    border: di < 6 ? const Border(right: BorderSide(color: Color(0xFFE4E4E7))) : null,
+                                    color: isToday
+                                        ? const Color(0xFF1E3A5F)
+                                            .withValues(alpha: 0.1)
+                                        : null,
+                                    border: di < 6
+                                        ? const Border(
+                                            right: BorderSide(
+                                                color: Color(0xFFE4E4E7)))
+                                        : null,
                                   ),
                                   child: Column(
                                     children: [
-                                      Text(dayLabels[di], style: TextStyle(
-                                        fontSize: 11, fontWeight: FontWeight.w700,
-                                        color: isToday ? const Color(0xFF1E3A5F) : (isSun ? const Color(0xFFEF4444) : const Color(0xFF71717A)),
-                                      )),
-                                      Text('${day.day}/${day.month}', style: TextStyle(
-                                        fontSize: 10,
-                                        color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
-                                      )),
+                                      Text(dayLabels[di],
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: isToday
+                                                ? const Color(0xFF1E3A5F)
+                                                : (isSun
+                                                    ? const Color(0xFFEF4444)
+                                                    : const Color(0xFF71717A)),
+                                          )),
+                                      Text('${day.day}/${day.month}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: isToday
+                                                ? const Color(0xFF1E3A5F)
+                                                : const Color(0xFF71717A),
+                                          )),
                                     ],
                                   ),
                                 ),
@@ -679,7 +791,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       ),
                       // Shift rows
                       if (_shifts.isEmpty)
-                        const Padding(padding: EdgeInsets.all(24), child: Text('Chưa có ca làm việc', style: TextStyle(color: Color(0xFF71717A))))
+                        const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text('Chưa có ca làm việc',
+                                style: TextStyle(color: Color(0xFF71717A))))
                       else
                         ..._shifts.asMap().entries.map((entry) {
                           final si = entry.key;
@@ -687,27 +802,51 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                           final isLast = si == _shifts.length - 1;
                           return Container(
                             decoration: BoxDecoration(
-                              border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                              border: isLast
+                                  ? null
+                                  : const Border(
+                                      bottom:
+                                          BorderSide(color: Color(0xFFE4E4E7))),
                             ),
                             child: Row(
                               children: [
                                 // Shift name cell
                                 Container(
                                   width: 90,
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                                  decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 6),
+                                  decoration: const BoxDecoration(
+                                      border: Border(
+                                          right: BorderSide(
+                                              color: Color(0xFFE4E4E7)))),
                                   child: Column(
                                     children: [
-                                      Text(shift.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF18181B)), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                      Text('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)), textAlign: TextAlign.center),
+                                      Text(shift.name,
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF18181B)),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                      Text(
+                                          '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+                                          style: const TextStyle(
+                                              fontSize: 9,
+                                              color: Color(0xFF71717A)),
+                                          textAlign: TextAlign.center),
                                     ],
                                   ),
                                 ),
                                 // Day cells for this shift
                                 ...List.generate(7, (di) {
                                   final day = days[di];
-                                  final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
-                                  return Expanded(child: _buildEmpGridCell(shift, day, di, isToday, myUserId));
+                                  final isToday = day.year == now.year &&
+                                      day.month == now.month &&
+                                      day.day == now.day;
+                                  return Expanded(
+                                      child: _buildEmpGridCell(
+                                          shift, day, di, isToday, myUserId));
                                 }),
                               ],
                             ),
@@ -723,11 +862,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(10),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFE4E4E7)),
                   ),
                   child: Wrap(
-                    spacing: 12, runSpacing: 6,
+                    spacing: 12,
+                    runSpacing: 6,
                     children: [
                       _buildLegendDot(const Color(0xFF1E3A5F), 'Đã xếp lịch'),
                       _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
@@ -757,24 +898,43 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(3), border: Border.all(color: color, width: 1.5))),
+        Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: color, width: 1.5))),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w500)),
       ],
     );
   }
 
-  Widget _buildEmpGridCell(Shift shift, DateTime day, int dayIndex, bool isToday, String? myUserId) {
+  Widget _buildEmpGridCell(
+      Shift shift, DateTime day, int dayIndex, bool isToday, String? myUserId) {
     // Check if already has confirmed work schedule
     final hasSchedule = _schedules.any((s) =>
-      s.shiftId == shift.id && s.date.day == day.day && s.date.month == day.month && s.date.year == day.year);
+        s.shiftId == shift.id &&
+        s.date.day == day.day &&
+        s.date.month == day.month &&
+        s.date.year == day.year);
     // Check submitted registrations
-    final reg = _registrations.cast<ScheduleRegistration?>().firstWhere((r) =>
-      r!.shiftId == shift.id && r.date.day == day.day && r.date.month == day.month && r.date.year == day.year,
-      orElse: () => null);
+    final reg = _registrations.cast<ScheduleRegistration?>().firstWhere(
+        (r) =>
+            r!.shiftId == shift.id &&
+            r.date.day == day.day &&
+            r.date.month == day.month &&
+            r.date.year == day.year,
+        orElse: () => null);
     // Check local pending
     final hasPendingLocal = _pendingRegistrations.any((r) =>
-      r['shiftId'] == shift.id && (r['date'] as DateTime).day == day.day && (r['date'] as DateTime).month == day.month && (r['date'] as DateTime).year == day.year);
+        r['shiftId'] == shift.id &&
+        (r['date'] as DateTime).day == day.day &&
+        (r['date'] as DateTime).month == day.month &&
+        (r['date'] as DateTime).year == day.year);
 
     // Determine cell state
     Color bgColor;
@@ -785,15 +945,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.12);
       borderColor = const Color(0xFF1E3A5F);
       icon = const Icon(Icons.check, size: 18, color: Color(0xFF1E3A5F));
-    } else if (reg != null && reg.status == ScheduleRegistrationStatus.approved) {
+    } else if (reg != null &&
+        reg.status == ScheduleRegistrationStatus.approved) {
       bgColor = const Color(0xFF059669).withValues(alpha: 0.12);
       borderColor = const Color(0xFF059669);
       icon = const Icon(Icons.check_circle, size: 18, color: Color(0xFF059669));
-    } else if (reg != null && reg.status == ScheduleRegistrationStatus.pending) {
+    } else if (reg != null &&
+        reg.status == ScheduleRegistrationStatus.pending) {
       bgColor = const Color(0xFFFEF3C7);
       borderColor = const Color(0xFFD97706);
-      icon = const Icon(Icons.hourglass_empty, size: 16, color: Color(0xFFD97706));
-    } else if (reg != null && reg.status == ScheduleRegistrationStatus.rejected) {
+      icon =
+          const Icon(Icons.hourglass_empty, size: 16, color: Color(0xFFD97706));
+    } else if (reg != null &&
+        reg.status == ScheduleRegistrationStatus.rejected) {
       bgColor = const Color(0xFFFEE2E2);
       borderColor = const Color(0xFFEF4444);
       icon = const Icon(Icons.close, size: 16, color: Color(0xFFEF4444));
@@ -808,21 +972,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     }
 
     return GestureDetector(
-      onTap: () => _toggleEmpShiftDay(shift, day, hasSchedule, reg, hasPendingLocal),
+      onTap: () =>
+          _toggleEmpShiftDay(shift, day, hasSchedule, reg, hasPendingLocal),
       child: Container(
         height: 48,
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border.all(color: borderColor, width: (hasSchedule || reg != null || hasPendingLocal) ? 1.5 : 0.5),
+          border: Border.all(
+              color: borderColor,
+              width:
+                  (hasSchedule || reg != null || hasPendingLocal) ? 1.5 : 0.5),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Center(child: icon ?? Icon(Icons.add, size: 14, color: Colors.grey[300])),
+        child: Center(
+            child: icon ?? Icon(Icons.add, size: 14, color: Colors.grey[300])),
       ),
     );
   }
 
-  void _toggleEmpShiftDay(Shift shift, DateTime day, bool hasSchedule, ScheduleRegistration? reg, bool hasPendingLocal) {
+  void _toggleEmpShiftDay(Shift shift, DateTime day, bool hasSchedule,
+      ScheduleRegistration? reg, bool hasPendingLocal) {
     // Already confirmed by manager → show swap / leave options
     if (hasSchedule) {
       _showShiftActionSheet(shift, day, isScheduled: true);
@@ -848,10 +1018,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     if (hasPendingLocal) {
       setState(() {
         _pendingRegistrations.removeWhere((r) =>
-          r['shiftId'] == shift.id &&
-          (r['date'] as DateTime).day == day.day &&
-          (r['date'] as DateTime).month == day.month &&
-          (r['date'] as DateTime).year == day.year);
+            r['shiftId'] == shift.id &&
+            (r['date'] as DateTime).day == day.day &&
+            (r['date'] as DateTime).month == day.month &&
+            (r['date'] as DateTime).year == day.year);
       });
     } else {
       setState(() {
@@ -867,28 +1037,46 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // === BOTTOM SHEET: Pending registration actions (delete) ===
-  void _showPendingActionSheet(Shift shift, DateTime day, ScheduleRegistration reg) {
+  void _showPendingActionSheet(
+      Shift shift, DateTime day, ScheduleRegistration reg) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(Icons.hourglass_empty, color: Color(0xFFD97706), size: 20),
+              const Icon(Icons.hourglass_empty,
+                  color: Color(0xFFD97706), size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text('${shift.name} - ${day.day}/${day.month}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+              Expanded(
+                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Chờ duyệt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('Chờ duyệt',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFD97706))),
               ),
             ]),
             const SizedBox(height: 16),
-            _actionTile(Icons.delete_outline, 'Xóa đăng ký', 'Hủy đăng ký ca này', const Color(0xFFEF4444), () {
+            _actionTile(Icons.delete_outline, 'Xóa đăng ký',
+                'Hủy đăng ký ca này', const Color(0xFFEF4444), () {
               Navigator.pop(ctx);
               _deleteMyRegistration(reg, shift, day);
             }),
@@ -899,37 +1087,59 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // === BOTTOM SHEET: Rejected registration actions ===
-  void _showRejectedActionSheet(Shift shift, DateTime day, ScheduleRegistration reg) {
+  void _showRejectedActionSheet(
+      Shift shift, DateTime day, ScheduleRegistration reg) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
               const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text('${shift.name} - ${day.day}/${day.month}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+              Expanded(
+                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Từ chối', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('Từ chối',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFEF4444))),
               ),
             ]),
-            if (reg.rejectionReason != null && reg.rejectionReason!.isNotEmpty) ...[
+            if (reg.rejectionReason != null &&
+                reg.rejectionReason!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
-                child: Text('Lý do: ${reg.rejectionReason}', style: const TextStyle(fontSize: 12, color: Color(0xFFEF4444))),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text('Lý do: ${reg.rejectionReason}',
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFFEF4444))),
               ),
             ],
             const SizedBox(height: 16),
-            _actionTile(Icons.delete_outline, 'Xóa đăng ký', 'Xóa đăng ký bị từ chối', const Color(0xFFEF4444), () {
+            _actionTile(Icons.delete_outline, 'Xóa đăng ký',
+                'Xóa đăng ký bị từ chối', const Color(0xFFEF4444), () {
               Navigator.pop(ctx);
               _deleteMyRegistration(reg, shift, day);
             }),
@@ -940,41 +1150,73 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // === BOTTOM SHEET: Scheduled/Approved shift actions (swap, leave) ===
-  void _showShiftActionSheet(Shift shift, DateTime day, {ScheduleRegistration? reg, bool isScheduled = false, bool isApproved = false}) {
+  void _showShiftActionSheet(Shift shift, DateTime day,
+      {ScheduleRegistration? reg,
+      bool isScheduled = false,
+      bool isApproved = false}) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
-              Icon(isScheduled ? Icons.check : Icons.check_circle, color: isScheduled ? const Color(0xFF1E3A5F) : const Color(0xFF059669), size: 20),
+              Icon(isScheduled ? Icons.check : Icons.check_circle,
+                  color: isScheduled
+                      ? const Color(0xFF1E3A5F)
+                      : const Color(0xFF059669),
+                  size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text('${shift.name} - ${day.day}/${day.month}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+              Expanded(
+                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isScheduled ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : const Color(0xFFD1FAE5),
+                  color: isScheduled
+                      ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                      : const Color(0xFFD1FAE5),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(isScheduled ? 'Đã xếp lịch' : 'Đã duyệt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isScheduled ? const Color(0xFF1E3A5F) : const Color(0xFF059669))),
+                child: Text(isScheduled ? 'Đã xếp lịch' : 'Đã duyệt',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isScheduled
+                            ? const Color(0xFF1E3A5F)
+                            : const Color(0xFF059669))),
               ),
             ]),
             const SizedBox(height: 4),
             Row(children: [
               const SizedBox(width: 28),
-              Text('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+              Text(
+                  '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
             ]),
             const SizedBox(height: 16),
-            _actionTile(Icons.swap_horiz, 'Đổi ca', 'Yêu cầu đổi ca với nhân viên khác', const Color(0xFF1E3A5F), () {
+            _actionTile(
+                Icons.swap_horiz,
+                'Đổi ca',
+                'Yêu cầu đổi ca với nhân viên khác',
+                const Color(0xFF1E3A5F), () {
               Navigator.pop(ctx);
               _showSwapDialog(shift, day);
             }),
             const SizedBox(height: 6),
-            _actionTile(Icons.event_busy, 'Xin nghỉ phép', 'Gửi đơn xin nghỉ phép ca này', const Color(0xFFF59E0B), () {
+            _actionTile(Icons.event_busy, 'Xin nghỉ phép',
+                'Gửi đơn xin nghỉ phép ca này', const Color(0xFFF59E0B), () {
               Navigator.pop(ctx);
               _showLeaveShiftDialog(shift, day);
             }),
@@ -984,15 +1226,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _actionTile(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+  Widget _actionTile(IconData icon, String title, String subtitle, Color color,
+      VoidCallback onTap) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: color)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+      title: Text(title,
+          style: TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 14, color: color)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
       trailing: Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5)),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1002,7 +1250,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // === DELETE REGISTRATION (employee self-service) ===
-  Future<void> _deleteMyRegistration(ScheduleRegistration reg, Shift shift, DateTime day) async {
+  Future<void> _deleteMyRegistration(
+      ScheduleRegistration reg, Shift shift, DateTime day) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1012,12 +1261,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           SizedBox(width: 8),
           Text('Xác nhận xóa'),
         ]),
-        content: Text('Xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}?'),
+        content:
+            Text('Xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),
         ],
@@ -1027,10 +1280,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
     final result = await _apiService.deleteScheduleRegistration(reg.id);
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Đã xóa', message: 'Đã xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}');
+      appNotification.showSuccess(
+          title: 'Đã xóa',
+          message: 'Đã xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}');
       _loadRegistrations();
     } else {
-      appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể xóa đăng ký');
+      appNotification.showError(
+          title: 'Lỗi', message: result['message'] ?? 'Không thể xóa đăng ký');
     }
   }
 
@@ -1042,20 +1298,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     // Employees in same department (exclude self)
-    final myDept = _employees.cast<Employee?>().firstWhere(
-      (e) => e!.id == authProvider.user?.id || _effectiveUserId(e) == authProvider.user?.id,
-      orElse: () => null,
-    )?.department;
+    final myDept = _employees
+        .cast<Employee?>()
+        .firstWhere(
+          (e) =>
+              e!.id == authProvider.user?.id ||
+              _effectiveUserId(e) == authProvider.user?.id,
+          orElse: () => null,
+        )
+        ?.department;
     final availableEmployees = _employees.where((e) {
       final uid = _effectiveUserId(e);
-      return uid != authProvider.user?.id && (myDept == null || e.department == myDept);
+      return uid != authProvider.user?.id &&
+          (myDept == null || e.department == myDept);
     }).toList();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.swap_horiz, color: Color(0xFF1E3A5F)),
             SizedBox(width: 8),
@@ -1069,13 +1332,24 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(10)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Ca hiện tại:', style: TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                    const SizedBox(height: 4),
-                    Text('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text('Ngày ${day.day}/${day.month}/${day.year}', style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-                  ]),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Ca hiện tại:',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF71717A))),
+                        const SizedBox(height: 4),
+                        Text(
+                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Ngày ${day.day}/${day.month}/${day.year}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF71717A))),
+                      ]),
                 ),
                 const SizedBox(height: 14),
                 // Target employee
@@ -1085,13 +1359,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   decoration: InputDecoration(
                     labelText: 'Nhân viên muốn đổi',
                     prefixIcon: const Icon(Icons.person, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
-                  items: availableEmployees.map((e) => DropdownMenuItem(
-                    value: _effectiveUserId(e),
-                    child: Text('${e.fullName} (${e.employeeCode})', overflow: TextOverflow.ellipsis),
-                  )).toList(),
+                  items: availableEmployees
+                      .map((e) => DropdownMenuItem(
+                            value: _effectiveUserId(e),
+                            child: Text('${e.fullName} (${e.employeeCode})',
+                                overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
                   onChanged: (v) => setDialogState(() => targetEmployeeId = v),
                 ),
                 const SizedBox(height: 12),
@@ -1102,15 +1380,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   decoration: InputDecoration(
                     labelText: 'Ca muốn nhận (tùy chọn)',
                     prefixIcon: const Icon(Icons.schedule, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Cùng ca')),
                     ..._shifts.map((s) => DropdownMenuItem(
-                      value: s.id,
-                      child: Text('${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
-                    )),
+                          value: s.id,
+                          child: Text(
+                              '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
+                        )),
                   ],
                   onChanged: (v) => setDialogState(() => targetShiftId = v),
                 ),
@@ -1119,7 +1399,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   controller: noteCtrl,
                   decoration: InputDecoration(
                     labelText: 'Ghi chú',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
                   maxLines: 2,
@@ -1128,21 +1409,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton.icon(
-              onPressed: targetEmployeeId == null ? null : () async {
-                Navigator.pop(ctx);
-                await _submitShiftSwap(
-                  shift: shift,
-                  day: day,
-                  targetEmployeeId: targetEmployeeId!,
-                  targetShiftId: targetShiftId,
-                  note: noteCtrl.text.trim(),
-                );
-              },
+              onPressed: targetEmployeeId == null
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      await _submitShiftSwap(
+                        shift: shift,
+                        day: day,
+                        targetEmployeeId: targetEmployeeId!,
+                        targetShiftId: targetShiftId,
+                        note: noteCtrl.text.trim(),
+                      );
+                    },
               icon: const Icon(Icons.send, size: 16),
               label: const Text('Gửi yêu cầu'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F)),
             ),
           ],
         );
@@ -1150,7 +1435,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Future<void> _submitShiftSwap({required Shift shift, required DateTime day, required String targetEmployeeId, String? targetShiftId, required String note}) async {
+  Future<void> _submitShiftSwap(
+      {required Shift shift,
+      required DateTime day,
+      required String targetEmployeeId,
+      String? targetShiftId,
+      required String note}) async {
     final data = {
       'sourceShiftId': shift.id,
       'sourceDate': DateTime(day.year, day.month, day.day).toIso8601String(),
@@ -1162,9 +1452,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
     final result = await _apiService.createShiftSwap(data);
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Đã gửi', message: 'Yêu cầu đổi ca đã được gửi đến nhân viên');
+      appNotification.showSuccess(
+          title: 'Đã gửi', message: 'Yêu cầu đổi ca đã được gửi đến nhân viên');
     } else {
-      appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể gửi yêu cầu đổi ca');
+      appNotification.showError(
+          title: 'Lỗi',
+          message: result['message'] ?? 'Không thể gửi yêu cầu đổi ca');
     }
   }
 
@@ -1172,7 +1465,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   void _showLeaveShiftDialog(Shift shift, DateTime day) {
     int selectedType = 0;
     final reasonCtrl = TextEditingController();
-    
+
     final leaveTypes = [
       (0, 'Phép năm', Icons.beach_access_rounded, Colors.teal),
       (2, 'Việc riêng có lương', Icons.paid_rounded, Colors.blue),
@@ -1185,11 +1478,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.event_busy, color: Color(0xFFF59E0B)),
             SizedBox(width: 8),
-            Expanded(child: Text('Xin nghỉ phép', style: TextStyle(fontSize: 16))),
+            Expanded(
+                child: Text('Xin nghỉ phép', style: TextStyle(fontSize: 16))),
           ]),
           content: SizedBox(
             width: 400,
@@ -1199,39 +1494,62 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(10)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Nghỉ phép cho:', style: TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                    const SizedBox(height: 4),
-                    Text('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text('Ngày ${day.day}/${day.month}/${day.year}', style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-                  ]),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Nghỉ phép cho:',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF71717A))),
+                        const SizedBox(height: 4),
+                        Text(
+                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Ngày ${day.day}/${day.month}/${day.year}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF71717A))),
+                      ]),
                 ),
                 const SizedBox(height: 14),
                 // Leave type chips
-                Wrap(spacing: 6, runSpacing: 6, children: leaveTypes.map((t) {
-                  final isSelected = selectedType == t.$1;
-                  return ChoiceChip(
-                    label: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(t.$3, size: 14, color: isSelected ? Colors.white : t.$4),
-                      const SizedBox(width: 4),
-                      Text(t.$2, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : t.$4)),
-                    ]),
-                    selected: isSelected,
-                    selectedColor: t.$4,
-                    backgroundColor: t.$4.withValues(alpha: 0.08),
-                    side: BorderSide(color: t.$4.withValues(alpha: isSelected ? 1 : 0.3)),
-                    onSelected: (_) => setDialogState(() => selectedType = t.$1),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList()),
+                Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: leaveTypes.map((t) {
+                      final isSelected = selectedType == t.$1;
+                      return ChoiceChip(
+                        label: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(t.$3,
+                              size: 14,
+                              color: isSelected ? Colors.white : t.$4),
+                          const SizedBox(width: 4),
+                          Text(t.$2,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: isSelected ? Colors.white : t.$4)),
+                        ]),
+                        selected: isSelected,
+                        selectedColor: t.$4,
+                        backgroundColor: t.$4.withValues(alpha: 0.08),
+                        side: BorderSide(
+                            color:
+                                t.$4.withValues(alpha: isSelected ? 1 : 0.3)),
+                        onSelected: (_) =>
+                            setDialogState(() => selectedType = t.$1),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList()),
                 const SizedBox(height: 12),
                 TextField(
                   controller: reasonCtrl,
                   decoration: InputDecoration(
                     labelText: 'Lý do',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
                   maxLines: 2,
@@ -1240,7 +1558,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton.icon(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -1253,7 +1572,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               },
               icon: const Icon(Icons.send, size: 16),
               label: const Text('Gửi đơn'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF59E0B)),
             ),
           ],
         );
@@ -1261,7 +1581,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Future<void> _submitLeaveForShift({required Shift shift, required DateTime day, required int type, required String reason}) async {
+  Future<void> _submitLeaveForShift(
+      {required Shift shift,
+      required DateTime day,
+      required int type,
+      required String reason}) async {
     final result = await _apiService.createLeave(
       shiftIds: [shift.id],
       startDate: DateTime(day.year, day.month, day.day),
@@ -1271,42 +1595,69 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
 
     if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Đã gửi', message: 'Đơn nghỉ phép ${shift.name} ngày ${day.day}/${day.month} đã được gửi');
+      appNotification.showSuccess(
+          title: 'Đã gửi',
+          message:
+              'Đơn nghỉ phép ${shift.name} ngày ${day.day}/${day.month} đã được gửi');
     } else {
-      appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể gửi đơn nghỉ phép');
+      appNotification.showError(
+          title: 'Lỗi',
+          message: result['message'] ?? 'Không thể gửi đơn nghỉ phép');
     }
   }
 
   Widget _buildEmpWeekRegistrationsList(List<DateTime> days) {
-    final weekStart = DateTime(_selectedWeekStart.year, _selectedWeekStart.month, _selectedWeekStart.day);
+    final weekStart = DateTime(_selectedWeekStart.year,
+        _selectedWeekStart.month, _selectedWeekStart.day);
     final weekEndDate = weekStart.add(const Duration(days: 6));
     final weekRegs = _registrations.where((r) {
       final d = DateTime(r.date.year, r.date.month, r.date.day);
       return !d.isBefore(weekStart) && !d.isAfter(weekEndDate);
-    }).toList()..sort((a, b) => a.date.compareTo(b.date));
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     if (weekRegs.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Đăng ký tuần này (${weekRegs.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF18181B))),
+          Text('Đăng ký tuần này (${weekRegs.length})',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF18181B))),
           const Divider(height: 12),
           ...weekRegs.map((reg) {
-            final shift = reg.shiftId != null ? _shifts.cast<Shift?>().firstWhere((s) => s!.id == reg.shiftId, orElse: () => null) : null;
+            final shift = reg.shiftId != null
+                ? _shifts
+                    .cast<Shift?>()
+                    .firstWhere((s) => s!.id == reg.shiftId, orElse: () => null)
+                : null;
             Color statusColor;
             String statusText;
             IconData statusIcon;
             switch (reg.status) {
-              case ScheduleRegistrationStatus.approved: statusColor = const Color(0xFF059669); statusText = 'Đã duyệt'; statusIcon = Icons.check_circle; break;
-              case ScheduleRegistrationStatus.rejected: statusColor = const Color(0xFFEF4444); statusText = 'Từ chối'; statusIcon = Icons.cancel; break;
-              default: statusColor = const Color(0xFFD97706); statusText = 'Chờ duyệt'; statusIcon = Icons.hourglass_empty;
+              case ScheduleRegistrationStatus.approved:
+                statusColor = const Color(0xFF059669);
+                statusText = 'Đã duyệt';
+                statusIcon = Icons.check_circle;
+                break;
+              case ScheduleRegistrationStatus.rejected:
+                statusColor = const Color(0xFFEF4444);
+                statusText = 'Từ chối';
+                statusIcon = Icons.cancel;
+                break;
+              default:
+                statusColor = const Color(0xFFD97706);
+                statusText = 'Chờ duyệt';
+                statusIcon = Icons.hourglass_empty;
             }
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
@@ -1317,42 +1668,56 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   Expanded(
                     child: Text(
                       '${DateFormat('E dd/MM', 'vi').format(reg.date)} - ${shift?.name ?? (reg.isDayOff ? 'Nghỉ' : 'Ca')}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF18181B)),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF18181B)),
                     ),
                   ),
                   // Action buttons based on status
-                  if (reg.status == ScheduleRegistrationStatus.pending && shift != null) ...[
+                  if (reg.status == ScheduleRegistrationStatus.pending &&
+                      shift != null) ...[
                     InkWell(
                       onTap: () => _deleteMyRegistration(reg, shift, reg.date),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(6)),
-                        child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFEF4444)),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: const Icon(Icons.delete_outline,
+                            size: 14, color: Color(0xFFEF4444)),
                       ),
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (reg.status == ScheduleRegistrationStatus.rejected && shift != null) ...[
+                  if (reg.status == ScheduleRegistrationStatus.rejected &&
+                      shift != null) ...[
                     InkWell(
                       onTap: () => _deleteMyRegistration(reg, shift, reg.date),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(6)),
-                        child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFEF4444)),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: const Icon(Icons.delete_outline,
+                            size: 14, color: Color(0xFFEF4444)),
                       ),
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (reg.status == ScheduleRegistrationStatus.approved && shift != null) ...[
+                  if (reg.status == ScheduleRegistrationStatus.approved &&
+                      shift != null) ...[
                     InkWell(
                       onTap: () => _showSwapDialog(shift, reg.date),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
-                        child: const Icon(Icons.swap_horiz, size: 14, color: Color(0xFF1E3A5F)),
+                        decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: const Icon(Icons.swap_horiz,
+                            size: 14, color: Color(0xFF1E3A5F)),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -1361,16 +1726,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
-                        child: const Icon(Icons.event_busy, size: 14, color: Color(0xFFF59E0B)),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: const Icon(Icons.event_busy,
+                            size: 14, color: Color(0xFFF59E0B)),
                       ),
                     ),
                     const SizedBox(width: 4),
                   ],
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Text(statusText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(statusText,
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor)),
                   ),
                 ],
               ),
@@ -1397,7 +1772,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF71717A),
             side: const BorderSide(color: Color(0xFFE4E4E7)),
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12, vertical: 8),
+            padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 12, vertical: 8),
             minimumSize: Size.zero,
           ),
         ),
@@ -1409,7 +1785,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1E3A5F),
             foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 16, vertical: 8),
             minimumSize: Size.zero,
           ),
         ),
@@ -1421,7 +1798,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF71717A),
             side: const BorderSide(color: Color(0xFFE4E4E7)),
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12, vertical: 8),
+            padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 12, vertical: 8),
             minimumSize: Size.zero,
           ),
         ),
@@ -1435,9 +1813,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
             child: Text(
               isMobile
-                ? 'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'
-                : 'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
-              style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 12),
+                  ? 'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'
+                  : 'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+              style: const TextStyle(
+                  color: Color(0xFF18181B),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1450,24 +1831,34 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
-        prefixIcon: const Icon(Icons.business, size: 16, color: Color(0xFF71717A)),
+        prefixIcon:
+            const Icon(Icons.business, size: 16, color: Color(0xFF71717A)),
         isDense: true,
       ),
       hint: Text(_l10n.department, style: const TextStyle(fontSize: 13)),
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
       items: [
-        DropdownMenuItem<String>(value: null, child: Text(_l10n.allDepartments)),
+        DropdownMenuItem<String>(
+            value: null, child: Text(_l10n.allDepartments)),
         ..._departments.map((d) => DropdownMenuItem<String>(
-          value: d['name']?.toString() ?? '',
-          child: Text(d['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
-        )),
+              value: d['name']?.toString() ?? '',
+              child: Text(d['name']?.toString() ?? '',
+                  overflow: TextOverflow.ellipsis),
+            )),
       ],
       onChanged: (value) {
-        setState(() { _selectedDepartment = value; _selectedEmployeeId = null; });
+        setState(() {
+          _selectedDepartment = value;
+          _selectedEmployeeId = null;
+        });
         _loadSchedules();
         _loadRegistrations();
       },
@@ -1477,11 +1868,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       isExpanded: true,
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
-        prefixIcon: const Icon(Icons.person_search, size: 16, color: Color(0xFF71717A)),
+        prefixIcon:
+            const Icon(Icons.person_search, size: 16, color: Color(0xFF71717A)),
         isDense: true,
       ),
       hint: Text(_l10n.employee, style: const TextStyle(fontSize: 13)),
@@ -1489,9 +1885,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       items: [
         DropdownMenuItem<String>(value: null, child: Text(_l10n.allEmployees)),
         ..._filteredEmployees.map((e) => DropdownMenuItem<String>(
-          value: _effectiveUserId(e),
-          child: Text(e.fullName, overflow: TextOverflow.ellipsis),
-        )),
+              value: _effectiveUserId(e),
+              child: Text(e.fullName, overflow: TextOverflow.ellipsis),
+            )),
       ],
       onChanged: (value) {
         setState(() => _selectedEmployeeId = value);
@@ -1509,58 +1905,99 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
       child: isMobile
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: navRow),
-                  const SizedBox(width: 4),
-                  InkWell(
-                    onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      height: 36,
-                      width: 36,
-                      decoration: BoxDecoration(
-                        color: _showMobileFilters ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : const Color(0xFFFAFAFA),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _showMobileFilters ? const Color(0xFF1E3A5F).withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
-                      ),
-                      child: Stack(
-                        children: [
-                          Center(child: Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: _showMobileFilters ? const Color(0xFF1E3A5F) : Colors.grey.shade600)),
-                          if (_selectedDepartment != null || _selectedEmployeeId != null)
-                            Positioned(top: 4, right: 4, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle))),
-                        ],
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: navRow),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => setState(
+                          () => _showMobileFilters = !_showMobileFilters),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 36,
+                        width: 36,
+                        decoration: BoxDecoration(
+                          color: _showMobileFilters
+                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                              : const Color(0xFFFAFAFA),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: _showMobileFilters
+                                  ? const Color(0xFF1E3A5F)
+                                      .withValues(alpha: 0.3)
+                                  : const Color(0xFFE4E4E7)),
+                        ),
+                        child: Stack(
+                          children: [
+                            Center(
+                                child: Icon(
+                                    _showMobileFilters
+                                        ? Icons.filter_alt
+                                        : Icons.filter_alt_outlined,
+                                    size: 18,
+                                    color: _showMobileFilters
+                                        ? const Color(0xFF1E3A5F)
+                                        : Colors.grey.shade600)),
+                            if (_selectedDepartment != null ||
+                                _selectedEmployeeId != null)
+                              Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle))),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
+                ),
+                if (_showMobileFilters) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: deptDropdown),
+                    const SizedBox(width: 8),
+                    Expanded(child: empDropdown)
+                  ]),
                 ],
-              ),
-              if (_showMobileFilters) ...[              const SizedBox(height: 8),
-              Row(children: [Expanded(child: deptDropdown), const SizedBox(width: 8), Expanded(child: empDropdown)]),
               ],
-            ],
-          )
-        : Row(
-            children: [
-              navRow,
-              const Spacer(),
-              SizedBox(width: 200, child: deptDropdown),
-              const SizedBox(width: 8),
-              SizedBox(width: 220, child: empDropdown),
-            ],
-          ),
+            )
+          : Row(
+              children: [
+                navRow,
+                const Spacer(),
+                SizedBox(width: 200, child: deptDropdown),
+                const SizedBox(width: 8),
+                SizedBox(width: 220, child: empDropdown),
+              ],
+            ),
     );
   }
 
   Widget _buildCopyScheduleToolbar() {
     final isMobile = Responsive.isMobile(context);
     final buttons = [
-      _buildCopyButton(icon: Icons.today, label: _l10n.copyDay, color: const Color(0xFF1E3A5F), onTap: _showCopyDayDialog),
-      _buildCopyButton(icon: Icons.date_range, label: _l10n.copyWeek, color: const Color(0xFF1E3A5F), onTap: _showCopyWeekDialog),
-      _buildCopyButton(icon: Icons.calendar_month, label: _l10n.copyMonth, color: const Color(0xFF0F2340), onTap: _showCopyMonthDialog),
+      _buildCopyButton(
+          icon: Icons.today,
+          label: _l10n.copyDay,
+          color: const Color(0xFF1E3A5F),
+          onTap: _showCopyDayDialog),
+      _buildCopyButton(
+          icon: Icons.date_range,
+          label: _l10n.copyWeek,
+          color: const Color(0xFF1E3A5F),
+          onTap: _showCopyWeekDialog),
+      _buildCopyButton(
+          icon: Icons.calendar_month,
+          label: _l10n.copyMonth,
+          color: const Color(0xFF0F2340),
+          onTap: _showCopyMonthDialog),
     ];
     final helpBtn = InkWell(
       onTap: _showScheduleGuide,
@@ -1570,14 +2007,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         decoration: BoxDecoration(
           color: const Color(0xFFFFF7ED),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
+          border:
+              Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.help_outline, size: 16, color: Color(0xFFFB923C)),
             SizedBox(width: 6),
-            Text('Hướng dẫn', style: TextStyle(color: Color(0xFFFB923C), fontWeight: FontWeight.w600, fontSize: 12)),
+            Text('Hướng dẫn',
+                style: TextStyle(
+                    color: Color(0xFFFB923C),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
           ],
         ),
       ),
@@ -1591,28 +2033,33 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
       child: isMobile
-        ? SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Icon(Icons.copy_all,
+                      size: 16, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 6),
+                  ...buttons.expand((b) => [b, const SizedBox(width: 6)]),
+                  helpBtn,
+                ],
+              ),
+            )
+          : Row(
               children: [
-                const Icon(Icons.copy_all, size: 16, color: Color(0xFF1E3A5F)),
-                const SizedBox(width: 6),
-                ...buttons.expand((b) => [b, const SizedBox(width: 6)]),
+                const Icon(Icons.copy_all, size: 18, color: Color(0xFF1E3A5F)),
+                const SizedBox(width: 8),
+                Text(_l10n.copySchedule,
+                    style: const TextStyle(
+                        color: Color(0xFF18181B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+                const SizedBox(width: 12),
+                ...buttons.expand((b) => [b, const SizedBox(width: 8)]),
+                const Spacer(),
                 helpBtn,
               ],
             ),
-          )
-        : Row(
-            children: [
-              const Icon(Icons.copy_all, size: 18, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              Text(_l10n.copySchedule, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(width: 12),
-              ...buttons.expand((b) => [b, const SizedBox(width: 8)]),
-              const Spacer(),
-              helpBtn,
-            ],
-          ),
     );
   }
 
@@ -1647,25 +2094,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
       child: isMobile
-        ? SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Icon(Icons.manage_accounts,
+                      size: 16, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 6),
+                  ...actionButtons.expand((b) => [b, const SizedBox(width: 6)]),
+                ],
+              ),
+            )
+          : Row(
               children: [
-                const Icon(Icons.manage_accounts, size: 16, color: Color(0xFF1E3A5F)),
-                const SizedBox(width: 6),
-                ...actionButtons.expand((b) => [b, const SizedBox(width: 6)]),
+                const Icon(Icons.manage_accounts,
+                    size: 18, color: Color(0xFF1E3A5F)),
+                const SizedBox(width: 8),
+                const Text('Quản lý',
+                    style: TextStyle(
+                        color: Color(0xFF18181B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+                const SizedBox(width: 12),
+                ...actionButtons.expand((b) => [b, const SizedBox(width: 8)]),
               ],
             ),
-          )
-        : Row(
-            children: [
-              const Icon(Icons.manage_accounts, size: 18, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              const Text('Quản lý', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(width: 12),
-              ...actionButtons.expand((b) => [b, const SizedBox(width: 8)]),
-            ],
-          ),
     );
   }
 
@@ -1690,7 +2143,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+            Text(label,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w600, fontSize: 12)),
           ],
         ),
       ),
@@ -1703,7 +2158,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     List<DateTime> targetDates = [];
     List<String> selectedEmployeeIds = [];
     bool applyToAllEmployees = true;
-    DateTime calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    DateTime calendarMonth =
+        DateTime(DateTime.now().year, DateTime.now().month);
 
     showDialog(
       context: context,
@@ -1711,12 +2167,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.today, color: Color(0xFF1E3A5F)),
                 SizedBox(width: 8),
-                Text('Sao chép lịch ngày', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                Text('Sao chép lịch ngày',
+                    style: TextStyle(
+                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -1726,32 +2185,46 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sao chép lịch từ một ngày sang các ngày khác.', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    const Text('Sao chép lịch từ một ngày sang các ngày khác.',
+                        style:
+                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source date picker
-                    Text(_l10n.sourceDate, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                    Text(_l10n.sourceDate,
+                        style: const TextStyle(
+                            color: Color(0xFF18181B),
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: sourceDate,
-                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 365)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
                         );
-                        if (picked != null) setDialogState(() => sourceDate = picked);
+                        if (picked != null)
+                          setDialogState(() => sourceDate = picked);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           border: Border.all(color: const Color(0xFFE4E4E7)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Color(0xFF71717A)),
+                            const Icon(Icons.calendar_today,
+                                size: 16, color: Color(0xFF71717A)),
                             const SizedBox(width: 8),
-                            Text(DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(sourceDate), style: const TextStyle(color: Color(0xFF18181B))),
+                            Text(
+                                DateFormat('dd/MM/yyyy (EEEE)', 'vi')
+                                    .format(sourceDate),
+                                style:
+                                    const TextStyle(color: Color(0xFF18181B))),
                           ],
                         ),
                       ),
@@ -1760,28 +2233,45 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                     // Target dates - inline calendar
                     Row(
                       children: [
-                        Text(_l10n.targetDate, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                        Text(_l10n.targetDate,
+                            style: const TextStyle(
+                                color: Color(0xFF18181B),
+                                fontWeight: FontWeight.w600)),
                         const Spacer(),
                         if (targetDates.isNotEmpty)
                           TextButton(
-                            onPressed: () => setDialogState(() => targetDates.clear()),
-                            child: Text('Xóa tất cả (${targetDates.length})', style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+                            onPressed: () =>
+                                setDialogState(() => targetDates.clear()),
+                            child: Text('Xóa tất cả (${targetDates.length})',
+                                style: const TextStyle(
+                                    color: Color(0xFFEF4444), fontSize: 12)),
                           ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildInlineCalendar(calendarMonth, targetDates, setDialogState, (m) => setDialogState(() => calendarMonth = m)),
+                    _buildInlineCalendar(
+                        calendarMonth,
+                        targetDates,
+                        setDialogState,
+                        (m) => setDialogState(() => calendarMonth = m)),
                     if (targetDates.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: (List.of(targetDates)..sort()).map((d) => Chip(
-                          backgroundColor: const Color(0xFFEFF6FF),
-                          label: Text(DateFormat('dd/MM (EEE)', 'vi').format(d), style: const TextStyle(fontSize: 11, color: Color(0xFF18181B))),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () => setDialogState(() => targetDates.remove(d)),
-                        )).toList(),
+                        children: (List.of(targetDates)..sort())
+                            .map((d) => Chip(
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  label: Text(
+                                      DateFormat('dd/MM (EEE)', 'vi').format(d),
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF18181B))),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () => setDialogState(
+                                      () => targetDates.remove(d)),
+                                ))
+                            .toList(),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -1795,13 +2285,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                         if (v) selectedEmployeeIds.clear();
                       }),
                       onToggleEmployee: (id, checked) => setDialogState(() {
-                        if (checked) { selectedEmployeeIds.add(id); }
-                        else { selectedEmployeeIds.remove(id); }
+                        if (checked) {
+                          selectedEmployeeIds.add(id);
+                        } else {
+                          selectedEmployeeIds.remove(id);
+                        }
                       }),
                       onSelectAllEmployees: () => setDialogState(() {
-                        selectedEmployeeIds = _employees.map((e) => _effectiveUserId(e)).toList();
+                        selectedEmployeeIds =
+                            _employees.map((e) => _effectiveUserId(e)).toList();
                       }),
-                      onDeselectAllEmployees: () => setDialogState(() => selectedEmployeeIds.clear()),
+                      onDeselectAllEmployees: () =>
+                          setDialogState(() => selectedEmployeeIds.clear()),
                     ),
                   ],
                 ),
@@ -1810,18 +2305,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel, style: const TextStyle(color: Color(0xFF71717A))),
+                child: Text(_l10n.cancel,
+                    style: const TextStyle(color: Color(0xFF71717A))),
               ),
               ElevatedButton.icon(
-                onPressed: targetDates.isEmpty || (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
+                onPressed: targetDates.isEmpty ||
+                        (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
                     : () {
                         Navigator.pop(context);
-                        _executeCopyDay(sourceDate, targetDates, applyToAllEmployees ? null : selectedEmployeeIds);
+                        _executeCopyDay(sourceDate, targetDates,
+                            applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A5F),
+                    foregroundColor: Colors.white),
               ),
             ],
           );
@@ -1831,7 +2331,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // Inline calendar widget for multi-date selection
-  Widget _buildInlineCalendar(DateTime calendarMonth, List<DateTime> selectedDates, void Function(void Function()) setDialogState, void Function(DateTime) onMonthChanged) {
+  Widget _buildInlineCalendar(
+      DateTime calendarMonth,
+      List<DateTime> selectedDates,
+      void Function(void Function()) setDialogState,
+      void Function(DateTime) onMonthChanged) {
     final firstDay = DateTime(calendarMonth.year, calendarMonth.month, 1);
     final lastDay = DateTime(calendarMonth.year, calendarMonth.month + 1, 0);
     final startWeekday = firstDay.weekday; // 1=Monday
@@ -1850,13 +2354,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         } else {
           final day = dayCounter;
           final date = DateTime(calendarMonth.year, calendarMonth.month, day);
-          final isSelected = selectedDates.any((d) => d.year == date.year && d.month == date.month && d.day == date.day);
-          final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+          final isSelected = selectedDates.any((d) =>
+              d.year == date.year &&
+              d.month == date.month &&
+              d.day == date.day);
+          final isToday = date.year == today.year &&
+              date.month == today.month &&
+              date.day == today.day;
           cells.add(Expanded(
             child: GestureDetector(
               onTap: () => setDialogState(() {
                 if (isSelected) {
-                  selectedDates.removeWhere((d) => d.year == date.year && d.month == date.month && d.day == date.day);
+                  selectedDates.removeWhere((d) =>
+                      d.year == date.year &&
+                      d.month == date.month &&
+                      d.day == date.day);
                 } else {
                   selectedDates.add(date);
                 }
@@ -1865,16 +2377,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 height: 36,
                 margin: const EdgeInsets.all(1),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF1E3A5F) : (isToday ? const Color(0xFFEFF6FF) : null),
+                  color: isSelected
+                      ? const Color(0xFF1E3A5F)
+                      : (isToday ? const Color(0xFFEFF6FF) : null),
                   borderRadius: BorderRadius.circular(6),
-                  border: isToday && !isSelected ? Border.all(color: const Color(0xFF1E3A5F), width: 1) : null,
+                  border: isToday && !isSelected
+                      ? Border.all(color: const Color(0xFF1E3A5F), width: 1)
+                      : null,
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '$day',
                   style: TextStyle(
-                    color: isSelected ? Colors.white : (col == 6 ? const Color(0xFFEF4444) : const Color(0xFF18181B)),
-                    fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? Colors.white
+                        : (col == 6
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF18181B)),
+                    fontWeight: isSelected || isToday
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     fontSize: 13,
                   ),
                 ),
@@ -1901,17 +2423,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                onPressed: () => onMonthChanged(DateTime(calendarMonth.year, calendarMonth.month - 1)),
+                onPressed: () => onMonthChanged(
+                    DateTime(calendarMonth.year, calendarMonth.month - 1)),
                 icon: const Icon(Icons.chevron_left, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               Text(
                 'Tháng ${calendarMonth.month}/${calendarMonth.year}',
-                style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                    color: Color(0xFF18181B),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
               ),
               IconButton(
-                onPressed: () => onMonthChanged(DateTime(calendarMonth.year, calendarMonth.month + 1)),
+                onPressed: () => onMonthChanged(
+                    DateTime(calendarMonth.year, calendarMonth.month + 1)),
                 icon: const Icon(Icons.chevron_right, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1921,9 +2448,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           const SizedBox(height: 4),
           // Day names header
           Row(
-            children: dayNames.map((d) => Expanded(
-              child: Center(child: Text(d, style: TextStyle(color: d == 'CN' ? const Color(0xFFEF4444) : const Color(0xFF71717A), fontSize: 11, fontWeight: FontWeight.w600))),
-            )).toList(),
+            children: dayNames
+                .map((d) => Expanded(
+                      child: Center(
+                          child: Text(d,
+                              style: TextStyle(
+                                  color: d == 'CN'
+                                      ? const Color(0xFFEF4444)
+                                      : const Color(0xFF71717A),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600))),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 4),
           ...weekRows,
@@ -1946,7 +2482,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SwitchListTile(
-          title: Text(_l10n.applyToAll, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13)),
+          title: Text(_l10n.applyToAll,
+              style: const TextStyle(color: Color(0xFF18181B), fontSize: 13)),
           value: applyToAll,
           onChanged: onToggleAll,
           activeThumbColor: activeColor,
@@ -1955,15 +2492,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         if (!applyToAll) ...[
           Row(
             children: [
-              const Text('Chọn nhân viên:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13)),
+              const Text('Chọn nhân viên:',
+                  style: TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
               const Spacer(),
               TextButton(
                 onPressed: onSelectAllEmployees,
-                child: Text(_l10n.selectAll, style: const TextStyle(fontSize: 11)),
+                child:
+                    Text(_l10n.selectAll, style: const TextStyle(fontSize: 11)),
               ),
               TextButton(
                 onPressed: onDeselectAllEmployees,
-                child: Text(_l10n.deselectAll, style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444))),
+                child: Text(_l10n.deselectAll,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFFEF4444))),
               ),
             ],
           ),
@@ -1983,7 +2527,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 return CheckboxListTile(
                   value: isChecked,
                   onChanged: (v) => onToggleEmployee(effId, v ?? false),
-                  title: Text(employee.fullName, style: const TextStyle(fontSize: 13)),
+                  title: Text(employee.fullName,
+                      style: const TextStyle(fontSize: 13)),
                   dense: true,
                   visualDensity: VisualDensity.compact,
                   controlAffinity: ListTileControlAffinity.leading,
@@ -1995,82 +2540,112 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           if (selectedIds.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Đã chọn ${selectedIds.length}/${_employees.length} nhân viên', style: TextStyle(color: activeColor, fontSize: 11, fontWeight: FontWeight.w500)),
+              child: Text(
+                  'Đã chọn ${selectedIds.length}/${_employees.length} nhân viên',
+                  style: TextStyle(
+                      color: activeColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500)),
             ),
         ],
       ],
     );
   }
 
-  Future<void> _executeCopyDay(DateTime sourceDate, List<DateTime> targetDates, List<String>? employeeIds) async {
+  Future<void> _executeCopyDay(DateTime sourceDate, List<DateTime> targetDates,
+      List<String>? employeeIds) async {
     setState(() => _isLoading = true);
     try {
-    final employees = employeeIds != null
-        ? _employees.where((e) => employeeIds.contains(_effectiveUserId(e))).toList()
-        : _employees;
+      final employees = employeeIds != null
+          ? _employees
+              .where((e) => employeeIds.contains(_effectiveUserId(e)))
+              .toList()
+          : _employees;
 
-    // Fetch source day data from API to ensure we have it even if it's outside current week
-    final srcResult = await _apiService.getWorkSchedules(fromDate: sourceDate, toDate: sourceDate, pageSize: 500);
-    List<WorkSchedule> srcSchedules = [];
-    if (srcResult['isSuccess'] == true && srcResult['data'] != null) {
-      final data = srcResult['data'];
-      final items = data is List ? data : (data['items'] ?? []);
-      srcSchedules = (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
-    }
-    final srcRegResult = await _apiService.getScheduleRegistrations(fromDate: sourceDate, toDate: sourceDate, pageSize: 500);
-    List<ScheduleRegistration> srcRegs = [];
-    if (srcRegResult['isSuccess'] == true && srcRegResult['data'] != null) {
-      final data = srcRegResult['data'];
-      final items = data is List ? data : (data['items'] ?? []);
-      srcRegs = (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
-    }
+      // Fetch source day data from API to ensure we have it even if it's outside current week
+      final srcResult = await _apiService.getWorkSchedules(
+          fromDate: sourceDate, toDate: sourceDate, pageSize: 500);
+      List<WorkSchedule> srcSchedules = [];
+      if (srcResult['isSuccess'] == true && srcResult['data'] != null) {
+        final data = srcResult['data'];
+        final items = data is List ? data : (data['items'] ?? []);
+        srcSchedules =
+            (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
+      }
+      final srcRegResult = await _apiService.getScheduleRegistrations(
+          fromDate: sourceDate, toDate: sourceDate, pageSize: 500);
+      List<ScheduleRegistration> srcRegs = [];
+      if (srcRegResult['isSuccess'] == true && srcRegResult['data'] != null) {
+        final data = srcRegResult['data'];
+        final items = data is List ? data : (data['items'] ?? []);
+        srcRegs = (items as List)
+            .map((r) => ScheduleRegistration.fromJson(r))
+            .toList();
+      }
 
-    int addedCount = 0;
-    for (final employee in employees) {
-      final effId = _effectiveUserId(employee);
-      final daySchedules = srcSchedules.where((s) =>
-          s.employeeUserId == effId && s.date.day == sourceDate.day && s.date.month == sourceDate.month && s.date.year == sourceDate.year).toList();
-      final dayRegs = srcRegs.where((r) =>
-          r.employeeUserId == effId && r.date.day == sourceDate.day && r.date.month == sourceDate.month && r.date.year == sourceDate.year &&
-          r.status != ScheduleRegistrationStatus.rejected).toList();
+      int addedCount = 0;
+      for (final employee in employees) {
+        final effId = _effectiveUserId(employee);
+        final daySchedules = srcSchedules
+            .where((s) =>
+                s.employeeUserId == effId &&
+                s.date.day == sourceDate.day &&
+                s.date.month == sourceDate.month &&
+                s.date.year == sourceDate.year)
+            .toList();
+        final dayRegs = srcRegs
+            .where((r) =>
+                r.employeeUserId == effId &&
+                r.date.day == sourceDate.day &&
+                r.date.month == sourceDate.month &&
+                r.date.year == sourceDate.year &&
+                r.status != ScheduleRegistrationStatus.rejected)
+            .toList();
 
-      List<Map<String, dynamic>> sourceItems = [];
-      if (daySchedules.isNotEmpty) {
-        for (final s in daySchedules) {
-          sourceItems.add({'shiftId': s.shiftId, 'isDayOff': s.isDayOff, 'note': s.note});
+        List<Map<String, dynamic>> sourceItems = [];
+        if (daySchedules.isNotEmpty) {
+          for (final s in daySchedules) {
+            sourceItems.add(
+                {'shiftId': s.shiftId, 'isDayOff': s.isDayOff, 'note': s.note});
+          }
+        } else if (dayRegs.isNotEmpty) {
+          for (final r in dayRegs) {
+            sourceItems.add(
+                {'shiftId': r.shiftId, 'isDayOff': r.isDayOff, 'note': r.note});
+          }
         }
-      } else if (dayRegs.isNotEmpty) {
-        for (final r in dayRegs) {
-          sourceItems.add({'shiftId': r.shiftId, 'isDayOff': r.isDayOff, 'note': r.note});
+
+        if (sourceItems.isEmpty) continue;
+
+        for (final targetDate in targetDates) {
+          for (final item in sourceItems) {
+            _addPendingRegistration(
+                effId,
+                targetDate,
+                item['isDayOff'] == true ? null : item['shiftId'],
+                item['isDayOff'] ?? false,
+                item['note']);
+            addedCount++;
+          }
         }
       }
 
-      if (sourceItems.isEmpty) continue;
-
-      for (final targetDate in targetDates) {
-        for (final item in sourceItems) {
-          _addPendingRegistration(effId, targetDate, item['isDayOff'] == true ? null : item['shiftId'], item['isDayOff'] ?? false, item['note']);
-          addedCount++;
-        }
+      if (addedCount > 0) {
+        appNotification.showSuccess(
+          title: _l10n.copySuccess,
+          message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi',
+        );
+        // Navigate to target week
+        final firstTarget = (List.of(targetDates)..sort()).first;
+        setState(() => _selectedWeekStart = _getWeekStart(firstTarget));
+        await _loadSchedules();
+        await _loadRegistrations();
+      } else {
+        appNotification.showWarning(
+          title: 'Không có dữ liệu',
+          message: 'Ngày nguồn không có lịch để sao chép',
+        );
       }
-    }
-
-    if (addedCount > 0) {
-      appNotification.showSuccess(
-        title: _l10n.copySuccess,
-        message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi',
-      );
-      // Navigate to target week
-      final firstTarget = (List.of(targetDates)..sort()).first;
-      setState(() => _selectedWeekStart = _getWeekStart(firstTarget));
-      await _loadSchedules();
-      await _loadRegistrations();
-    } else {
-      appNotification.showWarning(
-        title: 'Không có dữ liệu',
-        message: 'Ngày nguồn không có lịch để sao chép',
-      );
-    }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -2091,12 +2666,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           final sourceWeekEnd = sourceWeekStart.add(const Duration(days: 6));
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.date_range, color: Color(0xFF1E3A5F)),
                 SizedBox(width: 8),
-                Text('Sao chép lịch tuần', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                Text('Sao chép lịch tuần',
+                    style: TextStyle(
+                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -2106,41 +2684,55 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.',
-                        style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    const Text(
+                        'Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.',
+                        style:
+                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source week
-                    const Text('Tuần nguồn:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                    const Text('Tuần nguồn:',
+                        style: TextStyle(
+                            color: Color(0xFF18181B),
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: sourceWeekStart,
-                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 365)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
                         );
                         if (picked != null) {
                           setDialogState(() {
                             sourceWeekStart = _getWeekStart(picked);
-                            targetWeekStart = sourceWeekStart.add(const Duration(days: 7));
+                            targetWeekStart =
+                                sourceWeekStart.add(const Duration(days: 7));
                           });
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
-                          border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                          border: Border.all(
+                              color: const Color(0xFF1E3A5F)
+                                  .withValues(alpha: 0.3)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.date_range, size: 16, color: Color(0xFF1E3A5F)),
+                            const Icon(Icons.date_range,
+                                size: 16, color: Color(0xFF1E3A5F)),
                             const SizedBox(width: 8),
                             Text(
                               'Tuần ${_getWeekNumber(sourceWeekStart)}: ${DateFormat('dd/MM').format(sourceWeekStart)} - ${DateFormat('dd/MM/yyyy').format(sourceWeekEnd)}',
-                              style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                  color: Color(0xFF18181B),
+                                  fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -2148,27 +2740,36 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                     ),
                     const SizedBox(height: 16),
                     // Target week
-                    const Text('Tuần đích bắt đầu từ:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                    const Text('Tuần đích bắt đầu từ:',
+                        style: TextStyle(
+                            color: Color(0xFF18181B),
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: targetWeekStart,
-                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 365)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
                         );
-                        if (picked != null) setDialogState(() => targetWeekStart = _getWeekStart(picked));
+                        if (picked != null)
+                          setDialogState(
+                              () => targetWeekStart = _getWeekStart(picked));
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           border: Border.all(color: const Color(0xFFE4E4E7)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Color(0xFF71717A)),
+                            const Icon(Icons.calendar_today,
+                                size: 16, color: Color(0xFF71717A)),
                             const SizedBox(width: 8),
                             Text(
                               'Tuần ${_getWeekNumber(targetWeekStart)}: ${DateFormat('dd/MM').format(targetWeekStart)} - ${DateFormat('dd/MM/yyyy').format(targetWeekStart.add(const Duration(days: 6)))}',
@@ -2180,25 +2781,37 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                     ),
                     const SizedBox(height: 16),
                     // Number of weeks
-                    const Text('Số tuần sao chép:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                    const Text('Số tuần sao chép:',
+                        style: TextStyle(
+                            color: Color(0xFF18181B),
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         IconButton(
-                          onPressed: numberOfWeeks > 1 ? () => setDialogState(() => numberOfWeeks--) : null,
+                          onPressed: numberOfWeeks > 1
+                              ? () => setDialogState(() => numberOfWeeks--)
+                              : null,
                           icon: const Icon(Icons.remove_circle_outline),
                           color: const Color(0xFF1E3A5F),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('$numberOfWeeks tuần', style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 14)),
+                          child: Text('$numberOfWeeks tuần',
+                              style: const TextStyle(
+                                  color: Color(0xFF18181B),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14)),
                         ),
                         IconButton(
-                          onPressed: numberOfWeeks < 12 ? () => setDialogState(() => numberOfWeeks++) : null,
+                          onPressed: numberOfWeeks < 12
+                              ? () => setDialogState(() => numberOfWeeks++)
+                              : null,
                           icon: const Icon(Icons.add_circle_outline),
                           color: const Color(0xFF1E3A5F),
                         ),
@@ -2215,17 +2828,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Sẽ sao chép đến:', style: TextStyle(color: Color(0xFF71717A), fontSize: 11)),
+                          const Text('Sẽ sao chép đến:',
+                              style: TextStyle(
+                                  color: Color(0xFF71717A), fontSize: 11)),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 6,
                             runSpacing: 4,
                             children: List.generate(numberOfWeeks, (i) {
-                              final wStart = targetWeekStart.add(Duration(days: 7 * i));
+                              final wStart =
+                                  targetWeekStart.add(Duration(days: 7 * i));
                               return Chip(
                                 backgroundColor: const Color(0xFFEFF6FF),
-                                label: Text('Tuần ${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F))),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                label: Text(
+                                    'Tuần ${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF1E3A5F))),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
                               );
                             }),
@@ -2244,13 +2865,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                         if (v) selectedEmployeeIds.clear();
                       }),
                       onToggleEmployee: (id, checked) => setDialogState(() {
-                        if (checked) { selectedEmployeeIds.add(id); }
-                        else { selectedEmployeeIds.remove(id); }
+                        if (checked) {
+                          selectedEmployeeIds.add(id);
+                        } else {
+                          selectedEmployeeIds.remove(id);
+                        }
                       }),
                       onSelectAllEmployees: () => setDialogState(() {
-                        selectedEmployeeIds = _employees.map((e) => _effectiveUserId(e)).toList();
+                        selectedEmployeeIds =
+                            _employees.map((e) => _effectiveUserId(e)).toList();
                       }),
-                      onDeselectAllEmployees: () => setDialogState(() => selectedEmployeeIds.clear()),
+                      onDeselectAllEmployees: () =>
+                          setDialogState(() => selectedEmployeeIds.clear()),
                     ),
                   ],
                 ),
@@ -2259,18 +2885,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel, style: const TextStyle(color: Color(0xFF71717A))),
+                child: Text(_l10n.cancel,
+                    style: const TextStyle(color: Color(0xFF71717A))),
               ),
               ElevatedButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
                     : () {
                         Navigator.pop(context);
-                        _executeCopyWeek(sourceWeekStart, targetWeekStart, numberOfWeeks, applyToAllEmployees ? null : selectedEmployeeIds);
+                        _executeCopyWeek(
+                            sourceWeekStart,
+                            targetWeekStart,
+                            numberOfWeeks,
+                            applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A5F),
+                    foregroundColor: Colors.white),
               ),
             ],
           );
@@ -2279,30 +2912,40 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Future<void> _executeCopyWeek(DateTime sourceWeekStart, DateTime targetWeekStart, int numberOfWeeks, List<String>? employeeIds) async {
+  Future<void> _executeCopyWeek(
+      DateTime sourceWeekStart,
+      DateTime targetWeekStart,
+      int numberOfWeeks,
+      List<String>? employeeIds) async {
     final fromDate = sourceWeekStart;
     final toDate = sourceWeekStart.add(const Duration(days: 6));
 
     // Get source week schedules
-    final result = await _apiService.getWorkSchedules(fromDate: fromDate, toDate: toDate, pageSize: 500);
+    final result = await _apiService.getWorkSchedules(
+        fromDate: fromDate, toDate: toDate, pageSize: 500);
     List<WorkSchedule> sourceSchedules = [];
     if (result['isSuccess'] == true && result['data'] != null) {
       final data = result['data'];
       final items = data is List ? data : (data['items'] ?? []);
-      sourceSchedules = (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
+      sourceSchedules =
+          (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
     }
 
     // Also get source week registrations
-    final regResult = await _apiService.getScheduleRegistrations(fromDate: fromDate, toDate: toDate, pageSize: 500);
+    final regResult = await _apiService.getScheduleRegistrations(
+        fromDate: fromDate, toDate: toDate, pageSize: 500);
     List<ScheduleRegistration> sourceRegs = [];
     if (regResult['isSuccess'] == true && regResult['data'] != null) {
       final data = regResult['data'];
       final items = data is List ? data : (data['items'] ?? []);
-      sourceRegs = (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
+      sourceRegs =
+          (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
     }
 
     final employees = employeeIds != null
-        ? _employees.where((e) => employeeIds.contains(_effectiveUserId(e))).toList()
+        ? _employees
+            .where((e) => employeeIds.contains(_effectiveUserId(e)))
+            .toList()
         : _employees;
 
     int addedCount = 0;
@@ -2310,29 +2953,47 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       final effId = _effectiveUserId(employee);
       for (int dayIdx = 0; dayIdx < 7; dayIdx++) {
         final sourceDay = sourceWeekStart.add(Duration(days: dayIdx));
-        final daySchedules = sourceSchedules.where((s) =>
-            s.employeeUserId == effId && s.date.day == sourceDay.day && s.date.month == sourceDay.month && s.date.year == sourceDay.year).toList();
-        final dayRegs = sourceRegs.where((r) =>
-            r.employeeUserId == effId && r.date.day == sourceDay.day && r.date.month == sourceDay.month && r.date.year == sourceDay.year &&
-            r.status != ScheduleRegistrationStatus.rejected).toList();
+        final daySchedules = sourceSchedules
+            .where((s) =>
+                s.employeeUserId == effId &&
+                s.date.day == sourceDay.day &&
+                s.date.month == sourceDay.month &&
+                s.date.year == sourceDay.year)
+            .toList();
+        final dayRegs = sourceRegs
+            .where((r) =>
+                r.employeeUserId == effId &&
+                r.date.day == sourceDay.day &&
+                r.date.month == sourceDay.month &&
+                r.date.year == sourceDay.year &&
+                r.status != ScheduleRegistrationStatus.rejected)
+            .toList();
 
         List<Map<String, dynamic>> sourceItems = [];
         if (daySchedules.isNotEmpty) {
           for (final s in daySchedules) {
-            sourceItems.add({'shiftId': s.shiftId, 'isDayOff': s.isDayOff, 'note': s.note});
+            sourceItems.add(
+                {'shiftId': s.shiftId, 'isDayOff': s.isDayOff, 'note': s.note});
           }
         } else if (dayRegs.isNotEmpty) {
           for (final r in dayRegs) {
-            sourceItems.add({'shiftId': r.shiftId, 'isDayOff': r.isDayOff, 'note': r.note});
+            sourceItems.add(
+                {'shiftId': r.shiftId, 'isDayOff': r.isDayOff, 'note': r.note});
           }
         }
 
         if (sourceItems.isEmpty) continue;
 
         for (int weekIdx = 0; weekIdx < numberOfWeeks; weekIdx++) {
-          final targetDay = targetWeekStart.add(Duration(days: 7 * weekIdx + dayIdx));
+          final targetDay =
+              targetWeekStart.add(Duration(days: 7 * weekIdx + dayIdx));
           for (final item in sourceItems) {
-            _addPendingRegistration(effId, targetDay, item['isDayOff'] == true ? null : item['shiftId'], item['isDayOff'] ?? false, item['note']);
+            _addPendingRegistration(
+                effId,
+                targetDay,
+                item['isDayOff'] == true ? null : item['shiftId'],
+                item['isDayOff'] ?? false,
+                item['note']);
             addedCount++;
           }
         }
@@ -2340,9 +3001,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     }
 
     if (addedCount > 0) {
-      appNotification.showSuccess(title: 'Sao chép tuần thành công', message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
+      appNotification.showSuccess(
+          title: 'Sao chép tuần thành công',
+          message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
     } else {
-      appNotification.showWarning(title: 'Không có dữ liệu', message: 'Tuần nguồn không có lịch để sao chép');
+      appNotification.showWarning(
+          title: 'Không có dữ liệu',
+          message: 'Tuần nguồn không có lịch để sao chép');
     }
   }
 
@@ -2355,8 +3020,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     List<String> selectedEmployeeIds = [];
     bool applyToAllEmployees = true;
 
-    final monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-        'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    final monthNames = [
+      '',
+      'Tháng 1',
+      'Tháng 2',
+      'Tháng 3',
+      'Tháng 4',
+      'Tháng 5',
+      'Tháng 6',
+      'Tháng 7',
+      'Tháng 8',
+      'Tháng 9',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12'
+    ];
 
     showDialog(
       context: context,
@@ -2364,12 +3042,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.calendar_month, color: Color(0xFF0F2340)),
                 SizedBox(width: 8),
-                Text('Sao chép lịch tháng', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                Text('Sao chép lịch tháng',
+                    style: TextStyle(
+                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -2379,8 +3060,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.',
-                        style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    const Text(
+                        'Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.',
+                        style:
+                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source month/year
                     Row(
@@ -2389,7 +3072,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Tháng nguồn:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                              const Text('Tháng nguồn:',
+                                  style: TextStyle(
+                                      color: Color(0xFF18181B),
+                                      fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
@@ -2397,12 +3083,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                                     child: DropdownButtonFormField<int>(
                                       initialValue: sourceMonth,
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                         isDense: true,
                                       ),
-                                      items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(monthNames[i + 1]))),
-                                      onChanged: (v) => setDialogState(() => sourceMonth = v!),
+                                      items: List.generate(
+                                          12,
+                                          (i) => DropdownMenuItem(
+                                              value: i + 1,
+                                              child: Text(monthNames[i + 1]))),
+                                      onChanged: (v) => setDialogState(
+                                          () => sourceMonth = v!),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -2411,12 +3106,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                                     child: DropdownButtonFormField<int>(
                                       initialValue: sourceYear,
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                         isDense: true,
                                       ),
-                                      items: List.generate(3, (i) => DropdownMenuItem(value: DateTime.now().year - 1 + i, child: Text('${DateTime.now().year - 1 + i}'))),
-                                      onChanged: (v) => setDialogState(() => sourceYear = v!),
+                                      items: List.generate(
+                                          3,
+                                          (i) => DropdownMenuItem(
+                                              value:
+                                                  DateTime.now().year - 1 + i,
+                                              child: Text(
+                                                  '${DateTime.now().year - 1 + i}'))),
+                                      onChanged: (v) =>
+                                          setDialogState(() => sourceYear = v!),
                                     ),
                                   ),
                                 ],
@@ -2426,13 +3132,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                         ),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Icon(Icons.arrow_forward, color: Color(0xFF0F2340)),
+                          child: Icon(Icons.arrow_forward,
+                              color: Color(0xFF0F2340)),
                         ),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Tháng đích:', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600)),
+                              const Text('Tháng đích:',
+                                  style: TextStyle(
+                                      color: Color(0xFF18181B),
+                                      fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
@@ -2440,12 +3150,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                                     child: DropdownButtonFormField<int>(
                                       initialValue: targetMonth,
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                         isDense: true,
                                       ),
-                                      items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(monthNames[i + 1]))),
-                                      onChanged: (v) => setDialogState(() => targetMonth = v!),
+                                      items: List.generate(
+                                          12,
+                                          (i) => DropdownMenuItem(
+                                              value: i + 1,
+                                              child: Text(monthNames[i + 1]))),
+                                      onChanged: (v) => setDialogState(
+                                          () => targetMonth = v!),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -2454,12 +3173,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                                     child: DropdownButtonFormField<int>(
                                       initialValue: targetYear,
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                         isDense: true,
                                       ),
-                                      items: List.generate(3, (i) => DropdownMenuItem(value: DateTime.now().year - 1 + i, child: Text('${DateTime.now().year - 1 + i}'))),
-                                      onChanged: (v) => setDialogState(() => targetYear = v!),
+                                      items: List.generate(
+                                          3,
+                                          (i) => DropdownMenuItem(
+                                              value:
+                                                  DateTime.now().year - 1 + i,
+                                              child: Text(
+                                                  '${DateTime.now().year - 1 + i}'))),
+                                      onChanged: (v) =>
+                                          setDialogState(() => targetYear = v!),
                                     ),
                                   ),
                                 ],
@@ -2480,13 +3210,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                         if (v) selectedEmployeeIds.clear();
                       }),
                       onToggleEmployee: (id, checked) => setDialogState(() {
-                        if (checked) { selectedEmployeeIds.add(id); }
-                        else { selectedEmployeeIds.remove(id); }
+                        if (checked) {
+                          selectedEmployeeIds.add(id);
+                        } else {
+                          selectedEmployeeIds.remove(id);
+                        }
                       }),
                       onSelectAllEmployees: () => setDialogState(() {
-                        selectedEmployeeIds = _employees.map((e) => _effectiveUserId(e)).toList();
+                        selectedEmployeeIds =
+                            _employees.map((e) => _effectiveUserId(e)).toList();
                       }),
-                      onDeselectAllEmployees: () => setDialogState(() => selectedEmployeeIds.clear()),
+                      onDeselectAllEmployees: () =>
+                          setDialogState(() => selectedEmployeeIds.clear()),
                     ),
                   ],
                 ),
@@ -2495,18 +3230,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel, style: const TextStyle(color: Color(0xFF71717A))),
+                child: Text(_l10n.cancel,
+                    style: const TextStyle(color: Color(0xFF71717A))),
               ),
               ElevatedButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
                     : () {
                         Navigator.pop(context);
-                        _executeCopyMonth(sourceMonth, sourceYear, targetMonth, targetYear, applyToAllEmployees ? null : selectedEmployeeIds);
+                        _executeCopyMonth(
+                            sourceMonth,
+                            sourceYear,
+                            targetMonth,
+                            targetYear,
+                            applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F2340), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F2340),
+                    foregroundColor: Colors.white),
               ),
             ],
           );
@@ -2515,7 +3258,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Future<void> _executeCopyMonth(int sourceMonth, int sourceYear, int targetMonth, int targetYear, List<String>? employeeIds) async {
+  Future<void> _executeCopyMonth(int sourceMonth, int sourceYear,
+      int targetMonth, int targetYear, List<String>? employeeIds) async {
     setState(() => _isLoading = true);
     try {
       final sourceStart = DateTime(sourceYear, sourceMonth, 1);
@@ -2523,30 +3267,39 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       final targetStart = DateTime(targetYear, targetMonth, 1);
 
       // Get all schedules for source month
-      final result = await _apiService.getWorkSchedules(fromDate: sourceStart, toDate: sourceEnd, pageSize: 500);
+      final result = await _apiService.getWorkSchedules(
+          fromDate: sourceStart, toDate: sourceEnd, pageSize: 500);
       List<WorkSchedule> sourceSchedules = [];
       if (result['isSuccess'] == true && result['data'] != null) {
         final data = result['data'];
         final items = data is List ? data : (data['items'] ?? []);
-        sourceSchedules = (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
+        sourceSchedules =
+            (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
       }
 
       // Also get registrations for source month
-      final regResult = await _apiService.getScheduleRegistrations(fromDate: sourceStart, toDate: sourceEnd, pageSize: 500);
+      final regResult = await _apiService.getScheduleRegistrations(
+          fromDate: sourceStart, toDate: sourceEnd, pageSize: 500);
       List<ScheduleRegistration> sourceRegs = [];
       if (regResult['isSuccess'] == true && regResult['data'] != null) {
         final data = regResult['data'];
         final items = data is List ? data : (data['items'] ?? []);
-        sourceRegs = (items as List).map((r) => ScheduleRegistration.fromJson(r)).toList();
+        sourceRegs = (items as List)
+            .map((r) => ScheduleRegistration.fromJson(r))
+            .toList();
       }
 
       final employees = employeeIds != null
-          ? _employees.where((e) => employeeIds.contains(_effectiveUserId(e))).toList()
+          ? _employees
+              .where((e) => employeeIds.contains(_effectiveUserId(e)))
+              .toList()
           : _employees;
 
       final daysInSourceMonth = sourceEnd.day;
       final daysInTargetMonth = DateTime(targetYear, targetMonth + 1, 0).day;
-      final daysToCopy = daysInSourceMonth < daysInTargetMonth ? daysInSourceMonth : daysInTargetMonth;
+      final daysToCopy = daysInSourceMonth < daysInTargetMonth
+          ? daysInSourceMonth
+          : daysInTargetMonth;
 
       int addedCount = 0;
       for (final employee in employees) {
@@ -2555,39 +3308,66 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           final sourceDay = sourceStart.add(Duration(days: dayIdx));
           final targetDay = targetStart.add(Duration(days: dayIdx));
 
-          final daySchedules = sourceSchedules.where((s) =>
-              s.employeeUserId == effId && s.date.day == sourceDay.day && s.date.month == sourceDay.month && s.date.year == sourceDay.year).toList();
-          final dayRegs = sourceRegs.where((r) =>
-              r.employeeUserId == effId && r.date.day == sourceDay.day && r.date.month == sourceDay.month && r.date.year == sourceDay.year &&
-              r.status != ScheduleRegistrationStatus.rejected).toList();
+          final daySchedules = sourceSchedules
+              .where((s) =>
+                  s.employeeUserId == effId &&
+                  s.date.day == sourceDay.day &&
+                  s.date.month == sourceDay.month &&
+                  s.date.year == sourceDay.year)
+              .toList();
+          final dayRegs = sourceRegs
+              .where((r) =>
+                  r.employeeUserId == effId &&
+                  r.date.day == sourceDay.day &&
+                  r.date.month == sourceDay.month &&
+                  r.date.year == sourceDay.year &&
+                  r.status != ScheduleRegistrationStatus.rejected)
+              .toList();
 
           List<Map<String, dynamic>> sourceItems = [];
           if (daySchedules.isNotEmpty) {
             for (final s in daySchedules) {
-              sourceItems.add({'shiftId': s.shiftId, 'isDayOff': s.isDayOff, 'note': s.note});
+              sourceItems.add({
+                'shiftId': s.shiftId,
+                'isDayOff': s.isDayOff,
+                'note': s.note
+              });
             }
           } else if (dayRegs.isNotEmpty) {
             for (final r in dayRegs) {
-              sourceItems.add({'shiftId': r.shiftId, 'isDayOff': r.isDayOff, 'note': r.note});
+              sourceItems.add({
+                'shiftId': r.shiftId,
+                'isDayOff': r.isDayOff,
+                'note': r.note
+              });
             }
           }
 
           if (sourceItems.isEmpty) continue;
 
           for (final item in sourceItems) {
-            _addPendingRegistration(effId, targetDay, item['isDayOff'] == true ? null : item['shiftId'], item['isDayOff'] ?? false, item['note']);
+            _addPendingRegistration(
+                effId,
+                targetDay,
+                item['isDayOff'] == true ? null : item['shiftId'],
+                item['isDayOff'] ?? false,
+                item['note']);
             addedCount++;
           }
         }
       }
 
       if (addedCount > 0) {
-        appNotification.showSuccess(title: 'Sao chép tháng thành công', message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
+        appNotification.showSuccess(
+            title: 'Sao chép tháng thành công',
+            message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
         setState(() => _selectedWeekStart = _getWeekStart(targetStart));
         await _loadSchedules();
         await _loadRegistrations();
       } else {
-        appNotification.showWarning(title: 'Không có dữ liệu', message: 'Tháng nguồn không có lịch để sao chép');
+        appNotification.showWarning(
+            title: 'Không có dữ liệu',
+            message: 'Tháng nguồn không có lịch để sao chép');
       }
     } finally {
       setState(() => _isLoading = false);
@@ -2605,7 +3385,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           children: [
             Icon(Icons.menu_book, color: Color(0xFFFB923C)),
             SizedBox(width: 8),
-            Text('Hướng dẫn đăng ký lịch làm việc', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('Hướng dẫn đăng ký lịch làm việc',
+                style: TextStyle(
+                    color: Color(0xFF18181B),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18)),
           ],
         ),
         content: SizedBox(
@@ -2692,7 +3476,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A5F),
+                foregroundColor: Colors.white),
             child: const Text('Đã hiểu'),
           ),
         ],
@@ -2700,7 +3486,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _buildGuideSection(String title, IconData icon, Color color, List<String> steps) {
+  Widget _buildGuideSection(
+      String title, IconData icon, Color color, List<String> steps) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2708,7 +3495,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 8),
-            Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(title,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.bold, fontSize: 15)),
           ],
         ),
         const SizedBox(height: 8),
@@ -2718,7 +3507,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('• ', style: TextStyle(color: Color(0xFF71717A))),
-                  Expanded(child: Text(step, style: const TextStyle(color: Color(0xFF52525B), fontSize: 13, height: 1.4))),
+                  Expanded(
+                      child: Text(step,
+                          style: const TextStyle(
+                              color: Color(0xFF52525B),
+                              fontSize: 13,
+                              height: 1.4))),
                 ],
               ),
             )),
@@ -2746,10 +3540,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   //  PENDING GRID (Tab 2) — Employee-centric, per-day status cells
   // ══════════════════════════════════════════════
   Widget _buildPendingGrid() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final now = DateTime.now();
-    final canEdit = Provider.of<PermissionProvider>(context, listen: false).canEdit('WorkSchedule');
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('WorkSchedule');
     final focused = _pendingFocusedDay;
 
     if (focused != null) {
@@ -2771,9 +3567,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2782,19 +3584,30 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Container(
                   width: 110,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Nhân viên', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFA16207)), textAlign: TextAlign.center),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                  decoration: const BoxDecoration(
+                      border:
+                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                  child: const Text('Nhân viên',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFA16207)),
+                      textAlign: TextAlign.center),
                 ),
                 ...List.generate(7, (di) {
                   final day = days[di];
-                  final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+                  final isToday = day.year == now.year &&
+                      day.month == now.month &&
+                      day.day == now.day;
                   final isSun = di == 6;
                   return Expanded(
                     child: GestureDetector(
@@ -2802,15 +3615,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: isToday ? const Color(0xFFF59E0B).withValues(alpha: 0.12) : null,
-                          border: di < 6 ? const Border(right: BorderSide(color: Color(0xFFE4E4E7))) : null,
+                          color: isToday
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                              : null,
+                          border: di < 6
+                              ? const Border(
+                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                              : null,
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                              color: isToday ? const Color(0xFFA16207) : (isSun ? const Color(0xFFEF4444) : const Color(0xFF71717A)))),
-                            Text('${day.day}/${day.month}', style: TextStyle(fontSize: 10,
-                              color: isToday ? const Color(0xFFA16207) : const Color(0xFF71717A))),
+                            Text(dayLabels[di],
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isToday
+                                        ? const Color(0xFFA16207)
+                                        : (isSun
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF71717A)))),
+                            Text('${day.day}/${day.month}',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: isToday
+                                        ? const Color(0xFFA16207)
+                                        : const Color(0xFF71717A))),
                           ],
                         ),
                       ),
@@ -2822,31 +3651,53 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           ),
           // Employee rows
           if (activeEmps.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Chưa có đăng ký nào', style: TextStyle(color: Color(0xFF71717A)))))
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                    child: Text('Chưa có đăng ký nào',
+                        style: TextStyle(color: Color(0xFF71717A)))))
           else
             ...activeEmps.asMap().entries.map((entry) {
               final emp = entry.value;
               final isLast = entry.key == activeEmps.length - 1;
               return Container(
-                decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : const Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
                 child: Row(
                   children: [
                     Container(
                       width: 110,
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 6),
+                      decoration: const BoxDecoration(
+                          border: Border(
+                              right: BorderSide(color: Color(0xFFE4E4E7)))),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(emp.fullName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(emp.employeeCode, style: const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                          Text(emp.fullName,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF18181B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          Text(emp.employeeCode,
+                              style: const TextStyle(
+                                  fontSize: 9, color: Color(0xFF71717A))),
                         ],
                       ),
                     ),
                     ...List.generate(7, (di) {
                       final day = days[di];
-                      final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
-                      return Expanded(child: _buildPendingCell(emp, day, isToday, canEdit));
+                      final isToday = day.year == now.year &&
+                          day.month == now.month &&
+                          day.day == now.day;
+                      return Expanded(
+                          child: _buildPendingCell(emp, day, isToday, canEdit));
                     }),
                   ],
                 ),
@@ -2857,24 +3708,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _buildPendingCell(Employee emp, DateTime day, bool isToday, bool canEdit) {
+  Widget _buildPendingCell(
+      Employee emp, DateTime day, bool isToday, bool canEdit) {
     final eid = _effectiveUserId(emp);
     final schedules = _getSchedulesForDay(eid, day);
     final localPending = _getPendingRegistrations(eid, day);
     final submittedRegs = _getRegistrationsForDay(eid, day);
-    final pendingRegs = submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
-    final approvedRegs = submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.approved).toList();
-    final rejectedRegs = submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.rejected).toList();
+    final pendingRegs = submittedRegs
+        .where((r) => r.status == ScheduleRegistrationStatus.pending)
+        .toList();
+    final approvedRegs = submittedRegs
+        .where((r) => r.status == ScheduleRegistrationStatus.approved)
+        .toList();
+    final rejectedRegs = submittedRegs
+        .where((r) => r.status == ScheduleRegistrationStatus.rejected)
+        .toList();
 
-    final totalItems = schedules.length + localPending.length + pendingRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).length + approvedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).length;
+    final totalItems = schedules.length +
+        localPending.length +
+        pendingRegs
+            .where((r) =>
+                schedules.every((s) => s.employeeUserId != r.employeeUserId))
+            .length +
+        approvedRegs
+            .where((r) =>
+                schedules.every((s) => s.employeeUserId != r.employeeUserId))
+            .length;
 
     if (totalItems == 0 && rejectedRegs.isEmpty) {
       return GestureDetector(
         onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
         child: Container(
-          height: 48, margin: const EdgeInsets.all(1),
-          decoration: BoxDecoration(color: isToday ? const Color(0xFFF5F5F4) : Colors.white, borderRadius: BorderRadius.circular(4)),
-          child: Center(child: Icon(Icons.add, size: 12, color: Colors.grey[300])),
+          height: 48,
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+              color: isToday ? const Color(0xFFF5F5F4) : Colors.white,
+              borderRadius: BorderRadius.circular(4)),
+          child:
+              Center(child: Icon(Icons.add, size: 12, color: Colors.grey[300])),
         ),
       );
     }
@@ -2891,13 +3762,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     Color borderColor;
     Color bgColor;
     if (pendingRegs.isNotEmpty || localPending.isNotEmpty) {
-      borderColor = const Color(0xFFD97706); bgColor = const Color(0xFFFEF3C7);
+      borderColor = const Color(0xFFD97706);
+      bgColor = const Color(0xFFFEF3C7);
     } else if (schedules.isNotEmpty) {
-      borderColor = const Color(0xFF1E3A5F); bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+      borderColor = const Color(0xFF1E3A5F);
+      bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
     } else if (approvedRegs.isNotEmpty) {
-      borderColor = const Color(0xFF059669); bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
+      borderColor = const Color(0xFF059669);
+      bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
     } else {
-      borderColor = const Color(0xFFEF4444); bgColor = const Color(0xFFFEE2E2);
+      borderColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFFFEE2E2);
     }
 
     // Count labels
@@ -2905,21 +3780,43 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     final confirmedCount = schedules.where((s) => !s.isDayOff).length;
     final dayOffCount = schedules.where((s) => s.isDayOff).length;
     final pendCount = pendingRegs.length + localPending.length;
-    if (confirmedCount > 0) labels.add(Text('$confirmedCount ca', style: const TextStyle(fontSize: 9, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)));
-    if (dayOffCount > 0) labels.add(const Text('Nghỉ', style: TextStyle(fontSize: 9, color: Color(0xFF71717A), fontWeight: FontWeight.w600)));
-    if (pendCount > 0) labels.add(Text('$pendCount chờ', style: const TextStyle(fontSize: 9, color: Color(0xFFA16207), fontWeight: FontWeight.w600)));
-    if (rejectedRegs.isNotEmpty) labels.add(Text('${rejectedRegs.length} từ chối', style: const TextStyle(fontSize: 8, color: Color(0xFFEF4444))));
+    if (confirmedCount > 0)
+      labels.add(Text('$confirmedCount ca',
+          style: const TextStyle(
+              fontSize: 9,
+              color: Color(0xFF1E3A5F),
+              fontWeight: FontWeight.w600)));
+    if (dayOffCount > 0)
+      labels.add(const Text('Nghỉ',
+          style: TextStyle(
+              fontSize: 9,
+              color: Color(0xFF71717A),
+              fontWeight: FontWeight.w600)));
+    if (pendCount > 0)
+      labels.add(Text('$pendCount chờ',
+          style: const TextStyle(
+              fontSize: 9,
+              color: Color(0xFFA16207),
+              fontWeight: FontWeight.w600)));
+    if (rejectedRegs.isNotEmpty)
+      labels.add(Text('${rejectedRegs.length} từ chối',
+          style: const TextStyle(fontSize: 8, color: Color(0xFFEF4444))));
 
     return GestureDetector(
       onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
       child: Container(
-        height: 48, margin: const EdgeInsets.all(1),
-        decoration: BoxDecoration(color: bgColor, border: Border.all(color: borderColor, width: 1.2), borderRadius: BorderRadius.circular(4)),
+        height: 48,
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+            color: bgColor,
+            border: Border.all(color: borderColor, width: 1.2),
+            borderRadius: BorderRadius.circular(4)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ...labels,
-            if (dots.isNotEmpty) Row(mainAxisAlignment: MainAxisAlignment.center, children: dots),
+            if (dots.isNotEmpty)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: dots),
           ],
         ),
       ),
@@ -2933,9 +3830,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2944,7 +3847,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -2953,12 +3857,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE4E4E7))),
-                    child: const Icon(Icons.arrow_back, size: 18, color: Color(0xFFA16207)),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                    child: const Icon(Icons.arrow_back,
+                        size: 18, color: Color(0xFFA16207)),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text('$dayLabel — $dateStr', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFA16207)))),
+                Expanded(
+                    child: Text('$dayLabel — $dateStr',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFA16207)))),
               ],
             ),
           ),
@@ -2970,71 +3883,145 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               final schedules = _getSchedulesForDay(eid, day);
               final localPending = _getPendingRegistrations(eid, day);
               final submittedRegs = _getRegistrationsForDay(eid, day);
-              if (schedules.isEmpty && localPending.isEmpty && submittedRegs.isEmpty) continue;
+              if (schedules.isEmpty &&
+                  localPending.isEmpty &&
+                  submittedRegs.isEmpty) continue;
 
               final chips = <Widget>[];
               for (final ws in schedules) {
                 if (ws.isDayOff) {
-                  chips.add(_empChip('Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
+                  chips.add(_empChip(
+                      'Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
                 } else {
-                  final shift = _shifts.firstWhere((s) => s.id == ws.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
-                  chips.add(_empChip(shift.name, const Color(0xFF1E3A5F), Icons.check_circle));
+                  final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()));
+                  chips.add(_empChip(
+                      shift.name, const Color(0xFF1E3A5F), Icons.check_circle));
                 }
               }
               for (final r in submittedRegs) {
-                if (schedules.any((s) => s.shiftId == r.shiftId && s.employeeUserId == r.employeeUserId)) continue;
-                Color c; IconData ic; String suffix;
+                if (schedules.any((s) =>
+                    s.shiftId == r.shiftId &&
+                    s.employeeUserId == r.employeeUserId)) continue;
+                Color c;
+                IconData ic;
+                String suffix;
                 switch (r.status) {
-                  case ScheduleRegistrationStatus.pending: c = const Color(0xFFD97706); ic = Icons.hourglass_empty; suffix = ' (chờ)'; break;
-                  case ScheduleRegistrationStatus.approved: c = const Color(0xFF059669); ic = Icons.check_circle; suffix = ' (duyệt)'; break;
-                  case ScheduleRegistrationStatus.rejected: c = const Color(0xFFEF4444); ic = Icons.cancel; suffix = ' (từ chối)'; break;
+                  case ScheduleRegistrationStatus.pending:
+                    c = const Color(0xFFD97706);
+                    ic = Icons.hourglass_empty;
+                    suffix = ' (chờ)';
+                    break;
+                  case ScheduleRegistrationStatus.approved:
+                    c = const Color(0xFF059669);
+                    ic = Icons.check_circle;
+                    suffix = ' (duyệt)';
+                    break;
+                  case ScheduleRegistrationStatus.rejected:
+                    c = const Color(0xFFEF4444);
+                    ic = Icons.cancel;
+                    suffix = ' (từ chối)';
+                    break;
                 }
                 if (r.isDayOff) {
                   chips.add(_empChip('Nghỉ$suffix', c, ic));
                 } else {
-                  final shift = r.shiftId != null ? _shifts.firstWhere((s) => s.id == r.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
+                  final shift = r.shiftId != null
+                      ? _shifts.firstWhere((s) => s.id == r.shiftId,
+                          orElse: () => Shift(
+                              id: '',
+                              name: 'Ca',
+                              code: '',
+                              startTime: '',
+                              endTime: '',
+                              isActive: true,
+                              createdAt: DateTime.now()))
+                      : null;
                   chips.add(_empChip('${shift?.name ?? 'Ca'}$suffix', c, ic));
                 }
               }
               for (final p in localPending) {
                 if (p['isDayOff'] == true) {
-                  chips.add(_empChip('Nghỉ (chưa gửi)', const Color(0xFF8B5CF6), Icons.schedule_send));
+                  chips.add(_empChip('Nghỉ (chưa gửi)', const Color(0xFF8B5CF6),
+                      Icons.schedule_send));
                 } else {
-                  final shift = p['shiftId'] != null ? _shifts.firstWhere((s) => s.id == p['shiftId'], orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-                  chips.add(_empChip('${shift?.name ?? 'Ca'} (chưa gửi)', const Color(0xFF8B5CF6), Icons.schedule_send));
+                  final shift = p['shiftId'] != null
+                      ? _shifts.firstWhere((s) => s.id == p['shiftId'],
+                          orElse: () => Shift(
+                              id: '',
+                              name: 'Ca',
+                              code: '',
+                              startTime: '',
+                              endTime: '',
+                              isActive: true,
+                              createdAt: DateTime.now()))
+                      : null;
+                  chips.add(_empChip('${shift?.name ?? 'Ca'} (chưa gửi)',
+                      const Color(0xFF8B5CF6), Icons.schedule_send));
                 }
               }
 
               rows.add(Container(
-                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: const BoxDecoration(
+                    border:
+                        Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(width: 120, child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(emp.fullName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
-                        Text(emp.employeeCode, style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
-                      ],
-                    )),
+                    SizedBox(
+                        width: 120,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(emp.fullName,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF18181B))),
+                            Text(emp.employeeCode,
+                                style: const TextStyle(
+                                    fontSize: 10, color: Color(0xFF71717A))),
+                          ],
+                        )),
                     const SizedBox(width: 8),
-                    Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: chips)),
+                    Expanded(
+                        child:
+                            Wrap(spacing: 4, runSpacing: 4, children: chips)),
                     if (canEdit)
                       InkWell(
                         onTap: () => _showRegisterDialog(emp, day),
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                          child: const Icon(Icons.edit_calendar, size: 16, color: Color(0xFFA16207)),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6)),
+                          child: const Icon(Icons.edit_calendar,
+                              size: 16, color: Color(0xFFA16207)),
                         ),
                       ),
                   ],
                 ),
               ));
             }
-            if (rows.isEmpty) return [const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Không có đăng ký', style: TextStyle(color: Color(0xFF71717A)))))];
+            if (rows.isEmpty)
+              return [
+                const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                        child: Text('Không có đăng ký',
+                            style: TextStyle(color: Color(0xFF71717A)))))
+              ];
             return rows;
           }(),
         ],
@@ -3046,7 +4033,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   //  APPROVED GRID (Tab 3) — Employee-centric, per-day approved cells
   // ══════════════════════════════════════════════
   Widget _buildApprovedGrid() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final now = DateTime.now();
     final focused = _approvedFocusedDay;
@@ -3062,7 +4050,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       for (final day in days) {
         if (_getSchedulesForDay(eid, day).isNotEmpty) return true;
         final regs = _getRegistrationsForDay(eid, day);
-        if (regs.any((r) => r.status == ScheduleRegistrationStatus.approved)) return true;
+        if (regs.any((r) => r.status == ScheduleRegistrationStatus.approved))
+          return true;
       }
       return false;
     }).toList();
@@ -3070,9 +4059,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3081,19 +4076,30 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Container(
                   width: 110,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Nhân viên', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)), textAlign: TextAlign.center),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                  decoration: const BoxDecoration(
+                      border:
+                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                  child: const Text('Nhân viên',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E3A5F)),
+                      textAlign: TextAlign.center),
                 ),
                 ...List.generate(7, (di) {
                   final day = days[di];
-                  final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+                  final isToday = day.year == now.year &&
+                      day.month == now.month &&
+                      day.day == now.day;
                   final isSun = di == 6;
                   return Expanded(
                     child: GestureDetector(
@@ -3101,15 +4107,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: isToday ? const Color(0xFF1E3A5F).withValues(alpha: 0.12) : null,
-                          border: di < 6 ? const Border(right: BorderSide(color: Color(0xFFE4E4E7))) : null,
+                          color: isToday
+                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.12)
+                              : null,
+                          border: di < 6
+                              ? const Border(
+                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                              : null,
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                              color: isToday ? const Color(0xFF1E3A5F) : (isSun ? const Color(0xFFEF4444) : const Color(0xFF71717A)))),
-                            Text('${day.day}/${day.month}', style: TextStyle(fontSize: 10,
-                              color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF71717A))),
+                            Text(dayLabels[di],
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isToday
+                                        ? const Color(0xFF1E3A5F)
+                                        : (isSun
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF71717A)))),
+                            Text('${day.day}/${day.month}',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: isToday
+                                        ? const Color(0xFF1E3A5F)
+                                        : const Color(0xFF71717A))),
                           ],
                         ),
                       ),
@@ -3121,31 +4143,53 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           ),
           // Employee rows
           if (activeEmps.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Chưa có lịch đã duyệt', style: TextStyle(color: Color(0xFF71717A)))))
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                    child: Text('Chưa có lịch đã duyệt',
+                        style: TextStyle(color: Color(0xFF71717A)))))
           else
             ...activeEmps.asMap().entries.map((entry) {
               final emp = entry.value;
               final isLast = entry.key == activeEmps.length - 1;
               return Container(
-                decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : const Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
                 child: Row(
                   children: [
                     Container(
                       width: 110,
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 6),
+                      decoration: const BoxDecoration(
+                          border: Border(
+                              right: BorderSide(color: Color(0xFFE4E4E7)))),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(emp.fullName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(emp.department ?? emp.employeeCode, style: const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                          Text(emp.fullName,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF18181B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          Text(emp.department ?? emp.employeeCode,
+                              style: const TextStyle(
+                                  fontSize: 9, color: Color(0xFF71717A))),
                         ],
                       ),
                     ),
                     ...List.generate(7, (di) {
                       final day = days[di];
-                      final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
-                      return Expanded(child: _buildApprovedCell(emp, day, isToday));
+                      final isToday = day.year == now.year &&
+                          day.month == now.month &&
+                          day.day == now.day;
+                      return Expanded(
+                          child: _buildApprovedCell(emp, day, isToday));
                     }),
                   ],
                 ),
@@ -3159,34 +4203,61 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   Widget _buildApprovedCell(Employee emp, DateTime day, bool isToday) {
     final eid = _effectiveUserId(emp);
     final schedules = _getSchedulesForDay(eid, day);
-    final approvedRegs = _getRegistrationsForDay(eid, day).where((r) => r.status == ScheduleRegistrationStatus.approved).toList();
-    final uniqueApproved = approvedRegs.where((r) => schedules.every((s) => s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId)).toList();
+    final approvedRegs = _getRegistrationsForDay(eid, day)
+        .where((r) => r.status == ScheduleRegistrationStatus.approved)
+        .toList();
+    final uniqueApproved = approvedRegs
+        .where((r) => schedules.every((s) =>
+            s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))
+        .toList();
 
-    final totalShifts = schedules.where((s) => !s.isDayOff).length + uniqueApproved.where((r) => !r.isDayOff).length;
-    final hasDayOff = schedules.any((s) => s.isDayOff) || uniqueApproved.any((r) => r.isDayOff);
+    final totalShifts = schedules.where((s) => !s.isDayOff).length +
+        uniqueApproved.where((r) => !r.isDayOff).length;
+    final hasDayOff = schedules.any((s) => s.isDayOff) ||
+        uniqueApproved.any((r) => r.isDayOff);
 
     if (totalShifts == 0 && !hasDayOff) {
       return Container(
-        height: 48, margin: const EdgeInsets.all(1),
-        decoration: BoxDecoration(color: isToday ? const Color(0xFFF5F5F4) : Colors.white, borderRadius: BorderRadius.circular(4)),
-        child: Center(child: Text('—', style: TextStyle(color: Colors.grey[300], fontSize: 14))),
+        height: 48,
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+            color: isToday ? const Color(0xFFF5F5F4) : Colors.white,
+            borderRadius: BorderRadius.circular(4)),
+        child: Center(
+            child: Text('—',
+                style: TextStyle(color: Colors.grey[300], fontSize: 14))),
       );
     }
 
     // Build compact display
     final labels = <Widget>[];
     if (hasDayOff) {
-      labels.add(const Text('Nghỉ', style: TextStyle(fontSize: 9, color: Color(0xFF71717A), fontWeight: FontWeight.w600)));
+      labels.add(const Text('Nghỉ',
+          style: TextStyle(
+              fontSize: 9,
+              color: Color(0xFF71717A),
+              fontWeight: FontWeight.w600)));
     }
     if (totalShifts > 0) {
-      labels.add(Text('$totalShifts ca', style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w700)));
+      labels.add(Text('$totalShifts ca',
+          style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF1E3A5F),
+              fontWeight: FontWeight.w700)));
     }
 
     return Container(
-      height: 48, margin: const EdgeInsets.all(1),
+      height: 48,
+      margin: const EdgeInsets.all(1),
       decoration: BoxDecoration(
-        color: hasDayOff && totalShifts == 0 ? const Color(0xFF71717A).withValues(alpha: 0.06) : const Color(0xFF1E3A5F).withValues(alpha: 0.08),
-        border: Border.all(color: hasDayOff && totalShifts == 0 ? const Color(0xFF71717A) : const Color(0xFF1E3A5F), width: 1.2),
+        color: hasDayOff && totalShifts == 0
+            ? const Color(0xFF71717A).withValues(alpha: 0.06)
+            : const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+        border: Border.all(
+            color: hasDayOff && totalShifts == 0
+                ? const Color(0xFF71717A)
+                : const Color(0xFF1E3A5F),
+            width: 1.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -3202,9 +4273,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3213,7 +4290,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -3222,18 +4300,30 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE4E4E7))),
-                    child: const Icon(Icons.arrow_back, size: 18, color: Color(0xFF1E3A5F)),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                    child: const Icon(Icons.arrow_back,
+                        size: 18, color: Color(0xFF1E3A5F)),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text('$dayLabel — $dateStr', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F)))),
+                Expanded(
+                    child: Text('$dayLabel — $dateStr',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E3A5F)))),
               ],
             ),
           ),
           // Group by shift
           if (_shifts.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Text('Chưa có ca', style: TextStyle(color: Color(0xFF71717A))))
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Chưa có ca',
+                    style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -3241,50 +4331,97 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               final isLast = si == _shifts.length - 1;
               // Get confirmed + approved for this shift on this day
               final confirmedScheds = _getSchedulesForShiftDay(shift.id, day);
-              final approvedRegs = _getRegistrationsForShiftDay(shift.id, day).where((r) => r.status == ScheduleRegistrationStatus.approved).toList();
-              final uniqueApprovedRegs = approvedRegs.where((r) => confirmedScheds.every((s) => s.employeeUserId != r.employeeUserId)).toList();
+              final approvedRegs = _getRegistrationsForShiftDay(shift.id, day)
+                  .where((r) => r.status == ScheduleRegistrationStatus.approved)
+                  .toList();
+              final uniqueApprovedRegs = approvedRegs
+                  .where((r) => confirmedScheds
+                      .every((s) => s.employeeUserId != r.employeeUserId))
+                  .toList();
 
               final names = <Map<String, dynamic>>[];
               for (final ws in confirmedScheds) {
-                final emp = _employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty());
-                names.add({'name': emp.fullName, 'color': const Color(0xFF1E3A5F), 'icon': Icons.check_circle, 'isDayOff': ws.isDayOff});
+                final emp = _employees.firstWhere(
+                    (e) => _effectiveUserId(e) == ws.employeeUserId,
+                    orElse: () => Employee.empty());
+                names.add({
+                  'name': emp.fullName,
+                  'color': const Color(0xFF1E3A5F),
+                  'icon': Icons.check_circle,
+                  'isDayOff': ws.isDayOff
+                });
               }
               for (final r in uniqueApprovedRegs) {
-                final emp = _employees.firstWhere((e) => _effectiveUserId(e) == r.employeeUserId, orElse: () => Employee.empty());
-                names.add({'name': emp.fullName, 'color': const Color(0xFF059669), 'icon': Icons.verified, 'isDayOff': r.isDayOff});
+                final emp = _employees.firstWhere(
+                    (e) => _effectiveUserId(e) == r.employeeUserId,
+                    orElse: () => Employee.empty());
+                names.add({
+                  'name': emp.fullName,
+                  'color': const Color(0xFF059669),
+                  'icon': Icons.verified,
+                  'isDayOff': r.isDayOff
+                });
               }
 
               return Container(
-                decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : const Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                            child: Text(shift.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F))),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF1E3A5F)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Text(shift.name,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E3A5F))),
                           ),
                           const SizedBox(width: 8),
-                          Text('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                          Text(
+                              '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF71717A))),
                           const Spacer(),
-                          Text('${names.where((n) => n['isDayOff'] != true).length} NV', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F))),
+                          Text(
+                              '${names.where((n) => n['isDayOff'] != true).length} NV',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E3A5F))),
                         ],
                       ),
                       const SizedBox(height: 6),
                       if (names.isEmpty)
-                        Text('Chưa có nhân viên', style: TextStyle(fontSize: 11, color: Colors.grey[400]))
+                        Text('Chưa có nhân viên',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[400]))
                       else
                         Wrap(
-                          spacing: 4, runSpacing: 4,
-                          children: names.map((n) => _empChip(
-                            n['isDayOff'] == true ? '${n['name']} (Nghỉ)' : n['name'] as String,
-                            n['color'] as Color,
-                            n['icon'] as IconData,
-                          )).toList(),
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: names
+                              .map((n) => _empChip(
+                                    n['isDayOff'] == true
+                                        ? '${n['name']} (Nghỉ)'
+                                        : n['name'] as String,
+                                    n['color'] as Color,
+                                    n['icon'] as IconData,
+                                  ))
+                              .toList(),
                         ),
                     ],
                   ),
@@ -3298,8 +4435,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   // ignore: unused_element
   Widget _buildScheduleTable() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-    final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT'];
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final dayNames = [
+      'THỨ 2',
+      'THỨ 3',
+      'THỨ 4',
+      'THỨ 5',
+      'THỨ 6',
+      'THỨ 7',
+      'CHỦ NHẬT'
+    ];
     final dateFormat = DateFormat('d/M');
     final today = DateTime.now();
 
@@ -3322,9 +4468,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           final allEmps = _filteredEmployees;
           final isMobile = constraints.maxWidth < 600;
           final totalPages = (allEmps.length / _schedulePageSize).ceil();
-          final safePage = _schedulePage.clamp(1, totalPages == 0 ? 1 : totalPages);
+          final safePage =
+              _schedulePage.clamp(1, totalPages == 0 ? 1 : totalPages);
           final startIdx = isMobile ? 0 : (safePage - 1) * _schedulePageSize;
-          final endIdx = isMobile ? allEmps.length : (startIdx + _schedulePageSize).clamp(0, allEmps.length);
+          final endIdx = isMobile
+              ? allEmps.length
+              : (startIdx + _schedulePageSize).clamp(0, allEmps.length);
           final pageEmps = allEmps.sublist(startIdx, endIdx);
           if (isMobile) {
             return Column(children: [
@@ -3332,158 +4481,226 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ]);
           }
           return Column(children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          dataRowColor: WidgetStateProperty.all(Colors.white),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: 64,
-          border: TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
-          columns: [
-            const DataColumn(
-              label: Expanded(child: Text('NHÂN VIÊN', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold))),
-            ),
-            ...List.generate(7, (i) {
-              final day = days[i];
-              final isToday = day.day == today.day && day.month == today.month && day.year == today.year;
-              return DataColumn(
-                label: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      dayNames[i],
-                      style: TextStyle(
-                        color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF18181B),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  headingRowColor:
+                      WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                  dataRowColor: WidgetStateProperty.all(Colors.white),
+                  dataRowMinHeight: 56,
+                  dataRowMaxHeight: 64,
+                  border:
+                      TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
+                  columns: [
+                    const DataColumn(
+                      label: Expanded(
+                          child: Text('NHÂN VIÊN',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Color(0xFF18181B),
+                                  fontWeight: FontWeight.bold))),
                     ),
-                    Text(
-                      dateFormat.format(day),
-                      style: TextStyle(
-                        color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            const DataColumn(
-              label: Expanded(child: Text('TỔNG CA', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold))),
-            ),
-          ],
-          rows: pageEmps.isEmpty
-              ? [
-                  DataRow(cells: [
-                    DataCell(
-                      Center(
-                        child: Text('Chưa có nhân viên', style: TextStyle(color: Colors.grey[400])),
-                      ),
-                    ),
-                    ...List.generate(8, (_) => const DataCell(Text(''))),
-                  ]),
-                ]
-              : pageEmps.map((employee) {
-                  int totalShifts = 0;
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    ...List.generate(7, (i) {
+                      final day = days[i];
+                      final isToday = day.day == today.day &&
+                          day.month == today.month &&
+                          day.year == today.year;
+                      return DataColumn(
+                        label: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              employee.fullName.toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13),
+                              dayNames[i],
+                              style: TextStyle(
+                                color: isToday
+                                    ? const Color(0xFF1E3A5F)
+                                    : const Color(0xFF18181B),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                             Text(
-                              employee.phone ?? employee.employeeCode,
-                              style: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+                              dateFormat.format(day),
+                              style: TextStyle(
+                                color: isToday
+                                    ? const Color(0xFF1E3A5F)
+                                    : const Color(0xFF71717A),
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      ...List.generate(7, (dayIndex) {
-                        final day = days[dayIndex];
-                        final effectiveId = _effectiveUserId(employee);
-                        final schedules = _getSchedulesForDay(effectiveId, day);
-                        final pendingRegs = _getPendingRegistrations(effectiveId, day);
-                        final submittedRegs = _getRegistrationsForDay(effectiveId, day);
-                        
-                        // Count work shifts
-                        totalShifts += schedules.where((s) => !s.isDayOff).length;
-                        if (pendingRegs.isNotEmpty && pendingRegs.first['isDayOff'] != true) {
-                          totalShifts += pendingRegs.length;
-                        }
-                        // Count approved registrations not yet in schedules
-                        totalShifts += submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.approved && !r.isDayOff && schedules.isEmpty).length;
-                        
-                        return DataCell(
-                          _buildScheduleCell(employee, day, schedules, pendingRegs, submittedRegs),
-                        );
-                      }),
-                      DataCell(
-                        Center(
-                          child: Text(
-                            '$totalShifts',
-                            style: TextStyle(
-                              color: totalShifts > 0 ? const Color(0xFF1E3A5F) : Colors.grey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                      );
+                    }),
+                    const DataColumn(
+                      label: Expanded(
+                          child: Text('TỔNG CA',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Color(0xFF18181B),
+                                  fontWeight: FontWeight.bold))),
+                    ),
+                  ],
+                  rows: pageEmps.isEmpty
+                      ? [
+                          DataRow(cells: [
+                            DataCell(
+                              Center(
+                                child: Text('Chưa có nhân viên',
+                                    style: TextStyle(color: Colors.grey[400])),
+                              ),
                             ),
+                            ...List.generate(
+                                8, (_) => const DataCell(Text(''))),
+                          ]),
+                        ]
+                      : pageEmps.map((employee) {
+                          int totalShifts = 0;
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      employee.fullName.toUpperCase(),
+                                      style: const TextStyle(
+                                          color: Color(0xFF18181B),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13),
+                                    ),
+                                    Text(
+                                      employee.phone ?? employee.employeeCode,
+                                      style: const TextStyle(
+                                          color: Color(0xFF71717A),
+                                          fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...List.generate(7, (dayIndex) {
+                                final day = days[dayIndex];
+                                final effectiveId = _effectiveUserId(employee);
+                                final schedules =
+                                    _getSchedulesForDay(effectiveId, day);
+                                final pendingRegs =
+                                    _getPendingRegistrations(effectiveId, day);
+                                final submittedRegs =
+                                    _getRegistrationsForDay(effectiveId, day);
+
+                                // Count work shifts
+                                totalShifts +=
+                                    schedules.where((s) => !s.isDayOff).length;
+                                if (pendingRegs.isNotEmpty &&
+                                    pendingRegs.first['isDayOff'] != true) {
+                                  totalShifts += pendingRegs.length;
+                                }
+                                // Count approved registrations not yet in schedules
+                                totalShifts += submittedRegs
+                                    .where((r) =>
+                                        r.status ==
+                                            ScheduleRegistrationStatus
+                                                .approved &&
+                                        !r.isDayOff &&
+                                        schedules.isEmpty)
+                                    .length;
+
+                                return DataCell(
+                                  _buildScheduleCell(employee, day, schedules,
+                                      pendingRegs, submittedRegs),
+                                );
+                              }),
+                              DataCell(
+                                Center(
+                                  child: Text(
+                                    '$totalShifts',
+                                    style: TextStyle(
+                                      color: totalShifts > 0
+                                          ? const Color(0xFF1E3A5F)
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                ),
+              ),
+            ),
+            if (totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Hiển thị:',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAFAFA),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _schedulePageSize,
+                            isDense: true,
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey[800]),
+                            items: _pageSizeOptions
+                                .map((s) => DropdownMenuItem(
+                                    value: s, child: Text('$s')))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null)
+                                setState(() {
+                                  _schedulePageSize = v;
+                                  _schedulePage = 1;
+                                });
+                            },
                           ),
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      IconButton(
+                          icon: const Icon(Icons.first_page),
+                          onPressed: safePage > 1
+                              ? () => setState(() => _schedulePage = 1)
+                              : null),
+                      IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: safePage > 1
+                              ? () => setState(() => _schedulePage--)
+                              : null),
+                      Text(
+                          'Hiển thị ${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, allEmps.length)} / ${allEmps.length} nhân viên',
+                          style: const TextStyle(fontSize: 13)),
+                      IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: safePage < totalPages
+                              ? () => setState(() => _schedulePage++)
+                              : null),
+                      IconButton(
+                          icon: const Icon(Icons.last_page),
+                          onPressed: safePage < totalPages
+                              ? () => setState(() => _schedulePage = totalPages)
+                              : null),
                     ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          if (totalPages > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                  const SizedBox(width: 8),
-                  Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _schedulePageSize,
-                        isDense: true,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                        items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() { _schedulePageSize = v; _schedulePage = 1; });
-                        },
-                      ),
-                    ),
                   ),
-                  const SizedBox(width: 16),
-                  IconButton(icon: const Icon(Icons.first_page), onPressed: safePage > 1 ? () => setState(() => _schedulePage = 1) : null),
-                  IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 1 ? () => setState(() => _schedulePage--) : null),
-                  Text('Hiển thị ${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, allEmps.length)} / ${allEmps.length} nhân viên', style: const TextStyle(fontSize: 13)),
-                  IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _schedulePage++) : null),
-                  IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _schedulePage = totalPages) : null),
-                ],
+                ),
               ),
-              ),
-            ),
           ]);
         },
       ),
@@ -3491,62 +4708,86 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   List<WorkSchedule> _getSchedulesForDay(String employeeId, DateTime day) {
-    return _schedules.where(
-      (s) => s.employeeUserId == employeeId &&
-             s.date.day == day.day &&
-             s.date.month == day.month &&
-             s.date.year == day.year,
-    ).toList();
+    return _schedules
+        .where(
+          (s) =>
+              s.employeeUserId == employeeId &&
+              s.date.day == day.day &&
+              s.date.month == day.month &&
+              s.date.year == day.year,
+        )
+        .toList();
   }
 
-  List<Map<String, dynamic>> _getPendingRegistrations(String employeeId, DateTime day) {
-    return _pendingRegistrations.where(
-      (r) => r['employeeId'] == employeeId &&
-             (r['date'] as DateTime).day == day.day &&
-             (r['date'] as DateTime).month == day.month &&
-             (r['date'] as DateTime).year == day.year,
-    ).toList();
+  List<Map<String, dynamic>> _getPendingRegistrations(
+      String employeeId, DateTime day) {
+    return _pendingRegistrations
+        .where(
+          (r) =>
+              r['employeeId'] == employeeId &&
+              (r['date'] as DateTime).day == day.day &&
+              (r['date'] as DateTime).month == day.month &&
+              (r['date'] as DateTime).year == day.year,
+        )
+        .toList();
   }
 
-  List<ScheduleRegistration> _getRegistrationsForDay(String employeeId, DateTime day) {
-    return _registrations.where(
-      (r) => r.employeeUserId == employeeId &&
-             r.date.day == day.day &&
-             r.date.month == day.month &&
-             r.date.year == day.year,
-    ).toList();
+  List<ScheduleRegistration> _getRegistrationsForDay(
+      String employeeId, DateTime day) {
+    return _registrations
+        .where(
+          (r) =>
+              r.employeeUserId == employeeId &&
+              r.date.day == day.day &&
+              r.date.month == day.month &&
+              r.date.year == day.year,
+        )
+        .toList();
   }
 
   // ── Shift-day helpers (for shift-centric table) ──
   List<WorkSchedule> _getSchedulesForShiftDay(String shiftId, DateTime day) {
-    return _schedules.where((s) =>
-      s.shiftId == shiftId && s.date.day == day.day && s.date.month == day.month && s.date.year == day.year
-    ).toList();
+    return _schedules
+        .where((s) =>
+            s.shiftId == shiftId &&
+            s.date.day == day.day &&
+            s.date.month == day.month &&
+            s.date.year == day.year)
+        .toList();
   }
 
-  List<Map<String, dynamic>> _getPendingForShiftDay(String shiftId, DateTime day) {
-    return _pendingRegistrations.where((r) =>
-      r['shiftId'] == shiftId &&
-      (r['date'] as DateTime).day == day.day &&
-      (r['date'] as DateTime).month == day.month &&
-      (r['date'] as DateTime).year == day.year
-    ).toList();
+  List<Map<String, dynamic>> _getPendingForShiftDay(
+      String shiftId, DateTime day) {
+    return _pendingRegistrations
+        .where((r) =>
+            r['shiftId'] == shiftId &&
+            (r['date'] as DateTime).day == day.day &&
+            (r['date'] as DateTime).month == day.month &&
+            (r['date'] as DateTime).year == day.year)
+        .toList();
   }
 
-  List<ScheduleRegistration> _getRegistrationsForShiftDay(String shiftId, DateTime day) {
-    return _registrations.where((r) =>
-      r.shiftId == shiftId && r.date.day == day.day && r.date.month == day.month && r.date.year == day.year
-    ).toList();
+  List<ScheduleRegistration> _getRegistrationsForShiftDay(
+      String shiftId, DateTime day) {
+    return _registrations
+        .where((r) =>
+            r.shiftId == shiftId &&
+            r.date.day == day.day &&
+            r.date.month == day.month &&
+            r.date.year == day.year)
+        .toList();
   }
 
   // ══════════════════════════════════════════════
   //  SHIFT-CENTRIC TABLE (Grid layout — tap day header to zoom)
   // ══════════════════════════════════════════════
   Widget _buildShiftCentricTable() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final now = DateTime.now();
-    final canEdit = Provider.of<PermissionProvider>(context, listen: false).canEdit('WorkSchedule');
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('WorkSchedule');
     final focused = _focusedDayIndex;
 
     // If a day is focused, show single-day detail view
@@ -3561,7 +4802,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3570,19 +4816,30 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFF0891B2).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Container(
                   width: 80,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Ca / Ngày', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0891B2)), textAlign: TextAlign.center),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: const BoxDecoration(
+                      border:
+                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                  child: const Text('Ca / Ngày',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0891B2)),
+                      textAlign: TextAlign.center),
                 ),
                 ...List.generate(7, (di) {
                   final day = days[di];
-                  final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+                  final isToday = day.year == now.year &&
+                      day.month == now.month &&
+                      day.day == now.day;
                   final isSun = di == 6;
                   return Expanded(
                     child: GestureDetector(
@@ -3590,19 +4847,33 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: isToday ? const Color(0xFF0891B2).withValues(alpha: 0.12) : null,
-                          border: di < 6 ? const Border(right: BorderSide(color: Color(0xFFE4E4E7))) : null,
+                          color: isToday
+                              ? const Color(0xFF0891B2).withValues(alpha: 0.12)
+                              : null,
+                          border: di < 6
+                              ? const Border(
+                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                              : null,
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di], style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w700,
-                              color: isToday ? const Color(0xFF0891B2) : (isSun ? const Color(0xFFEF4444) : const Color(0xFF71717A)),
-                            )),
-                            Text('${day.day}/${day.month}', style: TextStyle(
-                              fontSize: 10,
-                              color: isToday ? const Color(0xFF0891B2) : const Color(0xFF71717A),
-                            )),
+                            Text(dayLabels[di],
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isToday
+                                      ? const Color(0xFF0891B2)
+                                      : (isSun
+                                          ? const Color(0xFFEF4444)
+                                          : const Color(0xFF71717A)),
+                                )),
+                            Text('${day.day}/${day.month}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isToday
+                                      ? const Color(0xFF0891B2)
+                                      : const Color(0xFF71717A),
+                                )),
                           ],
                         ),
                       ),
@@ -3614,7 +4885,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           ),
           // Shift rows
           if (_shifts.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Text('Chưa có ca làm việc', style: TextStyle(color: Color(0xFF71717A))))
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Chưa có ca làm việc',
+                    style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -3622,27 +4896,48 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               final isLast = si == _shifts.length - 1;
               return Container(
                 decoration: BoxDecoration(
-                  border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: isLast
+                      ? null
+                      : const Border(
+                          bottom: BorderSide(color: Color(0xFFE4E4E7))),
                 ),
                 child: Row(
                   children: [
                     // Shift name cell
                     Container(
                       width: 80,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
+                      decoration: const BoxDecoration(
+                          border: Border(
+                              right: BorderSide(color: Color(0xFFE4E4E7)))),
                       child: Column(
                         children: [
-                          Text(shift.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF18181B)), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)), textAlign: TextAlign.center),
+                          Text(shift.name,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF18181B)),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          Text(
+                              '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+                              style: const TextStyle(
+                                  fontSize: 9, color: Color(0xFF71717A)),
+                              textAlign: TextAlign.center),
                         ],
                       ),
                     ),
                     // Day cells for this shift
                     ...List.generate(7, (di) {
                       final day = days[di];
-                      final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
-                      return Expanded(child: _buildManagerGridCell(shift, day, isToday, canEdit));
+                      final isToday = day.year == now.year &&
+                          day.month == now.month &&
+                          day.day == now.day;
+                      return Expanded(
+                          child: _buildManagerGridCell(
+                              shift, day, isToday, canEdit));
                     }),
                   ],
                 ),
@@ -3662,7 +4957,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3672,7 +4972,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF0891B2).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -3681,20 +4982,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE4E4E7))),
-                    child: const Icon(Icons.arrow_back, size: 18, color: Color(0xFF0891B2)),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                    child: const Icon(Icons.arrow_back,
+                        size: 18, color: Color(0xFF0891B2)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('$dayLabel — $dateStr', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0891B2))),
+                  child: Text('$dayLabel — $dateStr',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0891B2))),
                 ),
               ],
             ),
           ),
           // Shift rows with employee names
           if (_shifts.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Text('Chưa có ca', style: TextStyle(color: Color(0xFF71717A))))
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Chưa có ca',
+                    style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -3703,12 +5015,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               final schedules = _getSchedulesForShiftDay(shift.id, day);
               final pendingLocal = _getPendingForShiftDay(shift.id, day);
               final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
-              final uniqueRegs = submittedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).toList();
+              final uniqueRegs = submittedRegs
+                  .where((r) => schedules
+                      .every((s) => s.employeeUserId != r.employeeUserId))
+                  .toList();
 
               return Container(
-                decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : const Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3716,23 +5036,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFF0891B2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                            child: Text(shift.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0891B2))),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF0891B2)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Text(shift.name,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0891B2))),
                           ),
                           const SizedBox(width: 8),
-                          Text('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                          Text(
+                              '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF71717A))),
                           const Spacer(),
-                          Text('${schedules.length + uniqueRegs.length + pendingLocal.length} NV', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0891B2))),
+                          Text(
+                              '${schedules.length + uniqueRegs.length + pendingLocal.length} NV',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0891B2))),
                           if (canEdit) ...[
                             const SizedBox(width: 6),
                             InkWell(
-                              onTap: () => _showAssignEmployeeToShiftDialog(shift, day),
+                              onTap: () =>
+                                  _showAssignEmployeeToShiftDialog(shift, day),
                               borderRadius: BorderRadius.circular(6),
                               child: Container(
                                 padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(color: const Color(0xFF0891B2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                                child: const Icon(Icons.person_add, size: 16, color: Color(0xFF0891B2)),
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFF0891B2)
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: const Icon(Icons.person_add,
+                                    size: 16, color: Color(0xFF0891B2)),
                               ),
                             ),
                           ],
@@ -3740,35 +5081,62 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       ),
                       const SizedBox(height: 6),
                       // Employee list
-                      if (schedules.isEmpty && uniqueRegs.isEmpty && pendingLocal.isEmpty)
+                      if (schedules.isEmpty &&
+                          uniqueRegs.isEmpty &&
+                          pendingLocal.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('Chưa có nhân viên', style: TextStyle(fontSize: 12, color: Colors.grey[400], fontStyle: FontStyle.italic)),
+                          child: Text('Chưa có nhân viên',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[400],
+                                  fontStyle: FontStyle.italic)),
                         )
                       else
                         Wrap(
-                          spacing: 6, runSpacing: 4,
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
                             // Confirmed schedules
                             ...schedules.map((ws) {
-                              final emp = _employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty());
-                              return _empChip(emp.fullName, const Color(0xFF1E3A5F), Icons.check);
+                              final emp = _employees.firstWhere(
+                                  (e) =>
+                                      _effectiveUserId(e) == ws.employeeUserId,
+                                  orElse: () => Employee.empty());
+                              return _empChip(emp.fullName,
+                                  const Color(0xFF1E3A5F), Icons.check);
                             }),
                             // Submitted registrations
                             ...uniqueRegs.map((reg) {
-                              final emp = _employees.firstWhere((e) => _effectiveUserId(e) == reg.employeeUserId, orElse: () => Employee.empty());
-                              Color c; IconData ic;
+                              final emp = _employees.firstWhere(
+                                  (e) =>
+                                      _effectiveUserId(e) == reg.employeeUserId,
+                                  orElse: () => Employee.empty());
+                              Color c;
+                              IconData ic;
                               switch (reg.status) {
-                                case ScheduleRegistrationStatus.approved: c = const Color(0xFF059669); ic = Icons.check_circle; break;
-                                case ScheduleRegistrationStatus.rejected: c = const Color(0xFFEF4444); ic = Icons.cancel; break;
-                                default: c = const Color(0xFFD97706); ic = Icons.hourglass_empty;
+                                case ScheduleRegistrationStatus.approved:
+                                  c = const Color(0xFF059669);
+                                  ic = Icons.check_circle;
+                                  break;
+                                case ScheduleRegistrationStatus.rejected:
+                                  c = const Color(0xFFEF4444);
+                                  ic = Icons.cancel;
+                                  break;
+                                default:
+                                  c = const Color(0xFFD97706);
+                                  ic = Icons.hourglass_empty;
                               }
                               return _empChip(emp.fullName, c, ic);
                             }),
                             // Local pending
                             ...pendingLocal.map((reg) {
-                              final emp = _employees.firstWhere((e) => _effectiveUserId(e) == reg['employeeId'], orElse: () => Employee.empty());
-                              return _empChip(emp.fullName, const Color(0xFF8B5CF6), Icons.add_circle);
+                              final emp = _employees.firstWhere(
+                                  (e) =>
+                                      _effectiveUserId(e) == reg['employeeId'],
+                                  orElse: () => Employee.empty());
+                              return _empChip(emp.fullName,
+                                  const Color(0xFF8B5CF6), Icons.add_circle);
                             }),
                           ],
                         ),
@@ -3795,40 +5163,60 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(name, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          Text(name,
+              style: TextStyle(
+                  fontSize: 11, color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  Widget _buildManagerGridCell(Shift shift, DateTime day, bool isToday, bool canEdit) {
+  Widget _buildManagerGridCell(
+      Shift shift, DateTime day, bool isToday, bool canEdit) {
     final schedules = _getSchedulesForShiftDay(shift.id, day);
     final pendingLocal = _getPendingForShiftDay(shift.id, day);
     final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
-    final pendingRegs = submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.pending).toList();
-    final approvedRegs = submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.approved).toList();
+    final pendingRegs = submittedRegs
+        .where((r) => r.status == ScheduleRegistrationStatus.pending)
+        .toList();
+    final approvedRegs = submittedRegs
+        .where((r) => r.status == ScheduleRegistrationStatus.approved)
+        .toList();
     // Unique employees: exclude duplicates between confirmed and submitted
     final confirmedCount = schedules.length;
-    final approvedCount = approvedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).length;
-    final pendingCount = pendingRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).length;
+    final approvedCount = approvedRegs
+        .where(
+            (r) => schedules.every((s) => s.employeeUserId != r.employeeUserId))
+        .length;
+    final pendingCount = pendingRegs
+        .where(
+            (r) => schedules.every((s) => s.employeeUserId != r.employeeUserId))
+        .length;
     final localCount = pendingLocal.length;
-    final totalCount = confirmedCount + approvedCount + pendingCount + localCount;
+    final totalCount =
+        confirmedCount + approvedCount + pendingCount + localCount;
 
     // Quota check
     final quota = _getQuotaForShift(shift.id);
-    final bool belowWarning = quota != null && totalCount <= (quota['warningThreshold'] ?? 0) && totalCount < (quota['minEmployees'] ?? 0);
-    final bool aboveMax = quota != null && totalCount > (quota['maxEmployees'] ?? 999);
+    final bool belowWarning = quota != null &&
+        totalCount <= (quota['warningThreshold'] ?? 0) &&
+        totalCount < (quota['minEmployees'] ?? 0);
+    final bool aboveMax =
+        quota != null && totalCount > (quota['maxEmployees'] ?? 999);
 
     Color bgColor;
     Color borderColor;
     Widget content;
 
     if (totalCount == 0) {
-      bgColor = belowWarning ? const Color(0xFFFEE2E2) : (isToday ? const Color(0xFFF1F5F9) : Colors.white);
-      borderColor = belowWarning ? const Color(0xFFEF4444) : const Color(0xFFE4E4E7);
+      bgColor = belowWarning
+          ? const Color(0xFFFEE2E2)
+          : (isToday ? const Color(0xFFF1F5F9) : Colors.white);
+      borderColor =
+          belowWarning ? const Color(0xFFEF4444) : const Color(0xFFE4E4E7);
       content = belowWarning
-        ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFFEF4444))
-        : Icon(Icons.add, size: 14, color: Colors.grey[300]);
+          ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFFEF4444))
+          : Icon(Icons.add, size: 14, color: Colors.grey[300]);
     } else {
       // Primary color by highest-priority status present
       if (confirmedCount > 0) {
@@ -3861,10 +5249,29 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (belowWarning) const Padding(padding: EdgeInsets.only(right: 2), child: Icon(Icons.arrow_downward, size: 10, color: Color(0xFFEF4444))),
-              if (aboveMax) const Padding(padding: EdgeInsets.only(right: 2), child: Icon(Icons.arrow_upward, size: 10, color: Color(0xFFF59E0B))),
-              Text('$totalCount', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: belowWarning ? const Color(0xFFEF4444) : (aboveMax ? const Color(0xFFF59E0B) : borderColor))),
-              if (quota != null) Text('/${quota['maxEmployees']}', style: const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+              if (belowWarning)
+                const Padding(
+                    padding: EdgeInsets.only(right: 2),
+                    child: Icon(Icons.arrow_downward,
+                        size: 10, color: Color(0xFFEF4444))),
+              if (aboveMax)
+                const Padding(
+                    padding: EdgeInsets.only(right: 2),
+                    child: Icon(Icons.arrow_upward,
+                        size: 10, color: Color(0xFFF59E0B))),
+              Text('$totalCount',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: belowWarning
+                          ? const Color(0xFFEF4444)
+                          : (aboveMax
+                              ? const Color(0xFFF59E0B)
+                              : borderColor))),
+              if (quota != null)
+                Text('/${quota['maxEmployees']}',
+                    style:
+                        const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
             ],
           ),
           const SizedBox(height: 2),
@@ -3882,14 +5289,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     }
 
     return GestureDetector(
-      onTap: canEdit ? () => _showAssignEmployeeToShiftDialog(shift, day) : () => _showCellDetailDialog(shift, day),
-      onLongPress: (belowWarning && canEdit) ? () => _showRequestCoverageDialog(preselectedShift: shift, preselectedDate: day) : null,
+      onTap: canEdit
+          ? () => _showAssignEmployeeToShiftDialog(shift, day)
+          : () => _showCellDetailDialog(shift, day),
+      onLongPress: (belowWarning && canEdit)
+          ? () => _showRequestCoverageDialog(
+              preselectedShift: shift, preselectedDate: day)
+          : null,
       child: Container(
         height: 56,
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border.all(color: borderColor, width: (totalCount > 0 || belowWarning) ? 1.5 : 0.5),
+          border: Border.all(
+              color: borderColor,
+              width: (totalCount > 0 || belowWarning) ? 1.5 : 0.5),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Center(child: content),
@@ -3899,7 +5313,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   Widget _statusDot(Color color) {
     return Container(
-      width: 6, height: 6,
+      width: 6,
+      height: 6,
       margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
@@ -3916,9 +5331,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(shift.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF18181B))),
-          Text('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)} • ${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+          Text(shift.name,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF18181B))),
+          Text(
+              '${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)} • ${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
         ]),
         content: SizedBox(
           width: 300,
@@ -3928,42 +5348,80 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (schedules.isNotEmpty) ...[
-                  const Text('Đã xếp lịch', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1E3A5F))),
+                  const Text('Đã xếp lịch',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: Color(0xFF1E3A5F))),
                   const SizedBox(height: 4),
                   ...schedules.map((ws) {
-                    final emp = _employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty());
-                    return _detailEmpRow(emp.fullName, const Color(0xFF1E3A5F), Icons.check);
+                    final emp = _employees.firstWhere(
+                        (e) => _effectiveUserId(e) == ws.employeeUserId,
+                        orElse: () => Employee.empty());
+                    return _detailEmpRow(
+                        emp.fullName, const Color(0xFF1E3A5F), Icons.check);
                   }),
                   const SizedBox(height: 8),
                 ],
                 if (submittedRegs.isNotEmpty) ...[
-                  ...submittedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).map((reg) {
-                    final emp = _employees.firstWhere((e) => _effectiveUserId(e) == reg.employeeUserId, orElse: () => Employee.empty());
-                    Color c; IconData ic; String label;
+                  ...submittedRegs
+                      .where((r) => schedules
+                          .every((s) => s.employeeUserId != r.employeeUserId))
+                      .map((reg) {
+                    final emp = _employees.firstWhere(
+                        (e) => _effectiveUserId(e) == reg.employeeUserId,
+                        orElse: () => Employee.empty());
+                    Color c;
+                    IconData ic;
+                    String label;
                     switch (reg.status) {
-                      case ScheduleRegistrationStatus.approved: c = const Color(0xFF059669); ic = Icons.check_circle; label = 'Duyệt'; break;
-                      case ScheduleRegistrationStatus.rejected: c = const Color(0xFFEF4444); ic = Icons.cancel; label = 'Từ chối'; break;
-                      default: c = const Color(0xFFD97706); ic = Icons.hourglass_empty; label = 'Chờ duyệt';
+                      case ScheduleRegistrationStatus.approved:
+                        c = const Color(0xFF059669);
+                        ic = Icons.check_circle;
+                        label = 'Duyệt';
+                        break;
+                      case ScheduleRegistrationStatus.rejected:
+                        c = const Color(0xFFEF4444);
+                        ic = Icons.cancel;
+                        label = 'Từ chối';
+                        break;
+                      default:
+                        c = const Color(0xFFD97706);
+                        ic = Icons.hourglass_empty;
+                        label = 'Chờ duyệt';
                     }
                     return _detailEmpRow('${emp.fullName} ($label)', c, ic);
                   }),
                   const SizedBox(height: 8),
                 ],
                 if (pendingLocal.isNotEmpty) ...[
-                  const Text('Chưa gửi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF8B5CF6))),
+                  const Text('Chưa gửi',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: Color(0xFF8B5CF6))),
                   const SizedBox(height: 4),
                   ...pendingLocal.map((reg) {
-                    final emp = _employees.firstWhere((e) => _effectiveUserId(e) == reg['employeeId'], orElse: () => Employee.empty());
-                    return _detailEmpRow(emp.fullName, const Color(0xFF8B5CF6), Icons.add_circle);
+                    final emp = _employees.firstWhere(
+                        (e) => _effectiveUserId(e) == reg['employeeId'],
+                        orElse: () => Employee.empty());
+                    return _detailEmpRow(emp.fullName, const Color(0xFF8B5CF6),
+                        Icons.add_circle);
                   }),
                 ],
-                if (schedules.isEmpty && submittedRegs.isEmpty && pendingLocal.isEmpty)
-                  const Text('Chưa có nhân viên nào', style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                if (schedules.isEmpty &&
+                    submittedRegs.isEmpty &&
+                    pendingLocal.isEmpty)
+                  const Text('Chưa có nhân viên nào',
+                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
               ],
             ),
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+        ],
       ),
     );
   }
@@ -3975,7 +5433,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
-          Expanded(child: Text(name, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500))),
+          Expanded(
+              child: Text(name,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -3993,7 +5456,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     for (final p in _getPendingForShiftDay(shift.id, day)) {
       assignedIds.add(p['employeeId'] as String);
     }
-    for (final r in _getRegistrationsForShiftDay(shift.id, day).where((r) => r.status != ScheduleRegistrationStatus.rejected)) {
+    for (final r in _getRegistrationsForShiftDay(shift.id, day)
+        .where((r) => r.status != ScheduleRegistrationStatus.rejected)) {
       assignedIds.add(r.employeeUserId);
     }
 
@@ -4013,34 +5477,54 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           }
 
           // Select/deselect all visible (non-assigned)
-          final availableFiltered = filtered.where((e) => !assignedIds.contains(_effectiveUserId(e))).toList();
-          final allSelected = availableFiltered.isNotEmpty && availableFiltered.every((e) => selectedIds.contains(_effectiveUserId(e)));
+          final availableFiltered = filtered
+              .where((e) => !assignedIds.contains(_effectiveUserId(e)))
+              .toList();
+          final allSelected = availableFiltered.isNotEmpty &&
+              availableFiltered
+                  .every((e) => selectedIds.contains(_effectiveUserId(e)));
 
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: const Color(0xFF0891B2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.person_add, color: Color(0xFF0891B2), size: 18),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.person_add,
+                      color: Color(0xFF0891B2), size: 18),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Thêm NV vào ${shift.name}', style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 16))),
+                Expanded(
+                    child: Text('Thêm NV vào ${shift.name}',
+                        style: const TextStyle(
+                            color: Color(0xFF18181B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16))),
               ]),
               const SizedBox(height: 4),
-              Text('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)}  •  ${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+              Text(
+                  '${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)}  •  ${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                  style:
+                      const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
             ]),
             content: SizedBox(
-              width: Responsive.dialogWidth(context), height: 450,
+              width: Responsive.dialogWidth(context),
+              height: 450,
               child: Column(children: [
                 TextField(
                   controller: searchCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Tìm nhân viên...', prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), isDense: true,
+                    hintText: 'Tìm nhân viên...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
                   ),
                   onChanged: (_) => filter(),
                 ),
@@ -4062,17 +5546,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       });
                     },
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(allSelected ? Icons.check_box : Icons.check_box_outline_blank, color: const Color(0xFF0891B2), size: 20),
+                      Icon(
+                          allSelected
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          color: const Color(0xFF0891B2),
+                          size: 20),
                       const SizedBox(width: 4),
-                      Text(allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả', style: const TextStyle(fontSize: 12, color: Color(0xFF0891B2))),
+                      Text(allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF0891B2))),
                     ]),
                   ),
                   const Spacer(),
                   if (selectedIds.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFF0891B2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                      child: Text('Đã chọn: ${selectedIds.length}', style: const TextStyle(fontSize: 12, color: Color(0xFF0891B2), fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Text('Đã chọn: ${selectedIds.length}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF0891B2),
+                              fontWeight: FontWeight.bold)),
                     ),
                 ]),
                 const SizedBox(height: 8),
@@ -4091,38 +5589,65 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                                   ? CircleAvatar(
                                       backgroundColor: Colors.grey[200],
                                       child: Text(
-                                        emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?',
-                                        style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                                        emp.firstName.isNotEmpty
+                                            ? emp.firstName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     )
                                   : Icon(
-                                      isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                                      color: isSelected ? const Color(0xFF0891B2) : Colors.grey[400],
+                                      isSelected
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      color: isSelected
+                                          ? const Color(0xFF0891B2)
+                                          : Colors.grey[400],
                                     ),
-                              title: Text(emp.fullName, style: TextStyle(
-                                color: isAssigned ? Colors.grey : isSelected ? const Color(0xFF0891B2) : null,
-                                fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                              )),
-                              subtitle: Text(emp.employeeCode, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              title: Text(emp.fullName,
+                                  style: TextStyle(
+                                    color: isAssigned
+                                        ? Colors.grey
+                                        : isSelected
+                                            ? const Color(0xFF0891B2)
+                                            : null,
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  )),
+                              subtitle: Text(emp.employeeCode,
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.grey[500])),
                               trailing: isAssigned
                                   ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(12)),
-                                      child: const Text('Đã phân', style: TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                          color: const Color(0xFFE5E7EB),
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                      child: const Text('Đã phân',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF71717A))),
                                     )
                                   : isSelected
-                                      ? const Icon(Icons.check_circle, color: Color(0xFF0891B2))
+                                      ? const Icon(Icons.check_circle,
+                                          color: Color(0xFF0891B2))
                                       : null,
-                              onTap: isAssigned ? null : () {
-                                setDialogState(() {
-                                  if (isSelected) {
-                                    selectedIds.remove(effId);
-                                  } else {
-                                    selectedIds.add(effId);
-                                  }
-                                });
-                              },
+                              onTap: isAssigned
+                                  ? null
+                                  : () {
+                                      setDialogState(() {
+                                        if (isSelected) {
+                                          selectedIds.remove(effId);
+                                        } else {
+                                          selectedIds.add(effId);
+                                        }
+                                      });
+                                    },
                             );
                           },
                         ),
@@ -4130,17 +5655,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               ]),
             ),
             actions: [
-              TextButton(onPressed: () { searchCtrl.dispose(); Navigator.pop(ctx); }, child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A)))),
+              TextButton(
+                  onPressed: () {
+                    searchCtrl.dispose();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Đóng',
+                      style: TextStyle(color: Color(0xFF71717A)))),
               FilledButton.icon(
-                onPressed: selectedIds.isEmpty ? null : () {
-                  searchCtrl.dispose();
-                  Navigator.pop(ctx);
-                  for (final empId in selectedIds) {
-                    _addPendingRegistration(empId, day, shift.id, false, null);
-                  }
-                },
+                onPressed: selectedIds.isEmpty
+                    ? null
+                    : () {
+                        searchCtrl.dispose();
+                        Navigator.pop(ctx);
+                        for (final empId in selectedIds) {
+                          _addPendingRegistration(
+                              empId, day, shift.id, false, null);
+                        }
+                      },
                 icon: const Icon(Icons.check, size: 18),
-                label: Text('Thêm ${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}'),
+                label: Text(
+                    'Thêm ${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}'),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0891B2),
                   disabledBackgroundColor: Colors.grey[300],
@@ -4153,14 +5688,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _buildScheduleCell(Employee employee, DateTime day, List<WorkSchedule> schedules, List<Map<String, dynamic>> pendingRegs, [List<ScheduleRegistration> submittedRegs = const []]) {
+  Widget _buildScheduleCell(Employee employee, DateTime day,
+      List<WorkSchedule> schedules, List<Map<String, dynamic>> pendingRegs,
+      [List<ScheduleRegistration> submittedRegs = const []]) {
     // Nếu có pending registration (chờ gửi - màu vàng)
     if (pendingRegs.isNotEmpty) {
       // Day off pending
       if (pendingRegs.first['isDayOff'] == true) {
         final note = pendingRegs.first['note'] ?? 'Nghỉ phép';
         return InkWell(
-          onTap: () => _removePendingRegistration(_effectiveUserId(employee), day),
+          onTap: () =>
+              _removePendingRegistration(_effectiveUserId(employee), day),
           child: Container(
             width: 100,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -4175,7 +5713,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               children: [
                 Text(
                   note,
-                  style: const TextStyle(color: Color(0xFF856404), fontWeight: FontWeight.bold, fontSize: 10),
+                  style: const TextStyle(
+                      color: Color(0xFF856404),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4191,19 +5732,43 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       // Multiple shifts pending - sort by shift startTime
       final sortedPendingRegs = List<Map<String, dynamic>>.from(pendingRegs);
       sortedPendingRegs.sort((a, b) {
-        final shiftA = _shifts.firstWhere((s) => s.id == a['shiftId'], orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now()));
-        final shiftB = _shifts.firstWhere((s) => s.id == b['shiftId'], orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now()));
+        final shiftA = _shifts.firstWhere((s) => s.id == a['shiftId'],
+            orElse: () => Shift(
+                id: '',
+                name: '',
+                code: '',
+                startTime: '99:99',
+                endTime: '',
+                isActive: true,
+                createdAt: DateTime.now()));
+        final shiftB = _shifts.firstWhere((s) => s.id == b['shiftId'],
+            orElse: () => Shift(
+                id: '',
+                name: '',
+                code: '',
+                startTime: '99:99',
+                endTime: '',
+                isActive: true,
+                createdAt: DateTime.now()));
         return shiftA.startTime.compareTo(shiftB.startTime);
       });
       final shiftNames = sortedPendingRegs.map((reg) {
         final shift = _shifts.firstWhere(
           (s) => s.id == reg['shiftId'],
-          orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()),
+          orElse: () => Shift(
+              id: '',
+              name: 'Ca',
+              code: '',
+              startTime: '',
+              endTime: '',
+              isActive: true,
+              createdAt: DateTime.now()),
         );
         return shift.name;
       }).toList();
       return InkWell(
-        onTap: () => _removePendingRegistration(_effectiveUserId(employee), day),
+        onTap: () =>
+            _removePendingRegistration(_effectiveUserId(employee), day),
         child: Container(
           width: 100,
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -4217,11 +5782,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             mainAxisSize: MainAxisSize.min,
             children: [
               ...shiftNames.map((name) => Text(
-                name,
-                style: const TextStyle(color: Color(0xFF856404), fontWeight: FontWeight.bold, fontSize: 10),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              )),
+                    name,
+                    style: const TextStyle(
+                        color: Color(0xFF856404),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  )),
               const Text(
                 'Chờ gửi',
                 style: TextStyle(color: Color(0xFF856404), fontSize: 9),
@@ -4238,7 +5806,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       final dayOffSchedule = schedules.where((s) => s.isDayOff).firstOrNull;
       if (dayOffSchedule != null) {
         // Nghỉ phép - màu xanh lá
-        final leaveLabel = (dayOffSchedule.note != null && dayOffSchedule.note!.isNotEmpty) ? dayOffSchedule.note! : 'Nghỉ phép';
+        final leaveLabel =
+            (dayOffSchedule.note != null && dayOffSchedule.note!.isNotEmpty)
+                ? dayOffSchedule.note!
+                : 'Nghỉ phép';
         return InkWell(
           onTap: () => _showRegisterDialog(employee, day),
           child: Container(
@@ -4258,7 +5829,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 const SizedBox(height: 1),
                 Text(
                   leaveLabel,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 9),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4270,21 +5844,50 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         // Ca đã đăng ký - màu xanh dương (supports multiple shifts, sorted by startTime)
         final sortedSchedules = List<WorkSchedule>.from(schedules);
         sortedSchedules.sort((a, b) {
-          final shiftA = a.shiftId != null ? _shifts.firstWhere((s) => s.id == a.shiftId, orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-          final shiftB = b.shiftId != null ? _shifts.firstWhere((s) => s.id == b.shiftId, orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-          return (shiftA?.startTime ?? '99:99').compareTo(shiftB?.startTime ?? '99:99');
+          final shiftA = a.shiftId != null
+              ? _shifts.firstWhere((s) => s.id == a.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: '',
+                      code: '',
+                      startTime: '99:99',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()))
+              : null;
+          final shiftB = b.shiftId != null
+              ? _shifts.firstWhere((s) => s.id == b.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: '',
+                      code: '',
+                      startTime: '99:99',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()))
+              : null;
+          return (shiftA?.startTime ?? '99:99')
+              .compareTo(shiftB?.startTime ?? '99:99');
         });
         final shiftWidgets = <Widget>[];
         for (final schedule in sortedSchedules) {
           final shift = schedule.shiftId != null
               ? _shifts.firstWhere(
                   (s) => s.id == schedule.shiftId,
-                  orElse: () => Shift(id: '', name: 'Ca làm', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()),
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca làm',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()),
                 )
               : null;
           shiftWidgets.add(Text(
             shift?.name ?? 'Ca làm',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ));
@@ -4318,13 +5921,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
     // Submitted registrations (pending / rejected)
     if (submittedRegs.isNotEmpty && schedules.isEmpty) {
-      final activeRegs = submittedRegs.where((r) => r.status != ScheduleRegistrationStatus.approved).toList();
+      final activeRegs = submittedRegs
+          .where((r) => r.status != ScheduleRegistrationStatus.approved)
+          .toList();
       if (activeRegs.isNotEmpty) {
         Color bgColor;
         Color borderColor;
         String statusText;
         final firstReg = activeRegs.first;
-        
+
         switch (firstReg.status) {
           case ScheduleRegistrationStatus.pending:
             bgColor = const Color(0xFFFEF3C7);
@@ -4344,15 +5949,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
         final sortedActiveRegs = List<ScheduleRegistration>.from(activeRegs);
         sortedActiveRegs.sort((a, b) {
-          final shiftA = a.shiftId != null ? _shifts.firstWhere((s) => s.id == a.shiftId, orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-          final shiftB = b.shiftId != null ? _shifts.firstWhere((s) => s.id == b.shiftId, orElse: () => Shift(id: '', name: '', code: '', startTime: '99:99', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-          return (shiftA?.startTime ?? '99:99').compareTo(shiftB?.startTime ?? '99:99');
+          final shiftA = a.shiftId != null
+              ? _shifts.firstWhere((s) => s.id == a.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: '',
+                      code: '',
+                      startTime: '99:99',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()))
+              : null;
+          final shiftB = b.shiftId != null
+              ? _shifts.firstWhere((s) => s.id == b.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: '',
+                      code: '',
+                      startTime: '99:99',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()))
+              : null;
+          return (shiftA?.startTime ?? '99:99')
+              .compareTo(shiftB?.startTime ?? '99:99');
         });
 
         final regLabels = sortedActiveRegs.map((r) {
           if (r.isDayOff) return r.note ?? 'Nghỉ phép';
           final shift = r.shiftId != null
-              ? _shifts.firstWhere((s) => s.id == r.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()))
+              ? _shifts.firstWhere((s) => s.id == r.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()))
               : null;
           return shift?.name ?? 'Ca';
         }).toList();
@@ -4372,11 +6006,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               mainAxisSize: MainAxisSize.min,
               children: [
                 ...regLabels.map((label) => Text(
-                  label,
-                  style: TextStyle(color: borderColor, fontWeight: FontWeight.bold, fontSize: 10),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                )),
+                      label,
+                      style: TextStyle(
+                          color: borderColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    )),
                 Text(
                   statusText,
                   style: TextStyle(color: borderColor, fontSize: 9),
@@ -4397,7 +6034,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         decoration: BoxDecoration(
           color: const Color(0xFFFAFAFA),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE4E4E7), style: BorderStyle.solid),
+          border: Border.all(
+              color: const Color(0xFFE4E4E7), style: BorderStyle.solid),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -4428,16 +6066,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     Set<String> selectedShiftIds = {};
     bool isDayOff = false;
     String leaveType = 'Nghỉ phép năm';
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             'Đăng ký ca - ${employee.lastName} ${employee.firstName}',
-            style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Color(0xFF18181B), fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -4449,7 +6089,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               ),
               const SizedBox(height: 16),
               SwitchListTile(
-                title: const Text('Nghỉ phép', style: TextStyle(color: Color(0xFF18181B))),
+                title: const Text('Nghỉ phép',
+                    style: TextStyle(color: Color(0xFF18181B))),
                 value: isDayOff,
                 onChanged: (value) => setDialogState(() {
                   isDayOff = value;
@@ -4459,47 +6100,57 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               ),
               if (isDayOff) ...[
                 const SizedBox(height: 8),
-                const Text('Loại nghỉ phép:', style: TextStyle(color: Color(0xFF18181B))),
+                const Text('Loại nghỉ phép:',
+                    style: TextStyle(color: Color(0xFF18181B))),
                 const SizedBox(height: 8),
-                ...['Nghỉ phép năm', 'Nghỉ phép có lương', 'Nghỉ phép không lương'].map((type) => RadioListTile<String>(
-                  title: Text(type, style: const TextStyle(color: Color(0xFF18181B))),
-                  value: type,
-                  // ignore: deprecated_member_use
-                  groupValue: leaveType,
-                  // ignore: deprecated_member_use
-                  onChanged: (value) => setDialogState(() => leaveType = value!),
-                  activeColor: const Color(0xFF1E3A5F),
-                  dense: true,
-                )),
+                ...[
+                  'Nghỉ phép năm',
+                  'Nghỉ phép có lương',
+                  'Nghỉ phép không lương'
+                ].map((type) => RadioListTile<String>(
+                      title: Text(type,
+                          style: const TextStyle(color: Color(0xFF18181B))),
+                      value: type,
+                      // ignore: deprecated_member_use
+                      groupValue: leaveType,
+                      // ignore: deprecated_member_use
+                      onChanged: (value) =>
+                          setDialogState(() => leaveType = value!),
+                      activeColor: const Color(0xFF1E3A5F),
+                      dense: true,
+                    )),
               ],
               if (!isDayOff) ...[
                 const SizedBox(height: 16),
-                const Text('Chọn ca làm việc:', style: TextStyle(color: Color(0xFF18181B))),
+                const Text('Chọn ca làm việc:',
+                    style: TextStyle(color: Color(0xFF18181B))),
                 const SizedBox(height: 8),
                 ..._shifts.map((shift) => CheckboxListTile(
-                  title: Text(shift.name, style: const TextStyle(color: Color(0xFF18181B))),
-                  subtitle: Text(
-                    '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
-                    style: const TextStyle(color: Color(0xFF71717A)),
-                  ),
-                  value: selectedShiftIds.contains(shift.id),
-                  onChanged: (value) => setDialogState(() {
-                    if (value == true) {
-                      selectedShiftIds.add(shift.id);
-                    } else {
-                      selectedShiftIds.remove(shift.id);
-                    }
-                  }),
-                  activeColor: const Color(0xFF1E3A5F),
-                  controlAffinity: ListTileControlAffinity.leading,
-                )),
+                      title: Text(shift.name,
+                          style: const TextStyle(color: Color(0xFF18181B))),
+                      subtitle: Text(
+                        '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                        style: const TextStyle(color: Color(0xFF71717A)),
+                      ),
+                      value: selectedShiftIds.contains(shift.id),
+                      onChanged: (value) => setDialogState(() {
+                        if (value == true) {
+                          selectedShiftIds.add(shift.id);
+                        } else {
+                          selectedShiftIds.remove(shift.id);
+                        }
+                      }),
+                      activeColor: const Color(0xFF1E3A5F),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    )),
               ],
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+              child:
+                  const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
             ),
             ElevatedButton(
               onPressed: () {
@@ -4511,15 +6162,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   return;
                 }
                 if (isDayOff) {
-                  _addPendingRegistration(_effectiveUserId(employee), day, null, true, leaveType);
+                  _addPendingRegistration(
+                      _effectiveUserId(employee), day, null, true, leaveType);
                 } else {
                   for (final shiftId in selectedShiftIds) {
-                    _addPendingRegistration(_effectiveUserId(employee), day, shiftId, false, null);
+                    _addPendingRegistration(
+                        _effectiveUserId(employee), day, shiftId, false, null);
                   }
                 }
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F)),
               child: const Text('Thêm vào danh sách chờ'),
             ),
           ],
@@ -4528,15 +6182,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  void _addPendingRegistration(String employeeId, DateTime day, String? shiftId, bool isDayOff, String? note) {
+  void _addPendingRegistration(String employeeId, DateTime day, String? shiftId,
+      bool isDayOff, String? note) {
     setState(() {
       if (isDayOff) {
         // For day off, remove all existing pending for same employee and day
         _pendingRegistrations.removeWhere(
-          (r) => r['employeeId'] == employeeId &&
-                 (r['date'] as DateTime).day == day.day &&
-                 (r['date'] as DateTime).month == day.month &&
-                 (r['date'] as DateTime).year == day.year,
+          (r) =>
+              r['employeeId'] == employeeId &&
+              (r['date'] as DateTime).day == day.day &&
+              (r['date'] as DateTime).month == day.month &&
+              (r['date'] as DateTime).year == day.year,
         );
         _pendingRegistrations.add({
           'employeeId': employeeId,
@@ -4548,11 +6204,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       } else {
         // For shifts, remove day-off pending if exists, then add shift (avoid duplicate)
         _pendingRegistrations.removeWhere(
-          (r) => r['employeeId'] == employeeId &&
-                 (r['date'] as DateTime).day == day.day &&
-                 (r['date'] as DateTime).month == day.month &&
-                 (r['date'] as DateTime).year == day.year &&
-                 (r['isDayOff'] == true || r['shiftId'] == shiftId),
+          (r) =>
+              r['employeeId'] == employeeId &&
+              (r['date'] as DateTime).day == day.day &&
+              (r['date'] as DateTime).month == day.month &&
+              (r['date'] as DateTime).year == day.year &&
+              (r['isDayOff'] == true || r['shiftId'] == shiftId),
         );
         _pendingRegistrations.add({
           'employeeId': employeeId,
@@ -4568,10 +6225,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   void _removePendingRegistration(String employeeId, DateTime day) {
     setState(() {
       _pendingRegistrations.removeWhere(
-        (r) => r['employeeId'] == employeeId &&
-               (r['date'] as DateTime).day == day.day &&
-               (r['date'] as DateTime).month == day.month &&
-               (r['date'] as DateTime).year == day.year,
+        (r) =>
+            r['employeeId'] == employeeId &&
+            (r['date'] as DateTime).day == day.day &&
+            (r['date'] as DateTime).month == day.month &&
+            (r['date'] as DateTime).year == day.year,
       );
     });
   }
@@ -4649,7 +6307,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 orElse: () => Employee.empty(),
               );
               final shift = reg['shiftId'] != null
-                  ? _shifts.firstWhere((s) => s.id == reg['shiftId'], orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()))
+                  ? _shifts.firstWhere((s) => s.id == reg['shiftId'],
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()))
                   : null;
               return Chip(
                 backgroundColor: const Color(0xFFFFE082),
@@ -4661,7 +6327,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 },
                 label: Text(
                   '${employee.firstName} - ${DateFormat('dd/MM').format(reg['date'])} - ${reg['isDayOff'] == true ? (reg['note'] ?? 'Nghỉ phép') : shift?.name ?? ''}',
-                  style: const TextStyle(color: Color(0xFF856404), fontSize: 12),
+                  style:
+                      const TextStyle(color: Color(0xFF856404), fontSize: 12),
                 ),
               );
             }).toList(),
@@ -4688,7 +6355,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         final shiftId = reg['shiftId'];
         final result = await _apiService.createScheduleRegistration({
           'employeeUserId': reg['employeeId'],
-          'shiftId': (shiftId != null && shiftId.toString().isNotEmpty) ? shiftId : null,
+          'shiftId': (shiftId != null && shiftId.toString().isNotEmpty)
+              ? shiftId
+              : null,
           'date': (reg['date'] as DateTime).toIso8601String(),
           'isDayOff': reg['isDayOff'] ?? false,
           'note': reg['note'] ?? (reg['isDayOff'] == true ? 'Nghỉ phép' : ''),
@@ -4700,7 +6369,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           debugPrint('❌ Failed to create registration: ${result['message']}');
         }
       }
-      
+
       if (mounted) {
         if (failCount == 0) {
           appNotification.showSuccess(
@@ -4714,11 +6383,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           );
         }
       }
-      
+
       setState(() {
         _pendingRegistrations.clear();
       });
-      
+
       await _loadSchedules();
       await _loadRegistrations();
     } catch (e) {
@@ -4739,10 +6408,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
     final weekRegs = _registrations.where((r) {
       final regDate = DateTime(r.date.year, r.date.month, r.date.day);
-      final weekStart = DateTime(_selectedWeekStart.year, _selectedWeekStart.month, _selectedWeekStart.day);
+      final weekStart = DateTime(_selectedWeekStart.year,
+          _selectedWeekStart.month, _selectedWeekStart.day);
       final end = DateTime(weekEnd.year, weekEnd.month, weekEnd.day);
       return !regDate.isBefore(weekStart) && !regDate.isAfter(end);
-    }).toList()..sort((a, b) => a.date.compareTo(b.date));
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     if (weekRegs.isEmpty) return const SizedBox.shrink();
 
@@ -4778,11 +6449,29 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               ),
               const Spacer(),
               // Status summary
-              _buildStatusBadge('Chờ duyệt', const Color(0xFFF59E0B), weekRegs.where((r) => r.status == ScheduleRegistrationStatus.pending).length),
+              _buildStatusBadge(
+                  'Chờ duyệt',
+                  const Color(0xFFF59E0B),
+                  weekRegs
+                      .where(
+                          (r) => r.status == ScheduleRegistrationStatus.pending)
+                      .length),
               const SizedBox(width: 8),
-              _buildStatusBadge('Đã duyệt', const Color(0xFF1E3A5F), weekRegs.where((r) => r.status == ScheduleRegistrationStatus.approved).length),
+              _buildStatusBadge(
+                  'Đã duyệt',
+                  const Color(0xFF1E3A5F),
+                  weekRegs
+                      .where((r) =>
+                          r.status == ScheduleRegistrationStatus.approved)
+                      .length),
               const SizedBox(width: 8),
-              _buildStatusBadge('Từ chối', const Color(0xFFEF4444), weekRegs.where((r) => r.status == ScheduleRegistrationStatus.rejected).length),
+              _buildStatusBadge(
+                  'Từ chối',
+                  const Color(0xFFEF4444),
+                  weekRegs
+                      .where((r) =>
+                          r.status == ScheduleRegistrationStatus.rejected)
+                      .length),
             ],
           ),
           const SizedBox(height: 12),
@@ -4792,7 +6481,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               orElse: () => Employee.empty(),
             );
             final shift = reg.shiftId != null && reg.shiftId!.isNotEmpty
-                ? _shifts.firstWhere((s) => s.id == reg.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()))
+                ? _shifts.firstWhere((s) => s.id == reg.shiftId,
+                    orElse: () => Shift(
+                        id: '',
+                        name: 'Ca',
+                        code: '',
+                        startTime: '',
+                        endTime: '',
+                        isActive: true,
+                        createdAt: DateTime.now()))
                 : null;
 
             Color statusColor;
@@ -4833,43 +6530,61 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                       children: [
                         Text(
                           '${employee.fullName} - ${DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(reg.date)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF18181B)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: Color(0xFF18181B)),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           reg.isDayOff
-                              ? (reg.note != null && reg.note!.isNotEmpty ? reg.note! : 'Nghỉ phép')
+                              ? (reg.note != null && reg.note!.isNotEmpty
+                                  ? reg.note!
+                                  : 'Nghỉ phép')
                               : (shift?.name ?? 'Ca'),
-                          style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12),
                         ),
-                        if (reg.status == ScheduleRegistrationStatus.rejected && reg.rejectionReason != null && reg.rejectionReason!.isNotEmpty) ...[
+                        if (reg.status == ScheduleRegistrationStatus.rejected &&
+                            reg.rejectionReason != null &&
+                            reg.rejectionReason!.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             'Lý do: ${reg.rejectionReason}',
-                            style: const TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontStyle: FontStyle.italic),
+                            style: const TextStyle(
+                                color: Color(0xFFEF4444),
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic),
                           ),
                         ],
                       ],
                     ),
                   ),
                   // Delete button for pending registrations
-                  if (reg.status == ScheduleRegistrationStatus.pending && Provider.of<PermissionProvider>(context, listen: false).canDelete('WorkSchedule')) ...[
+                  if (reg.status == ScheduleRegistrationStatus.pending &&
+                      Provider.of<PermissionProvider>(context, listen: false)
+                          .canDelete('WorkSchedule')) ...[
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Color(0xFFEF4444), size: 20),
                       tooltip: 'Xóa đăng ký',
                       onPressed: () => _deleteRegistration(reg.id),
                     ),
                     const SizedBox(width: 4),
                   ],
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       statusText,
-                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                      style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11),
                     ),
                   ),
                 ],
@@ -4891,7 +6606,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       ),
       child: Text(
         '$label: $count',
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+        style:
+            TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
       ),
     );
   }
@@ -4901,8 +6617,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   // ══════════════════════════════════════════════
   // ignore: unused_element
   Widget _buildApprovedScheduleTable() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-    final dayNames = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT'];
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final dayNames = [
+      'THỨ 2',
+      'THỨ 3',
+      'THỨ 4',
+      'THỨ 5',
+      'THỨ 6',
+      'THỨ 7',
+      'CHỦ NHẬT'
+    ];
     final dateFormat = DateFormat('d/M');
     final today = DateTime.now();
     final emps = _filteredEmployees;
@@ -4915,16 +6640,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 600;
           final totalPages = (emps.length / _schedulePageSize).ceil();
-          final safePage = _approvedPage.clamp(1, totalPages == 0 ? 1 : totalPages);
+          final safePage =
+              _approvedPage.clamp(1, totalPages == 0 ? 1 : totalPages);
           final startIdx = isMobile ? 0 : (safePage - 1) * _schedulePageSize;
-          final endIdx = isMobile ? emps.length : (startIdx + _schedulePageSize).clamp(0, emps.length);
+          final endIdx = isMobile
+              ? emps.length
+              : (startIdx + _schedulePageSize).clamp(0, emps.length);
           final pageEmps = emps.sublist(startIdx, endIdx);
           if (isMobile) {
             return Column(children: [
@@ -4932,172 +6663,298 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ]);
           }
           return Column(children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFF1E3A5F).withValues(alpha: 0.08)),
-          dataRowColor: WidgetStateProperty.all(Colors.white),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: 140,
-          border: TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
-          columns: [
-            const DataColumn(
-              label: Expanded(child: Text('NHÂN VIÊN', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 12))),
-            ),
-            ...List.generate(7, (i) {
-              final day = days[i];
-              final isToday = day.day == today.day && day.month == today.month && day.year == today.year;
-              return DataColumn(
-                label: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(dayNames[i], style: TextStyle(
-                      color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF18181B),
-                      fontWeight: FontWeight.bold, fontSize: 12,
-                    )),
-                    Text(dateFormat.format(day), style: TextStyle(
-                      color: isToday ? const Color(0xFF1E3A5F) : const Color(0xFF71717A), fontSize: 11,
-                    )),
-                  ],
-                ),
-              );
-            }),
-            const DataColumn(
-              label: Expanded(child: Text('TỔNG CA', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 12))),
-            ),
-          ],
-          rows: pageEmps.isEmpty
-              ? [
-                  DataRow(cells: [
-                    DataCell(Center(child: Text('Chưa có nhân viên', style: TextStyle(color: Colors.grey[400])))),
-                    ...List.generate(8, (_) => const DataCell(Text(''))),
-                  ]),
-                ]
-              : pageEmps.map((employee) {
-                  int totalApproved = 0;
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(
+                      const Color(0xFF1E3A5F).withValues(alpha: 0.08)),
+                  dataRowColor: WidgetStateProperty.all(Colors.white),
+                  dataRowMinHeight: 56,
+                  dataRowMaxHeight: 140,
+                  border:
+                      TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
+                  columns: [
+                    const DataColumn(
+                      label: Expanded(
+                          child: Text('NHÂN VIÊN',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Color(0xFF1E3A5F),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12))),
+                    ),
+                    ...List.generate(7, (i) {
+                      final day = days[i];
+                      final isToday = day.day == today.day &&
+                          day.month == today.month &&
+                          day.year == today.year;
+                      return DataColumn(
+                        label: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(employee.fullName.toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13)),
-                            Text(employee.department ?? employee.employeeCode,
-                              style: const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
+                            Text(dayNames[i],
+                                style: TextStyle(
+                                  color: isToday
+                                      ? const Color(0xFF1E3A5F)
+                                      : const Color(0xFF18181B),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                )),
+                            Text(dateFormat.format(day),
+                                style: TextStyle(
+                                  color: isToday
+                                      ? const Color(0xFF1E3A5F)
+                                      : const Color(0xFF71717A),
+                                  fontSize: 11,
+                                )),
                           ],
                         ),
-                      ),
-                      ...List.generate(7, (dayIndex) {
-                        final day = days[dayIndex];
-                        final effectiveId = _effectiveUserId(employee);
-                        // Get confirmed schedules (from WorkSchedule)
-                        final confirmedSchedules = _getSchedulesForDay(effectiveId, day);
-                        // Get approved registrations
-                        final approvedRegs = _getRegistrationsForDay(effectiveId, day)
-                            .where((r) => r.status == ScheduleRegistrationStatus.approved)
-                            .toList();
-
-                        // Combine: confirmed schedules + approved registrations not yet in schedules
-                        final allApproved = <Widget>[];
-                        for (final ws in confirmedSchedules) {
-                          if (ws.isDayOff) {
-                            allApproved.add(_buildApprovedChip('Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
-                          } else {
-                            final shift = _shifts.firstWhere((s) => s.id == ws.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
-                            final shiftTime = shift.startTime.isNotEmpty && shift.endTime.isNotEmpty ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}' : '';
-                            allApproved.add(_buildApprovedChip(shift.name, const Color(0xFF1E3A5F), Icons.check_circle, time: shiftTime));
-                            totalApproved++;
-                          }
-                        }
-                        for (final reg in approvedRegs.where((r) => confirmedSchedules.every((s) => s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))) {
-                          if (reg.isDayOff) {
-                            allApproved.add(_buildApprovedChip(reg.note ?? 'Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
-                          } else {
-                            final shift = reg.shiftId != null ? _shifts.firstWhere((s) => s.id == reg.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-                            final shiftTime = shift != null && shift.startTime.isNotEmpty && shift.endTime.isNotEmpty ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}' : '';
-                            allApproved.add(_buildApprovedChip(shift?.name ?? 'Ca', const Color(0xFF1E3A5F), Icons.check_circle, time: shiftTime));
-                            totalApproved++;
-                          }
-                        }
-
-                        return DataCell(
-                          Container(
-                            width: 120,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: allApproved.isEmpty
-                                ? Center(child: Text('—', style: TextStyle(color: Colors.grey[300], fontSize: 16)))
-                                : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: allApproved,
-                                  ),
-                          ),
-                        );
-                      }),
-                      DataCell(
-                        Center(child: Text('$totalApproved', style: TextStyle(
-                          color: totalApproved > 0 ? const Color(0xFF1E3A5F) : Colors.grey,
-                          fontWeight: FontWeight.bold, fontSize: 16,
-                        ))),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          if (totalPages > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 34,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _schedulePageSize,
-                          isDense: true,
-                          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                          items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
-                          onChanged: (v) {
-                            if (v != null) setState(() { _schedulePageSize = v; _approvedPage = 1; });
-                          },
-                        ),
-                      ),
+                      );
+                    }),
+                    const DataColumn(
+                      label: Expanded(
+                          child: Text('TỔNG CA',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Color(0xFF1E3A5F),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12))),
                     ),
-                    const SizedBox(width: 16),
-                    IconButton(icon: const Icon(Icons.first_page), onPressed: safePage > 1 ? () => setState(() => _approvedPage = 1) : null),
-                    IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 1 ? () => setState(() => _approvedPage--) : null),
-                    Text('${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, emps.length)} / ${emps.length}', style: const TextStyle(fontSize: 13)),
-                    IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _approvedPage++) : null),
-                    IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _approvedPage = totalPages) : null),
                   ],
+                  rows: pageEmps.isEmpty
+                      ? [
+                          DataRow(cells: [
+                            DataCell(Center(
+                                child: Text('Chưa có nhân viên',
+                                    style:
+                                        TextStyle(color: Colors.grey[400])))),
+                            ...List.generate(
+                                8, (_) => const DataCell(Text(''))),
+                          ]),
+                        ]
+                      : pageEmps.map((employee) {
+                          int totalApproved = 0;
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(employee.fullName.toUpperCase(),
+                                        style: const TextStyle(
+                                            color: Color(0xFF18181B),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13)),
+                                    Text(
+                                        employee.department ??
+                                            employee.employeeCode,
+                                        style: const TextStyle(
+                                            color: Color(0xFF71717A),
+                                            fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                              ...List.generate(7, (dayIndex) {
+                                final day = days[dayIndex];
+                                final effectiveId = _effectiveUserId(employee);
+                                // Get confirmed schedules (from WorkSchedule)
+                                final confirmedSchedules =
+                                    _getSchedulesForDay(effectiveId, day);
+                                // Get approved registrations
+                                final approvedRegs =
+                                    _getRegistrationsForDay(effectiveId, day)
+                                        .where((r) =>
+                                            r.status ==
+                                            ScheduleRegistrationStatus.approved)
+                                        .toList();
+
+                                // Combine: confirmed schedules + approved registrations not yet in schedules
+                                final allApproved = <Widget>[];
+                                for (final ws in confirmedSchedules) {
+                                  if (ws.isDayOff) {
+                                    allApproved.add(_buildApprovedChip(
+                                        'Nghỉ',
+                                        const Color(0xFF71717A),
+                                        Icons.nightlight_round));
+                                  } else {
+                                    final shift = _shifts.firstWhere(
+                                        (s) => s.id == ws.shiftId,
+                                        orElse: () => Shift(
+                                            id: '',
+                                            name: 'Ca',
+                                            code: '',
+                                            startTime: '',
+                                            endTime: '',
+                                            isActive: true,
+                                            createdAt: DateTime.now()));
+                                    final shiftTime = shift
+                                                .startTime.isNotEmpty &&
+                                            shift.endTime.isNotEmpty
+                                        ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
+                                        : '';
+                                    allApproved.add(_buildApprovedChip(
+                                        shift.name,
+                                        const Color(0xFF1E3A5F),
+                                        Icons.check_circle,
+                                        time: shiftTime));
+                                    totalApproved++;
+                                  }
+                                }
+                                for (final reg in approvedRegs.where((r) =>
+                                    confirmedSchedules.every((s) =>
+                                        s.shiftId != r.shiftId ||
+                                        s.employeeUserId !=
+                                            r.employeeUserId))) {
+                                  if (reg.isDayOff) {
+                                    allApproved.add(_buildApprovedChip(
+                                        reg.note ?? 'Nghỉ',
+                                        const Color(0xFF71717A),
+                                        Icons.nightlight_round));
+                                  } else {
+                                    final shift = reg.shiftId != null
+                                        ? _shifts.firstWhere(
+                                            (s) => s.id == reg.shiftId,
+                                            orElse: () => Shift(
+                                                id: '',
+                                                name: 'Ca',
+                                                code: '',
+                                                startTime: '',
+                                                endTime: '',
+                                                isActive: true,
+                                                createdAt: DateTime.now()))
+                                        : null;
+                                    final shiftTime = shift != null &&
+                                            shift.startTime.isNotEmpty &&
+                                            shift.endTime.isNotEmpty
+                                        ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
+                                        : '';
+                                    allApproved.add(_buildApprovedChip(
+                                        shift?.name ?? 'Ca',
+                                        const Color(0xFF1E3A5F),
+                                        Icons.check_circle,
+                                        time: shiftTime));
+                                    totalApproved++;
+                                  }
+                                }
+
+                                return DataCell(
+                                  Container(
+                                    width: 120,
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 4),
+                                    child: allApproved.isEmpty
+                                        ? Center(
+                                            child: Text('—',
+                                                style: TextStyle(
+                                                    color: Colors.grey[300],
+                                                    fontSize: 16)))
+                                        : Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: allApproved,
+                                          ),
+                                  ),
+                                );
+                              }),
+                              DataCell(
+                                Center(
+                                    child: Text('$totalApproved',
+                                        style: TextStyle(
+                                          color: totalApproved > 0
+                                              ? const Color(0xFF1E3A5F)
+                                              : Colors.grey,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ))),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                 ),
               ),
             ),
+            if (totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Hiển thị:',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAFAFA),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _schedulePageSize,
+                            isDense: true,
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey[800]),
+                            items: _pageSizeOptions
+                                .map((s) => DropdownMenuItem(
+                                    value: s, child: Text('$s')))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null)
+                                setState(() {
+                                  _schedulePageSize = v;
+                                  _approvedPage = 1;
+                                });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      IconButton(
+                          icon: const Icon(Icons.first_page),
+                          onPressed: safePage > 1
+                              ? () => setState(() => _approvedPage = 1)
+                              : null),
+                      IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: safePage > 1
+                              ? () => setState(() => _approvedPage--)
+                              : null),
+                      Text(
+                          '${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, emps.length)} / ${emps.length}',
+                          style: const TextStyle(fontSize: 13)),
+                      IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: safePage < totalPages
+                              ? () => setState(() => _approvedPage++)
+                              : null),
+                      IconButton(
+                          icon: const Icon(Icons.last_page),
+                          onPressed: safePage < totalPages
+                              ? () => setState(() => _approvedPage = totalPages)
+                              : null),
+                    ],
+                  ),
+                ),
+              ),
           ]);
         },
       ),
     );
   }
 
-  Widget _buildApprovedChip(String label, Color color, IconData icon, {String? time}) {
+  Widget _buildApprovedChip(String label, Color color, IconData icon,
+      {String? time}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -5116,9 +6973,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: color,
+                        fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis),
                 if (time != null && time.isNotEmpty)
-                  Text(time, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7)), overflow: TextOverflow.ellipsis),
+                  Text(time,
+                      style: TextStyle(
+                          fontSize: 9, color: color.withValues(alpha: 0.7)),
+                      overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -5141,14 +7006,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       ),
       child: Row(
         children: [
-          Flexible(child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color), overflow: TextOverflow.ellipsis)),
+          Flexible(
+              child: Text(title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13, color: color),
+                  overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 8),
-          Flexible(child: Text('Tuần $weekNumber: ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}',
-            style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)), overflow: TextOverflow.ellipsis)),
+          Flexible(
+              child: Text(
+                  'Tuần $weekNumber: ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}',
+                  style: TextStyle(
+                      fontSize: 12, color: color.withValues(alpha: 0.8)),
+                  overflow: TextOverflow.ellipsis)),
           if (_selectedDepartment != null) ...[
             const SizedBox(width: 8),
-            Flexible(child: Text('Phòng ban: $_selectedDepartment',
-              style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)), overflow: TextOverflow.ellipsis)),
+            Flexible(
+                child: Text('Phòng ban: $_selectedDepartment',
+                    style: TextStyle(
+                        fontSize: 12, color: color.withValues(alpha: 0.8)),
+                    overflow: TextOverflow.ellipsis)),
           ],
         ],
       ),
@@ -5166,7 +7042,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       ),
       child: Row(
         children: [
-          const Text('Chú thích: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF71717A))),
+          const Text('Chú thích: ',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF71717A))),
           const SizedBox(width: 8),
           Expanded(
             child: Wrap(
@@ -5174,14 +7054,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               runSpacing: 4,
               children: [
                 ..._shifts.map((s) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(4))),
-                    const SizedBox(width: 4),
-                    Text('${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                  ],
-                )),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF1E3A5F),
+                                borderRadius: BorderRadius.circular(4))),
+                        const SizedBox(width: 4),
+                        Text(
+                            '${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xFF71717A))),
+                      ],
+                    )),
                 _buildCompactLegendDot(const Color(0xFF1E3A5F), 'Đã duyệt'),
                 _buildCompactLegendDot(const Color(0xFFF59E0B), 'Chờ duyệt'),
                 _buildCompactLegendDot(const Color(0xFFEF4444), 'Từ chối'),
@@ -5198,9 +7085,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+        Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(4))),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -5227,36 +7120,54 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         children: [
           const Text(
             'Chú thích:',
-            style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+                color: Color(0xFF18181B),
+                fontWeight: FontWeight.bold,
+                fontSize: 16),
           ),
           const SizedBox(height: 12),
           // Shift list with times
           if (_shifts.isNotEmpty) ...[
-            const Text('Danh sách ca làm việc:', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Danh sách ca làm việc:',
+                style: TextStyle(
+                    color: Color(0xFF71717A),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 16,
               runSpacing: 8,
               children: _shifts.map((shift) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 8, height: 8,
-                        decoration: BoxDecoration(color: const Color(0xFF1E3A5F), borderRadius: BorderRadius.circular(4)),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                            color: const Color(0xFF1E3A5F),
+                            borderRadius: BorderRadius.circular(4)),
                       ),
                       const SizedBox(width: 8),
-                      Text(shift.name, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text(shift.name,
+                          style: const TextStyle(
+                              color: Color(0xFF18181B),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
                       const SizedBox(width: 8),
-                      Text('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
-                        style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                      Text(
+                          '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12)),
                     ],
                   ),
                 );
@@ -5265,18 +7176,24 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             const SizedBox(height: 12),
           ],
           // Status legend
-          const Text('Trạng thái:', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 13)),
+          const Text('Trạng thái:',
+              style: TextStyle(
+                  color: Color(0xFF71717A),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 24,
             runSpacing: 12,
             children: [
               _buildLegendItem(
-                const LinearGradient(colors: [Color(0xFF1E3A5F), Color(0xFF1E3A5F)]),
+                const LinearGradient(
+                    colors: [Color(0xFF1E3A5F), Color(0xFF1E3A5F)]),
                 'Ca đã đăng ký',
               ),
               _buildLegendItem(
-                const LinearGradient(colors: [Color(0xFF1E3A5F), Color(0xFF059669)]),
+                const LinearGradient(
+                    colors: [Color(0xFF1E3A5F), Color(0xFF059669)]),
                 'Nghỉ phép',
               ),
               _buildLegendItemWithBorder(
@@ -5325,12 +7242,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           ),
         ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
       ],
     );
   }
 
-  Widget _buildLegendItemWithBorder(Color color, Color borderColor, String label, {bool isDashed = false}) {
+  Widget _buildLegendItemWithBorder(
+      Color color, Color borderColor, String label,
+      {bool isDashed = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -5344,18 +7264,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           ),
         ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
       ],
     );
   }
 
   // ==================== EXPORT METHODS ====================
 
-  Future<void> _exportTableToPng(GlobalKey tableKey, String fileNamePrefix) async {
+  Future<void> _exportTableToPng(
+      GlobalKey tableKey, String fileNamePrefix) async {
     try {
-      final boundary = tableKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          tableKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
-        appNotification.showError(title: 'Lỗi', message: 'Không tìm thấy bảng dữ liệu để chụp');
+        appNotification.showError(
+            title: 'Lỗi', message: 'Không tìm thấy bảng dữ liệu để chụp');
         return;
       }
       const pixelRatio = kIsWeb ? 2.0 : 3.0;
@@ -5366,9 +7290,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         return;
       }
       final pngBytes = byteData.buffer.asUint8List();
-      final fileName = '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
-      appNotification.showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
+      final fileName =
+          '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
+      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+      appNotification.showSuccess(
+          title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
     } catch (e) {
       appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
     }
@@ -5391,12 +7317,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _buildExportHeader('THEO CA LÀM VIỆC', const Color(0xFF0891B2)),
-                  _buildShiftCentricExportView(),
-                  const SizedBox(height: 8),
-                  _buildCompactLegend(),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildExportHeader(
+                          'THEO CA LÀM VIỆC', const Color(0xFF0891B2)),
+                      _buildShiftCentricExportView(),
+                      const SizedBox(height: 8),
+                      _buildCompactLegend(),
+                    ]),
               ),
             ),
           ),
@@ -5409,7 +7338,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     await Future.delayed(const Duration(milliseconds: kIsWeb ? 500 : 200));
 
     try {
-      final boundary = exportKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = exportKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) {
         appNotification.showError(title: 'Lỗi', message: 'Không thể tạo ảnh');
         entry.remove();
@@ -5424,9 +7354,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         return;
       }
       final pngBytes = byteData.buffer.asUint8List();
-      final fileName = 'TheoCalamViec_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
-      appNotification.showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
+      final fileName =
+          'TheoCalamViec_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
+      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+      appNotification.showSuccess(
+          title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
     } catch (e) {
       appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
     } finally {
@@ -5436,8 +7368,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   /// Full detail view for export: shows all 7 days with employee names per shift
   Widget _buildShiftCentricExportView() {
-    final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-    final dayLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final dayLabels = [
+      'Thứ 2',
+      'Thứ 3',
+      'Thứ 4',
+      'Thứ 5',
+      'Thứ 6',
+      'Thứ 7',
+      'CN'
+    ];
     final dateFormat = DateFormat('dd/MM');
 
     return Column(
@@ -5456,47 +7397,83 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               // Day header
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0891B2).withValues(alpha: 0.1),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Text('${dayLabels[di]} ${dateFormat.format(day)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0891B2))),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF0891B2))),
               ),
               // Shift rows for this day
               ..._shifts.map((shift) {
                 final schedules = _getSchedulesForShiftDay(shift.id, day);
                 final pendingLocal = _getPendingForShiftDay(shift.id, day);
-                final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
-                final uniqueRegs = submittedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId)).toList();
+                final submittedRegs =
+                    _getRegistrationsForShiftDay(shift.id, day);
+                final uniqueRegs = submittedRegs
+                    .where((r) => schedules
+                        .every((s) => s.employeeUserId != r.employeeUserId))
+                    .toList();
                 final names = <String>[];
                 for (final ws in schedules) {
-                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty()).fullName);
+                  names.add(_employees
+                      .firstWhere(
+                          (e) => _effectiveUserId(e) == ws.employeeUserId,
+                          orElse: () => Employee.empty())
+                      .fullName);
                 }
                 for (final r in uniqueRegs) {
-                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == r.employeeUserId, orElse: () => Employee.empty()).fullName);
+                  names.add(_employees
+                      .firstWhere(
+                          (e) => _effectiveUserId(e) == r.employeeUserId,
+                          orElse: () => Employee.empty())
+                      .fullName);
                 }
                 for (final p in pendingLocal) {
-                  names.add(_employees.firstWhere((e) => _effectiveUserId(e) == p['employeeId'], orElse: () => Employee.empty()).fullName);
+                  names.add(_employees
+                      .firstWhere((e) => _effectiveUserId(e) == p['employeeId'],
+                          orElse: () => Employee.empty())
+                      .fullName);
                 }
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
                         width: 120,
-                        child: Text('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+                        child: Text(
+                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF18181B))),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(names.isEmpty ? '—' : names.join(', '),
-                          style: TextStyle(fontSize: 11, color: names.isEmpty ? Colors.grey : const Color(0xFF18181B))),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: names.isEmpty
+                                    ? Colors.grey
+                                    : const Color(0xFF18181B))),
                       ),
-                      SizedBox(width: 30, child: Text('${names.length}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0891B2)))),
+                      SizedBox(
+                          width: 30,
+                          child: Text('${names.length}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0891B2)))),
                     ],
                   ),
                 );
@@ -5511,8 +7488,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   void _exportShiftCentricExcel() {
     try {
-      final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-      final dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+      final days =
+          List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+      final dayNames = [
+        'Thứ 2',
+        'Thứ 3',
+        'Thứ 4',
+        'Thứ 5',
+        'Thứ 6',
+        'Thứ 7',
+        'CN'
+      ];
       final dateFormat = DateFormat('dd/MM');
 
       final wb = excel_lib.Excel.createExcel();
@@ -5522,24 +7508,45 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       // Title
       final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
       final weekNumber = _getWeekNumber(_selectedWeekStart);
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = excel_lib.TextCellValue('THEO CA LÀM VIỆC');
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-          excel_lib.TextCellValue('Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
+      sheet
+          .cell(
+              excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = excel_lib.TextCellValue('THEO CA LÀM VIỆC');
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: 1))
+              .value =
+          excel_lib.TextCellValue(
+              'Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
 
       // Header
       const hRow = 3;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: hRow)).value = excel_lib.TextCellValue('CA LÀM VIỆC');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('CA LÀM VIỆC');
       for (int i = 0; i < 7; i++) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: hRow)).value =
-            excel_lib.TextCellValue('${dayNames[i]} ${dateFormat.format(days[i])}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: i + 1, rowIndex: hRow))
+                .value =
+            excel_lib.TextCellValue(
+                '${dayNames[i]} ${dateFormat.format(days[i])}');
       }
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: hRow)).value = excel_lib.TextCellValue('TỔNG NV');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 8, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('TỔNG NV');
 
       // Data rows
       int row = hRow + 1;
       for (final shift in _shifts) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})');
         int total = 0;
         for (int d = 0; d < 7; d++) {
           final day = days[d];
@@ -5548,29 +7555,51 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
           final names = <String>[];
           for (final ws in schedules) {
-            names.add(_employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty()).fullName);
+            names.add(_employees
+                .firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId,
+                    orElse: () => Employee.empty())
+                .fullName);
           }
           for (final p in pendingLocal) {
-            names.add(_employees.firstWhere((e) => _effectiveUserId(e) == p['employeeId'], orElse: () => Employee.empty()).fullName);
+            names.add(_employees
+                .firstWhere((e) => _effectiveUserId(e) == p['employeeId'],
+                    orElse: () => Employee.empty())
+                .fullName);
           }
-          for (final r in submittedRegs.where((r) => schedules.every((s) => s.employeeUserId != r.employeeUserId))) {
-            names.add(_employees.firstWhere((e) => _effectiveUserId(e) == r.employeeUserId, orElse: () => Employee.empty()).fullName);
+          for (final r in submittedRegs.where((r) =>
+              schedules.every((s) => s.employeeUserId != r.employeeUserId))) {
+            names.add(_employees
+                .firstWhere((e) => _effectiveUserId(e) == r.employeeUserId,
+                    orElse: () => Employee.empty())
+                .fullName);
           }
           total += names.length;
-          sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: d + 1, rowIndex: row)).value =
-              excel_lib.TextCellValue(names.join(', '));
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: d + 1, rowIndex: row))
+              .value = excel_lib.TextCellValue(names.join(', '));
         }
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: row)).value = excel_lib.IntCellValue(total);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: 8, rowIndex: row))
+            .value = excel_lib.IntCellValue(total);
         row++;
       }
 
       // Legend
       row += 1;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = excel_lib.TextCellValue('CHÚ THÍCH:');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: row))
+          .value = excel_lib.TextCellValue('CHÚ THÍCH:');
       row++;
       for (final s in _shifts) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
         row++;
       }
 
@@ -5582,8 +7611,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   void _exportScheduleTableExcel() {
     try {
-      final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-      final dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+      final days =
+          List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+      final dayNames = [
+        'Thứ 2',
+        'Thứ 3',
+        'Thứ 4',
+        'Thứ 5',
+        'Thứ 6',
+        'Thứ 7',
+        'CN'
+      ];
       final dateFormat = DateFormat('dd/MM');
       final emps = _filteredEmployees;
 
@@ -5594,23 +7632,46 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       // Title
       final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
       final weekNumber = _getWeekNumber(_selectedWeekStart);
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = excel_lib.TextCellValue('ĐĂNG KÝ CHỜ DUYỆT - LỊCH LÀM VIỆC THEO NHÂN VIÊN');
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-          excel_lib.TextCellValue('Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: 0))
+              .value =
+          excel_lib.TextCellValue(
+              'ĐĂNG KÝ CHỜ DUYỆT - LỊCH LÀM VIỆC THEO NHÂN VIÊN');
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: 1))
+              .value =
+          excel_lib.TextCellValue(
+              'Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
 
       // Header
       const hRow = 3;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: hRow)).value = excel_lib.TextCellValue('NHÂN VIÊN');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('NHÂN VIÊN');
       for (int i = 0; i < 7; i++) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: hRow)).value =
-            excel_lib.TextCellValue('${dayNames[i]} ${dateFormat.format(days[i])}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: i + 1, rowIndex: hRow))
+                .value =
+            excel_lib.TextCellValue(
+                '${dayNames[i]} ${dateFormat.format(days[i])}');
       }
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: hRow)).value = excel_lib.TextCellValue('TỔNG CA');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 8, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('TỔNG CA');
 
       int row = hRow + 1;
       for (final employee in emps) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${employee.fullName} (${employee.employeeCode})');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${employee.fullName} (${employee.employeeCode})');
         int totalShifts = 0;
         for (int d = 0; d < 7; d++) {
           final day = days[d];
@@ -5623,7 +7684,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             if (ws.isDayOff) {
               items.add('Nghỉ');
             } else {
-              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
+              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()));
               items.add(shift.name);
               totalShifts++;
             }
@@ -5632,7 +7701,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             if (p['isDayOff'] == true) {
               items.add('Nghỉ (chờ)');
             } else {
-              final shift = _shifts.firstWhere((s) => s.id == p['shiftId'], orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
+              final shift = _shifts.firstWhere((s) => s.id == p['shiftId'],
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()));
               items.add('${shift.name} (chờ)');
               totalShifts++;
             }
@@ -5641,30 +7718,62 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             if (r.isDayOff) {
               items.add('Nghỉ');
             } else {
-              final shift = r.shiftId != null ? _shifts.firstWhere((s) => s.id == r.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-              final statusLabel = r.status == ScheduleRegistrationStatus.approved ? '✓' : r.status == ScheduleRegistrationStatus.rejected ? '✗' : '⏳';
+              final shift = r.shiftId != null
+                  ? _shifts.firstWhere((s) => s.id == r.shiftId,
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()))
+                  : null;
+              final statusLabel =
+                  r.status == ScheduleRegistrationStatus.approved
+                      ? '✓'
+                      : r.status == ScheduleRegistrationStatus.rejected
+                          ? '✗'
+                          : '⏳';
               items.add('${shift?.name ?? "Ca"} $statusLabel');
-              if (r.status == ScheduleRegistrationStatus.approved && !r.isDayOff) totalShifts++;
+              if (r.status == ScheduleRegistrationStatus.approved &&
+                  !r.isDayOff) totalShifts++;
             }
           }
-          sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: d + 1, rowIndex: row)).value =
-              excel_lib.TextCellValue(items.join(', '));
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: d + 1, rowIndex: row))
+              .value = excel_lib.TextCellValue(items.join(', '));
         }
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: row)).value = excel_lib.IntCellValue(totalShifts);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: 8, rowIndex: row))
+            .value = excel_lib.IntCellValue(totalShifts);
         row++;
       }
 
       // Legend
       row += 1;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = excel_lib.TextCellValue('CHÚ THÍCH:');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: row))
+          .value = excel_lib.TextCellValue('CHÚ THÍCH:');
       row++;
       for (final s in _shifts) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
         row++;
       }
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-          excel_lib.TextCellValue('✓ Đã duyệt  |  ⏳ Chờ duyệt  |  ✗ Từ chối  |  (chờ) Chờ gửi');
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: row))
+              .value =
+          excel_lib.TextCellValue(
+              '✓ Đã duyệt  |  ⏳ Chờ duyệt  |  ✗ Từ chối  |  (chờ) Chờ gửi');
 
       _downloadExcel(wb, 'DangKyChoDuyet');
     } catch (e) {
@@ -5674,8 +7783,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
 
   void _exportApprovedExcel() {
     try {
-      final days = List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-      final dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+      final days =
+          List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+      final dayNames = [
+        'Thứ 2',
+        'Thứ 3',
+        'Thứ 4',
+        'Thứ 5',
+        'Thứ 6',
+        'Thứ 7',
+        'CN'
+      ];
       final dateFormat = DateFormat('dd/MM');
       final emps = _filteredEmployees;
 
@@ -5686,23 +7804,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       // Title
       final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
       final weekNumber = _getWeekNumber(_selectedWeekStart);
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = excel_lib.TextCellValue('LỊCH LÀM VIỆC ĐÃ DUYỆT');
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-          excel_lib.TextCellValue('Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
+      sheet
+          .cell(
+              excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = excel_lib.TextCellValue('LỊCH LÀM VIỆC ĐÃ DUYỆT');
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: 1))
+              .value =
+          excel_lib.TextCellValue(
+              'Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}${_selectedDepartment != null ? ' | Phòng ban: $_selectedDepartment' : ''}');
 
       // Header
       const hRow = 3;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: hRow)).value = excel_lib.TextCellValue('NHÂN VIÊN');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('NHÂN VIÊN');
       for (int i = 0; i < 7; i++) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: hRow)).value =
-            excel_lib.TextCellValue('${dayNames[i]} ${dateFormat.format(days[i])}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: i + 1, rowIndex: hRow))
+                .value =
+            excel_lib.TextCellValue(
+                '${dayNames[i]} ${dateFormat.format(days[i])}');
       }
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: hRow)).value = excel_lib.TextCellValue('TỔNG CA');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 8, rowIndex: hRow))
+          .value = excel_lib.TextCellValue('TỔNG CA');
 
       int row = hRow + 1;
       for (final employee in emps) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${employee.fullName} (${employee.employeeCode})');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${employee.fullName} (${employee.employeeCode})');
         int totalApproved = 0;
         for (int d = 0; d < 7; d++) {
           final day = days[d];
@@ -5716,34 +7855,69 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             if (ws.isDayOff) {
               items.add('Nghỉ');
             } else {
-              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
-              items.add('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})');
+              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()));
+              items.add(
+                  '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})');
               totalApproved++;
             }
           }
-          for (final reg in approvedRegs.where((r) => confirmedSchedules.every((s) => s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))) {
+          for (final reg in approvedRegs.where((r) => confirmedSchedules.every(
+              (s) =>
+                  s.shiftId != r.shiftId ||
+                  s.employeeUserId != r.employeeUserId))) {
             if (reg.isDayOff) {
               items.add(reg.note ?? 'Nghỉ');
             } else {
-              final shift = reg.shiftId != null ? _shifts.firstWhere((s) => s.id == reg.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
-              items.add('${shift?.name ?? "Ca"} (${shift != null ? "${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}" : ""})');
+              final shift = reg.shiftId != null
+                  ? _shifts.firstWhere((s) => s.id == reg.shiftId,
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()))
+                  : null;
+              items.add(
+                  '${shift?.name ?? "Ca"} (${shift != null ? "${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}" : ""})');
               totalApproved++;
             }
           }
-          sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: d + 1, rowIndex: row)).value =
-              excel_lib.TextCellValue(items.join(', '));
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: d + 1, rowIndex: row))
+              .value = excel_lib.TextCellValue(items.join(', '));
         }
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: row)).value = excel_lib.IntCellValue(totalApproved);
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: 8, rowIndex: row))
+            .value = excel_lib.IntCellValue(totalApproved);
         row++;
       }
 
       // Legend
       row += 1;
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = excel_lib.TextCellValue('CHÚ THÍCH:');
+      sheet
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: row))
+          .value = excel_lib.TextCellValue('CHÚ THÍCH:');
       row++;
       for (final s in _shifts) {
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            excel_lib.TextCellValue('${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
+        sheet
+                .cell(excel_lib.CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: row))
+                .value =
+            excel_lib.TextCellValue(
+                '${s.name}: ${_formatTime(s.startTime)} - ${_formatTime(s.endTime)}');
         row++;
       }
 
@@ -5756,17 +7930,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   void _downloadExcel(excel_lib.Excel wb, String fileNamePrefix) {
     final bytes = wb.encode();
     if (bytes != null) {
-      final fileName = '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
-      file_saver.saveFileBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      appNotification.showSuccess(title: 'Xuất Excel', message: 'Đã xuất file $fileName');
+      final fileName =
+          '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
+      file_saver.saveFileBytes(bytes, fileName,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      appNotification.showSuccess(
+          title: 'Xuất Excel', message: 'Đã xuất file $fileName');
     }
   }
 
-  Widget _buildMobileScheduleCards(List<Employee> pageEmps, List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
+  Widget _buildMobileScheduleCards(List<Employee> pageEmps, List<DateTime> days,
+      List<String> dayNames, DateFormat dateFormat) {
     if (pageEmps.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text('Chưa có nhân viên', style: TextStyle(color: Colors.grey[400]))),
+        child: Center(
+            child: Text('Chưa có nhân viên',
+                style: TextStyle(color: Colors.grey[400]))),
       );
     }
     return ListView.builder(
@@ -5775,20 +7955,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       itemCount: pageEmps.length,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       itemBuilder: (context, index) {
-          final employee = pageEmps[index];
-          int totalShifts = 0;
-          final dayWidgets = <Widget>[];
-          for (int di = 0; di < 7; di++) {
-            final day = days[di];
-            final effectiveId = _effectiveUserId(employee);
-            final schedules = _getSchedulesForDay(effectiveId, day);
-            final pendingRegs = _getPendingRegistrations(effectiveId, day);
-            final submittedRegs = _getRegistrationsForDay(effectiveId, day);
+        final employee = pageEmps[index];
+        int totalShifts = 0;
+        final dayWidgets = <Widget>[];
+        for (int di = 0; di < 7; di++) {
+          final day = days[di];
+          final effectiveId = _effectiveUserId(employee);
+          final schedules = _getSchedulesForDay(effectiveId, day);
+          final pendingRegs = _getPendingRegistrations(effectiveId, day);
+          final submittedRegs = _getRegistrationsForDay(effectiveId, day);
           totalShifts += schedules.where((s) => !s.isDayOff).length;
           if (pendingRegs.isNotEmpty && pendingRegs.first['isDayOff'] != true) {
             totalShifts += pendingRegs.length;
           }
-          totalShifts += submittedRegs.where((r) => r.status == ScheduleRegistrationStatus.approved && !r.isDayOff && schedules.isEmpty).length;
+          totalShifts += submittedRegs
+              .where((r) =>
+                  r.status == ScheduleRegistrationStatus.approved &&
+                  !r.isDayOff &&
+                  schedules.isEmpty)
+              .length;
           String shiftLabel = '—';
           Color shiftColor = const Color(0xFF71717A);
           Color bgColor = Colors.transparent;
@@ -5799,7 +7984,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               bgColor = const Color(0xFFFFF3CD);
             } else {
               final names = pendingRegs.map((reg) {
-                final shift = _shifts.firstWhere((s) => s.id == reg['shiftId'], orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
+                final shift = _shifts.firstWhere((s) => s.id == reg['shiftId'],
+                    orElse: () => Shift(
+                        id: '',
+                        name: 'Ca',
+                        code: '',
+                        startTime: '',
+                        endTime: '',
+                        isActive: true,
+                        createdAt: DateTime.now()));
                 return shift.name;
               }).toList();
               shiftLabel = names.join(', ');
@@ -5814,7 +8007,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               bgColor = const Color(0xFFD1FAE5);
             } else {
               final names = schedules.map((s) {
-                final shift = s.shiftId != null ? _shifts.firstWhere((sh) => sh.id == s.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
+                final shift = s.shiftId != null
+                    ? _shifts.firstWhere((sh) => sh.id == s.shiftId,
+                        orElse: () => Shift(
+                            id: '',
+                            name: 'Ca',
+                            code: '',
+                            startTime: '',
+                            endTime: '',
+                            isActive: true,
+                            createdAt: DateTime.now()))
+                    : null;
                 return shift?.name ?? 'Ca';
               }).toList();
               shiftLabel = names.join(', ');
@@ -5832,7 +8035,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               shiftColor = const Color(0xFFEF4444);
               bgColor = const Color(0xFFFEE2E2);
             } else {
-              final shift = first.shiftId != null ? _shifts.firstWhere((s) => s.id == first.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
+              final shift = first.shiftId != null
+                  ? _shifts.firstWhere((s) => s.id == first.shiftId,
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()))
+                  : null;
               shiftLabel = shift?.name ?? 'Đã duyệt';
               shiftColor = const Color(0xFF1E3A5F);
               bgColor = const Color(0xFFD1FAE5);
@@ -5847,17 +8060,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   children: [
                     SizedBox(
                       width: 56,
-                      child: Text('${dayNames[di]} ${dateFormat.format(day)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                      child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF71717A))),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: bgColor,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(shiftLabel, style: TextStyle(fontSize: 12, color: shiftColor, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                        child: Text(shiftLabel,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: shiftColor,
+                                fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
                       ),
                     ),
                   ],
@@ -5873,7 +8094,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -5883,18 +8109,35 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   Row(
                     children: [
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(employee.fullName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF18181B))),
-                          Text(employee.phone ?? employee.employeeCode, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(employee.fullName.toUpperCase(),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: Color(0xFF18181B))),
+                              Text(employee.phone ?? employee.employeeCode,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Color(0xFF71717A))),
+                            ]),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: totalShifts > 0 ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                          color: totalShifts > 0
+                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalShifts ca', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: totalShifts > 0 ? const Color(0xFF1E3A5F) : Colors.grey)),
+                        child: Text('$totalShifts ca',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: totalShifts > 0
+                                    ? const Color(0xFF1E3A5F)
+                                    : Colors.grey)),
                       ),
                     ],
                   ),
@@ -5910,11 +8153,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   }
 
   // ignore: unused_element
-  Widget _buildMobileShiftCentricCards(List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
+  Widget _buildMobileShiftCentricCards(
+      List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
     if (_shifts.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text('Chưa có ca', style: TextStyle(color: Colors.grey[400]))),
+        child: Center(
+            child:
+                Text('Chưa có ca', style: TextStyle(color: Colors.grey[400]))),
       );
     }
     return ListView.builder(
@@ -5931,30 +8177,60 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
           final schedules = _getSchedulesForShiftDay(shift.id, day);
           final pendingLocal = _getPendingForShiftDay(shift.id, day);
           final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
-          totalEmployees += schedules.length + pendingLocal.length +
-              submittedRegs.where((r) => r.status != ScheduleRegistrationStatus.rejected && schedules.every((s) => s.employeeUserId != r.employeeUserId)).length;
+          totalEmployees += schedules.length +
+              pendingLocal.length +
+              submittedRegs
+                  .where((r) =>
+                      r.status != ScheduleRegistrationStatus.rejected &&
+                      schedules
+                          .every((s) => s.employeeUserId != r.employeeUserId))
+                  .length;
           final empNames = <Widget>[];
           for (final ws in schedules) {
-            final empName = _employees.firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId, orElse: () => Employee.empty()).fullName;
+            final empName = _employees
+                .firstWhere((e) => _effectiveUserId(e) == ws.employeeUserId,
+                    orElse: () => Employee.empty())
+                .fullName;
             empNames.add(Container(
               margin: const EdgeInsets.only(right: 4, bottom: 2),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(empName, style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4)),
+              child: Text(empName,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF1E3A5F),
+                      fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis),
             ));
           }
           for (final reg in pendingLocal) {
-            final empName = _employees.firstWhere((e) => _effectiveUserId(e) == reg['employeeId'], orElse: () => Employee.empty()).fullName;
+            final empName = _employees
+                .firstWhere((e) => _effectiveUserId(e) == reg['employeeId'],
+                    orElse: () => Employee.empty())
+                .fullName;
             empNames.add(Container(
               margin: const EdgeInsets.only(right: 4, bottom: 2),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFFFFC107).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFFFC107), width: 1)),
-              child: Text(empName, style: const TextStyle(fontSize: 10, color: Color(0xFF856404), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFFFC107), width: 1)),
+              child: Text(empName,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF856404),
+                      fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis),
             ));
           }
           dayWidgets.add(
             InkWell(
-              onTap: Provider.of<PermissionProvider>(context, listen: false).canEdit('WorkSchedule') ? () => _showAssignEmployeeToShiftDialog(shift, day) : null,
+              onTap: Provider.of<PermissionProvider>(context, listen: false)
+                      .canEdit('WorkSchedule')
+                  ? () => _showAssignEmployeeToShiftDialog(shift, day)
+                  : null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
@@ -5962,12 +8238,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   children: [
                     SizedBox(
                       width: 56,
-                      child: Text('${dayNames[di]} ${dateFormat.format(day)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                      child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF71717A))),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: empNames.isEmpty
-                          ? Text('—', style: TextStyle(fontSize: 12, color: Colors.grey[300]))
+                          ? Text('—',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[300]))
                           : Wrap(spacing: 4, runSpacing: 2, children: empNames),
                     ),
                   ],
@@ -5983,7 +8263,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -5993,18 +8278,36 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   Row(
                     children: [
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(shift.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0891B2))),
-                          Text('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(shift.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: Color(0xFF0891B2))),
+                              Text(
+                                  '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Color(0xFF71717A))),
+                            ]),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: totalEmployees > 0 ? const Color(0xFF0891B2).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                          color: totalEmployees > 0
+                              ? const Color(0xFF0891B2).withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalEmployees NV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: totalEmployees > 0 ? const Color(0xFF0891B2) : Colors.grey)),
+                        child: Text('$totalEmployees NV',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: totalEmployees > 0
+                                    ? const Color(0xFF0891B2)
+                                    : Colors.grey)),
                       ),
                     ],
                   ),
@@ -6019,11 +8322,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
     );
   }
 
-  Widget _buildMobileApprovedCards(List<Employee> pageEmps, List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
+  Widget _buildMobileApprovedCards(List<Employee> pageEmps, List<DateTime> days,
+      List<String> dayNames, DateFormat dateFormat) {
     if (pageEmps.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text('Chưa có nhân viên', style: TextStyle(color: Colors.grey[400]))),
+        child: Center(
+            child: Text('Chưa có nhân viên',
+                style: TextStyle(color: Colors.grey[400]))),
       );
     }
     return ListView.builder(
@@ -6032,12 +8338,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       itemCount: pageEmps.length,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       itemBuilder: (context, index) {
-          final employee = pageEmps[index];
-          int totalApproved = 0;
-          final dayWidgets = <Widget>[];
-          for (int di = 0; di < 7; di++) {
-            final day = days[di];
-            final effectiveId = _effectiveUserId(employee);
+        final employee = pageEmps[index];
+        int totalApproved = 0;
+        final dayWidgets = <Widget>[];
+        for (int di = 0; di < 7; di++) {
+          final day = days[di];
+          final effectiveId = _effectiveUserId(employee);
           final confirmedSchedules = _getSchedulesForDay(effectiveId, day);
           final approvedRegs = _getRegistrationsForDay(effectiveId, day)
               .where((r) => r.status == ScheduleRegistrationStatus.approved)
@@ -6050,23 +8356,45 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             if (ws.isDayOff) {
               items.add('Nghỉ');
             } else {
-              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now()));
+              final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
+                  orElse: () => Shift(
+                      id: '',
+                      name: 'Ca',
+                      code: '',
+                      startTime: '',
+                      endTime: '',
+                      isActive: true,
+                      createdAt: DateTime.now()));
               items.add(shift.name);
               totalApproved++;
             }
           }
-          for (final reg in approvedRegs.where((r) => confirmedSchedules.every((s) => s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))) {
+          for (final reg in approvedRegs.where((r) => confirmedSchedules.every(
+              (s) =>
+                  s.shiftId != r.shiftId ||
+                  s.employeeUserId != r.employeeUserId))) {
             if (reg.isDayOff) {
               items.add(reg.note ?? 'Nghỉ');
             } else {
-              final shift = reg.shiftId != null ? _shifts.firstWhere((s) => s.id == reg.shiftId, orElse: () => Shift(id: '', name: 'Ca', code: '', startTime: '', endTime: '', isActive: true, createdAt: DateTime.now())) : null;
+              final shift = reg.shiftId != null
+                  ? _shifts.firstWhere((s) => s.id == reg.shiftId,
+                      orElse: () => Shift(
+                          id: '',
+                          name: 'Ca',
+                          code: '',
+                          startTime: '',
+                          endTime: '',
+                          isActive: true,
+                          createdAt: DateTime.now()))
+                  : null;
               items.add(shift?.name ?? 'Ca');
               totalApproved++;
             }
           }
           if (items.isNotEmpty) {
             shiftLabel = items.join(', ');
-            final hasLeave = items.any((i) => i == 'Nghỉ' || i.contains('Nghỉ'));
+            final hasLeave =
+                items.any((i) => i == 'Nghỉ' || i.contains('Nghỉ'));
             if (hasLeave && items.length == 1) {
               shiftColor = const Color(0xFF059669);
               bgColor = const Color(0xFFD1FAE5);
@@ -6082,17 +8410,25 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 children: [
                   SizedBox(
                     width: 56,
-                    child: Text('${dayNames[di]} ${dateFormat.format(day)}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                    child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF71717A))),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: bgColor,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(shiftLabel, style: TextStyle(fontSize: 12, color: shiftColor, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      child: Text(shiftLabel,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: shiftColor,
+                              fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis),
                     ),
                   ),
                 ],
@@ -6107,7 +8443,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -6117,18 +8458,35 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                   Row(
                     children: [
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(employee.fullName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF18181B))),
-                          Text(employee.department ?? employee.employeeCode, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(employee.fullName.toUpperCase(),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: Color(0xFF18181B))),
+                              Text(employee.department ?? employee.employeeCode,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Color(0xFF71717A))),
+                            ]),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: totalApproved > 0 ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                          color: totalApproved > 0
+                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalApproved ca', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: totalApproved > 0 ? const Color(0xFF1E3A5F) : Colors.grey)),
+                        child: Text('$totalApproved ca',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: totalApproved > 0
+                                    ? const Color(0xFF1E3A5F)
+                                    : Colors.grey)),
                       ),
                     ],
                   ),
@@ -6148,16 +8506,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+        title: const Text('Xác nhận xóa',
+            style: TextStyle(
+                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
         content: const Text('Bạn có chắc chắn muốn xóa đăng ký này?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+            child:
+                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),
         ],
@@ -6205,11 +8567,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.notifications_active, color: Color(0xFFD97706)),
             SizedBox(width: 8),
-            Expanded(child: Text('Nhắc nhở đăng ký lịch', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            Expanded(
+                child: Text('Nhắc nhở đăng ký lịch',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ]),
           content: SizedBox(
             width: 360,
@@ -6217,24 +8583,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ${DateFormat('dd/MM').format(fromDate)} - ${DateFormat('dd/MM/yyyy').format(toDate)}.',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                Text(
+                    'Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ${DateFormat('dd/MM').format(fromDate)} - ${DateFormat('dd/MM/yyyy').format(toDate)}.',
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF71717A))),
                 const SizedBox(height: 16),
-                const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text('Phòng ban:',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String?>(
                   initialValue: selectedDept,
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Tất cả phòng ban')),
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('Tất cả phòng ban')),
                     ..._departments.map((d) => DropdownMenuItem<String?>(
-                      value: d['name']?.toString(),
-                      child: Text(d['name']?.toString() ?? ''),
-                    )),
+                          value: d['name']?.toString(),
+                          child: Text(d['name']?.toString() ?? ''),
+                        )),
                   ],
                   onChanged: (v) => setDialogState(() => selectedDept = v),
                 ),
@@ -6242,27 +8615,42 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             ElevatedButton.icon(
-              onPressed: isSending ? null : () async {
-                setDialogState(() => isSending = true);
-                final result = await _apiService.sendScheduleReminder({
-                  'fromDate': fromDate.toIso8601String(),
-                  'toDate': toDate.toIso8601String(),
-                  if (selectedDept != null) 'department': selectedDept,
-                });
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (result['isSuccess'] == true) {
-                  final count = result['data'] ?? 0;
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã gửi nhắc nhở đến $count nhân viên');
-                } else {
-                  appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể gửi nhắc nhở');
-                }
-              },
-              icon: isSending ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send, size: 16),
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      setDialogState(() => isSending = true);
+                      final result = await _apiService.sendScheduleReminder({
+                        'fromDate': fromDate.toIso8601String(),
+                        'toDate': toDate.toIso8601String(),
+                        if (selectedDept != null) 'department': selectedDept,
+                      });
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (result['isSuccess'] == true) {
+                        final count = result['data'] ?? 0;
+                        appNotification.showSuccess(
+                            title: 'Thành công',
+                            message: 'Đã gửi nhắc nhở đến $count nhân viên');
+                      } else {
+                        appNotification.showError(
+                            title: 'Lỗi',
+                            message:
+                                result['message'] ?? 'Không thể gửi nhắc nhở');
+                      }
+                    },
+              icon: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send, size: 16),
               label: const Text('Gửi nhắc nhở'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white),
             ),
           ],
         ),
@@ -6273,8 +8661,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
   // ══════════════════════════════════════════════
   // Request Shift Coverage Dialog
   // ══════════════════════════════════════════════
-  void _showRequestCoverageDialog({Shift? preselectedShift, DateTime? preselectedDate}) {
-    Shift? selectedShift = preselectedShift ?? (_shifts.isNotEmpty ? _shifts.first : null);
+  void _showRequestCoverageDialog(
+      {Shift? preselectedShift, DateTime? preselectedDate}) {
+    Shift? selectedShift =
+        preselectedShift ?? (_shifts.isNotEmpty ? _shifts.first : null);
     DateTime selectedDate = preselectedDate ?? DateTime.now();
     String? selectedDept = _selectedDepartment;
     final messageController = TextEditingController();
@@ -6285,11 +8675,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.group_add, color: Color(0xFF059669)),
             SizedBox(width: 8),
-            Expanded(child: Text('Yêu cầu bổ sung ca', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            Expanded(
+                child: Text('Yêu cầu bổ sung ca',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ]),
           content: SizedBox(
             width: 400,
@@ -6298,71 +8692,96 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Gửi thông báo yêu cầu nhân viên đăng ký bổ sung cho ca làm cụ thể.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                  const Text(
+                      'Gửi thông báo yêu cầu nhân viên đăng ký bổ sung cho ca làm cụ thể.',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                   const SizedBox(height: 16),
-                  const Text('Ca làm việc:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Ca làm việc:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<Shift>(
                     initialValue: selectedShift,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    items: _shifts.map((s) => DropdownMenuItem<Shift>(
-                      value: s,
-                      child: Text('${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})', style: const TextStyle(fontSize: 13)),
-                    )).toList(),
+                    items: _shifts
+                        .map((s) => DropdownMenuItem<Shift>(
+                              value: s,
+                              child: Text(
+                                  '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})',
+                                  style: const TextStyle(fontSize: 13)),
+                            ))
+                        .toList(),
                     onChanged: (v) => setDialogState(() => selectedShift = v),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Ngày:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Ngày:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: ctx,
                         initialDate: selectedDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                        firstDate:
+                            DateTime.now().subtract(const Duration(days: 30)),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
                       );
-                      if (picked != null) setDialogState(() => selectedDate = picked);
+                      if (picked != null)
+                        setDialogState(() => selectedDate = picked);
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         border: Border.all(color: const Color(0xFFE4E4E7)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.calendar_today, size: 16, color: Color(0xFF71717A)),
+                        const Icon(Icons.calendar_today,
+                            size: 16, color: Color(0xFF71717A)),
                         const SizedBox(width: 8),
-                        Text(DateFormat('EEEE dd/MM/yyyy', 'vi').format(selectedDate), style: const TextStyle(fontSize: 13)),
+                        Text(
+                            DateFormat('EEEE dd/MM/yyyy', 'vi')
+                                .format(selectedDate),
+                            style: const TextStyle(fontSize: 13)),
                       ]),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Phòng ban:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String?>(
                     initialValue: selectedDept,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Tất cả phòng ban')),
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('Tất cả phòng ban')),
                       ..._departments.map((d) => DropdownMenuItem<String?>(
-                        value: d['name']?.toString(),
-                        child: Text(d['name']?.toString() ?? ''),
-                      )),
+                            value: d['name']?.toString(),
+                            child: Text(d['name']?.toString() ?? ''),
+                          )),
                     ],
                     onChanged: (v) => setDialogState(() => selectedDept = v),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Tin nhắn (tùy chọn):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Tin nhắn (tùy chọn):',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: messageController,
@@ -6370,8 +8789,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Để trống sẽ dùng tin nhắn mặc định',
-                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      hintStyle: const TextStyle(
+                          fontSize: 12, color: Color(0xFFA1A1AA)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                 ],
@@ -6379,28 +8800,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             ElevatedButton.icon(
-              onPressed: (isSending || selectedShift == null) ? null : () async {
-                setDialogState(() => isSending = true);
-                final result = await _apiService.requestShiftCoverage({
-                  'shiftTemplateId': selectedShift!.id,
-                  'date': selectedDate.toIso8601String(),
-                  if (selectedDept != null) 'department': selectedDept,
-                  if (messageController.text.isNotEmpty) 'message': messageController.text,
-                });
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (result['isSuccess'] == true) {
-                  final count = result['data'] ?? 0;
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã gửi yêu cầu đến $count nhân viên');
-                } else {
-                  appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể gửi yêu cầu');
-                }
-              },
-              icon: isSending ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send, size: 16),
+              onPressed: (isSending || selectedShift == null)
+                  ? null
+                  : () async {
+                      setDialogState(() => isSending = true);
+                      final result = await _apiService.requestShiftCoverage({
+                        'shiftTemplateId': selectedShift!.id,
+                        'date': selectedDate.toIso8601String(),
+                        if (selectedDept != null) 'department': selectedDept,
+                        if (messageController.text.isNotEmpty)
+                          'message': messageController.text,
+                      });
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (result['isSuccess'] == true) {
+                        final count = result['data'] ?? 0;
+                        appNotification.showSuccess(
+                            title: 'Thành công',
+                            message: 'Đã gửi yêu cầu đến $count nhân viên');
+                      } else {
+                        appNotification.showError(
+                            title: 'Lỗi',
+                            message:
+                                result['message'] ?? 'Không thể gửi yêu cầu');
+                      }
+                    },
+              icon: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send, size: 16),
               label: const Text('Gửi yêu cầu'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white),
             ),
           ],
         ),
@@ -6418,54 +8855,70 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
         builder: (ctx, setDialogState) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(children: [
               Icon(Icons.tune, color: Color(0xFF7C3AED)),
               SizedBox(width: 8),
-              Expanded(child: Text('Định mức nhân sự', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              Expanded(
+                  child: Text('Định mức nhân sự',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16))),
             ]),
             content: SizedBox(
               width: 500,
               height: 400,
               child: Column(
                 children: [
-                  const Text('Cài đặt số lượng nhân viên tối thiểu, tối đa cho mỗi ca theo phòng ban.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                  const Text(
+                      'Cài đặt số lượng nhân viên tối thiểu, tối đa cho mỗi ca theo phòng ban.',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                   const SizedBox(height: 12),
                   Expanded(
                     child: _staffingQuotas.isEmpty
-                      ? const Center(child: Text('Chưa có định mức nào', style: TextStyle(color: Color(0xFF71717A))))
-                      : ListView.separated(
-                          itemCount: _staffingQuotas.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final q = _staffingQuotas[i];
-                            return ListTile(
-                              dense: true,
-                              title: Text(q['shiftName'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              subtitle: Text(
-                                '${q['department'] ?? 'Tất cả'} | Min: ${q['minEmployees']} - Max: ${q['maxEmployees']} | Cảnh báo ≤ ${q['warningThreshold']}',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
-                                onPressed: () async {
-                                  final result = await _apiService.deleteStaffingQuota(q['id']);
-                                  if (result['isSuccess'] == true) {
-                                    await _loadStaffingQuotas();
-                                    if (ctx.mounted) setDialogState(() {});
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                        ? const Center(
+                            child: Text('Chưa có định mức nào',
+                                style: TextStyle(color: Color(0xFF71717A))))
+                        : ListView.separated(
+                            itemCount: _staffingQuotas.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (_, i) {
+                              final q = _staffingQuotas[i];
+                              return ListTile(
+                                dense: true,
+                                title: Text(q['shiftName'] ?? '',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13)),
+                                subtitle: Text(
+                                  '${q['department'] ?? 'Tất cả'} | Min: ${q['minEmployees']} - Max: ${q['maxEmployees']} | Cảnh báo ≤ ${q['warningThreshold']}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Color(0xFF71717A)),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 18, color: Color(0xFFEF4444)),
+                                  onPressed: () async {
+                                    final result = await _apiService
+                                        .deleteStaffingQuota(q['id']);
+                                    if (result['isSuccess'] == true) {
+                                      await _loadStaffingQuotas();
+                                      if (ctx.mounted) setDialogState(() {});
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng')),
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
@@ -6473,7 +8926,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 },
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Thêm định mức'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white),
               ),
             ],
           );
@@ -6495,11 +8950,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.add_circle, color: Color(0xFF7C3AED)),
             SizedBox(width: 8),
-            Expanded(child: Text('Thêm định mức nhân sự', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            Expanded(
+                child: Text('Thêm định mức nhân sự',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ]),
           content: SizedBox(
             width: 400,
@@ -6508,89 +8967,119 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Ca làm việc:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Ca làm việc:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<Shift>(
                     initialValue: selectedShift,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    items: _shifts.map((s) => DropdownMenuItem<Shift>(
-                      value: s,
-                      child: Text('${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})', style: const TextStyle(fontSize: 13)),
-                    )).toList(),
+                    items: _shifts
+                        .map((s) => DropdownMenuItem<Shift>(
+                              value: s,
+                              child: Text(
+                                  '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})',
+                                  style: const TextStyle(fontSize: 13)),
+                            ))
+                        .toList(),
                     onChanged: (v) => setDialogState(() => selectedShift = v),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Phòng ban:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Phòng ban:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String?>(
                     initialValue: selectedDept,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Tất cả phòng ban')),
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('Tất cả phòng ban')),
                       ..._departments.map((d) => DropdownMenuItem<String?>(
-                        value: d['name']?.toString(),
-                        child: Text(d['name']?.toString() ?? ''),
-                      )),
+                            value: d['name']?.toString(),
+                            child: Text(d['name']?.toString() ?? ''),
+                          )),
                     ],
                     onChanged: (v) => setDialogState(() => selectedDept = v),
                   ),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(child: Column(
+                    Expanded(
+                        child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Tối thiểu:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const Text('Tối thiểu:',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         const SizedBox(height: 4),
                         TextFormField(
                           initialValue: '$minEmployees',
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           onChanged: (v) => minEmployees = int.tryParse(v) ?? 1,
                         ),
                       ],
                     )),
                     const SizedBox(width: 12),
-                    Expanded(child: Column(
+                    Expanded(
+                        child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Tối đa:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const Text('Tối đa:',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         const SizedBox(height: 4),
                         TextFormField(
                           initialValue: '$maxEmployees',
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
-                          onChanged: (v) => maxEmployees = int.tryParse(v) ?? 10,
+                          onChanged: (v) =>
+                              maxEmployees = int.tryParse(v) ?? 10,
                         ),
                       ],
                     )),
                   ]),
                   const SizedBox(height: 12),
-                  const Text('Ngưỡng cảnh báo (≤ giá trị này sẽ cảnh báo thiếu):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text(
+                      'Ngưỡng cảnh báo (≤ giá trị này sẽ cảnh báo thiếu):',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
                   TextFormField(
                     initialValue: '$warningThreshold',
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      helperText: 'Nếu số nhân viên ≤ giá trị này, ô lịch sẽ hiện cảnh báo đỏ',
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      helperText:
+                          'Nếu số nhân viên ≤ giá trị này, ô lịch sẽ hiện cảnh báo đỏ',
                       helperStyle: const TextStyle(fontSize: 11),
                     ),
                     onChanged: (v) => warningThreshold = int.tryParse(v) ?? 2,
@@ -6600,30 +9089,44 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen> with SingleTick
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             ElevatedButton.icon(
-              onPressed: (isSaving || selectedShift == null) ? null : () async {
-                setDialogState(() => isSaving = true);
-                final result = await _apiService.upsertStaffingQuota({
-                  'shiftTemplateId': selectedShift!.id,
-                  if (selectedDept != null) 'department': selectedDept,
-                  'minEmployees': minEmployees,
-                  'maxEmployees': maxEmployees,
-                  'warningThreshold': warningThreshold,
-                });
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (result['isSuccess'] == true) {
-                  await _loadStaffingQuotas();
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã lưu định mức nhân sự');
-                  _showStaffingQuotaDialog(); // Re-open list
-                } else {
-                  appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể lưu');
-                }
-              },
-              icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save, size: 16),
+              onPressed: (isSaving || selectedShift == null)
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      final result = await _apiService.upsertStaffingQuota({
+                        'shiftTemplateId': selectedShift!.id,
+                        if (selectedDept != null) 'department': selectedDept,
+                        'minEmployees': minEmployees,
+                        'maxEmployees': maxEmployees,
+                        'warningThreshold': warningThreshold,
+                      });
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (result['isSuccess'] == true) {
+                        await _loadStaffingQuotas();
+                        appNotification.showSuccess(
+                            title: 'Thành công',
+                            message: 'Đã lưu định mức nhân sự');
+                        _showStaffingQuotaDialog(); // Re-open list
+                      } else {
+                        appNotification.showError(
+                            title: 'Lỗi',
+                            message: result['message'] ?? 'Không thể lưu');
+                      }
+                    },
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save, size: 16),
               label: const Text('Lưu'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: Colors.white),
             ),
           ],
         ),

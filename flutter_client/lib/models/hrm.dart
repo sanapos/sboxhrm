@@ -16,12 +16,12 @@ enum ApprovalStatus { pending, approved, rejected, cancelled, expired }
 enum ScheduleRegistrationStatus { pending, approved, rejected }
 
 enum NotificationType {
-  info,       // 0 - Backend: Info
-  success,    // 1 - Backend: Success
-  warning,    // 2 - Backend: Warning
-  error,      // 3 - Backend: Error
+  info, // 0 - Backend: Info
+  success, // 1 - Backend: Success
+  warning, // 2 - Backend: Warning
+  error, // 3 - Backend: Error
   approvalRequired, // 4 - Backend: ApprovalRequired
-  reminder,   // 5 - Backend: Reminder
+  reminder, // 5 - Backend: Reminder
   leaveRequest,
   advanceRequest,
   attendanceCorrection,
@@ -151,22 +151,25 @@ class Allowance {
       type: AllowanceType.values[json['type'] ?? 0],
       amount: (json['amount'] ?? 0).toDouble(),
       effectiveFrom: DateTime.parse(json['effectiveFrom']),
-      effectiveTo: json['effectiveTo'] != null ? DateTime.parse(json['effectiveTo']) : null,
+      effectiveTo: json['effectiveTo'] != null
+          ? DateTime.parse(json['effectiveTo'])
+          : null,
       isActive: json['isActive'] ?? false,
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'employeeId': employeeId,
-    'name': name,
-    'description': description,
-    'type': type.index,
-    'amount': amount,
-    'effectiveFrom': effectiveFrom.toIso8601String(),
-    'effectiveTo': effectiveTo?.toIso8601String(),
-  };
+        'employeeId': employeeId,
+        'name': name,
+        'description': description,
+        'type': type.index,
+        'amount': amount,
+        'effectiveFrom': effectiveFrom.toIso8601String(),
+        'effectiveTo': effectiveTo?.toIso8601String(),
+      };
 }
 
 // ============ ADVANCE REQUEST MODEL ============
@@ -232,11 +235,16 @@ class AdvanceRequest {
       }
       if (value is String) {
         switch (value.toLowerCase()) {
-          case 'pending': return AdvanceRequestStatus.pending;
-          case 'approved': return AdvanceRequestStatus.approved;
-          case 'rejected': return AdvanceRequestStatus.rejected;
-          case 'cancelled': return AdvanceRequestStatus.cancelled;
-          default: return AdvanceRequestStatus.pending;
+          case 'pending':
+            return AdvanceRequestStatus.pending;
+          case 'approved':
+            return AdvanceRequestStatus.approved;
+          case 'rejected':
+            return AdvanceRequestStatus.rejected;
+          case 'cancelled':
+            return AdvanceRequestStatus.cancelled;
+          default:
+            return AdvanceRequestStatus.pending;
         }
       }
       return AdvanceRequestStatus.pending;
@@ -249,33 +257,41 @@ class AdvanceRequest {
       employeeCode: json['employeeCode'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
       reason: json['reason'],
-      requestDate: DateTime.parse(json['requestDate'] ?? DateTime.now().toIso8601String()),
+      requestDate: DateTime.parse(
+          json['requestDate'] ?? DateTime.now().toIso8601String()),
       forMonth: json['forMonth'],
       forYear: json['forYear'],
       status: parseStatus(json['status']),
       approvedById: json['approvedById'],
       approvedByName: json['approvedByName'],
-      approvedDate: json['approvedDate'] != null ? DateTime.parse(json['approvedDate']) : null,
+      approvedDate: json['approvedDate'] != null
+          ? DateTime.parse(json['approvedDate'])
+          : null,
       rejectionReason: json['rejectionReason'],
       note: json['note'],
       isPaid: json['isPaid'] ?? false,
       paymentMethod: json['paymentMethod'],
-      paidDate: json['paidDate'] != null ? DateTime.parse(json['paidDate']) : null,
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      paidDate:
+          json['paidDate'] != null ? DateTime.parse(json['paidDate']) : null,
+      createdAt:
+          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
       totalApprovalLevels: json['totalApprovalLevels'] ?? 1,
       currentApprovalStep: json['currentApprovalStep'] ?? 0,
       approvalRecords: json['approvalRecords'] != null
-          ? (json['approvalRecords'] as List).map((e) => ApprovalRecord.fromJson(e)).toList()
+          ? (json['approvalRecords'] as List)
+              .map((e) => ApprovalRecord.fromJson(e))
+              .toList()
           : [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'amount': amount,
-    'reason': reason,
-    'note': note,
-  };
+        'amount': amount,
+        'reason': reason,
+        'note': note,
+      };
 }
 
 // ============ PAYMENT TRANSACTION MODEL (Bonus/Penalty) ============
@@ -283,9 +299,12 @@ enum PaymentTransactionStatus { pending, completed, cancelled }
 
 String getPaymentTransactionStatusLabel(PaymentTransactionStatus status) {
   switch (status) {
-    case PaymentTransactionStatus.pending: return 'Chờ duyệt';
-    case PaymentTransactionStatus.completed: return 'Đã duyệt';
-    case PaymentTransactionStatus.cancelled: return 'Đã hủy';
+    case PaymentTransactionStatus.pending:
+      return 'Chờ duyệt';
+    case PaymentTransactionStatus.completed:
+      return 'Đã duyệt';
+    case PaymentTransactionStatus.cancelled:
+      return 'Đã hủy';
   }
 }
 
@@ -335,9 +354,12 @@ class PaymentTransaction {
       if (value == null) return PaymentTransactionStatus.pending;
       final s = value.toString().toLowerCase();
       switch (s) {
-        case 'completed': return PaymentTransactionStatus.completed;
-        case 'cancelled': return PaymentTransactionStatus.cancelled;
-        default: return PaymentTransactionStatus.pending;
+        case 'completed':
+          return PaymentTransactionStatus.completed;
+        case 'cancelled':
+          return PaymentTransactionStatus.cancelled;
+        default:
+          return PaymentTransactionStatus.pending;
       }
     }
 
@@ -349,7 +371,9 @@ class PaymentTransaction {
       type: json['type']?.toString() ?? 'Bonus',
       forMonth: json['forMonth'] as int?,
       forYear: json['forYear'] as int?,
-      transactionDate: DateTime.tryParse(json['transactionDate']?.toString() ?? '') ?? DateTime.now(),
+      transactionDate:
+          DateTime.tryParse(json['transactionDate']?.toString() ?? '') ??
+              DateTime.now(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       description: json['description']?.toString(),
       paymentMethod: json['paymentMethod']?.toString(),
@@ -358,8 +382,11 @@ class PaymentTransaction {
       note: json['note']?.toString(),
       advanceRequestId: json['advanceRequestId']?.toString(),
       payslipId: json['payslipId']?.toString(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : null,
     );
   }
 
@@ -407,7 +434,9 @@ class ApprovalRecord {
       actualUserName: json['actualUserName'],
       status: ApprovalStatus.values[json['status'] ?? 0],
       note: json['note'],
-      actionDate: json['actionDate'] != null ? DateTime.parse(json['actionDate']) : null,
+      actionDate: json['actionDate'] != null
+          ? DateTime.parse(json['actionDate'])
+          : null,
     );
   }
 }
@@ -490,10 +519,13 @@ class AttendanceCorrectionRequest {
       status: CorrectionStatus.values[json['status'] ?? 0],
       approvedBy: json['approvedBy'],
       approvedByName: json['approvedByName'],
-      approvedAt: json['approvedAt'] != null ? DateTime.parse(json['approvedAt']) : null,
+      approvedAt: json['approvedAt'] != null
+          ? DateTime.parse(json['approvedAt'])
+          : null,
       rejectReason: json['rejectReason'],
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
       employeeUserId: json['employeeUserId'],
       newType: json['newType'],
       approverId: json['approverId'],
@@ -501,19 +533,21 @@ class AttendanceCorrectionRequest {
       totalApprovalLevels: json['totalApprovalLevels'] ?? 1,
       currentApprovalStep: json['currentApprovalStep'] ?? 0,
       approvalRecords: json['approvalRecords'] != null
-          ? (json['approvalRecords'] as List).map((e) => ApprovalRecord.fromJson(e)).toList()
+          ? (json['approvalRecords'] as List)
+              .map((e) => ApprovalRecord.fromJson(e))
+              .toList()
           : [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'attendanceId': attendanceId,
-    'action': action.index,
-    'correctionDate': correctionDate.toIso8601String(),
-    'newCheckIn': newCheckIn,
-    'newCheckOut': newCheckOut,
-    'reason': reason,
-  };
+        'attendanceId': attendanceId,
+        'action': action.index,
+        'correctionDate': correctionDate.toIso8601String(),
+        'newCheckIn': newCheckIn,
+        'newCheckOut': newCheckOut,
+        'reason': reason,
+      };
 }
 
 // ============ NOTIFICATION MODEL ============
@@ -549,7 +583,8 @@ class AppNotification {
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: json['id']?.toString() ?? '',
-      userId: json['userId']?.toString() ?? json['targetUserId']?.toString() ?? '',
+      userId:
+          json['userId']?.toString() ?? json['targetUserId']?.toString() ?? '',
       title: json['title'] ?? '',
       message: json['message'] ?? '',
       type: _parseNotificationType(json['type']),
@@ -562,29 +597,37 @@ class AppNotification {
       createdAt: _parseDateTime(json['createdAt'] ?? json['timestamp']),
     );
   }
-  
+
   static NotificationType _parseNotificationType(dynamic value) {
     if (value == null) return NotificationType.info;
     final intValue = value is int ? value : int.tryParse(value.toString()) ?? 0;
     // Explicit mapping from backend enum (0-5) to avoid index mismatch
     switch (intValue) {
-      case 0: return NotificationType.info;
-      case 1: return NotificationType.success;
-      case 2: return NotificationType.warning;
-      case 3: return NotificationType.error;
-      case 4: return NotificationType.approvalRequired;
-      case 5: return NotificationType.reminder;
-      default: return NotificationType.info;
+      case 0:
+        return NotificationType.info;
+      case 1:
+        return NotificationType.success;
+      case 2:
+        return NotificationType.warning;
+      case 3:
+        return NotificationType.error;
+      case 4:
+        return NotificationType.approvalRequired;
+      case 5:
+        return NotificationType.reminder;
+      default:
+        return NotificationType.info;
     }
   }
-  
+
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is DateTime) return value.isUtc ? value.toLocal() : value;
-    
+
     final strValue = value.toString();
     // Server gửi UTC nhưng không có Z suffix, cần thêm Z để parse đúng UTC rồi chuyển local
-    final parsed = DateTime.tryParse(strValue.endsWith('Z') ? strValue : '${strValue}Z');
+    final parsed =
+        DateTime.tryParse(strValue.endsWith('Z') ? strValue : '${strValue}Z');
     return parsed?.toLocal() ?? DateTime.now();
   }
 }
@@ -665,7 +708,9 @@ class InsuranceSetting {
       description: json['description'],
       employeeRate: (json['employeeRate'] ?? 0).toDouble(),
       employerRate: (json['employerRate'] ?? 0).toDouble(),
-      maxSalaryBase: json['maxSalaryBase'] != null ? (json['maxSalaryBase']).toDouble() : null,
+      maxSalaryBase: json['maxSalaryBase'] != null
+          ? (json['maxSalaryBase']).toDouble()
+          : null,
       isActive: json['isActive'] ?? false,
       createdAt: DateTime.parse(json['createdAt']),
     );
@@ -704,7 +749,8 @@ class TaxSetting {
       description: json['description'],
       level: json['level'] ?? 1,
       minIncome: (json['minIncome'] ?? 0).toDouble(),
-      maxIncome: json['maxIncome'] != null ? (json['maxIncome']).toDouble() : null,
+      maxIncome:
+          json['maxIncome'] != null ? (json['maxIncome']).toDouble() : null,
       taxRate: (json['taxRate'] ?? 0).toDouble(),
       deductionAmount: (json['deductionAmount'] ?? 0).toDouble(),
       isActive: json['isActive'] ?? false,
@@ -768,19 +814,20 @@ class WorkSchedule {
       note: json['note'],
       assignedById: json['assignedById'],
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'employeeUserId': employeeUserId,
-    'shiftId': shiftId,
-    'date': date.toIso8601String(),
-    'startTime': startTime,
-    'endTime': endTime,
-    'isDayOff': isDayOff,
-    'note': note,
-  };
+        'employeeUserId': employeeUserId,
+        'shiftId': shiftId,
+        'date': date.toIso8601String(),
+        'startTime': startTime,
+        'endTime': endTime,
+        'isDayOff': isDayOff,
+        'note': note,
+      };
 }
 
 // ============ SCHEDULE REGISTRATION MODEL ============
@@ -826,8 +873,12 @@ class ScheduleRegistration {
       if (v == null) return ScheduleRegistrationStatus.pending;
       if (v is int) return ScheduleRegistrationStatus.values[v];
       final s = v.toString().toLowerCase();
-      if (s == 'approved' || s == '1') return ScheduleRegistrationStatus.approved;
-      if (s == 'rejected' || s == '2') return ScheduleRegistrationStatus.rejected;
+      if (s == 'approved' || s == '1') {
+        return ScheduleRegistrationStatus.approved;
+      }
+      if (s == 'rejected' || s == '2') {
+        return ScheduleRegistrationStatus.rejected;
+      }
       return ScheduleRegistrationStatus.pending;
     }
 
@@ -844,19 +895,22 @@ class ScheduleRegistration {
       status: parseStatus(json['status']),
       approvedById: json['approvedById'],
       approvedByName: json['approvedByName'],
-      approvedDate: json['approvedDate'] != null ? DateTime.parse(json['approvedDate']) : null,
+      approvedDate: json['approvedDate'] != null
+          ? DateTime.parse(json['approvedDate'])
+          : null,
       rejectionReason: json['rejectionReason'],
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'date': date.toIso8601String(),
-    'shiftId': shiftId,
-    'isDayOff': isDayOff,
-    'note': note,
-  };
+        'date': date.toIso8601String(),
+        'shiftId': shiftId,
+        'isDayOff': isDayOff,
+        'note': note,
+      };
 }
 
 String getScheduleRegistrationStatusLabel(ScheduleRegistrationStatus status) {
@@ -934,9 +988,9 @@ class Shift {
       breakMinutes: json['breakTimeMinutes'] ?? json['breakMinutes'],
       description: json['description'],
       isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null 
-        ? DateTime.parse(json['createdAt']) 
-        : DateTime.now(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
       earlyCheckInMinutes: json['earlyCheckInMinutes'],
       maximumAllowedLateMinutes: json['maximumAllowedLateMinutes'],
       maximumAllowedEarlyLeaveMinutes: json['maximumAllowedEarlyLeaveMinutes'],

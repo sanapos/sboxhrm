@@ -13,7 +13,8 @@ class AppLocalizations {
       _AppLocalizationsDelegate();
 
   String get(String key) {
-    final map = _localizedValues[locale.languageCode] ?? _localizedValues['vi']!;
+    final map =
+        _localizedValues[locale.languageCode] ?? _localizedValues['vi']!;
     return map[key] ?? _localizedValues['vi']![key] ?? key;
   }
 
@@ -456,7 +457,7 @@ class AppLocalizations {
       'attendanceData': 'Dữ liệu chấm công',
       'workSchedule': 'Lịch làm việc',
       'attendanceSummary': 'Tổng hợp chấm công',
-      'attendanceByShift': 'Tổng hợp theo ca',
+      'attendanceByShift': 'Tổng hợp chấm công theo ca',
       'attendanceApproval': 'Duyệt chấm công',
       'scheduleApproval': 'Duyệt lịch làm việc',
       'payrollSummary': 'Tổng hợp lương',
@@ -519,11 +520,15 @@ class AppLocalizations {
       'logoutConfirm': 'Bạn có chắc chắn muốn đăng xuất?',
       'dataManagement': 'Quản lý dữ liệu',
       'deleteSampleData': 'Xóa dữ liệu mẫu',
-      'deleteSampleDataDesc': 'Xóa toàn bộ nhân viên, chấm công, phép... dữ liệu demo',
-      'deleteSampleDataConfirm': 'Bạn có chắc chắn muốn xóa toàn bộ dữ liệu mẫu? Hành động này không thể hoàn tác.',
+      'deleteSampleDataDesc':
+          'Xóa toàn bộ nhân viên, chấm công, phép... dữ liệu demo',
+      'deleteSampleDataConfirm':
+          'Bạn có chắc chắn muốn xóa toàn bộ dữ liệu mẫu? Hành động này không thể hoàn tác.',
       'seedSampleData': 'Cài dữ liệu mẫu',
-      'seedSampleDataDesc': 'Tạo 10 nhân viên, 15 ngày chấm công, phép, tăng ca... để trải nghiệm',
-      'seedSampleDataConfirm': 'Bạn có muốn cài dữ liệu mẫu (10 NV, 15 ngày)? Dữ liệu cũ sẽ không bị ảnh hưởng.',
+      'seedSampleDataDesc':
+          'Tạo 10 nhân viên, 15 ngày chấm công, phép, tăng ca... để trải nghiệm',
+      'seedSampleDataConfirm':
+          'Bạn có muốn cài dữ liệu mẫu (10 NV, 15 ngày)? Dữ liệu cũ sẽ không bị ảnh hưởng.',
 
       // Common
       'more': 'Thêm',
@@ -724,7 +729,8 @@ class AppLocalizations {
       'salaryProfile': 'Hồ sơ lương',
 
       // Attendance Summary
-      'attendanceSummarySubtitle': 'Tổng hợp dữ liệu chấm công theo nhân viên và ngày',
+      'attendanceSummarySubtitle':
+          'Tổng hợp dữ liệu chấm công theo nhân viên và ngày',
       'requestSentSuccess': 'Đã gửi yêu cầu chấm công thành công',
       'requestFailed': 'Gửi yêu cầu thất bại. Vui lòng thử lại.',
 
@@ -874,7 +880,7 @@ class AppLocalizations {
       'attendanceData': 'Attendance data',
       'workSchedule': 'Work Schedule',
       'attendanceSummary': 'Attendance Summary',
-      'attendanceByShift': 'Summary by Shift',
+      'attendanceByShift': 'Attendance Summary by Shift',
       'attendanceApproval': 'Attendance Approval',
       'scheduleApproval': 'Schedule Approval',
       'payrollSummary': 'Payroll Summary',
@@ -937,11 +943,15 @@ class AppLocalizations {
       'logoutConfirm': 'Are you sure you want to logout?',
       'dataManagement': 'Data Management',
       'deleteSampleData': 'Delete Sample Data',
-      'deleteSampleDataDesc': 'Remove all demo employees, attendance, leave data...',
-      'deleteSampleDataConfirm': 'Are you sure you want to delete all sample data? This action cannot be undone.',
+      'deleteSampleDataDesc':
+          'Remove all demo employees, attendance, leave data...',
+      'deleteSampleDataConfirm':
+          'Are you sure you want to delete all sample data? This action cannot be undone.',
       'seedSampleData': 'Install Sample Data',
-      'seedSampleDataDesc': 'Create 10 employees, 15 days of attendance, leave, overtime... to explore',
-      'seedSampleDataConfirm': 'Do you want to install sample data (10 employees, 15 days)? Existing data will not be affected.',
+      'seedSampleDataDesc':
+          'Create 10 employees, 15 days of attendance, leave, overtime... to explore',
+      'seedSampleDataConfirm':
+          'Do you want to install sample data (10 employees, 15 days)? Existing data will not be affected.',
 
       // Common
       'more': 'More',
@@ -1142,7 +1152,8 @@ class AppLocalizations {
       'salaryProfile': 'Salary Profile',
 
       // Attendance Summary
-      'attendanceSummarySubtitle': 'Attendance data summary by employee and date',
+      'attendanceSummarySubtitle':
+          'Attendance data summary by employee and date',
       'requestSentSuccess': 'Attendance request sent successfully',
       'requestFailed': 'Request failed. Please try again.',
 
@@ -1282,8 +1293,7 @@ class _AppLocalizationsDelegate
   const _AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) =>
-      ['vi', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => ['vi', 'en'].contains(locale.languageCode);
 
   @override
   Future<AppLocalizations> load(Locale locale) async {

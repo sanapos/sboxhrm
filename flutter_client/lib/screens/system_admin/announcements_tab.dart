@@ -231,7 +231,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
               Text('${a['recipientCount'] ?? 0} người nhận',
                   style: TextStyle(fontSize: 12, color: Colors.grey[700])),
               const SizedBox(width: 12),
-              Icon(Icons.check_circle, size: 14, color: AdminHelpers.success),
+              const Icon(Icons.check_circle, size: 14, color: AdminHelpers.success),
               const SizedBox(width: 4),
               Text('${a['deliveredCount'] ?? 0} đã gửi',
                   style: TextStyle(fontSize: 12, color: Colors.grey[700])),
@@ -515,7 +515,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                value: _kind,
+                initialValue: _kind,
                 decoration: const InputDecoration(labelText: 'Loại'),
                 items: const [
                   DropdownMenuItem(value: 0, child: Text('Tin chung')),
@@ -532,7 +532,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
-                value: _severity,
+                initialValue: _severity,
                 decoration: const InputDecoration(labelText: 'Mức độ'),
                 items: const [
                   DropdownMenuItem(value: 0, child: Text('Thông tin')),
@@ -652,7 +652,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                   }),
               if (_audienceMode == 'license')
                 DropdownButtonFormField<String>(
-                  value: _licenseStatus ?? 'expiring_soon',
+                  initialValue: _licenseStatus ?? 'expiring_soon',
                   items: const [
                     DropdownMenuItem(
                         value: 'expiring_soon',

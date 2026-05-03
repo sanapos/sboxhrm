@@ -30,7 +30,7 @@ class AuthProvider extends ChangeNotifier {
   /// Get a valid (non-expired) access token, refreshing if necessary
   Future<String?> getValidToken() async {
     if (_token == null) return null;
-    
+
     // Check if token is about to expire (within 2 minutes)
     if (_isTokenExpiringSoon(_token!)) {
       debugPrint('🔄 AuthProvider: Token expiring soon, attempting refresh...');
@@ -38,7 +38,8 @@ class AuthProvider extends ChangeNotifier {
       if (refreshed) {
         debugPrint('✅ AuthProvider: Token refreshed successfully');
       } else {
-        debugPrint('⚠️ AuthProvider: Token refresh failed, using current token');
+        debugPrint(
+            '⚠️ AuthProvider: Token refresh failed, using current token');
       }
     }
     return _token;
@@ -56,7 +57,8 @@ class AuthProvider extends ChangeNotifier {
       final exp = claims['exp'] as int?;
       if (exp == null) return true;
       final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-      return DateTime.now().isAfter(expiryDate.subtract(Duration(seconds: marginSeconds)));
+      return DateTime.now()
+          .isAfter(expiryDate.subtract(Duration(seconds: marginSeconds)));
     } catch (e) {
       return true;
     }
@@ -125,18 +127,20 @@ class AuthProvider extends ChangeNotifier {
       if (savedToken != null) {
         _token = savedToken;
         _user = _decodeUserFromToken(savedToken);
-        
+
         // Auto-refresh if token is expired or expiring soon
         if (_isTokenExpiringSoon(savedToken)) {
-          debugPrint('🔄 AuthProvider: Stored token expired/expiring, refreshing...');
+          debugPrint(
+              '🔄 AuthProvider: Stored token expired/expiring, refreshing...');
           final refreshed = await _tryRefreshToken();
           if (!refreshed) {
-            debugPrint('⚠️ AuthProvider: Token refresh failed, clearing session');
+            debugPrint(
+                '⚠️ AuthProvider: Token refresh failed, clearing session');
             _token = null;
             _user = null;
           }
         }
-        
+
         // Fetch allowed modules cho store user
         if (_user != null) {
           await _fetchAllowedModules();
@@ -162,17 +166,26 @@ class AuthProvider extends ChangeNotifier {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return null;
-      
+
       final payload = parts[1];
       final normalized = base64Url.normalize(payload);
       final decoded = utf8.decode(base64Url.decode(normalized));
       final Map<String, dynamic> claims = json.decode(decoded);
-      
+
       return User(
-        id: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ?? '',
-        email: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ?? claims['userName'] ?? '',
-        fullName: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ?? 'User',
-        role: claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? 'Employee',
+        id: claims[
+                'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
+            '',
+        email: claims[
+                'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ??
+            claims['userName'] ??
+            '',
+        fullName: claims[
+                'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ??
+            'User',
+        role: claims[
+                'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+            'Employee',
         storeId: claims['storeId'],
       );
     } catch (e) {
@@ -188,31 +201,32 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       debugPrint('🔐 AuthProvider: Attempting login for $storeCode / $email');
-      
+
       // SuperAdmin/Agent login: no storeCode required
       final response = storeCode.trim().isEmpty
           ? await _apiService.adminLogin(email, password)
           : await _apiService.login(storeCode, email, password);
-      
+
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
         // Hỗ trợ cả accessToken và token
         _token = data['accessToken'] ?? data['token'];
-        
+
         if (_token != null) {
           debugPrint('✅ AuthProvider: Got token, saving...');
           await _apiService.saveToken(_token!);
-          
+
           // Save refresh token if provided
           final refreshToken = data['refreshToken'];
           if (refreshToken != null) {
             await _apiService.saveRefreshToken(refreshToken);
           }
-          
+
           // Decode user từ JWT token
           _user = _decodeUserFromToken(_token!);
-          debugPrint('✅ AuthProvider: User decoded - ${_user?.fullName} (${_user?.role})');
-          
+          debugPrint(
+              '✅ AuthProvider: User decoded - ${_user?.fullName} (${_user?.role})');
+
           // Fetch allowed modules cho store user
           await _fetchAllowedModules();
 
@@ -235,7 +249,7 @@ class AuthProvider extends ChangeNotifier {
         _error = response['message'] ?? 'Đăng nhập thất bại';
         debugPrint('❌ AuthProvider: Login failed - $_error');
       }
-      
+
       _isLoading = false;
       notifyListeners();
       return false;
@@ -254,7 +268,7 @@ class AuthProvider extends ChangeNotifier {
       if (_user == null) return;
       // SuperAdmin/Agent không cần giới hạn module
       if (_user!.role == 'SuperAdmin' || _user!.role == 'Agent') return;
-      
+
       final modules = await _apiService.getMyModules();
       if (modules.isNotEmpty) {
         _user = _user!.copyWith(allowedModules: modules);

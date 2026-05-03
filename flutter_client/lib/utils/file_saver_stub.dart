@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -11,16 +12,17 @@ const _channel = MethodChannel('com.sboxhrm/file_saver');
 /// Save a file from raw bytes on mobile.
 /// Images → saved to Pictures/SBOX HRM (visible in Gallery)
 /// Documents (xlsx, csv, pdf) → saved to Downloads/SBOX HRM
-Future<void> saveFileBytes(List<int> bytes, String filename, String mimeType) async {
+/// Returns saved URI/path string (for opening), or null on failure.
+Future<String?> saveFileBytes(
+    List<int> bytes, String filename, String mimeType) async {
   if (Platform.isAndroid) {
     try {
-      await _channel.invokeMethod('saveFile', {
+      final result = await _channel.invokeMethod<String>('saveFile', {
         'bytes': Uint8List.fromList(bytes),
         'filename': filename,
         'mimeType': mimeType,
       });
-      // result is the saved path or uri - success
-      return;
+      return result; // content URI or file path
     } on MissingPluginException {
       // Fallback to legacy method if native channel not available
     }
@@ -35,7 +37,7 @@ Future<void> saveFileBytes(List<int> bytes, String filename, String mimeType) as
     await Share.shareXFiles(
       [XFile(filePath, mimeType: mimeType)],
     );
-    return;
+    return filePath;
   }
 
   // Android fallback: save to downloads directory
@@ -44,6 +46,16 @@ Future<void> saveFileBytes(List<int> bytes, String filename, String mimeType) as
   final filePath = '${dir.path}/$filename';
   final file = File(filePath);
   await file.writeAsBytes(bytes);
+  return filePath;
+}
+
+/// Save a file and immediately open it with the default app.
+Future<void> saveAndOpenFileBytes(
+    List<int> bytes, String filename, String mimeType) async {
+  final savedUri = await saveFileBytes(bytes, filename, mimeType);
+  if (savedUri != null) {
+    await OpenFilex.open(savedUri, type: mimeType);
+  }
 }
 
 /// Save a file from a data-URL on mobile.
@@ -52,6 +64,17 @@ Future<void> saveDataUrl(String dataUrl, String filename) async {
   final bytes = base64Decode(base64Str);
   String mimeType = 'application/octet-stream';
   if (filename.endsWith('.png')) mimeType = 'image/png';
-  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) mimeType = 'image/jpeg';
+  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))
+    mimeType = 'image/jpeg';
   await saveFileBytes(bytes, filename, mimeType);
+}
+
+/// Save a data-URL file and immediately open it.
+Future<void> saveAndOpenDataUrl(String dataUrl, String filename) async {
+  final base64Str = dataUrl.split(',').last;
+  final bytes = base64Decode(base64Str);
+  String mimeType = 'image/png';
+  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))
+    mimeType = 'image/jpeg';
+  await saveAndOpenFileBytes(bytes, filename, mimeType);
 }

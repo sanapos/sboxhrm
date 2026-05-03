@@ -89,9 +89,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       debugPrint('Loaded ${_groups.length} groups, ${_items.length} items');
     } catch (e) {
       debugPrint('Load product data error: $e');
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản phẩm');
+      }
     }
     _loadEntries();
   }
@@ -115,9 +116,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       }
     } catch (e) {
       debugPrint('Load entries error: $e');
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: 'Không thể tải dữ liệu sản lượng');
+      }
     }
     setState(() => _isLoading = false);
   }
@@ -136,9 +138,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       }
     } catch (e) {
       debugPrint('Load summary error: $e');
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: 'Không thể tải tổng hợp sản lượng');
+      }
     }
     setState(() => _isLoading = false);
   }
@@ -1702,8 +1705,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2030),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDlgState(() => defaultDate = picked);
+                        }
                       },
                       child: InputDecorator(
                         decoration: const InputDecoration(
@@ -1727,8 +1731,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       allowedExtensions: ['xlsx', 'xls'],
                       withData: true,
                     );
-                    if (result == null || result.files.single.bytes == null)
+                    if (result == null || result.files.single.bytes == null) {
                       return;
+                    }
                     try {
                       final excel =
                           xl.Excel.decodeBytes(result.files.single.bytes!);
@@ -2032,7 +2037,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           Future<void> onSync() async {
             if (!isConnected ||
                 isSyncing ||
-                !tabConfig.values.any((c) => c['selected'] == true)) return;
+                !tabConfig.values.any((c) => c['selected'] == true)) {
+              return;
+            }
             setDlgState(() => isSyncing = true);
 
             final tabs = <Map<String, dynamic>>[];
@@ -2261,9 +2268,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                           firstDate: DateTime(2020),
                                           lastDate: DateTime(2030),
                                         );
-                                        if (picked != null)
+                                        if (picked != null) {
                                           setDlgState(
                                               () => cfg['date'] = picked);
+                                        }
                                       }
                                     : null,
                                 child: Container(

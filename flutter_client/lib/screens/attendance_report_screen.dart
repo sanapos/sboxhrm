@@ -71,8 +71,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       Map<String, dynamic> result;
       switch (_reportType) {
         case 'daily':
-          result = await _apiService.getDailyAttendanceReport(
-              date: _selectedDate);
+          result =
+              await _apiService.getDailyAttendanceReport(date: _selectedDate);
           break;
         case 'monthly':
           result = await _apiService.getMonthlyAttendanceReport(
@@ -101,8 +101,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         setState(() => _reportData = result['data']);
       } else if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi',
-            message: result['message'] ?? _l10n.loadError);
+            title: 'Lỗi', message: result['message'] ?? _l10n.loadError);
       }
     } catch (e) {
       if (mounted) {
@@ -121,8 +120,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       String fileName;
       switch (_reportType) {
         case 'daily':
-          result = await _apiService.exportDailyReportExcel(
-              date: _selectedDate);
+          result =
+              await _apiService.exportDailyReportExcel(date: _selectedDate);
           fileName =
               'cc_hang_ngay_${DateFormat('yyyyMMdd').format(_selectedDate)}.xlsx';
           break;
@@ -157,12 +156,20 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         default:
           return;
       }
+      if (result['isSuccess'] != true) {
+        if (mounted) {
+          NotificationOverlayManager().showError(
+              title: 'Lỗi',
+              message: result['message'] ?? 'Xuất Excel thất bại');
+        }
+        return;
+      }
       final excelData = (result['data'] as List?)?.cast<int>();
       if (excelData != null && mounted) {
         await file_saver.saveFileBytes(excelData, fileName,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        NotificationOverlayManager().showSuccess(
-            title: 'Xuất Excel', message: _l10n.excelExported);
+        NotificationOverlayManager()
+            .showSuccess(title: 'Xuất Excel', message: _l10n.excelExported);
       }
     } catch (e) {
       if (mounted) {
@@ -191,7 +198,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final bytes = utf8.encode(buf.toString());
     final suffix = _fileSuffix();
     await file_saver.saveFileBytes(
-        bytes, 'bao_cao_cham_cong_${_reportType}_$suffix.csv',
+        bytes,
+        'bao_cao_cham_cong_${_reportType}_$suffix.csv',
         'text/csv;charset=utf-8');
     if (mounted) {
       NotificationOverlayManager()
@@ -214,23 +222,73 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   List<String> _csvColumns() {
     switch (_reportType) {
       case 'daily':
-        return ['STT', 'Mã NV', 'Họ tên', 'Phòng ban', 'Giờ vào', 'Giờ ra',
-          'Đi muộn (p)', 'Về sớm (p)', 'Trạng thái'];
+        return [
+          'STT',
+          'Mã NV',
+          'Họ tên',
+          'Phòng ban',
+          'Giờ vào',
+          'Giờ ra',
+          'Đi muộn (p)',
+          'Về sớm (p)',
+          'Trạng thái'
+        ];
       case 'monthly':
-        return ['STT', 'Mã NV', 'Họ tên', 'Phòng ban', 'Ngày làm',
-          'Ngày muộn', 'Ngày nghỉ', 'Ngày vắng', 'Số giờ', 'Tỷ lệ CC'];
+        return [
+          'STT',
+          'Mã NV',
+          'Họ tên',
+          'Phòng ban',
+          'Ngày làm',
+          'Ngày muộn',
+          'Ngày nghỉ',
+          'Ngày vắng',
+          'Số giờ',
+          'Tỷ lệ CC'
+        ];
       case 'late-early':
-        return ['STT', 'Mã NV', 'Họ tên', 'Phòng ban', 'Lần muộn',
-          'Phút muộn', 'Lần về sớm', 'Phút về sớm'];
+        return [
+          'STT',
+          'Mã NV',
+          'Họ tên',
+          'Phòng ban',
+          'Lần muộn',
+          'Phút muộn',
+          'Lần về sớm',
+          'Phút về sớm'
+        ];
       case 'department':
-        return ['STT', 'Phòng ban', 'Số NV', 'Tổng CC', 'Đi muộn',
-          'Tổng giờ', 'TB giờ/ngày', 'Tỷ lệ CC'];
+        return [
+          'STT',
+          'Phòng ban',
+          'Số NV',
+          'Tổng CC',
+          'Đi muộn',
+          'Tổng giờ',
+          'TB giờ/ngày',
+          'Tỷ lệ CC'
+        ];
       case 'overtime':
-        return ['STT', 'Mã NV', 'Họ tên', 'Phòng ban', 'Ngày tăng ca',
-          'Phút tăng ca', 'Giờ tăng ca'];
+        return [
+          'STT',
+          'Mã NV',
+          'Họ tên',
+          'Phòng ban',
+          'Ngày tăng ca',
+          'Phút tăng ca',
+          'Giờ tăng ca'
+        ];
       case 'leave':
-        return ['STT', 'Mã NV', 'Họ tên', 'Phòng ban', 'Loại nghỉ',
-          'Tổng ngày', 'Đã dùng', 'Còn lại'];
+        return [
+          'STT',
+          'Mã NV',
+          'Họ tên',
+          'Phòng ban',
+          'Loại nghỉ',
+          'Tổng ngày',
+          'Đã dùng',
+          'Còn lại'
+        ];
       default:
         return [];
     }
@@ -358,23 +416,22 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final isMobile = Responsive.isMobile(context);
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 12 : 20, vertical: 10),
+      padding:
+          EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 10),
       child: Row(
         children: [
           Expanded(
             child: Text(
               _periodLabel(),
-              style: const TextStyle(
-                  fontSize: 13, color: Color(0xFF71717A)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (isMobile) ...[
             IconButton(
               tooltip: 'Bộ lọc',
-              onPressed: () => setState(
-                  () => _showMobileFilters = !_showMobileFilters),
+              onPressed: () =>
+                  setState(() => _showMobileFilters = !_showMobileFilters),
               icon: Icon(
                 _showMobileFilters
                     ? Icons.filter_alt
@@ -405,16 +462,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 PopupMenuItem(
                     value: 'excel',
                     child: Row(children: [
-                      Icon(Icons.table_chart,
-                          size: 18, color: Colors.green),
+                      Icon(Icons.table_chart, size: 18, color: Colors.green),
                       SizedBox(width: 8),
                       Text('Xuất Excel'),
                     ])),
                 PopupMenuItem(
                     value: 'csv',
                     child: Row(children: [
-                      Icon(Icons.file_present,
-                          size: 18, color: Colors.blue),
+                      Icon(Icons.file_present, size: 18, color: Colors.blue),
                       SizedBox(width: 8),
                       Text('Xuất CSV'),
                     ])),
@@ -438,8 +493,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   : const Icon(Icons.table_chart, size: 16),
               label: const Text('Excel'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white),
+                  backgroundColor: Colors.green, foregroundColor: Colors.white),
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
@@ -521,8 +575,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     labelText: 'Tháng',
                     border: OutlineInputBorder(),
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 10),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   ),
                   items: List.generate(
                       12,
@@ -545,8 +599,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     labelText: 'Năm',
                     border: OutlineInputBorder(),
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 10),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   ),
                   items: List.generate(
                       5,
@@ -641,16 +695,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         _Preset('7 ngày', () {
           setState(() {
             _endDate = DateTime.now();
-            _startDate =
-                DateTime.now().subtract(const Duration(days: 7));
+            _startDate = DateTime.now().subtract(const Duration(days: 7));
           });
           _loadReport();
         }),
         _Preset('30 ngày', () {
           setState(() {
             _endDate = DateTime.now();
-            _startDate =
-                DateTime.now().subtract(const Duration(days: 30));
+            _startDate = DateTime.now().subtract(const Duration(days: 30));
           });
           _loadReport();
         }),
@@ -705,9 +757,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 label: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(t['icon'] as IconData,
                       size: 16,
-                      color: selected
-                          ? Colors.white
-                          : const Color(0xFF1E3A5F)),
+                      color: selected ? Colors.white : const Color(0xFF1E3A5F)),
                   const SizedBox(width: 6),
                   Text(t['name'] as String,
                       style: TextStyle(
@@ -729,8 +779,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   });
                   _loadReport();
                 },
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
                 showCheckmark: false,
@@ -789,11 +838,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                       value: null, child: Text('Tất cả')),
                   ...depts.map((d) => DropdownMenuItem(
                       value: d,
-                      child:
-                          Text(d, overflow: TextOverflow.ellipsis))),
+                      child: Text(d, overflow: TextOverflow.ellipsis))),
                 ],
-                onChanged: (v) =>
-                    setState(() => _departmentFilter = v),
+                onChanged: (v) => setState(() => _departmentFilter = v),
               ),
             ),
           if (_searchText.isNotEmpty || _departmentFilter != null)
@@ -842,16 +889,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
             height: 220,
             child: LineChart(
               LineChartData(
-                gridData: const FlGridData(
-                    show: true, drawVerticalLine: false),
+                gridData: const FlGridData(show: true, drawVerticalLine: false),
                 titlesData: FlTitlesData(
                   leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 32,
                           getTitlesWidget: (v, _) => Text('${v.toInt()}',
-                              style:
-                                  const TextStyle(fontSize: 10)))),
+                              style: const TextStyle(fontSize: 10)))),
                   bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                           showTitles: true,
@@ -866,12 +911,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                                   _trendData[idx]['date'] ?? '');
                               if (d != null) {
                                 return Padding(
-                                    padding:
-                                        const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                        DateFormat('dd/MM').format(d),
-                                        style: const TextStyle(
-                                            fontSize: 9)));
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(DateFormat('dd/MM').format(d),
+                                        style: const TextStyle(fontSize: 9)));
                               }
                             }
                             return const SizedBox();
@@ -885,10 +927,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
                       getTooltipItems: (spots) => spots
-                          .map((s) => LineTooltipItem(
-                              '${s.y.toInt()}',
-                              TextStyle(
-                                  color: s.bar.color, fontSize: 11)))
+                          .map((s) => LineTooltipItem('${s.y.toInt()}',
+                              TextStyle(color: s.bar.color, fontSize: 11)))
                           .toList()),
                 ),
                 lineBarsData: [
@@ -900,8 +940,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           .map((e) => FlSpot(
                               e.key.toDouble(),
                               ((e.value['present'] ??
-                                          e.value['totalCheckIns'] ??
-                                          0) as num)
+                                      e.value['totalCheckIns'] ??
+                                      0) as num)
                                   .toDouble()))
                           .toList()),
                   _lineData(
@@ -911,9 +951,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           .entries
                           .map((e) => FlSpot(
                               e.key.toDouble(),
-                              ((e.value['absent'] ??
-                                          e.value['absences'] ??
-                                          0) as num)
+                              ((e.value['absent'] ?? e.value['absences'] ?? 0)
+                                      as num)
                                   .toDouble()))
                           .toList()),
                   _lineData(
@@ -923,9 +962,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           .entries
                           .map((e) => FlSpot(
                               e.key.toDouble(),
-                              ((e.value['late'] ??
-                                          e.value['lateArrivals'] ??
-                                          0) as num)
+                              ((e.value['late'] ?? e.value['lateArrivals'] ?? 0)
+                                      as num)
                                   .toDouble()))
                           .toList()),
                 ],
@@ -944,8 +982,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         color: color,
         barWidth: 2,
         dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(
-            show: true, color: color.withValues(alpha: 0.08)));
+        belowBarData:
+            BarAreaData(show: true, color: color.withValues(alpha: 0.08)));
   }
 
   Widget _legendDot(Color color, String text) {
@@ -953,8 +991,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       Container(
           width: 10,
           height: 10,
-          decoration:
-              BoxDecoration(color: color, shape: BoxShape.circle)),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
       Text(text, style: const TextStyle(fontSize: 12)),
     ]);
@@ -970,12 +1007,12 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               Icons.people, Colors.blue),
           _CardData(_l10n.present, '${data['present'] ?? 0}',
               Icons.check_circle, Colors.green),
-          _CardData('Đi muộn', '${data['late'] ?? 0}', Icons.schedule,
-              Colors.orange),
-          _CardData('Về sớm', '${data['earlyLeave'] ?? 0}',
-              Icons.exit_to_app, Colors.amber.shade700),
-          _CardData('Vắng mặt', '${data['absent'] ?? 0}',
-              Icons.person_off, Colors.red),
+          _CardData(
+              'Đi muộn', '${data['late'] ?? 0}', Icons.schedule, Colors.orange),
+          _CardData('Về sớm', '${data['earlyLeave'] ?? 0}', Icons.exit_to_app,
+              Colors.amber.shade700),
+          _CardData('Vắng mặt', '${data['absent'] ?? 0}', Icons.person_off,
+              Colors.red),
           _CardData('Tỷ lệ CC', '${data['attendanceRate'] ?? 0}%',
               Icons.percent, Colors.indigo),
         ];
@@ -1000,8 +1037,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               Icons.schedule, Colors.red),
           _CardData('Phút muộn', '${data['totalLateMinutes'] ?? 0}',
               Icons.timer, Colors.red.shade700),
-          _CardData('Lần về sớm',
-              '${data['totalEarlyLeaveCount'] ?? 0}',
+          _CardData('Lần về sớm', '${data['totalEarlyLeaveCount'] ?? 0}',
               Icons.exit_to_app, Colors.amber.shade700),
         ];
         break;
@@ -1034,8 +1070,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         cards = [
           _CardData(_l10n.totalEmployees, '${data['totalEmployees'] ?? 0}',
               Icons.people, Colors.blue),
-          _CardData('NV nghỉ phép',
-              '${data['employeesWithLeave'] ?? 0}',
+          _CardData('NV nghỉ phép', '${data['employeesWithLeave'] ?? 0}',
               Icons.person_off, Colors.orange),
           _CardData('Tổng đơn', '${data['totalLeaveRequests'] ?? 0}',
               Icons.description, Colors.purple),
@@ -1132,11 +1167,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
             border: Border.all(color: const Color(0xFFE4E4E7))),
         child: Center(
           child: Column(children: [
-            Icon(Icons.inbox_outlined,
-                size: 48, color: Colors.grey.shade400),
+            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 8),
-            Text(_l10n.noData,
-                style: TextStyle(color: Colors.grey.shade600)),
+            Text(_l10n.noData, style: TextStyle(color: Colors.grey.shade600)),
           ]),
         ),
       );
@@ -1166,8 +1199,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(
-                    const Color(0xFFF1F5F9)),
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFF1F5F9)),
                 headingTextStyle: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -1203,9 +1236,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           _statusChip(m['status'] ?? ''),
         ]);
         lines = [
-          _kv(
-              '${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}',
-              ''),
+          _kv('${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}', ''),
           _kv('Giờ vào', _fmtTime(m['checkInTime'])),
           _kv('Giờ ra', _fmtTime(m['checkOutTime'])),
           if ((m['lateMinutes'] ?? 0) > 0)
@@ -1218,29 +1249,22 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         break;
       case 'monthly':
         header = Text('${m['employeeName'] ?? ''}',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold));
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold));
         lines = [
-          _kv(
-              '${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}',
-              ''),
+          _kv('${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}', ''),
           _kv('Ngày làm', '${m['totalDaysWorked'] ?? 0}'),
           _kv('Ngày muộn', '${m['totalLateDays'] ?? 0}'),
           _kv('Vắng', '${m['totalAbsentDays'] ?? 0}'),
-          _kv('Số giờ',
-              '${(m['totalWorkedHours'] ?? 0).toStringAsFixed(1)}h'),
+          _kv('Số giờ', '${(m['totalWorkedHours'] ?? 0).toStringAsFixed(1)}h'),
           _kv('Tỷ lệ CC', '${m['attendanceRate'] ?? 0}%',
               color: const Color(0xFF047857)),
         ];
         break;
       case 'late-early':
         header = Text('${m['employeeName'] ?? ''}',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold));
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold));
         lines = [
-          _kv(
-              '${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}',
-              ''),
+          _kv('${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}', ''),
           _kv('Đi muộn',
               '${m['lateCount'] ?? 0} lần / ${m['totalLateMinutes'] ?? 0} phút',
               color: Colors.red),
@@ -1251,8 +1275,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         break;
       case 'department':
         header = Text('${m['departmentName'] ?? ''}',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold));
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold));
         lines = [
           _kv('Số NV', '${m['employeeCount'] ?? 0}'),
           _kv('Tổng CC', '${m['totalAttendance'] ?? 0}'),
@@ -1267,27 +1290,20 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         break;
       case 'overtime':
         header = Text('${m['employeeName'] ?? ''}',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold));
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold));
         lines = [
-          _kv(
-              '${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}',
-              ''),
+          _kv('${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}', ''),
           _kv('Ngày tăng ca', '${m['overtimeDays'] ?? 0}'),
           _kv('Phút', '${m['totalOvertimeMinutes'] ?? 0}'),
-          _kv('Giờ',
-              '${(m['totalOvertimeHours'] ?? 0).toStringAsFixed(1)}h',
+          _kv('Giờ', '${(m['totalOvertimeHours'] ?? 0).toStringAsFixed(1)}h',
               color: Colors.deepOrange),
         ];
         break;
       case 'leave':
         header = Text('${m['employeeName'] ?? ''}',
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold));
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold));
         lines = [
-          _kv(
-              '${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}',
-              ''),
+          _kv('${m['employeeCode'] ?? ''} · ${m['departmentName'] ?? ''}', ''),
           _kv('Loại', '${m['leaveType'] ?? ''}'),
           _kv('Tổng / Đã dùng / Còn',
               '${m['totalDays'] ?? 0} / ${m['usedDays'] ?? 0} / ${m['remainingDays'] ?? 0}'),
@@ -1314,8 +1330,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               height: 22,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color:
-                      const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
                   shape: BoxShape.circle),
               child: Text('${idx + 1}',
                   style: const TextStyle(
@@ -1338,8 +1353,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Text(k,
-            style: const TextStyle(
-                fontSize: 11.5, color: Color(0xFF71717A))),
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF71717A))),
       );
     }
     return Padding(
@@ -1349,14 +1363,12 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         children: [
           Flexible(
               child: Text(k,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF71717A)),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                   overflow: TextOverflow.ellipsis)),
           Text(v,
               style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: color)),
+                  fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -1365,8 +1377,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   List<DataColumn> _columns() {
     DataColumn col(String name, {String? sortKey}) {
       return DataColumn(
-        label: Expanded(
-            child: Text(name, textAlign: TextAlign.center)),
+        label: Expanded(child: Text(name, textAlign: TextAlign.center)),
         onSort: sortKey == null
             ? null
             : (_, asc) {
@@ -1454,8 +1465,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   DataRow _row(int idx, dynamic item) {
     final m = item as Map<String, dynamic>;
-    DataCell c(dynamic v) =>
-        DataCell(Center(child: Text(v?.toString() ?? '')));
+    DataCell c(dynamic v) => DataCell(Center(child: Text(v?.toString() ?? '')));
     switch (_reportType) {
       case 'daily':
         return DataRow(cells: [
@@ -1561,9 +1571,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           borderRadius: BorderRadius.circular(8)),
       child: Text(status,
           style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.bold,
-              color: color)),
+              fontSize: 10.5, fontWeight: FontWeight.bold, color: color)),
     );
   }
 
@@ -1580,8 +1588,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text('Chọn loại báo cáo và nhấn "Tạo báo cáo"',
-              style: TextStyle(
-                  color: Colors.grey.shade600, fontSize: 14)),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
         ]),
       ),
     );

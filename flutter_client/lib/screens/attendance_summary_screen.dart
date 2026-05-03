@@ -26,6 +26,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   List<Device> _devices = [];
   List<dynamic> _holidays = [];
   List<dynamic> _salaryProfiles = [];
+  List<dynamic> _approvedLeaves = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
@@ -103,6 +104,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       // Load holidays + salary profiles (for holiday/restday coefficients)
       List<dynamic> holidays = [];
       List<dynamic> salaryProfiles = [];
+      List<dynamic> approvedLeaves = [];
       try {
         holidays = await _apiService.getHolidaySettings(0);
       } catch (e) {
@@ -113,6 +115,25 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       } catch (e) {
         debugPrint('Load salary profiles error: $e');
       }
+      try {
+        final fromStr = _fromDate.toIso8601String().substring(0, 10);
+        final toStr = _toDate.toIso8601String().substring(0, 10);
+        final leavesResult = await _apiService.getAllLeaves(
+            fromDate: fromStr,
+            toDate: toStr,
+            status: 'Approved',
+            pageSize: 1000);
+        if (leavesResult['isSuccess'] == true) {
+          final data = leavesResult['data'];
+          if (data is Map) {
+            approvedLeaves = (data['items'] as List?) ?? [];
+          } else if (data is List) {
+            approvedLeaves = data;
+          }
+        }
+      } catch (e) {
+        debugPrint('Load approved leaves error: $e');
+      }
 
       if (mounted) {
         setState(() {
@@ -122,6 +143,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _dayEndMinute = dem;
           _holidays = holidays;
           _salaryProfiles = salaryProfiles;
+          _approvedLeaves = approvedLeaves;
           _isLoading = false;
         });
       }
@@ -167,12 +189,15 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(Responsive.isMobile(context) ? 8 : 10),
+                  padding:
+                      EdgeInsets.all(Responsive.isMobile(context) ? 8 : 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.analytics, size: Responsive.isMobile(context) ? 18 : 22, color: Colors.white),
+                  child: Icon(Icons.analytics,
+                      size: Responsive.isMobile(context) ? 18 : 22,
+                      color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -181,12 +206,17 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     children: [
                       Text(
                         'Tổng hợp chấm công',
-                        style: TextStyle(fontSize: Responsive.isMobile(context) ? 16 : 20, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(
+                            fontSize: Responsive.isMobile(context) ? 16 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                       ),
                       if (!Responsive.isMobile(context))
                         Text(
                           'Tổng hợp dữ liệu chấm công theo nhân viên và ngày · ${_attendances.length} bản ghi',
-                          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.8)),
                         ),
                     ],
                   ),
@@ -195,19 +225,38 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                   PopupMenuButton<String>(
                     icon: Container(
                       padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert, size: 18, color: Colors.white),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.more_vert,
+                          size: 18, color: Colors.white),
                     ),
                     onSelected: (v) {
-                      if (v == 'excel') (_tabKey.currentState as dynamic)?.exportToExcel();
-                      if (v == 'png') (_tabKey.currentState as dynamic)?.exportToPng();
+                      if (v == 'excel') {
+                        (_tabKey.currentState as dynamic)?.exportToExcel();
+                      }
+                      if (v == 'png') {
+                        (_tabKey.currentState as dynamic)?.exportToPng();
+                      }
                     },
                     itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'excel', child: Row(children: [Icon(Icons.table_chart_outlined, size: 18), SizedBox(width: 10), Text('Xuất Excel')])),
-                      PopupMenuItem(value: 'png', child: Row(children: [Icon(Icons.image_outlined, size: 18), SizedBox(width: 10), Text('Xuất PNG')])),
+                      PopupMenuItem(
+                          value: 'excel',
+                          child: Row(children: [
+                            Icon(Icons.table_chart_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Xuất Excel')
+                          ])),
+                      PopupMenuItem(
+                          value: 'png',
+                          child: Row(children: [
+                            Icon(Icons.image_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Xuất PNG')
+                          ])),
                     ],
                   )
-                else ...[  
+                else ...[
                   _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel',
                       () => (_tabKey.currentState as dynamic)?.exportToExcel()),
                   const SizedBox(width: 8),
@@ -231,6 +280,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     dayEndMinute: _dayEndMinute,
                     holidays: _holidays,
                     salaryProfiles: _salaryProfiles,
+                    approvedLeaves: _approvedLeaves,
                   ),
           ),
         ],
@@ -300,21 +350,26 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           // Reload data to reflect changes
           await _loadData();
           if (mounted) {
-            NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã gửi yêu cầu chấm công thành công');
+            NotificationOverlayManager().showSuccess(
+                title: 'Thành công',
+                message: 'Đã gửi yêu cầu chấm công thành công');
           }
         } else {
-          NotificationOverlayManager().showError(title: 'Lỗi', message: 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
+          NotificationOverlayManager().showError(
+              title: 'Lỗi', message: 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
         }
       }
     } catch (e) {
       debugPrint('Error creating correction request: $e');
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Lỗi: $e');
       }
     }
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String tooltip, VoidCallback? onTap) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String tooltip, VoidCallback? onTap) {
     return Tooltip(
       message: tooltip,
       child: Material(

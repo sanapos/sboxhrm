@@ -179,7 +179,8 @@ class _ShiftLookups {
       }
       for (final empGuid in empIds) {
         employeeGuidToShiftTemplateIds.putIfAbsent(empGuid, () => []);
-        if (!employeeGuidToShiftTemplateIds[empGuid]!.contains(shiftTemplateId)) {
+        if (!employeeGuidToShiftTemplateIds[empGuid]!
+            .contains(shiftTemplateId)) {
           employeeGuidToShiftTemplateIds[empGuid]!.add(shiftTemplateId);
         }
       }
@@ -213,8 +214,7 @@ class _ShiftLookups {
       final st = shiftTemplateMap[stId];
       if (st == null) continue;
       if (st['isActive'] == false) continue;
-      final startMinutes =
-          _parseTimeSpanToMinutes(st['startTime']?.toString());
+      final startMinutes = _parseTimeSpanToMinutes(st['startTime']?.toString());
       int dist = (punchInMinutes - startMinutes).abs();
       if (dist > 720) dist = 1440 - dist;
       if (dist < bestDistance) {
@@ -273,12 +273,11 @@ class _ShiftLookups {
       final scopeList = <String>[
         if (employeeCodes != null)
           ...employeeCodes.map((e) => e?.toString() ?? ''),
-        if (employeeIds != null)
-          ...employeeIds.map((e) => e?.toString() ?? ''),
+        if (employeeIds != null) ...employeeIds.map((e) => e?.toString() ?? ''),
       ].where((s) => s.isNotEmpty).toList();
       if (scopeList.isNotEmpty) {
-        final inScope = scopeList.any((s) =>
-            s == employeeCode || (empGuid != null && s == empGuid));
+        final inScope = scopeList
+            .any((s) => s == employeeCode || (empGuid != null && s == empGuid));
         if (!inScope) continue;
       }
       return (h['salaryRate'] as num?)?.toDouble() ?? 3.0;
@@ -331,7 +330,8 @@ List<DailyShiftRecord> computeDailyShiftRecords({
   final Map<String, Map<String, List<Attendance>>> grouped = {};
   for (final att in filtered) {
     final empKey = att.employeeId ?? att.enrollNumber ?? 'unknown';
-    final logicalDate = _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
+    final logicalDate =
+        _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
     final dateKey = DateFormat('yyyy-MM-dd').format(logicalDate);
     grouped.putIfAbsent(empKey, () => {});
     grouped[empKey]!.putIfAbsent(dateKey, () => []).add(att);
@@ -397,8 +397,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           shiftDurationMin = isCrossMidnight
               ? (1440 - shiftStartMin + shiftEndMin)
               : (shiftEndMin - shiftStartMin);
-          lateGrace =
-              (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+          lateGrace = (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
           earlyGrace =
               (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
           overtimeThreshold =
@@ -534,9 +533,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       if (hasMissingPunch && totalWorkCount > 0) {
         if (missingOutShiftNames.isNotEmpty) {
           final extra = 'Thiếu ra ${missingOutShiftNames.join(", ")}';
-          status = totalLate > 0 || totalEarly > 0
-              ? '$status • $extra'
-              : extra;
+          status = totalLate > 0 || totalEarly > 0 ? '$status • $extra' : extra;
         } else {
           status = totalLate > 0 || totalEarly > 0
               ? '$status • Thiếu chấm'
@@ -768,9 +765,10 @@ List<DailyShiftPair> computeDailyShiftPairs({
             if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
           }
         } else {
-          final hh = punchIn.hour.toString().padLeft(2, '0');
-          final mm = punchIn.minute.toString().padLeft(2, '0');
-          shiftName = 'Ca $hh:$mm';
+          // Không match ca nào trong ngưỡng 180 phút → "Chưa xếp ca".
+          // KHÔNG dùng nearest-shift vì sẽ gom punch sai ca (ví dụ: punch
+          // 22:20 Ca Đêm bị map sang Ca Hành Chính nếu Ca Đêm chưa cài).
+          shiftName = 'Chưa xếp ca';
         }
 
         pairs.add(DailyShiftPair(

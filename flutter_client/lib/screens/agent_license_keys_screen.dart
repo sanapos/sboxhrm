@@ -86,10 +86,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   }
 
   List<Map<String, dynamic>> _extractList(dynamic data) {
-    if (data is List)
+    if (data is List) {
       return data
           .map((e) => e is Map<String, dynamic> ? e : <String, dynamic>{})
           .toList();
+    }
     return [];
   }
 

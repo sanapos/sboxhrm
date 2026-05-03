@@ -19,7 +19,8 @@ class LeaveScreen extends StatefulWidget {
   State<LeaveScreen> createState() => _LeaveScreenState();
 }
 
-class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStateMixin {
+class _LeaveScreenState extends State<LeaveScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   TabController? _tabController;
   StreamSubscription<Map<String, dynamic>>? _notificationSub;
@@ -80,7 +81,9 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       );
       // Listen for leave-related SignalR notifications to auto-refresh
       _notificationSub = SignalRService().onNewNotification.listen((data) {
-        final category = (data['categoryCode'] ?? data['category'] ?? '').toString().toLowerCase();
+        final category = (data['categoryCode'] ?? data['category'] ?? '')
+            .toString()
+            .toLowerCase();
         if (category.contains('leave') || category.contains('approval')) {
           _loadData();
         }
@@ -141,8 +144,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           _allLeaves = [];
         }
         try {
-          final pendingResult = await _apiService.getPendingLeaves(pageSize: 200);
-          if (pendingResult['isSuccess'] == true && pendingResult['data'] != null) {
+          final pendingResult =
+              await _apiService.getPendingLeaves(pageSize: 200);
+          if (pendingResult['isSuccess'] == true &&
+              pendingResult['data'] != null) {
             final data = pendingResult['data'];
             if (data is List) {
               _pendingLeaves = data;
@@ -175,17 +180,27 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     bool isMyLeaves = false;
     for (final l in _pendingLeaves) {
       if (l is Map && (l['id']?.toString() == id)) {
-        match = l; showApprovalActions = true; break;
+        match = l;
+        showApprovalActions = true;
+        break;
       }
     }
     if (match == null) {
       for (final l in _allLeaves) {
-        if (l is Map && (l['id']?.toString() == id)) { match = l; isAllTab = true; break; }
+        if (l is Map && (l['id']?.toString() == id)) {
+          match = l;
+          isAllTab = true;
+          break;
+        }
       }
     }
     if (match == null) {
       for (final l in _myLeaves) {
-        if (l is Map && (l['id']?.toString() == id)) { match = l; isMyLeaves = true; break; }
+        if (l is Map && (l['id']?.toString() == id)) {
+          match = l;
+          isMyLeaves = true;
+          break;
+        }
       }
     }
     if (match == null) return;
@@ -203,11 +218,21 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     if (status is int) return status;
     final s = status?.toString().toLowerCase() ?? '';
     switch (s) {
-      case 'pending': case '0': return 0;
-      case 'approved': case '1': return 1;
-      case 'rejected': case '2': return 2;
-      case 'cancelled': case 'canceled': case '3': return 3;
-      default: return -1;
+      case 'pending':
+      case '0':
+        return 0;
+      case 'approved':
+      case '1':
+        return 1;
+      case 'rejected':
+      case '2':
+        return 2;
+      case 'cancelled':
+      case 'canceled':
+      case '3':
+        return 3;
+      default:
+        return -1;
     }
   }
 
@@ -215,15 +240,37 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     if (type is int) return type;
     final s = type?.toString().toLowerCase() ?? '';
     switch (s) {
-      case 'annualleave': case 'annual': case '0': return 0;
-      case 'holiday': case '1': return 1;
-      case 'personalpaid': case '2': return 2;
-      case 'personalunpaid': case '3': return 3;
-      case 'sickleave': case 'sick': case '4': return 4;
-      case 'maternityleave': case 'maternity': case '5': return 5;
-      case 'compensatoryleave': case 'compensatory': case '6': return 6;
-      case 'longtermleave': case 'longterm': case '7': return 7;
-      default: return -1;
+      case 'annualleave':
+      case 'annual':
+      case '0':
+        return 0;
+      case 'holiday':
+      case '1':
+        return 1;
+      case 'personalpaid':
+      case '2':
+        return 2;
+      case 'personalunpaid':
+      case '3':
+        return 3;
+      case 'sickleave':
+      case 'sick':
+      case '4':
+        return 4;
+      case 'maternityleave':
+      case 'maternity':
+      case '5':
+        return 5;
+      case 'compensatoryleave':
+      case 'compensatory':
+      case '6':
+        return 6;
+      case 'longtermleave':
+      case 'longterm':
+      case '7':
+        return 7;
+      default:
+        return -1;
     }
   }
 
@@ -239,8 +286,14 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
 
   List<dynamic> _applyFilters(List<dynamic> leaves) {
     return leaves.where((leave) {
-      if (_filterLeaveType != null && _normalizeLeaveType(leave['type']) != _filterLeaveType) return false;
-      if (_filterStatus != null && _normalizeStatus(leave['status']) != _filterStatus) return false;
+      if (_filterLeaveType != null &&
+          _normalizeLeaveType(leave['type']) != _filterLeaveType) {
+        return false;
+      }
+      if (_filterStatus != null &&
+          _normalizeStatus(leave['status']) != _filterStatus) {
+        return false;
+      }
       if (_filterEmployeeId != null && _filterEmployeeId!.isNotEmpty) {
         final empName = (leave['employeeName'] ?? '').toString().toLowerCase();
         if (!empName.contains(_filterEmployeeId!.toLowerCase())) return false;
@@ -249,7 +302,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         final start = DateTime.tryParse(leave['startDate']?.toString() ?? '');
         final end = DateTime.tryParse(leave['endDate']?.toString() ?? '');
         if (start == null || end == null) return false;
-        if (end.isBefore(_filterDateRange!.start) || start.isAfter(_filterDateRange!.end)) return false;
+        if (end.isBefore(_filterDateRange!.start) ||
+            start.isAfter(_filterDateRange!.end)) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -276,7 +332,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       children: [
                         CircularProgressIndicator(color: theme.primaryColor),
                         const SizedBox(height: 16),
-                        Text('Đang tải...', style: TextStyle(color: Colors.grey[500])),
+                        Text('Đang tải...',
+                            style: TextStyle(color: Colors.grey[500])),
                       ],
                     ),
                   )
@@ -291,21 +348,33 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       children: [
                         if (Responsive.isMobile(context)) ...[
                           InkWell(
-                            onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+                            onTap: () => setState(
+                                () => _showMobileSummary = !_showMobileSummary),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                                  Icon(Icons.analytics_outlined,
+                                      size: 16, color: Colors.blue.shade700),
                                   const SizedBox(width: 6),
-                                  Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                                  Text('Tổng quan',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: Colors.blue.shade700)),
                                   const Spacer(),
-                                  Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                                  Icon(
+                                      _showMobileSummary
+                                          ? Icons.expand_less
+                                          : Icons.expand_more,
+                                      size: 20,
+                                      color: Colors.blue.shade700),
                                 ],
                               ),
                             ),
@@ -318,7 +387,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                           _buildStatsRow(theme),
                         ],
                         const SizedBox(height: 12),
-                        if (!Responsive.isMobile(context) || _showMobileFilters) ...[
+                        if (!Responsive.isMobile(context) ||
+                            _showMobileFilters) ...[
                           _buildFilterBar(theme),
                           const SizedBox(height: 12),
                         ],
@@ -326,10 +396,22 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                           child: TabBarView(
                             controller: _tabController,
                             children: [
-                              RefreshIndicator(onRefresh: _loadData, child: _buildLeaveList(_applyFilters(_myLeaves), isMyLeaves: true)),
+                              RefreshIndicator(
+                                  onRefresh: _loadData,
+                                  child: _buildLeaveList(
+                                      _applyFilters(_myLeaves),
+                                      isMyLeaves: true)),
                               if (_isManager) ...[
-                                RefreshIndicator(onRefresh: _loadData, child: _buildLeaveList(_applyFilters(_pendingLeaves), showApprovalActions: true)),
-                                RefreshIndicator(onRefresh: _loadData, child: _buildLeaveList(_applyFilters(_allLeaves), isAllTab: true)),
+                                RefreshIndicator(
+                                    onRefresh: _loadData,
+                                    child: _buildLeaveList(
+                                        _applyFilters(_pendingLeaves),
+                                        showApprovalActions: true)),
+                                RefreshIndicator(
+                                    onRefresh: _loadData,
+                                    child: _buildLeaveList(
+                                        _applyFilters(_allLeaves),
+                                        isAllTab: true)),
                               ],
                             ],
                           ),
@@ -350,7 +432,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     final primary = theme.primaryColor;
     final isMobile = Responsive.isMobile(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, isMobile ? 12 : 14),
+      padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
+          isMobile ? 14 : 24, isMobile ? 12 : 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [primary, primary.withValues(alpha: 0.85)],
@@ -373,7 +456,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.event_busy_rounded, size: isMobile ? 18 : 22, color: Colors.white),
+            child: Icon(Icons.event_busy_rounded,
+                size: isMobile ? 18 : 22, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -382,12 +466,17 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               children: [
                 Text(
                   _l10n.leaveManagement,
-                  style: TextStyle(fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                      fontSize: isMobile ? 16 : 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
                 if (!isMobile)
                   Text(
                     _l10n.leaveSubtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.8)),
                   ),
               ],
             ),
@@ -395,18 +484,36 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           const SizedBox(width: 8),
           if (isMobile)
             GestureDetector(
-              onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+              onTap: () =>
+                  setState(() => _showMobileFilters = !_showMobileFilters),
               child: Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: _showMobileFilters ? 0.25 : 0.15),
+                  color: Colors.white
+                      .withValues(alpha: _showMobileFilters ? 0.25 : 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Stack(
                   children: [
-                    Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18, color: Colors.white),
-                    if (_filterLeaveType != null || _filterStatus != null || _filterEmployeeId != null || _filterTimePreset != 'all')
-                      Positioned(right: 0, top: 0, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
+                    Icon(
+                        _showMobileFilters
+                            ? Icons.filter_alt
+                            : Icons.filter_alt_outlined,
+                        size: 18,
+                        color: Colors.white),
+                    if (_filterLeaveType != null ||
+                        _filterStatus != null ||
+                        _filterEmployeeId != null ||
+                        _filterTimePreset != 'all')
+                      Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                  color: Colors.orangeAccent,
+                                  shape: BoxShape.circle))),
                   ],
                 ),
               ),
@@ -418,12 +525,22 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               onTap: () => _showLeaveFormDialog(),
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: isMobile ? 8 : 10),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 12 : 16,
+                    vertical: isMobile ? 8 : 10),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add_rounded, size: isMobile ? 18 : 20, color: Colors.white),
-                    if (!isMobile) ...[const SizedBox(width: 6), Text(_l10n.createRequest, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))],
+                    Icon(Icons.add_rounded,
+                        size: isMobile ? 18 : 20, color: Colors.white),
+                    if (!isMobile) ...[
+                      const SizedBox(width: 6),
+                      Text(_l10n.createRequest,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13))
+                    ],
                   ],
                 ),
               ),
@@ -439,56 +556,77 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   // ═══════════════════════════════════════════════════
   Widget _buildStatsRow(ThemeData theme) {
     final source = _isManager ? _allLeaves : _myLeaves;
-    final pending = source.where((l) => _normalizeStatus(l['status']) == 0).length;
-    final approved = source.where((l) => _normalizeStatus(l['status']) == 1).length;
-    final rejected = source.where((l) => _normalizeStatus(l['status']) == 2).length;
-    final annual = source.where((l) => _normalizeLeaveType(l['type']) == 0).length;
-    final holiday = source.where((l) => _normalizeLeaveType(l['type']) == 1).length;
-    final personalPaid = source.where((l) => _normalizeLeaveType(l['type']) == 2).length;
+    final pending =
+        source.where((l) => _normalizeStatus(l['status']) == 0).length;
+    final approved =
+        source.where((l) => _normalizeStatus(l['status']) == 1).length;
+    final rejected =
+        source.where((l) => _normalizeStatus(l['status']) == 2).length;
+    final annual =
+        source.where((l) => _normalizeLeaveType(l['type']) == 0).length;
+    final holiday =
+        source.where((l) => _normalizeLeaveType(l['type']) == 1).length;
+    final personalPaid =
+        source.where((l) => _normalizeLeaveType(l['type']) == 2).length;
 
     final cards = [
-      _buildStatCard(_l10n.pending, '$pending', Icons.hourglass_bottom_rounded, Colors.orange),
-      _buildStatCard(_l10n.approved, '$approved', Icons.check_circle_rounded, Colors.green),
-      _buildStatCard(_l10n.rejected, '$rejected', Icons.cancel_rounded, Colors.red),
-      _buildStatCard('Phép năm', '$annual', Icons.beach_access_rounded, Colors.teal),
-      _buildStatCard('Lễ tết', '$holiday', Icons.celebration_rounded, const Color(0xFFF59E0B)),
-      _buildStatCard('Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
+      _buildStatCard(_l10n.pending, '$pending', Icons.hourglass_bottom_rounded,
+          Colors.orange),
+      _buildStatCard(_l10n.approved, '$approved', Icons.check_circle_rounded,
+          Colors.green),
+      _buildStatCard(
+          _l10n.rejected, '$rejected', Icons.cancel_rounded, Colors.red),
+      _buildStatCard(
+          'Phép năm', '$annual', Icons.beach_access_rounded, Colors.teal),
+      _buildStatCard('Lễ tết', '$holiday', Icons.celebration_rounded,
+          const Color(0xFFF59E0B)),
+      _buildStatCard(
+          'Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
     ];
 
     return Row(
-      children: cards.expand((c) => [Expanded(child: c), const SizedBox(width: 8)]).toList()..removeLast(),
+      children: cards
+          .expand((c) => [Expanded(child: c), const SizedBox(width: 8)])
+          .toList()
+        ..removeLast(),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
-        ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
     );
   }
 
@@ -509,18 +647,23 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         indicatorWeight: 3,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         tabs: [
-          Tab(icon: const Icon(Icons.person_outline_rounded, size: 20), text: _l10n.myRequests),
+          Tab(
+              icon: const Icon(Icons.person_outline_rounded, size: 20),
+              text: _l10n.myRequests),
           if (_isManager) ...[
             Tab(
               icon: Badge(
-                label: Text('${_pendingLeaves.length}', style: const TextStyle(fontSize: 10)),
+                label: Text('${_pendingLeaves.length}',
+                    style: const TextStyle(fontSize: 10)),
                 isLabelVisible: _pendingLeaves.isNotEmpty,
                 backgroundColor: Colors.red,
                 child: const Icon(Icons.pending_actions_rounded, size: 20),
               ),
               text: _l10n.pending,
             ),
-            Tab(icon: const Icon(Icons.list_alt_rounded, size: 20), text: _l10n.all),
+            Tab(
+                icon: const Icon(Icons.list_alt_rounded, size: 20),
+                text: _l10n.all),
           ],
         ],
       ),
@@ -534,30 +677,45 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
 
     switch (preset) {
       case 'today':
-        range = DateTimeRange(start: today, end: DateTime(today.year, today.month, today.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: today,
+            end: DateTime(today.year, today.month, today.day, 23, 59, 59));
         break;
       case 'yesterday':
         final yesterday = today.subtract(const Duration(days: 1));
-        range = DateTimeRange(start: yesterday, end: DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: yesterday,
+            end: DateTime(
+                yesterday.year, yesterday.month, yesterday.day, 23, 59, 59));
         break;
       case 'this_week':
         final weekStart = today.subtract(Duration(days: today.weekday - 1));
-        range = DateTimeRange(start: weekStart, end: DateTime(today.year, today.month, today.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: weekStart,
+            end: DateTime(today.year, today.month, today.day, 23, 59, 59));
         break;
       case 'last_week':
         final thisWeekStart = today.subtract(Duration(days: today.weekday - 1));
         final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
         final lastWeekEnd = thisWeekStart.subtract(const Duration(days: 1));
-        range = DateTimeRange(start: lastWeekStart, end: DateTime(lastWeekEnd.year, lastWeekEnd.month, lastWeekEnd.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: lastWeekStart,
+            end: DateTime(lastWeekEnd.year, lastWeekEnd.month, lastWeekEnd.day,
+                23, 59, 59));
         break;
       case 'this_month':
         final monthStart = DateTime(today.year, today.month, 1);
-        range = DateTimeRange(start: monthStart, end: DateTime(today.year, today.month, today.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: monthStart,
+            end: DateTime(today.year, today.month, today.day, 23, 59, 59));
         break;
       case 'last_month':
         final lastMonthStart = DateTime(today.year, today.month - 1, 1);
         final lastMonthEnd = DateTime(today.year, today.month, 0);
-        range = DateTimeRange(start: lastMonthStart, end: DateTime(lastMonthEnd.year, lastMonthEnd.month, lastMonthEnd.day, 23, 59, 59));
+        range = DateTimeRange(
+            start: lastMonthStart,
+            end: DateTime(lastMonthEnd.year, lastMonthEnd.month,
+                lastMonthEnd.day, 23, 59, 59));
         break;
       case 'custom':
         final picked = await showDateRangePicker(
@@ -570,7 +728,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         if (picked != null) {
           range = DateTimeRange(
             start: picked.start,
-            end: DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59),
+            end: DateTime(
+                picked.end.year, picked.end.month, picked.end.day, 23, 59, 59),
           );
         } else {
           return;
@@ -611,7 +770,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         const DropdownMenuItem(value: 6, child: Text('Nghỉ bù')),
         const DropdownMenuItem(value: 7, child: Text('Nghỉ dài hạn')),
       ],
-      onChanged: (v) => setState(() { _filterLeaveType = v; _currentPage = 1; }),
+      onChanged: (v) => setState(() {
+        _filterLeaveType = v;
+        _currentPage = 1;
+      }),
     );
     final statusDropdown = _buildFilterDropdown<int?>(
       value: _filterStatus,
@@ -624,7 +786,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         DropdownMenuItem(value: 2, child: Text(_l10n.rejected)),
         DropdownMenuItem(value: 3, child: Text(_l10n.cancelled)),
       ],
-      onChanged: (v) => setState(() { _filterStatus = v; _currentPage = 1; }),
+      onChanged: (v) => setState(() {
+        _filterStatus = v;
+        _currentPage = 1;
+      }),
     );
     final timeDropdown = _buildFilterDropdown<String>(
       value: _filterTimePreset,
@@ -640,7 +805,9 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         DropdownMenuItem(value: 'last_month', child: Text(_l10n.lastMonth)),
         DropdownMenuItem(value: 'custom', child: Text(_l10n.custom)),
       ],
-      onChanged: (v) { if (v != null) _applyTimePreset(v); },
+      onChanged: (v) {
+        if (v != null) _applyTimePreset(v);
+      },
     );
     final countChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -655,37 +822,48 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           const SizedBox(width: 6),
           Text(
             '${(_isManager ? _allLeaves : _myLeaves).length} đơn',
-            style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: theme.primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
-    final clearBtn = hasFilters ? Material(
-      color: Colors.red.shade50,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: () => setState(() {
-          _filterLeaveType = null;
-          _filterStatus = null;
-          _filterEmployeeId = null;
-          _filterTimePreset = 'all';
-          _filterDateRange = null;
-          _currentPage = 1;
-        }),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.filter_alt_off, size: 16, color: Colors.red.shade700),
-              const SizedBox(width: 4),
-              Text(_l10n.clearFilter, style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-      ),
-    ) : const SizedBox.shrink();
+    final clearBtn = hasFilters
+        ? Material(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: () => setState(() {
+                _filterLeaveType = null;
+                _filterStatus = null;
+                _filterEmployeeId = null;
+                _filterTimePreset = 'all';
+                _filterDateRange = null;
+                _currentPage = 1;
+              }),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.filter_alt_off,
+                        size: 16, color: Colors.red.shade700),
+                    const SizedBox(width: 4),
+                    Text(_l10n.clearFilter,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
 
     if (isMobile) {
       return Container(
@@ -693,83 +871,132 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(spacing: 8, runSpacing: 8, children: [typeDropdown, statusDropdown, timeDropdown]),
+            Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [typeDropdown, statusDropdown, timeDropdown]),
             if (_isManager || hasFilters) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  if (_isManager) Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: Autocomplete<Map<String, dynamic>>(
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) return _employees.take(20).map((e) => Map<String, dynamic>.from(e));
-                          final query = textEditingValue.text.toLowerCase();
-                          return _employees.where((emp) {
-                            final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.toLowerCase();
-                            final code = (emp['employeeCode'] ?? '').toString().toLowerCase();
-                            return name.contains(query) || code.contains(query);
-                          }).take(20).map((e) => Map<String, dynamic>.from(e));
-                        },
-                        displayStringForOption: (emp) => '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim(),
-                        onSelected: (emp) {
-                          final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                          setState(() { _filterEmployeeId = name; _currentPage = 1; });
-                        },
-                        fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                          return TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            decoration: InputDecoration(
-                              hintText: _l10n.searchEmployee,
-                              hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                              prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
-                              isDense: true,
-                              filled: true,
-                              fillColor: const Color(0xFFFAFAFA),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: theme.primaryColor, width: 1.5)),
-                            ),
-                            style: const TextStyle(fontSize: 13),
-                            onChanged: (v) => setState(() { _filterEmployeeId = v; _currentPage = 1; }),
-                          );
-                        },
-                        optionsViewBuilder: (context, onSelected, options) {
-                          return Align(
-                            alignment: Alignment.topLeft,
-                            child: Material(
-                              elevation: 4,
-                              borderRadius: BorderRadius.circular(8),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
-                                child: ListView.builder(
-                                  padding: EdgeInsets.zero,
-                                  shrinkWrap: true,
-                                  itemCount: options.length,
-                                  itemBuilder: (context, index) {
-                                    final emp = options.elementAt(index);
-                                    final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                                    return ListTile(
-                                      dense: true,
-                                      title: Text(name, style: const TextStyle(fontSize: 13)),
-                                      onTap: () => onSelected(emp),
-                                    );
-                                  },
+                  if (_isManager)
+                    Expanded(
+                      child: SizedBox(
+                        height: 36,
+                        child: Autocomplete<Map<String, dynamic>>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return _employees
+                                  .take(20)
+                                  .map((e) => Map<String, dynamic>.from(e));
+                            }
+                            final query = textEditingValue.text.toLowerCase();
+                            return _employees
+                                .where((emp) {
+                                  final name =
+                                      '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                          .toLowerCase();
+                                  final code = (emp['employeeCode'] ?? '')
+                                      .toString()
+                                      .toLowerCase();
+                                  return name.contains(query) ||
+                                      code.contains(query);
+                                })
+                                .take(20)
+                                .map((e) => Map<String, dynamic>.from(e));
+                          },
+                          displayStringForOption: (emp) =>
+                              '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                  .trim(),
+                          onSelected: (emp) {
+                            final name =
+                                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                    .trim();
+                            setState(() {
+                              _filterEmployeeId = name;
+                              _currentPage = 1;
+                            });
+                          },
+                          fieldViewBuilder: (context, controller, focusNode,
+                              onFieldSubmitted) {
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: _l10n.searchEmployee,
+                                hintStyle: TextStyle(
+                                    fontSize: 13, color: Colors.grey[400]),
+                                prefixIcon: Icon(Icons.search,
+                                    size: 18, color: Colors.grey[400]),
+                                isDense: true,
+                                filled: true,
+                                fillColor: const Color(0xFFFAFAFA),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE4E4E7))),
+                                enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE4E4E7))),
+                                focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(
+                                        color: theme.primaryColor, width: 1.5)),
+                              ),
+                              style: const TextStyle(fontSize: 13),
+                              onChanged: (v) => setState(() {
+                                _filterEmployeeId = v;
+                                _currentPage = 1;
+                              }),
+                            );
+                          },
+                          optionsViewBuilder: (context, onSelected, options) {
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: Material(
+                                elevation: 4,
+                                borderRadius: BorderRadius.circular(8),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                      maxHeight: 200, maxWidth: 250),
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    shrinkWrap: true,
+                                    itemCount: options.length,
+                                    itemBuilder: (context, index) {
+                                      final emp = options.elementAt(index);
+                                      final name =
+                                          '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                              .trim();
+                                      return ListTile(
+                                        dense: true,
+                                        title: Text(name,
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                        onTap: () => onSelected(emp),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
                   if (_isManager && hasFilters) const SizedBox(width: 8),
                   countChip,
                   if (hasFilters) ...[const SizedBox(width: 8), clearBtn],
@@ -790,7 +1017,12 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Wrap(
         spacing: 8,
@@ -807,32 +1039,51 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               child: Autocomplete<Map<String, dynamic>>(
                 optionsBuilder: (TextEditingValue textEditingValue) {
                   if (textEditingValue.text.isEmpty) {
-                    return _employees.take(20).map((e) => Map<String, dynamic>.from(e));
+                    return _employees
+                        .take(20)
+                        .map((e) => Map<String, dynamic>.from(e));
                   }
                   final query = textEditingValue.text.toLowerCase();
-                  return _employees.where((emp) {
-                    final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.toLowerCase();
-                    final code = (emp['employeeCode'] ?? '').toString().toLowerCase();
-                    return name.contains(query) || code.contains(query);
-                  }).take(20).map((e) => Map<String, dynamic>.from(e));
+                  return _employees
+                      .where((emp) {
+                        final name =
+                            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                .toLowerCase();
+                        final code = (emp['employeeCode'] ?? '')
+                            .toString()
+                            .toLowerCase();
+                        return name.contains(query) || code.contains(query);
+                      })
+                      .take(20)
+                      .map((e) => Map<String, dynamic>.from(e));
                 },
-                displayStringForOption: (emp) => '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim(),
+                displayStringForOption: (emp) =>
+                    '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim(),
                 onSelected: (emp) {
-                  final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                  setState(() { _filterEmployeeId = name; _currentPage = 1; });
+                  final name =
+                      '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                          .trim();
+                  setState(() {
+                    _filterEmployeeId = name;
+                    _currentPage = 1;
+                  });
                 },
-                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
                   return TextField(
                     controller: controller,
                     focusNode: focusNode,
                     decoration: InputDecoration(
                       hintText: _l10n.searchEmployee,
-                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                      prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+                      hintStyle:
+                          TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      prefixIcon:
+                          Icon(Icons.search, size: 18, color: Colors.grey[400]),
                       isDense: true,
                       filled: true,
                       fillColor: const Color(0xFFFAFAFA),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -843,14 +1094,18 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                        borderSide:
+                            BorderSide(color: theme.primaryColor, width: 1.5),
                       ),
                       suffixIcon: controller.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.close, size: 16),
                               onPressed: () {
                                 controller.clear();
-                                setState(() { _filterEmployeeId = null; _currentPage = 1; });
+                                setState(() {
+                                  _filterEmployeeId = null;
+                                  _currentPage = 1;
+                                });
                               },
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
@@ -858,7 +1113,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                           : null,
                     ),
                     style: const TextStyle(fontSize: 13),
-                    onChanged: (v) => setState(() { _filterEmployeeId = v; _currentPage = 1; }),
+                    onChanged: (v) => setState(() {
+                      _filterEmployeeId = v;
+                      _currentPage = 1;
+                    }),
                   );
                 },
                 optionsViewBuilder: (context, onSelected, options) {
@@ -868,24 +1126,34 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       elevation: 4,
                       borderRadius: BorderRadius.circular(8),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 250, maxWidth: 280),
+                        constraints:
+                            const BoxConstraints(maxHeight: 250, maxWidth: 280),
                         child: ListView.builder(
                           padding: EdgeInsets.zero,
                           shrinkWrap: true,
                           itemCount: options.length,
                           itemBuilder: (context, index) {
                             final emp = options.elementAt(index);
-                            final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
+                            final name =
+                                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                    .trim();
                             final code = emp['employeeCode'] ?? '';
                             return ListTile(
                               dense: true,
                               leading: CircleAvatar(
                                 radius: 14,
                                 backgroundColor: Colors.teal.shade50,
-                                child: Text(name.isNotEmpty ? name[0] : '?', style: TextStyle(fontSize: 12, color: Colors.teal.shade700)),
+                                child: Text(name.isNotEmpty ? name[0] : '?',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.teal.shade700)),
                               ),
-                              title: Text(name, style: const TextStyle(fontSize: 13)),
-                              subtitle: Text(code, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                              title: Text(name,
+                                  style: const TextStyle(fontSize: 13)),
+                              subtitle: Text(code,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500)),
                               onTap: () => onSelected(emp),
                             );
                           },
@@ -923,19 +1191,31 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey[500]),
-          style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+          icon: Icon(Icons.keyboard_arrow_down,
+              size: 18, color: Colors.grey[500]),
+          style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color),
           dropdownColor: Colors.white,
           items: items
               .map((item) => DropdownMenuItem<T>(
                     value: item.value,
                     child: Row(
                       children: [
-                        Icon(icon, size: 15, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                        Icon(icon,
+                            size: 15,
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.7)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: DefaultTextStyle(
-                            style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color),
                             overflow: TextOverflow.ellipsis,
                             child: item.child,
                           ),
@@ -947,11 +1227,20 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           selectedItemBuilder: (context) => items
               .map((item) => Row(
                     children: [
-                      Icon(icon, size: 15, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                      Icon(icon,
+                          size: 15,
+                          color: Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.7)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DefaultTextStyle(
-                          style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.color),
                           overflow: TextOverflow.ellipsis,
                           child: item.child,
                         ),
@@ -968,7 +1257,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   // ═══════════════════════════════════════════════════
   // LEAVE LIST (table-based)
   // ═══════════════════════════════════════════════════
-  Widget _buildLeaveList(List<dynamic> leaves, {
+  Widget _buildLeaveList(
+    List<dynamic> leaves, {
     bool isMyLeaves = false,
     bool showApprovalActions = false,
     bool isAllTab = false,
@@ -981,11 +1271,17 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
             Icon(Icons.event_busy_outlined, size: 72, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
-              showApprovalActions ? _l10n.noPendingRequests : _l10n.noLeaveRequests,
-              style: TextStyle(fontSize: 16, color: Colors.grey[500], fontWeight: FontWeight.w500),
+              showApprovalActions
+                  ? _l10n.noPendingRequests
+                  : _l10n.noLeaveRequests,
+              style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            Text('Các đơn nghỉ phép sẽ hiển thị tại đây', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+            Text('Các đơn nghỉ phép sẽ hiển thị tại đây',
+                style: TextStyle(fontSize: 13, color: Colors.grey[400])),
             if (isMyLeaves) ...[
               const SizedBox(height: 20),
               FilledButton.icon(
@@ -1031,7 +1327,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
             children: [
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   itemCount: pageLeaves.length,
                   itemBuilder: (context, index) {
                     final leave = pageLeaves[index] is Map<String, dynamic>
@@ -1090,100 +1387,181 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                        constraints:
+                            BoxConstraints(minWidth: constraints.maxWidth),
                         child: DataTable(
-                          sortColumnIndex: _sortColumn == 'startDate' ? 3 : (_sortColumn == 'createdAt' ? 9 : null),
+                          sortColumnIndex: _sortColumn == 'startDate'
+                              ? 3
+                              : (_sortColumn == 'createdAt' ? 9 : null),
                           sortAscending: _sortAscending,
-                          headingRowColor: WidgetStateProperty.all(const Color(0xFFFAFAFA)),
-                          headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF71717A)),
-                          dataTextStyle: const TextStyle(fontSize: 13, color: Color(0xFF18181B)),
+                          headingRowColor:
+                              WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                          headingTextStyle: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Color(0xFF71717A)),
+                          dataTextStyle: const TextStyle(
+                              fontSize: 13, color: Color(0xFF18181B)),
                           columnSpacing: 16,
                           horizontalMargin: 16,
                           dataRowMinHeight: 48,
                           dataRowMaxHeight: 60,
                           columns: [
-                            const DataColumn(label: Text('STT', textAlign: TextAlign.center)),
+                            const DataColumn(
+                                label:
+                                    Text('STT', textAlign: TextAlign.center)),
                             DataColumn(label: Text(_l10n.employee)),
                             DataColumn(label: Text(_l10n.leaveType)),
-                            DataColumn(label: Text(_l10n.leaveDays), onSort: (_, asc) => setState(() { _sortColumn = 'startDate'; _sortAscending = asc; _currentPage = 1; })),
+                            DataColumn(
+                                label: Text(_l10n.leaveDays),
+                                onSort: (_, asc) => setState(() {
+                                      _sortColumn = 'startDate';
+                                      _sortAscending = asc;
+                                      _currentPage = 1;
+                                    })),
                             DataColumn(label: Text(_l10n.shiftLabel)),
                             DataColumn(label: Text(_l10n.halfShift)),
                             const DataColumn(label: Text('NV thay ca')),
                             DataColumn(label: Text(_l10n.reason)),
                             DataColumn(label: Text(_l10n.status)),
-                            DataColumn(label: Text(_l10n.createdAt), onSort: (_, asc) => setState(() { _sortColumn = 'createdAt'; _sortAscending = asc; _currentPage = 1; })),
+                            DataColumn(
+                                label: Text(_l10n.createdAt),
+                                onSort: (_, asc) => setState(() {
+                                      _sortColumn = 'createdAt';
+                                      _sortAscending = asc;
+                                      _currentPage = 1;
+                                    })),
                             const DataColumn(label: Text('Thao tác')),
                           ],
                           rows: List.generate(pageLeaves.length, (index) {
-                            final leave = pageLeaves[index] is Map<String, dynamic>
+                            final leave = pageLeaves[index]
+                                    is Map<String, dynamic>
                                 ? pageLeaves[index] as Map<String, dynamic>
                                 : Map<String, dynamic>.from(pageLeaves[index]);
                             final globalIdx = startIdx + index;
                             final status = _normalizeStatus(leave['status']);
-                            final leaveType = _normalizeLeaveType(leave['type']);
+                            final leaveType =
+                                _normalizeLeaveType(leave['type']);
                             final statusInfo = _getStatusInfo(status);
                             final typeInfo = _getLeaveTypeInfo(leaveType);
-                            final startDate = DateTime.tryParse(leave['startDate']?.toString() ?? '');
-                            final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
+                            final startDate = DateTime.tryParse(
+                                leave['startDate']?.toString() ?? '');
+                            final endDate = DateTime.tryParse(
+                                leave['endDate']?.toString() ?? '');
                             final isHalfShift = leave['isHalfShift'] == true;
                             final empName = leave['employeeName'] ?? 'N/A';
                             final reason = leave['reason'] ?? '';
-                            final shiftName = leave['shiftName']?.toString() ?? '';
-                            final shiftNamesInList = (leave['shiftNames'] as List?)?.map((e) => e.toString()).where((s) => s.isNotEmpty).toList() ?? [];
-                            final displayShift = shiftNamesInList.isNotEmpty ? shiftNamesInList.join(', ') : shiftName;
-                            final replacementName = leave['replacementEmployeeName']?.toString() ?? '';
-                            final createdAt = DateTime.tryParse(leave['createdAt']?.toString() ?? '');
+                            final shiftName =
+                                leave['shiftName']?.toString() ?? '';
+                            final shiftNamesInList =
+                                (leave['shiftNames'] as List?)
+                                        ?.map((e) => e.toString())
+                                        .where((s) => s.isNotEmpty)
+                                        .toList() ??
+                                    [];
+                            final displayShift = shiftNamesInList.isNotEmpty
+                                ? shiftNamesInList.join(', ')
+                                : shiftName;
+                            final replacementName =
+                                leave['replacementEmployeeName']?.toString() ??
+                                    '';
+                            final createdAt = DateTime.tryParse(
+                                leave['createdAt']?.toString() ?? '');
 
                             String dateDisplay = 'N/A';
                             if (startDate != null) {
-                              if (endDate != null && endDate.difference(startDate).inDays > 0) {
-                                dateDisplay = '${DateFormat('dd/MM/yyyy').format(startDate)} → ${DateFormat('dd/MM/yyyy').format(endDate)}';
+                              if (endDate != null &&
+                                  endDate.difference(startDate).inDays > 0) {
+                                dateDisplay =
+                                    '${DateFormat('dd/MM/yyyy').format(startDate)} → ${DateFormat('dd/MM/yyyy').format(endDate)}';
                               } else {
-                                dateDisplay = DateFormat('dd/MM/yyyy').format(startDate);
+                                dateDisplay =
+                                    DateFormat('dd/MM/yyyy').format(startDate);
                               }
                             }
 
                             return DataRow(
-                              onSelectChanged: (_) => _showLeaveDetailDialog(leave, isMyLeaves: isMyLeaves, showApprovalActions: showApprovalActions, isAllTab: isAllTab),
+                              onSelectChanged: (_) => _showLeaveDetailDialog(
+                                  leave,
+                                  isMyLeaves: isMyLeaves,
+                                  showApprovalActions: showApprovalActions,
+                                  isAllTab: isAllTab),
                               cells: [
-                                DataCell(Center(child: Text('${globalIdx + 1}'))),
+                                DataCell(
+                                    Center(child: Text('${globalIdx + 1}'))),
                                 DataCell(Center(
                                   child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 130),
-                                    child: Text(empName, overflow: TextOverflow.ellipsis),
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 130),
+                                    child: Text(empName,
+                                        overflow: TextOverflow.ellipsis),
                                   ),
                                 )),
                                 DataCell(Center(
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: typeInfo.color.withValues(alpha: 0.1),
+                                      color:
+                                          typeInfo.color.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Text(typeInfo.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: typeInfo.color)),
-                                  ),
-                                )),
-                                DataCell(Center(child: Text(dateDisplay, style: const TextStyle(fontSize: 12)))),
-                                DataCell(Center(child: Text(displayShift.isNotEmpty ? displayShift : '-', style: const TextStyle(fontSize: 12)))),
-                                DataCell(Center(child: isHalfShift
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('½', style: TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.w600)),
-                                      )
-                                    : const Text('-'))),
-                                DataCell(Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 120),
-                                    child: Text(replacementName.isNotEmpty ? replacementName : '-', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                                    child: Text(typeInfo.label,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: typeInfo.color)),
                                   ),
                                 )),
                                 DataCell(Center(
+                                    child: Text(dateDisplay,
+                                        style: const TextStyle(fontSize: 12)))),
+                                DataCell(Center(
+                                    child: Text(
+                                        displayShift.isNotEmpty
+                                            ? displayShift
+                                            : '-',
+                                        style: const TextStyle(fontSize: 12)))),
+                                DataCell(Center(
+                                    child: isHalfShift
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                                color: Colors.purple
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(4)),
+                                            child: const Text('½',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.purple,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                          )
+                                        : const Text('-'))),
+                                DataCell(Center(
                                   child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 150),
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 120),
+                                    child: Text(
+                                        replacementName.isNotEmpty
+                                            ? replacementName
+                                            : '-',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12)),
+                                  ),
+                                )),
+                                DataCell(Center(
+                                  child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 150),
                                     child: Tooltip(
                                       message: reason,
-                                      child: Text(reason.isNotEmpty ? reason : '-', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                                      child: Text(
+                                          reason.isNotEmpty ? reason : '-',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12)),
                                     ),
                                   ),
                                 )),
@@ -1192,36 +1570,60 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: statusInfo.color.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: statusInfo.color
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(statusInfo.icon, size: 12, color: statusInfo.color),
+                                            Icon(statusInfo.icon,
+                                                size: 12,
+                                                color: statusInfo.color),
                                             const SizedBox(width: 4),
-                                            Text(statusInfo.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusInfo.color)),
+                                            Text(statusInfo.label,
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: statusInfo.color)),
                                           ],
                                         ),
                                       ),
-                                      if ((leave['totalApprovalLevels'] ?? 1) > 1)
+                                      if ((leave['totalApprovalLevels'] ?? 1) >
+                                          1)
                                         Padding(
-                                          padding: const EdgeInsets.only(top: 2),
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
                                           child: Text(
                                             '${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp',
-                                            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade600),
                                           ),
                                         ),
                                     ],
                                   ),
                                 )),
-                                DataCell(Center(child: Text(createdAt != null ? DateFormat('dd/MM/yyyy').format(createdAt) : '-', style: const TextStyle(fontSize: 12)))),
+                                DataCell(Center(
+                                    child: Text(
+                                        createdAt != null
+                                            ? DateFormat('dd/MM/yyyy')
+                                                .format(createdAt)
+                                            : '-',
+                                        style: const TextStyle(fontSize: 12)))),
                                 DataCell(Center(
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
-                                    children: _buildActionButtons(leave, status, isMyLeaves, showApprovalActions, isAllTab),
+                                    children: _buildActionButtons(
+                                        leave,
+                                        status,
+                                        isMyLeaves,
+                                        showApprovalActions,
+                                        isAllTab),
                                   ),
                                 )),
                               ],
@@ -1264,11 +1666,15 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           children: [
             Text(
               'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
+              style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500),
             ),
             Row(
               children: [
-                Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                Text('Hiển thị:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 const SizedBox(width: 8),
                 Container(
                   height: 34,
@@ -1284,10 +1690,16 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       isDense: true,
                       style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                       items: _pageSizeOptions
-                          .map((size) => DropdownMenuItem(value: size, child: Text('$size')))
+                          .map((size) => DropdownMenuItem(
+                              value: size, child: Text('$size')))
                           .toList(),
                       onChanged: (v) {
-                        if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; });
+                        if (v != null) {
+                          setState(() {
+                            _itemsPerPage = v;
+                            _currentPage = 1;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -1299,8 +1711,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         final pageNav = Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() => _currentPage = 1)),
-            _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+            _buildPageNavBtn(Icons.first_page, _currentPage > 1,
+                () => setState(() => _currentPage = 1)),
+            _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                () => setState(() => _currentPage--)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -1310,16 +1724,22 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               ),
               child: Text(
                 '$_currentPage / $totalPages',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white),
               ),
             ),
             const SizedBox(width: 8),
-            _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
-            _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() => _currentPage = totalPages)),
+            _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages,
+                () => setState(() => _currentPage++)),
+            _buildPageNavBtn(Icons.last_page, _currentPage < totalPages,
+                () => setState(() => _currentPage = totalPages)),
           ],
         );
         if (isMobile) {
-          return Column(children: [infoRow, const SizedBox(height: 8), pageNav]);
+          return Column(
+              children: [infoRow, const SizedBox(height: 8), pageNav]);
         }
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1338,7 +1758,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 20, color: enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+          child: Icon(icon,
+              size: 20,
+              color:
+                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
         ),
       ),
     );
@@ -1367,25 +1790,36 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
             children: [
               Text(
                 '${startIndex + 1}-$endIndex / $totalItems',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500),
               ),
               Row(
                 children: [
-                  _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+                  _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                      () => setState(() => _currentPage--)),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: Theme.of(context).primaryColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '$_currentPage / $totalPages',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
+                  _buildPageNavBtn(
+                      Icons.chevron_right,
+                      _currentPage < totalPages,
+                      () => setState(() => _currentPage++)),
                 ],
               ),
             ],
@@ -1398,7 +1832,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   // ═══════════════════════════════════════════════════
   // LEAVE CARD
   // ═══════════════════════════════════════════════════
-  Widget _buildLeaveDeckItem(Map<String, dynamic> leave, {
+  Widget _buildLeaveDeckItem(
+    Map<String, dynamic> leave, {
     bool isMyLeaves = false,
     bool showApprovalActions = false,
     bool isAllTab = false,
@@ -1409,11 +1844,16 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     final typeInfo = _getLeaveTypeInfo(leaveType);
     final startDate = DateTime.tryParse(leave['startDate']?.toString() ?? '');
     final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
-    final duration = startDate != null && endDate != null ? endDate.difference(startDate).inDays + 1 : 0;
+    final duration = startDate != null && endDate != null
+        ? endDate.difference(startDate).inDays + 1
+        : 0;
     final empName = leave['employeeName'] ?? 'N/A';
 
     return InkWell(
-      onTap: () => _showLeaveDetailDialog(leave, isMyLeaves: isMyLeaves, showApprovalActions: showApprovalActions, isAllTab: isAllTab),
+      onTap: () => _showLeaveDetailDialog(leave,
+          isMyLeaves: isMyLeaves,
+          showApprovalActions: showApprovalActions,
+          isAllTab: isAllTab),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
@@ -1428,16 +1868,22 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(empName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(empName,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
                     [
                       typeInfo.label,
-                      if (startDate != null) '${DateFormat('dd/MM').format(startDate)}${duration > 1 && endDate != null ? '-${DateFormat('dd/MM').format(endDate)}' : ''}',
+                      if (startDate != null)
+                        '${DateFormat('dd/MM').format(startDate)}${duration > 1 && endDate != null ? '-${DateFormat('dd/MM').format(endDate)}' : ''}',
                       '$duration ngày',
                     ].join(' · '),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1448,26 +1894,47 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: statusInfo.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
-                  child: Text(statusInfo.label, style: TextStyle(color: statusInfo.color, fontSize: 10, fontWeight: FontWeight.w600)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: statusInfo.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4)),
+                  child: Text(statusInfo.label,
+                      style: TextStyle(
+                          color: statusInfo.color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600)),
                 ),
                 if ((leave['totalApprovalLevels'] ?? 1) > 1)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       '${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp',
-                      style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+                      style:
+                          TextStyle(fontSize: 9, color: Colors.grey.shade600),
                     ),
                   ),
               ],
             ),
-            if (_shouldShowActions(status, isMyLeaves, showApprovalActions, isAllTab)) ...[
+            if (_shouldShowActions(
+                status, isMyLeaves, showApprovalActions, isAllTab)) ...[
               const SizedBox(width: 4),
               InkWell(
-                onTap: () { final actions = _buildActionButtons(leave, status, isMyLeaves, showApprovalActions, isAllTab); if (actions.isNotEmpty) _showLeaveDetailDialog(leave, isMyLeaves: isMyLeaves, showApprovalActions: showApprovalActions, isAllTab: isAllTab); },
+                onTap: () {
+                  final actions = _buildActionButtons(
+                      leave, status, isMyLeaves, showApprovalActions, isAllTab);
+                  if (actions.isNotEmpty) {
+                    _showLeaveDetailDialog(leave,
+                        isMyLeaves: isMyLeaves,
+                        showApprovalActions: showApprovalActions,
+                        isAllTab: isAllTab);
+                  }
+                },
                 borderRadius: BorderRadius.circular(6),
-                child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.more_horiz, size: 18, color: Color(0xFF71717A))),
+                child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.more_horiz,
+                        size: 18, color: Color(0xFF71717A))),
               ),
             ],
             const SizedBox(width: 4),
@@ -1478,7 +1945,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     );
   }
 
-  bool _shouldShowActions(int status, bool isMyLeaves, bool showApprovalActions, bool isAllTab) {
+  bool _shouldShowActions(
+      int status, bool isMyLeaves, bool showApprovalActions, bool isAllTab) {
     final isPending = status == 0;
     // My leaves: show for pending (edit/cancel/delete)
     if (isMyLeaves && isPending) return true;
@@ -1489,43 +1957,79 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     return false;
   }
 
-  List<Widget> _buildActionButtons(Map<String, dynamic> leave, int status, bool isMyLeaves, bool showApprovalActions, bool isAllTab) {
+  List<Widget> _buildActionButtons(Map<String, dynamic> leave, int status,
+      bool isMyLeaves, bool showApprovalActions, bool isAllTab) {
     final isPending = status == 0;
     final buttons = <Widget>[];
     final permProv = Provider.of<PermissionProvider>(context, listen: false);
 
     // Only allow edit when status is Pending (0)
     if (isPending && (isMyLeaves || isAllTab) && permProv.canEdit('Leave')) {
-      buttons.add(_ActionBtn(icon: Icons.edit_rounded, label: 'Sửa', color: Colors.blue, onTap: () => _showLeaveFormDialog(leave: leave)));
+      buttons.add(_ActionBtn(
+          icon: Icons.edit_rounded,
+          label: 'Sửa',
+          color: Colors.blue,
+          onTap: () => _showLeaveFormDialog(leave: leave)));
       buttons.add(const SizedBox(width: 6));
     }
 
     // Cancel: employee can cancel own pending, manager can cancel any pending
     if (isPending) {
-      if (isMyLeaves || (isAllTab && _isManager) || (showApprovalActions && _isManager)) {
-        buttons.add(_ActionBtn(icon: Icons.cancel_outlined, label: 'Hủy', color: Colors.red, onTap: () => _cancelLeave(leave['id'])));
+      if (isMyLeaves ||
+          (isAllTab && _isManager) ||
+          (showApprovalActions && _isManager)) {
+        buttons.add(_ActionBtn(
+            icon: Icons.cancel_outlined,
+            label: 'Hủy',
+            color: Colors.red,
+            onTap: () => _cancelLeave(leave['id'])));
         buttons.add(const SizedBox(width: 6));
       }
     }
 
     // Approve/Reject: manager on pending tab or all tab, but NOT own leave
-    final leaveOwnerId = leave['employeeUserId']?.toString() ?? leave['userId']?.toString() ?? '';
-    if (isPending && (showApprovalActions || isAllTab) && permProv.canApprove('Leave') && leaveOwnerId != _currentUserId) {
-      buttons.add(_ActionBtn(icon: Icons.check_circle_outline, label: 'Duyệt', color: Colors.green, onTap: () => _approveLeave(leave['id'])));
+    final leaveOwnerId = leave['employeeUserId']?.toString() ??
+        leave['userId']?.toString() ??
+        '';
+    if (isPending &&
+        (showApprovalActions || isAllTab) &&
+        permProv.canApprove('Leave') &&
+        leaveOwnerId != _currentUserId) {
+      buttons.add(_ActionBtn(
+          icon: Icons.check_circle_outline,
+          label: 'Duyệt',
+          color: Colors.green,
+          onTap: () => _approveLeave(leave['id'])));
       buttons.add(const SizedBox(width: 6));
-      buttons.add(_ActionBtn(icon: Icons.highlight_off, label: 'Từ chối', color: Colors.red, onTap: () => _rejectLeave(leave['id'])));
+      buttons.add(_ActionBtn(
+          icon: Icons.highlight_off,
+          label: 'Từ chối',
+          color: Colors.red,
+          onTap: () => _rejectLeave(leave['id'])));
       buttons.add(const SizedBox(width: 6));
     }
 
     // Undo: manager on all tab for approved/rejected
-    if ((isAllTab || showApprovalActions) && _isManager && (status == 1 || status == 2)) {
-      buttons.add(_ActionBtn(icon: Icons.undo_rounded, label: 'Hoàn tác', color: Colors.orange, onTap: () => _undoLeaveApproval(leave['id'])));
+    if ((isAllTab || showApprovalActions) &&
+        _isManager &&
+        (status == 1 || status == 2)) {
+      buttons.add(_ActionBtn(
+          icon: Icons.undo_rounded,
+          label: 'Hoàn tác',
+          color: Colors.orange,
+          onTap: () => _undoLeaveApproval(leave['id'])));
       buttons.add(const SizedBox(width: 6));
     }
 
     // Delete: pending in myLeaves, any status in allTab/pendingTab for manager
-    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && permProv.canDelete('Leave')) {
-      buttons.add(_ActionBtn(icon: Icons.delete_forever_outlined, label: 'Xóa', color: Colors.red.shade700, onTap: () => _forceDeleteLeave(leave['id'])));
+    if (((isMyLeaves && isPending) ||
+            ((isAllTab || showApprovalActions) && _isManager)) &&
+        permProv.canDelete('Leave')) {
+      buttons.add(_ActionBtn(
+          icon: Icons.delete_forever_outlined,
+          label: 'Xóa',
+          color: Colors.red.shade700,
+          onTap: () => _forceDeleteLeave(leave['id'])));
     }
 
     return buttons;
@@ -1534,20 +2038,30 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   // ═══════════════════════════════════════════════════
   // DETAIL DIALOG
   // ═══════════════════════════════════════════════════
-  void _showLeaveDetailDialog(Map<String, dynamic> leave, {bool isMyLeaves = false, bool showApprovalActions = false, bool isAllTab = false}) {
+  void _showLeaveDetailDialog(Map<String, dynamic> leave,
+      {bool isMyLeaves = false,
+      bool showApprovalActions = false,
+      bool isAllTab = false}) {
     final status = _normalizeStatus(leave['status']);
     final leaveType = _normalizeLeaveType(leave['type']);
     final statusInfo = _getStatusInfo(status);
     final typeInfo = _getLeaveTypeInfo(leaveType);
     final startDate = DateTime.tryParse(leave['startDate']?.toString() ?? '');
     final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
-    final duration = startDate != null && endDate != null ? endDate.difference(startDate).inDays + 1 : 0;
+    final duration = startDate != null && endDate != null
+        ? endDate.difference(startDate).inDays + 1
+        : 0;
     final isHalfShift = leave['isHalfShift'] == true;
     final createdAt = DateTime.tryParse(leave['createdAt']?.toString() ?? '');
     final updatedAt = DateTime.tryParse(leave['updatedAt']?.toString() ?? '');
     final shiftName = leave['shiftName']?.toString() ?? '';
-    final shiftNames = (leave['shiftNames'] as List?)?.map((e) => e.toString()).where((s) => s.isNotEmpty).toList() ?? [];
-    final displayShiftNames = shiftNames.isNotEmpty ? shiftNames.join(', ') : shiftName;
+    final shiftNames = (leave['shiftNames'] as List?)
+            ?.map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        [];
+    final displayShiftNames =
+        shiftNames.isNotEmpty ? shiftNames.join(', ') : shiftName;
     final replacementName = leave['replacementEmployeeName']?.toString() ?? '';
     final reason = leave['reason'] ?? '';
     // Build action buttons that close dialog first
@@ -1556,32 +2070,85 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     final dlgPerm = Provider.of<PermissionProvider>(context, listen: false);
 
     if (isPending && (isMyLeaves || isAllTab) && dlgPerm.canEdit('Leave')) {
-      dialogActions.add(_ActionBtn(icon: Icons.edit_rounded, label: 'Sửa', color: Colors.blue, onTap: () { Navigator.pop(context); _showLeaveFormDialog(leave: leave); }));
+      dialogActions.add(_ActionBtn(
+          icon: Icons.edit_rounded,
+          label: 'Sửa',
+          color: Colors.blue,
+          onTap: () {
+            Navigator.pop(context);
+            _showLeaveFormDialog(leave: leave);
+          }));
       dialogActions.add(const SizedBox(width: 6));
     }
     // Cancel: employee can cancel own pending, manager can cancel any pending
     if (isPending) {
-      if (isMyLeaves || (isAllTab && _isManager) || (showApprovalActions && _isManager)) {
-        dialogActions.add(_ActionBtn(icon: Icons.cancel_outlined, label: 'Hủy', color: Colors.red, onTap: () { Navigator.pop(context); _cancelLeave(leave['id']); }));
+      if (isMyLeaves ||
+          (isAllTab && _isManager) ||
+          (showApprovalActions && _isManager)) {
+        dialogActions.add(_ActionBtn(
+            icon: Icons.cancel_outlined,
+            label: 'Hủy',
+            color: Colors.red,
+            onTap: () {
+              Navigator.pop(context);
+              _cancelLeave(leave['id']);
+            }));
         dialogActions.add(const SizedBox(width: 6));
       }
     }
     // Approve/Reject — NOT own leave
-    final dlgLeaveOwnerId = leave['employeeUserId']?.toString() ?? leave['userId']?.toString() ?? '';
-    if (isPending && (showApprovalActions || isAllTab) && dlgPerm.canApprove('Leave') && dlgLeaveOwnerId != _currentUserId) {
-      dialogActions.add(_ActionBtn(icon: Icons.check_circle_outline, label: 'Duyệt', color: Colors.green, onTap: () { Navigator.pop(context); _approveLeave(leave['id']); }));
+    final dlgLeaveOwnerId = leave['employeeUserId']?.toString() ??
+        leave['userId']?.toString() ??
+        '';
+    if (isPending &&
+        (showApprovalActions || isAllTab) &&
+        dlgPerm.canApprove('Leave') &&
+        dlgLeaveOwnerId != _currentUserId) {
+      dialogActions.add(_ActionBtn(
+          icon: Icons.check_circle_outline,
+          label: 'Duyệt',
+          color: Colors.green,
+          onTap: () {
+            Navigator.pop(context);
+            _approveLeave(leave['id']);
+          }));
       dialogActions.add(const SizedBox(width: 6));
-      dialogActions.add(_ActionBtn(icon: Icons.highlight_off, label: 'Từ chối', color: Colors.red, onTap: () { Navigator.pop(context); _rejectLeave(leave['id']); }));
+      dialogActions.add(_ActionBtn(
+          icon: Icons.highlight_off,
+          label: 'Từ chối',
+          color: Colors.red,
+          onTap: () {
+            Navigator.pop(context);
+            _rejectLeave(leave['id']);
+          }));
       dialogActions.add(const SizedBox(width: 6));
     }
     // Undo
-    if ((isAllTab || showApprovalActions) && _isManager && (status == 1 || status == 2)) {
-      dialogActions.add(_ActionBtn(icon: Icons.undo_rounded, label: 'Hoàn tác', color: Colors.orange, onTap: () { Navigator.pop(context); _undoLeaveApproval(leave['id']); }));
+    if ((isAllTab || showApprovalActions) &&
+        _isManager &&
+        (status == 1 || status == 2)) {
+      dialogActions.add(_ActionBtn(
+          icon: Icons.undo_rounded,
+          label: 'Hoàn tác',
+          color: Colors.orange,
+          onTap: () {
+            Navigator.pop(context);
+            _undoLeaveApproval(leave['id']);
+          }));
       dialogActions.add(const SizedBox(width: 6));
     }
     // Delete
-    if (((isMyLeaves && isPending) || ((isAllTab || showApprovalActions) && _isManager)) && dlgPerm.canDelete('Leave')) {
-      dialogActions.add(_ActionBtn(icon: Icons.delete_forever_outlined, label: 'Xóa', color: Colors.red.shade700, onTap: () { Navigator.pop(context); _forceDeleteLeave(leave['id']); }));
+    if (((isMyLeaves && isPending) ||
+            ((isAllTab || showApprovalActions) && _isManager)) &&
+        dlgPerm.canDelete('Leave')) {
+      dialogActions.add(_ActionBtn(
+          icon: Icons.delete_forever_outlined,
+          label: 'Xóa',
+          color: Colors.red.shade700,
+          onTap: () {
+            Navigator.pop(context);
+            _forceDeleteLeave(leave['id']);
+          }));
     }
 
     final isMobile = Responsive.isMobile(context);
@@ -1596,34 +2163,50 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       ),
       children: [
         _detailTableRow('Nhân viên', leave['employeeName'] ?? 'N/A'),
-        _detailTableRow('Loại nghỉ', typeInfo.label, valueColor: typeInfo.color),
-        _detailTableRow('Trạng thái', statusInfo.label, valueColor: statusInfo.color),
-        _detailTableRow('Từ ngày', startDate != null ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(startDate) : 'N/A'),
-        _detailTableRow('Đến ngày', endDate != null ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(endDate) : 'N/A'),
-        _detailTableRow('Số ngày', '$duration ngày${isHalfShift ? ' (Nửa ca)' : ''}'),
+        _detailTableRow('Loại nghỉ', typeInfo.label,
+            valueColor: typeInfo.color),
+        _detailTableRow('Trạng thái', statusInfo.label,
+            valueColor: statusInfo.color),
+        _detailTableRow(
+            'Từ ngày',
+            startDate != null
+                ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(startDate)
+                : 'N/A'),
+        _detailTableRow(
+            'Đến ngày',
+            endDate != null
+                ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(endDate)
+                : 'N/A'),
+        _detailTableRow(
+            'Số ngày', '$duration ngày${isHalfShift ? ' (Nửa ca)' : ''}'),
         if (displayShiftNames.isNotEmpty)
           _detailTableRow('Ca làm việc', displayShiftNames),
         if (replacementName.isNotEmpty)
           _detailTableRow('Người thay', replacementName),
         _detailTableRow('Lý do', reason.isNotEmpty ? reason : 'N/A'),
         if (status == 2 && leave['rejectionReason'] != null)
-          _detailTableRow('Lý do từ chối', leave['rejectionReason'], valueColor: Colors.red),
+          _detailTableRow('Lý do từ chối', leave['rejectionReason'],
+              valueColor: Colors.red),
         if (createdAt != null)
-          _detailTableRow('Ngày tạo', DateFormat('dd/MM/yyyy HH:mm').format(createdAt)),
+          _detailTableRow(
+              'Ngày tạo', DateFormat('dd/MM/yyyy HH:mm').format(createdAt)),
         if (updatedAt != null)
-          _detailTableRow('Cập nhật', DateFormat('dd/MM/yyyy HH:mm').format(updatedAt)),
+          _detailTableRow(
+              'Cập nhật', DateFormat('dd/MM/yyyy HH:mm').format(updatedAt)),
         _detailTableRow('ID', leave['id']?.toString().substring(0, 8) ?? 'N/A'),
       ],
     );
 
     // Build approval timeline widget
-    final approvalRecords = (leave['approvalRecords'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final approvalRecords =
+        (leave['approvalRecords'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final totalLevels = leave['totalApprovalLevels'] ?? 1;
     final currentStep = leave['currentApprovalStep'] ?? 0;
 
     Widget approvalTimeline = const SizedBox.shrink();
     if (approvalRecords.isNotEmpty) {
-      approvalRecords.sort((a, b) => (a['stepOrder'] ?? 0).compareTo(b['stepOrder'] ?? 0));
+      approvalRecords
+          .sort((a, b) => (a['stepOrder'] ?? 0).compareTo(b['stepOrder'] ?? 0));
       approvalTimeline = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1632,9 +2215,12 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
           if (totalLevels > 1) ...[
             Row(
               children: [
-                const Icon(Icons.linear_scale_rounded, size: 18, color: Colors.blueGrey),
+                const Icon(Icons.linear_scale_rounded,
+                    size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
-                Text('Tiến trình duyệt: $currentStep/$totalLevels cấp', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Tiến trình duyệt: $currentStep/$totalLevels cấp',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 8),
@@ -1644,32 +2230,51 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                 value: totalLevels > 0 ? currentStep / totalLevels : 0,
                 minHeight: 6,
                 backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(status == 1 ? Colors.green : status == 2 ? Colors.red : Colors.blue),
+                valueColor: AlwaysStoppedAnimation<Color>(status == 1
+                    ? Colors.green
+                    : status == 2
+                        ? Colors.red
+                        : Colors.blue),
               ),
             ),
             const SizedBox(height: 12),
           ],
           // Timeline
-          const Text('Lịch sử phê duyệt', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const Text('Lịch sử phê duyệt',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ...approvalRecords.asMap().entries.map((entry) {
             final idx = entry.key;
             final record = entry.value;
             final stepStatus = record['status'] ?? 0;
-            final stepName = record['stepName'] ?? 'Cấp ${record['stepOrder'] ?? idx + 1}';
+            final stepName =
+                record['stepName'] ?? 'Cấp ${record['stepOrder'] ?? idx + 1}';
             final assignedUser = record['assignedUserName'] ?? '';
             final actualUser = record['actualUserName'] ?? '';
-            final actionDate = DateTime.tryParse(record['actionDate']?.toString() ?? '');
+            final actionDate =
+                DateTime.tryParse(record['actionDate']?.toString() ?? '');
             final note = record['note']?.toString() ?? '';
             final isLast = idx == approvalRecords.length - 1;
 
             Color dotColor;
             IconData dotIcon;
             switch (stepStatus) {
-              case 1: dotColor = Colors.green; dotIcon = Icons.check_circle; break;
-              case 2: dotColor = Colors.red; dotIcon = Icons.cancel; break;
-              case 3: dotColor = Colors.grey; dotIcon = Icons.block; break;
-              default: dotColor = Colors.orange; dotIcon = Icons.radio_button_unchecked; break;
+              case 1:
+                dotColor = Colors.green;
+                dotIcon = Icons.check_circle;
+                break;
+              case 2:
+                dotColor = Colors.red;
+                dotIcon = Icons.cancel;
+                break;
+              case 3:
+                dotColor = Colors.grey;
+                dotIcon = Icons.block;
+                break;
+              default:
+                dotColor = Colors.orange;
+                dotIcon = Icons.radio_button_unchecked;
+                break;
             }
 
             return IntrinsicHeight(
@@ -1682,7 +2287,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                     child: Column(
                       children: [
                         Icon(dotIcon, size: 18, color: dotColor),
-                        if (!isLast) Expanded(child: Container(width: 2, color: Colors.grey.shade300)),
+                        if (!isLast)
+                          Expanded(
+                              child: Container(
+                                  width: 2, color: Colors.grey.shade300)),
                       ],
                     ),
                   ),
@@ -1693,17 +2301,33 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(stepName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: dotColor)),
+                          Text(stepName,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: dotColor)),
                           if (assignedUser.isNotEmpty)
-                            Text('Phân công: $assignedUser', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            Text('Phân công: $assignedUser',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600)),
                           if (actualUser.isNotEmpty && stepStatus != 0)
-                            Text('Thực hiện: $actualUser', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            Text('Thực hiện: $actualUser',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600)),
                           if (actionDate != null)
-                            Text(DateFormat('dd/MM/yyyy HH:mm').format(actionDate), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                            Text(
+                                DateFormat('dd/MM/yyyy HH:mm')
+                                    .format(actionDate),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade500)),
                           if (note.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
-                              child: Text('"$note"', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade700)),
+                              child: Text('"$note"',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey.shade700)),
                             ),
                         ],
                       ),
@@ -1737,7 +2361,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                   children: [
                     // Status badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: statusInfo.color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -1745,9 +2370,14 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(statusInfo.icon, size: 16, color: statusInfo.color),
+                          Icon(statusInfo.icon,
+                              size: 16, color: statusInfo.color),
                           const SizedBox(width: 6),
-                          Text(statusInfo.label, style: TextStyle(color: statusInfo.color, fontSize: 13, fontWeight: FontWeight.w600)),
+                          Text(statusInfo.label,
+                              style: TextStyle(
+                                  color: statusInfo.color,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -1766,90 +2396,113 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         }
 
         return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [statusInfo.color.withValues(alpha: 0.8), statusInfo.color.withValues(alpha: 0.6)],
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.description_rounded, color: Colors.white, size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Chi tiết đơn nghỉ phép', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 2),
-                          Text(leave['employeeName'] ?? 'N/A', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusInfo.icon, size: 14, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(statusInfo.label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Flexible(
-                child: SingleChildScrollView(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
                   padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        statusInfo.color.withValues(alpha: 0.8),
+                        statusInfo.color.withValues(alpha: 0.6)
+                      ],
+                    ),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Row(
                     children: [
-                      detailContent,
-                      approvalTimeline,
+                      const Icon(Icons.description_rounded,
+                          color: Colors.white, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Chi tiết đơn nghỉ phép',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(leave['employeeName'] ?? 'N/A',
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusInfo.icon,
+                                size: 14, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(statusInfo.label,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
 
-              // Actions
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade200))),
-                child: Row(
-                  children: [
-                    if (dialogActions.isNotEmpty) ...dialogActions,
-                    const Spacer(),
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
-                  ],
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        detailContent,
+                        approvalTimeline,
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                      border:
+                          Border(top: BorderSide(color: Colors.grey.shade200))),
+                  child: Row(
+                    children: [
+                      if (dialogActions.isNotEmpty) ...dialogActions,
+                      const Spacer(),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Đóng')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }
 
   // ignore: unused_element
-  Widget _detailRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _detailRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1857,9 +2510,16 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
         children: [
           Icon(icon, size: 18, color: Colors.grey.shade500),
           const SizedBox(width: 10),
-          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade500))),
+          SizedBox(
+              width: 100,
+              child: Text(label,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500))),
           Expanded(
-            child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: valueColor ?? Colors.grey.shade800)),
+            child: Text(value,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: valueColor ?? Colors.grey.shade800)),
           ),
         ],
       ),
@@ -1871,11 +2531,19 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600)),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: valueColor ?? Colors.grey.shade800)),
+          child: Text(value,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: valueColor ?? Colors.grey.shade800)),
         ),
       ],
     );
@@ -1921,21 +2589,24 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
       title: 'Hoàn tác duyệt',
-      content: 'Bạn có chắc chắn muốn hoàn tác trạng thái đơn nghỉ phép này về Chờ duyệt?\nHệ thống sẽ khôi phục lịch làm việc nếu đơn đã được duyệt.',
+      content:
+          'Bạn có chắc chắn muốn hoàn tác trạng thái đơn nghỉ phép này về Chờ duyệt?\nHệ thống sẽ khôi phục lịch làm việc nếu đơn đã được duyệt.',
       confirmText: 'Hoàn tác',
       confirmVariant: AppButtonVariant.warning,
       icon: Icons.undo_rounded,
     );
     if (confirm != true) return;
     final result = await _apiService.undoLeaveApproval(leaveId);
-    _showResultSnackBar(result, 'Đã hoàn tác trạng thái đơn', 'Lỗi khi hoàn tác');
+    _showResultSnackBar(
+        result, 'Đã hoàn tác trạng thái đơn', 'Lỗi khi hoàn tác');
   }
 
   Future<void> _forceDeleteLeave(String? leaveId) async {
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
       title: 'Xóa đơn nghỉ phép',
-      content: 'Bạn có chắc chắn muốn xóa vĩnh viễn đơn nghỉ phép này?\nHành động này không thể hoàn tác.',
+      content:
+          'Bạn có chắc chắn muốn xóa vĩnh viễn đơn nghỉ phép này?\nHành động này không thể hoàn tác.',
       confirmText: 'Xóa',
       confirmVariant: AppButtonVariant.danger,
       icon: Icons.delete_forever_rounded,
@@ -1949,7 +2620,8 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
       title: 'Duyệt đơn nghỉ phép',
-      content: 'Bạn có chắc chắn muốn duyệt đơn nghỉ phép này?\nHệ thống sẽ tự tạo lịch nghỉ cho nhân viên.',
+      content:
+          'Bạn có chắc chắn muốn duyệt đơn nghỉ phép này?\nHệ thống sẽ tự tạo lịch nghỉ cho nhân viên.',
       confirmText: 'Duyệt',
       confirmVariant: AppButtonVariant.success,
       icon: Icons.check_circle_rounded,
@@ -1966,7 +2638,11 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [Icon(Icons.cancel_rounded, color: Colors.red[400]), const SizedBox(width: 8), const Text('Từ chối đơn nghỉ phép')]),
+        title: Row(children: [
+          Icon(Icons.cancel_rounded, color: Colors.red[400]),
+          const SizedBox(width: 8),
+          const Text('Từ chối đơn nghỉ phép')
+        ]),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1978,7 +2654,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
                 controller: reasonController,
                 maxLines: 3,
                 autofocus: true,
-                decoration: InputDecoration(hintText: 'Lý do từ chối...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                decoration: InputDecoration(
+                    hintText: 'Lý do từ chối...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12))),
               ),
             ],
           ),
@@ -1988,7 +2667,9 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
             onCancel: () => Navigator.pop(ctx, false),
             onConfirm: () {
               if (reasonController.text.trim().isEmpty) {
-                NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập lý do từ chối');
+                NotificationOverlayManager().showWarning(
+                    title: 'Thiếu thông tin',
+                    message: 'Vui lòng nhập lý do từ chối');
                 return;
               }
               Navigator.pop(ctx, true);
@@ -2000,8 +2681,10 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       ),
     );
     if (confirm == true && reasonController.text.trim().isNotEmpty) {
-      final result = await _apiService.rejectLeave(leaveId, reasonController.text.trim());
-      _showResultSnackBar(result, 'Đã từ chối đơn nghỉ phép', 'Lỗi khi từ chối đơn');
+      final result =
+          await _apiService.rejectLeave(leaveId, reasonController.text.trim());
+      _showResultSnackBar(
+          result, 'Đã từ chối đơn nghỉ phép', 'Lỗi khi từ chối đơn');
     }
   }
 
@@ -2022,7 +2705,11 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [Icon(icon, color: iconColor), const SizedBox(width: 8), Text(title)]),
+        title: Row(children: [
+          Icon(icon, color: iconColor),
+          const SizedBox(width: 8),
+          Text(title)
+        ]),
         content: Text(content),
         actions: [
           AppDialogActions(
@@ -2037,13 +2724,16 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
     );
   }
 
-  void _showResultSnackBar(Map<String, dynamic> result, String successMsg, String errorMsg) {
+  void _showResultSnackBar(
+      Map<String, dynamic> result, String successMsg, String errorMsg) {
     if (!mounted) return;
     if (result['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: successMsg);
+      NotificationOverlayManager()
+          .showSuccess(title: 'Thành công', message: successMsg);
       _loadData();
     } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? errorMsg);
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: result['message'] ?? errorMsg);
       // Refresh to clear stale data (e.g. leave already approved by another device)
       _loadData();
     }
@@ -2054,25 +2744,50 @@ class _LeaveScreenState extends State<LeaveScreen> with SingleTickerProviderStat
   // ═══════════════════════════════════════════════════
   static _StatusInfo _getStatusInfo(int status) {
     switch (status) {
-      case 0: return const _StatusInfo('Chờ duyệt', Colors.orange, Icons.hourglass_bottom_rounded);
-      case 1: return const _StatusInfo('Đã duyệt', Colors.green, Icons.check_circle_rounded);
-      case 2: return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
-      case 3: return const _StatusInfo('Đã hủy', Colors.grey, Icons.block_rounded);
-      default: return const _StatusInfo('N/A', Colors.grey, Icons.help_outline_rounded);
+      case 0:
+        return const _StatusInfo(
+            'Chờ duyệt', Colors.orange, Icons.hourglass_bottom_rounded);
+      case 1:
+        return const _StatusInfo(
+            'Đã duyệt', Colors.green, Icons.check_circle_rounded);
+      case 2:
+        return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
+      case 3:
+        return const _StatusInfo('Đã hủy', Colors.grey, Icons.block_rounded);
+      default:
+        return const _StatusInfo(
+            'N/A', Colors.grey, Icons.help_outline_rounded);
     }
   }
 
   static _LeaveTypeInfo _getLeaveTypeInfo(int type) {
     switch (type) {
-      case 0: return const _LeaveTypeInfo('Phép năm', Colors.teal, Icons.beach_access_rounded);
-      case 1: return const _LeaveTypeInfo('Lễ tết', Colors.orange, Icons.celebration_rounded);
-      case 2: return const _LeaveTypeInfo('VR có lương', Colors.blue, Icons.paid_rounded);
-      case 3: return const _LeaveTypeInfo('VR không lương', Colors.amber, Icons.money_off_rounded);
-      case 4: return const _LeaveTypeInfo('Ốm đau', Colors.red, Icons.local_hospital_rounded);
-      case 5: return const _LeaveTypeInfo('Thai sản', Colors.pink, Icons.child_friendly_rounded);
-      case 6: return const _LeaveTypeInfo('Nghỉ bù', Colors.indigo, Icons.swap_horiz_rounded);
-      case 7: return const _LeaveTypeInfo('Nghỉ dài hạn', Colors.brown, Icons.hourglass_full_rounded);
-      default: return const _LeaveTypeInfo('Khác', Colors.grey, Icons.help_outline);
+      case 0:
+        return const _LeaveTypeInfo(
+            'Phép năm', Colors.teal, Icons.beach_access_rounded);
+      case 1:
+        return const _LeaveTypeInfo(
+            'Lễ tết', Colors.orange, Icons.celebration_rounded);
+      case 2:
+        return const _LeaveTypeInfo(
+            'VR có lương', Colors.blue, Icons.paid_rounded);
+      case 3:
+        return const _LeaveTypeInfo(
+            'VR không lương', Colors.amber, Icons.money_off_rounded);
+      case 4:
+        return const _LeaveTypeInfo(
+            'Ốm đau', Colors.red, Icons.local_hospital_rounded);
+      case 5:
+        return const _LeaveTypeInfo(
+            'Thai sản', Colors.pink, Icons.child_friendly_rounded);
+      case 6:
+        return const _LeaveTypeInfo(
+            'Nghỉ bù', Colors.indigo, Icons.swap_horiz_rounded);
+      case 7:
+        return const _LeaveTypeInfo(
+            'Nghỉ dài hạn', Colors.brown, Icons.hourglass_full_rounded);
+      default:
+        return const _LeaveTypeInfo('Khác', Colors.grey, Icons.help_outline);
     }
   }
 }
@@ -2086,7 +2801,11 @@ class _ActionBtn extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionBtn({required this.icon, required this.label, required this.color, required this.onTap});
+  const _ActionBtn(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -2105,7 +2824,9 @@ class _ActionBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -2192,10 +2913,12 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
       _reasonController.text = l['reason'] ?? '';
       final repId = l['replacementEmployeeId']?.toString();
       // Only set if the replacement employee exists in the list
-      if (repId != null && widget.employees.any((e) => e['id']?.toString() == repId)) {
+      if (repId != null &&
+          widget.employees.any((e) => e['id']?.toString() == repId)) {
         _selectedReplacementId = repId;
       }
-      _leaveDate = DateTime.tryParse(l['startDate']?.toString() ?? '') ?? DateTime.now();
+      _leaveDate =
+          DateTime.tryParse(l['startDate']?.toString() ?? '') ?? DateTime.now();
       final ids = l['shiftIds'];
       if (ids != null && ids is List) {
         _selectedShiftIds = ids.map((e) => e.toString()).toList();
@@ -2264,7 +2987,9 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
         }
 
         if (scheduleShiftIds.isNotEmpty) {
-          _filteredShifts = widget.shifts.where((s) => scheduleShiftIds.contains(s['id']?.toString())).toList();
+          _filteredShifts = widget.shifts
+              .where((s) => scheduleShiftIds.contains(s['id']?.toString()))
+              .toList();
           _hasScheduleForDate = true;
         } else {
           _filteredShifts = List.from(widget.shifts);
@@ -2297,208 +3022,257 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-                      // Employee selector (admin/manager only)
-                      if (widget.isManager) ...[
-                        _buildSectionLabel('Nhân viên nghỉ phép', Icons.person_rounded, isRequired: true),
-                        const SizedBox(height: 8),
-                        if (_isEditMode) ...[
-                          // Read-only display in edit mode (employee can't be changed)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.grey[50],
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.person_rounded, size: 20, color: Colors.grey[500]),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    widget.existingLeave?['employeeName']?.toString() ?? 'N/A',
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ),
-                                Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey[400]),
-                              ],
-                            ),
-                          ),
-                        ] else ...[
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedEmployeeId,
-                            decoration: InputDecoration(
-                              hintText: 'Chọn nhân viên',
-                              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              prefixIcon: const Icon(Icons.person_rounded, size: 20),
-                            ),
-                            isExpanded: true,
-                            items: widget.employees.map<DropdownMenuItem<String>>((emp) {
-                              final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                              return DropdownMenuItem(
-                                value: emp['id']?.toString(),
-                                child: Text(
-                                  name.isEmpty ? (emp['employeeCode'] ?? 'N/A') : name,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              );
-                            }).toList(),
-                            validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng chọn nhân viên' : null,
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedEmployeeId = v;
-                                _selectedShiftIds.clear();
-                                _selectedReplacementId = null;
-                                // Find applicationUserId for the selected employee
-                                for (final emp in widget.employees) {
-                                  if (emp['id']?.toString() == v) {
-                                    _selectedEmployeeUserId = emp['applicationUserId']?.toString();
-                                    break;
-                                  }
-                                }
-                              });
-                              _loadShiftsForDate();
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                      ],
+          // Employee selector (admin/manager only)
+          if (widget.isManager) ...[
+            _buildSectionLabel('Nhân viên nghỉ phép', Icons.person_rounded,
+                isRequired: true),
+            const SizedBox(height: 8),
+            if (_isEditMode) ...[
+              // Read-only display in edit mode (employee can't be changed)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey[50],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_rounded,
+                        size: 20, color: Colors.grey[500]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.existingLeave?['employeeName']?.toString() ??
+                            'N/A',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    Icon(Icons.lock_outline_rounded,
+                        size: 16, color: Colors.grey[400]),
+                  ],
+                ),
+              ),
+            ] else ...[
+              DropdownButtonFormField<String>(
+                initialValue: _selectedEmployeeId,
+                decoration: InputDecoration(
+                  hintText: 'Chọn nhân viên',
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  prefixIcon: const Icon(Icons.person_rounded, size: 20),
+                ),
+                isExpanded: true,
+                items: widget.employees.map<DropdownMenuItem<String>>((emp) {
+                  final name =
+                      '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                          .trim();
+                  return DropdownMenuItem(
+                    value: emp['id']?.toString(),
+                    child: Text(
+                      name.isEmpty ? (emp['employeeCode'] ?? 'N/A') : name,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  );
+                }).toList(),
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Vui lòng chọn nhân viên' : null,
+                onChanged: (v) {
+                  setState(() {
+                    _selectedEmployeeId = v;
+                    _selectedShiftIds.clear();
+                    _selectedReplacementId = null;
+                    // Find applicationUserId for the selected employee
+                    for (final emp in widget.employees) {
+                      if (emp['id']?.toString() == v) {
+                        _selectedEmployeeUserId =
+                            emp['applicationUserId']?.toString();
+                        break;
+                      }
+                    }
+                  });
+                  _loadShiftsForDate();
+                },
+              ),
+            ],
+            const SizedBox(height: 20),
+          ],
 
-                      // Leave type
-                      _buildSectionLabel('Loại nghỉ phép', Icons.category_rounded, isRequired: true),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildTypeOption(0, 'Phép năm', Icons.beach_access_rounded, Colors.teal),
-                          _buildTypeOption(1, 'Lễ tết', Icons.celebration_rounded, Colors.orange),
-                          _buildTypeOption(2, 'VR có lương', Icons.paid_rounded, Colors.blue),
-                          _buildTypeOption(3, 'VR không lương', Icons.money_off_rounded, Colors.amber),
-                          _buildTypeOption(4, 'Ốm đau', Icons.local_hospital_rounded, Colors.red),
-                          _buildTypeOption(5, 'Thai sản', Icons.child_friendly_rounded, Colors.pink),
-                          _buildTypeOption(6, 'Nghỉ bù', Icons.swap_horiz_rounded, Colors.indigo),
-                          _buildTypeOption(7, 'Nghỉ dài hạn', Icons.hourglass_full_rounded, Colors.brown),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
+          // Leave type
+          _buildSectionLabel('Loại nghỉ phép', Icons.category_rounded,
+              isRequired: true),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildTypeOption(
+                  0, 'Phép năm', Icons.beach_access_rounded, Colors.teal),
+              _buildTypeOption(
+                  1, 'Lễ tết', Icons.celebration_rounded, Colors.orange),
+              _buildTypeOption(
+                  2, 'VR có lương', Icons.paid_rounded, Colors.blue),
+              _buildTypeOption(
+                  3, 'VR không lương', Icons.money_off_rounded, Colors.amber),
+              _buildTypeOption(
+                  4, 'Ốm đau', Icons.local_hospital_rounded, Colors.red),
+              _buildTypeOption(
+                  5, 'Thai sản', Icons.child_friendly_rounded, Colors.pink),
+              _buildTypeOption(
+                  6, 'Nghỉ bù', Icons.swap_horiz_rounded, Colors.indigo),
+              _buildTypeOption(7, 'Nghỉ dài hạn', Icons.hourglass_full_rounded,
+                  Colors.brown),
+            ],
+          ),
+          const SizedBox(height: 20),
 
-                      // Date
-                      _buildSectionLabel('Ngày nghỉ', Icons.date_range_rounded, isRequired: true),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(child: _buildDateField('Ngày nghỉ', _leaveDate)),
-                          const SizedBox(width: 12),
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _isHalfShift,
-                                onChanged: (v) => setState(() => _isHalfShift = v ?? false),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              Text(_l10n.halfShift, style: const TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Shifts
-                      _buildSectionLabel('Ca làm việc', Icons.schedule_rounded),
-                      const SizedBox(height: 4),
-                      Text(
-                        _hasScheduleForDate
-                            ? 'Ca nghỉ phép (theo lịch làm việc ngày ${DateFormat('dd/MM').format(_leaveDate)})'
-                            : 'Chọn ca nghỉ phép (có thể chọn nhiều)',
-                        style: TextStyle(fontSize: 12, color: _hasScheduleForDate ? Colors.blue[500] : Colors.grey[500]),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: _isLoadingShifts
-                            ? const Center(child: Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
-                            : _filteredShifts.isEmpty
-                                ? Text('Không có ca làm việc cho ngày này', style: TextStyle(color: Colors.grey[400], fontSize: 13))
-                                : Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: _filteredShifts.map<Widget>((shift) {
-                                      final id = shift['id']?.toString() ?? '';
-                                      final name = shift['name'] ?? 'N/A';
-                                      final selected = _selectedShiftIds.contains(id);
-                                      return FilterChip(
-                                        label: Text(name, style: const TextStyle(fontSize: 13)),
-                                        selected: selected,
-                                        selectedColor: theme.primaryColor.withValues(alpha: 0.15),
-                                        checkmarkColor: theme.primaryColor,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        onSelected: (s) => setState(() => s ? _selectedShiftIds.add(id) : _selectedShiftIds.remove(id)),
-                                      );
-                                    }).toList(),
-                                  ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Replacement employee
-                      _buildSectionLabel('Nhân viên thay ca', Icons.swap_horiz_rounded),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedReplacementId,
-                        decoration: InputDecoration(
-                          hintText: 'Không bắt buộc',
-                          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          prefixIcon: const Icon(Icons.person_search_rounded, size: 20),
-                        ),
-                        isExpanded: true,
-                        items: [
-                          const DropdownMenuItem<String>(value: null, child: Text('Không chọn')),
-                          ...widget.employees
-                              .where((emp) => emp['id']?.toString() != _selectedEmployeeId)
-                              .map<DropdownMenuItem<String>>((emp) {
-                            final name = '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                            return DropdownMenuItem(
-                              value: emp['id']?.toString(),
-                              child: Text(name.isEmpty ? (emp['employeeCode'] ?? 'N/A') : name, style: const TextStyle(fontSize: 14)),
-                            );
-                          }),
-                        ],
-                        onChanged: (v) => setState(() => _selectedReplacementId = v),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Reason
-                      _buildSectionLabel('Lý do', Icons.notes_rounded, isRequired: true),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _reasonController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Nhập lý do xin nghỉ phép...',
-                          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập lý do' : null,
-                      ),
-                    ],
+          // Date
+          _buildSectionLabel('Ngày nghỉ', Icons.date_range_rounded,
+              isRequired: true),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _buildDateField('Ngày nghỉ', _leaveDate)),
+              const SizedBox(width: 12),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _isHalfShift,
+                    onChanged: (v) => setState(() => _isHalfShift = v ?? false),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
                   ),
+                  Text(_l10n.halfShift, style: const TextStyle(fontSize: 13)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Shifts
+          _buildSectionLabel('Ca làm việc', Icons.schedule_rounded),
+          const SizedBox(height: 4),
+          Text(
+            _hasScheduleForDate
+                ? 'Ca nghỉ phép (theo lịch làm việc ngày ${DateFormat('dd/MM').format(_leaveDate)})'
+                : 'Chọn ca nghỉ phép (có thể chọn nhiều)',
+            style: TextStyle(
+                fontSize: 12,
+                color:
+                    _hasScheduleForDate ? Colors.blue[500] : Colors.grey[500]),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _isLoadingShifts
+                ? const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))))
+                : _filteredShifts.isEmpty
+                    ? Text('Không có ca làm việc cho ngày này',
+                        style: TextStyle(color: Colors.grey[400], fontSize: 13))
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: _filteredShifts.map<Widget>((shift) {
+                          final id = shift['id']?.toString() ?? '';
+                          final name = shift['name'] ?? 'N/A';
+                          final selected = _selectedShiftIds.contains(id);
+                          return FilterChip(
+                            label: Text(name,
+                                style: const TextStyle(fontSize: 13)),
+                            selected: selected,
+                            selectedColor:
+                                theme.primaryColor.withValues(alpha: 0.15),
+                            checkmarkColor: theme.primaryColor,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            onSelected: (s) => setState(() => s
+                                ? _selectedShiftIds.add(id)
+                                : _selectedShiftIds.remove(id)),
+                          );
+                        }).toList(),
+                      ),
+          ),
+          const SizedBox(height: 20),
+
+          // Replacement employee
+          _buildSectionLabel('Nhân viên thay ca', Icons.swap_horiz_rounded),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedReplacementId,
+            decoration: InputDecoration(
+              hintText: 'Không bắt buộc',
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              prefixIcon: const Icon(Icons.person_search_rounded, size: 20),
+            ),
+            isExpanded: true,
+            items: [
+              const DropdownMenuItem<String>(
+                  value: null, child: Text('Không chọn')),
+              ...widget.employees
+                  .where((emp) => emp['id']?.toString() != _selectedEmployeeId)
+                  .map<DropdownMenuItem<String>>((emp) {
+                final name =
+                    '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
+                return DropdownMenuItem(
+                  value: emp['id']?.toString(),
+                  child: Text(
+                      name.isEmpty ? (emp['employeeCode'] ?? 'N/A') : name,
+                      style: const TextStyle(fontSize: 14)),
                 );
+              }),
+            ],
+            onChanged: (v) => setState(() => _selectedReplacementId = v),
+          ),
+          const SizedBox(height: 20),
+
+          // Reason
+          _buildSectionLabel('Lý do', Icons.notes_rounded, isRequired: true),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _reasonController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Nhập lý do xin nghỉ phép...',
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Vui lòng nhập lý do' : null,
+          ),
+        ],
+      ),
+    );
 
     final submitButton = FilledButton.icon(
       onPressed: _isSubmitting ? null : _submit,
       icon: _isSubmitting
-          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : Icon(_isEditMode ? Icons.save_rounded : Icons.send_rounded, size: 18),
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white))
+          : Icon(_isEditMode ? Icons.save_rounded : Icons.send_rounded,
+              size: 18),
       label: Text(_isEditMode ? _l10n.save : 'Gửi đơn'),
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -2510,10 +3284,12 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(_isEditMode ? 'Sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép'),
+            title:
+                Text(_isEditMode ? 'Sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép'),
             leading: IconButton(
               icon: const Icon(Icons.close),
-              onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
+              onPressed:
+                  _isSubmitting ? null : () => Navigator.pop(context, false),
             ),
             actions: [
               Padding(
@@ -2541,21 +3317,32 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [theme.primaryColor, theme.primaryColor.withValues(alpha: 0.85)]),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                gradient: LinearGradient(colors: [
+                  theme.primaryColor,
+                  theme.primaryColor.withValues(alpha: 0.85)
+                ]),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.event_note_rounded, color: Colors.white, size: 24),
+                  const Icon(Icons.event_note_rounded,
+                      color: Colors.white, size: 24),
                   const SizedBox(width: 12),
                   Text(
                     _isEditMode ? 'Sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép',
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.pop(context, false),
+                    icon:
+                        const Icon(Icons.close_rounded, color: Colors.white70),
                   ),
                 ],
               ),
@@ -2570,7 +3357,10 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
             // Actions
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.15)))),
+              decoration: BoxDecoration(
+                  border: Border(
+                      top: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.15)))),
               child: Row(
                 children: [
                   if (_isEditMode)
@@ -2580,7 +3370,9 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
                     ),
                   const Spacer(),
                   TextButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.pop(context, false),
                     child: Text(_l10n.cancel),
                   ),
                   const SizedBox(width: 8),
@@ -2594,13 +3386,18 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
     );
   }
 
-  Widget _buildSectionLabel(String text, IconData icon, {bool isRequired = false}) {
+  Widget _buildSectionLabel(String text, IconData icon,
+      {bool isRequired = false}) {
     return Row(
       children: [
         Icon(icon, size: 16, color: Colors.grey[600]),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        if (isRequired) Text(' *', style: TextStyle(color: Colors.red[400], fontWeight: FontWeight.bold)),
+        Text(text,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        if (isRequired)
+          Text(' *',
+              style: TextStyle(
+                  color: Colors.red[400], fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -2614,15 +3411,24 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
         width: 110,
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.05),
+          color: selected
+              ? color.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? color : Colors.grey[300]!, width: selected ? 2 : 1),
+          border: Border.all(
+              color: selected ? color : Colors.grey[300]!,
+              width: selected ? 2 : 1),
         ),
         child: Column(
           children: [
             Icon(icon, color: selected ? color : Colors.grey, size: 22),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: selected ? color : Colors.grey[600], fontWeight: selected ? FontWeight.w600 : FontWeight.normal, fontSize: 12), textAlign: TextAlign.center),
+            Text(label,
+                style: TextStyle(
+                    color: selected ? color : Colors.grey[600],
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 12),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -2641,15 +3447,19 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[500]),
+            Icon(Icons.calendar_today_rounded,
+                size: 16, color: Colors.grey[500]),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  Text(label,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   const SizedBox(height: 2),
-                  Text(DateFormat('dd/MM/yyyy').format(date), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(DateFormat('dd/MM/yyyy').format(date),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
                 ],
               ),
             ),
@@ -2722,7 +3532,9 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
         if (result['isSuccess'] == true) {
           NotificationOverlayManager().showSuccess(
             title: 'Thành công',
-            message: _isEditMode ? 'Cập nhật đơn thành công' : 'Tạo đơn nghỉ phép thành công',
+            message: _isEditMode
+                ? 'Cập nhật đơn thành công'
+                : 'Tạo đơn nghỉ phép thành công',
           );
           Navigator.pop(context, true);
         } else {

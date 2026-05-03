@@ -248,7 +248,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       builder: (context) => AlertDialog(
         title: Text(_l10n.selectDevice),
         content: SizedBox(
-          width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+          width:
+              math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -374,7 +375,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           // Filter employees not yet on the selected device
           List<Employee> unlinkedEmployees;
           if (selectedDevice != null) {
-            final deviceUsers = _deviceUsers.where((u) => u.deviceId == selectedDevice!.id).toList();
+            final deviceUsers = _deviceUsers
+                .where((u) => u.deviceId == selectedDevice!.id)
+                .toList();
             final existingPins = deviceUsers.map((u) => u.pin).toSet();
             final existingEmployeeIds = deviceUsers
                 .where((u) => u.employeeId != null)
@@ -406,7 +409,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               ],
             ),
             content: SizedBox(
-              width: math.min(600, MediaQuery.of(context).size.width - 32).toDouble(),
+              width: math
+                  .min(600, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
               height: 500,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,7 +429,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         value: d,
                         child: Row(
                           children: [
-                            Icon(Icons.circle, size: 10, color: online ? Colors.green : Colors.grey),
+                            Icon(Icons.circle,
+                                size: 10,
+                                color: online ? Colors.green : Colors.grey),
                             const SizedBox(width: 8),
                             Text('${d.deviceName} (${d.serialNumber})'),
                           ],
@@ -448,13 +455,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                        const Icon(Icons.info_outline,
+                            size: 16, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
                           selectedDevice == null
                               ? 'Vui lòng chọn thiết bị để xem nhân viên'
                               : '${unlinkedEmployees.length} nhân viên chưa có trên máy chấm công',
-                          style: const TextStyle(fontSize: 13, color: Colors.blue),
+                          style:
+                              const TextStyle(fontSize: 13, color: Colors.blue),
                         ),
                       ],
                     ),
@@ -489,7 +498,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           });
                         },
                       ),
-                      Text('Chọn tất cả (${selectedEmployees.length}/${displayEmployees.length})'),
+                      Text(
+                          'Chọn tất cả (${selectedEmployees.length}/${displayEmployees.length})'),
                     ],
                   ),
                   const Divider(height: 24),
@@ -497,7 +507,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   // Employee list
                   Expanded(
                     child: displayEmployees.isEmpty
-                        ? Center(child: Text(
+                        ? Center(
+                            child: Text(
                             selectedDevice == null
                                 ? 'Chọn thiết bị để xem danh sách nhân viên'
                                 : 'Tất cả nhân viên đã có trên máy chấm công',
@@ -516,23 +527,33 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     } else {
                                       selectedEmployees.remove(emp);
                                     }
-                                    selectAll = selectedEmployees.length == displayEmployees.length;
+                                    selectAll = selectedEmployees.length ==
+                                        displayEmployees.length;
                                   });
                                 },
                                 secondary: CircleAvatar(
                                   radius: 18,
-                                  backgroundImage: emp.avatarUrl != null ? NetworkImage(emp.avatarUrl!) : null,
-                                  onBackgroundImageError: emp.avatarUrl != null ? (_, __) {} : null,
+                                  backgroundImage: emp.avatarUrl != null
+                                      ? NetworkImage(emp.avatarUrl!)
+                                      : null,
+                                  onBackgroundImageError:
+                                      emp.avatarUrl != null ? (_, __) {} : null,
                                   backgroundColor: Colors.grey[200],
                                   child: emp.avatarUrl == null
-                                      ? Text(emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?',
-                                          style: TextStyle(color: Colors.grey[600]))
+                                      ? Text(
+                                          emp.firstName.isNotEmpty
+                                              ? emp.firstName[0].toUpperCase()
+                                              : '?',
+                                          style: TextStyle(
+                                              color: Colors.grey[600]))
                                       : null,
                                 ),
-                                title: Text(emp.fullName, style: const TextStyle(fontSize: 14)),
+                                title: Text(emp.fullName,
+                                    style: const TextStyle(fontSize: 14)),
                                 subtitle: Text(
                                   '${emp.employeeCode}${emp.department != null ? ' • ${emp.department}' : ''}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600]),
                                 ),
                               );
                             },
@@ -543,9 +564,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             ),
             actions: [
               AppDialogActions(
-                onConfirm: selectedDevice != null && selectedEmployees.isNotEmpty
-                    ? () => Navigator.pop(context, true)
-                    : null,
+                onConfirm:
+                    selectedDevice != null && selectedEmployees.isNotEmpty
+                        ? () => Navigator.pop(context, true)
+                        : null,
                 confirmLabel: 'Tải ${selectedEmployees.length} nhân viên',
                 confirmIcon: Icons.upload,
               ),
@@ -567,7 +589,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(width: 16),
-            Expanded(child: Text('Đang tải ${selectedEmployees.length} nhân viên xuống máy...')),
+            Expanded(
+                child: Text(
+                    'Đang tải ${selectedEmployees.length} nhân viên xuống máy...')),
           ],
         ),
       ),
@@ -608,7 +632,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       Navigator.pop(context); // Close progress
 
       if (success > 0) {
-        _showSuccess('Đã tải $success nhân viên xuống máy ${selectedDevice!.deviceName}${failed > 0 ? '. $failed thất bại.' : ''}');
+        _showSuccess(
+            'Đã tải $success nhân viên xuống máy ${selectedDevice!.deviceName}${failed > 0 ? '. $failed thất bại.' : ''}');
         await _loadDeviceUsers();
       } else {
         _showError('Không tải được nhân viên nào. Kiểm tra lại thiết bị.');
@@ -621,17 +646,24 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           builder: (context) => AlertDialog(
             title: const Text('Nhân viên tải thất bại'),
             content: SizedBox(
-              width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+              width: math
+                  .min(400, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: failedNames.map((n) => ListTile(
-                  leading: const Icon(Icons.error, color: Colors.red, size: 18),
-                  title: Text(n, style: const TextStyle(fontSize: 13)),
-                )).toList(),
+                children: failedNames
+                    .map((n) => ListTile(
+                          leading: const Icon(Icons.error,
+                              color: Colors.red, size: 18),
+                          title: Text(n, style: const TextStyle(fontSize: 13)),
+                        ))
+                    .toList(),
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Đóng')),
             ],
           ),
         );
@@ -674,7 +706,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final primary = Theme.of(context).primaryColor;
     final linkedCount = _deviceUsers.where((u) => u.employeeId != null).length;
     final unlinkedCount = _deviceUsers.length - linkedCount;
-    final onlineDevices = _devices.where((d) => _isDeviceOnline(d.lastOnline)).length;
+    final onlineDevices =
+        _devices.where((d) => _isDeviceOnline(d.lastOnline)).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -685,7 +718,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 600;
               return Container(
-                padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 14, isMobile ? 16 : 24, 14),
+                padding: EdgeInsets.fromLTRB(
+                    isMobile ? 16 : 24, 14, isMobile ? 16 : 24, 14),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primary, primary.withValues(alpha: 0.85)],
@@ -710,7 +744,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.fingerprint, size: 22, color: Colors.white),
+                          child: const Icon(Icons.fingerprint,
+                              size: 22, color: Colors.white),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -719,26 +754,36 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             children: [
                               Text(
                                 _l10n.deviceUsers,
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 '${_filteredUsers.length} nhân viên · ${_devices.length} thiết bị',
-                                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.8)),
                               ),
                             ],
                           ),
                         ),
                         if (!isMobile) ...[
-                          _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel', _isExporting ? null : _exportToExcel),
+                          _buildHeaderActionBtn(Icons.table_chart_outlined,
+                              'Excel', _isExporting ? null : _exportToExcel),
                           const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.image_outlined, 'PNG', _isExporting ? null : _exportToPng),
+                          _buildHeaderActionBtn(Icons.image_outlined, 'PNG',
+                              _isExporting ? null : _exportToPng),
                           const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.download, _l10n.importFromDevice, _downloadUsersFromDevice),
+                          _buildHeaderActionBtn(Icons.download,
+                              _l10n.importFromDevice, _downloadUsersFromDevice),
                           const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.upload, _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
+                          _buildHeaderActionBtn(Icons.upload,
+                              _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
                           const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.person_add, _l10n.addUser, _showAddUserDialog),
+                          _buildHeaderActionBtn(Icons.person_add, _l10n.addUser,
+                              _showAddUserDialog),
                         ],
                       ],
                     ),
@@ -747,22 +792,38 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                            onTap: () => setState(
+                                () => _showMobileFilters = !_showMobileFilters),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: _showMobileFilters ? 0.25 : 0.15),
+                                color: Colors.white.withValues(
+                                    alpha: _showMobileFilters ? 0.25 : 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 16, color: Colors.white),
+                                  Icon(
+                                      _showMobileFilters
+                                          ? Icons.filter_alt
+                                          : Icons.filter_alt_outlined,
+                                      size: 16,
+                                      color: Colors.white),
                                   const SizedBox(width: 4),
-                                  Text(_showMobileFilters ? 'Ẩn lọc' : 'Bộ lọc', style: const TextStyle(fontSize: 12, color: Colors.white)),
-                                  if (_selectedDeviceId != null || _searchQuery.isNotEmpty) ...[
+                                  Text(_showMobileFilters ? 'Ẩn lọc' : 'Bộ lọc',
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.white)),
+                                  if (_selectedDeviceId != null ||
+                                      _searchQuery.isNotEmpty) ...[
                                     const SizedBox(width: 4),
-                                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle)),
+                                    Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                            color: Colors.orangeAccent,
+                                            shape: BoxShape.circle)),
                                   ],
                                 ],
                               ),
@@ -774,15 +835,28 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               scrollDirection: Axis.horizontal,
                               child: Row(
                                 children: [
-                            _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel', _isExporting ? null : _exportToExcel),
-                            const SizedBox(width: 6),
-                            _buildHeaderActionBtn(Icons.image_outlined, 'PNG', _isExporting ? null : _exportToPng),
-                            const SizedBox(width: 6),
-                            _buildHeaderActionBtn(Icons.download, _l10n.importFromDevice, _downloadUsersFromDevice),
-                            const SizedBox(width: 6),
-                            _buildHeaderActionBtn(Icons.upload, _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
-                            const SizedBox(width: 6),
-                            _buildHeaderActionBtn(Icons.person_add, _l10n.addUser, _showAddUserDialog),
+                                  _buildHeaderActionBtn(
+                                      Icons.table_chart_outlined,
+                                      'Excel',
+                                      _isExporting ? null : _exportToExcel),
+                                  const SizedBox(width: 6),
+                                  _buildHeaderActionBtn(
+                                      Icons.image_outlined,
+                                      'PNG',
+                                      _isExporting ? null : _exportToPng),
+                                  const SizedBox(width: 6),
+                                  _buildHeaderActionBtn(
+                                      Icons.download,
+                                      _l10n.importFromDevice,
+                                      _downloadUsersFromDevice),
+                                  const SizedBox(width: 6),
+                                  _buildHeaderActionBtn(
+                                      Icons.upload,
+                                      _l10n.uploadHrProfiles,
+                                      _uploadEmployeesToDevice),
+                                  const SizedBox(width: 6),
+                                  _buildHeaderActionBtn(Icons.person_add,
+                                      _l10n.addUser, _showAddUserDialog),
                                 ],
                               ),
                             ),
@@ -804,21 +878,33 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   // Stats cards
                   if (Responsive.isMobile(context)) ...[
                     InkWell(
-                      onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+                      onTap: () => setState(
+                          () => _showMobileSummary = !_showMobileSummary),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                            Icon(Icons.analytics_outlined,
+                                size: 16, color: Colors.blue.shade700),
                             const SizedBox(width: 6),
-                            Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                            Text('Tổng quan',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.blue.shade700)),
                             const Spacer(),
-                            Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                            Icon(
+                                _showMobileSummary
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 20,
+                                color: Colors.blue.shade700),
                           ],
                         ),
                       ),
@@ -827,26 +913,46 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          _buildStatCard(_l10n.totalUsers, '${_deviceUsers.length}', Icons.people_outline, const Color(0xFF1E3A5F)),
+                          _buildStatCard(
+                              _l10n.totalUsers,
+                              '${_deviceUsers.length}',
+                              Icons.people_outline,
+                              const Color(0xFF1E3A5F)),
                           const SizedBox(width: 10),
-                          _buildStatCard(_l10n.linkedUsers, '$linkedCount', Icons.link, const Color(0xFF1E3A5F)),
+                          _buildStatCard(_l10n.linkedUsers, '$linkedCount',
+                              Icons.link, const Color(0xFF1E3A5F)),
                           const SizedBox(width: 10),
-                          _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount', Icons.link_off, const Color(0xFFF59E0B)),
+                          _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
+                              Icons.link_off, const Color(0xFFF59E0B)),
                           const SizedBox(width: 10),
-                          _buildStatCard(_l10n.onlineDevices, '$onlineDevices/${_devices.length}', Icons.router, const Color(0xFF0F2340)),
+                          _buildStatCard(
+                              _l10n.onlineDevices,
+                              '$onlineDevices/${_devices.length}',
+                              Icons.router,
+                              const Color(0xFF0F2340)),
                         ],
                       ),
                     ],
                   ] else ...[
                     Row(
                       children: [
-                        _buildStatCard(_l10n.totalUsers, '${_deviceUsers.length}', Icons.people_outline, const Color(0xFF1E3A5F)),
+                        _buildStatCard(
+                            _l10n.totalUsers,
+                            '${_deviceUsers.length}',
+                            Icons.people_outline,
+                            const Color(0xFF1E3A5F)),
                         const SizedBox(width: 10),
-                        _buildStatCard(_l10n.linkedUsers, '$linkedCount', Icons.link, const Color(0xFF1E3A5F)),
+                        _buildStatCard(_l10n.linkedUsers, '$linkedCount',
+                            Icons.link, const Color(0xFF1E3A5F)),
                         const SizedBox(width: 10),
-                        _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount', Icons.link_off, const Color(0xFFF59E0B)),
+                        _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
+                            Icons.link_off, const Color(0xFFF59E0B)),
                         const SizedBox(width: 10),
-                        _buildStatCard(_l10n.onlineDevices, '$onlineDevices/${_devices.length}', Icons.router, const Color(0xFF0F2340)),
+                        _buildStatCard(
+                            _l10n.onlineDevices,
+                            '$onlineDevices/${_devices.length}',
+                            Icons.router,
+                            const Color(0xFF0F2340)),
                       ],
                     ),
                   ],
@@ -872,7 +978,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 ? EmptyState(
                                     icon: Icons.people,
                                     title: 'Chưa có user',
-                                    description: 'Thêm user hoặc đồng bộ từ nhân viên',
+                                    description:
+                                        'Thêm user hoặc đồng bộ từ nhân viên',
                                     actionLabel: _l10n.addUser,
                                     onAction: _showAddUserDialog,
                                   )
@@ -887,7 +994,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String label, VoidCallback? onTap) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String label, VoidCallback? onTap) {
     return Material(
       color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(10),
@@ -901,7 +1009,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             children: [
               Icon(icon, size: 15, color: Colors.white),
               const SizedBox(width: 5),
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -909,7 +1021,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -935,8 +1048,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+            Text(label,
+                style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -977,44 +1095,67 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       isExpanded: true,
                       isDense: true,
                       icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                      style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).textTheme.bodyMedium?.color),
                       items: [
                         DropdownMenuItem<String?>(
                           value: null,
                           child: Row(
                             children: [
-                              Icon(Icons.devices, size: 14, color: Colors.grey[500]),
+                              Icon(Icons.devices,
+                                  size: 14, color: Colors.grey[500]),
                               const SizedBox(width: 6),
                               Text(_l10n.allDevices),
                             ],
                           ),
                         ),
                         ..._devices.map((d) => DropdownMenuItem<String?>(
-                          value: d.id,
-                          child: Row(
-                            children: [
-                              Icon(Icons.circle, size: 8, color: _isDeviceOnline(d.lastOnline) ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
-                              const SizedBox(width: 6),
-                              Expanded(child: Text('${d.deviceName} (${d.serialNumber})', overflow: TextOverflow.ellipsis)),
-                            ],
-                          ),
-                        )),
+                              value: d.id,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle,
+                                      size: 8,
+                                      color: _isDeviceOnline(d.lastOnline)
+                                          ? const Color(0xFF1E3A5F)
+                                          : const Color(0xFFA1A1AA)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: Text(
+                                          '${d.deviceName} (${d.serialNumber})',
+                                          overflow: TextOverflow.ellipsis)),
+                                ],
+                              ),
+                            )),
                       ],
                       selectedItemBuilder: (context) => [
                         Row(
                           children: [
-                            Icon(Icons.devices, size: 14, color: Theme.of(context).primaryColor),
+                            Icon(Icons.devices,
+                                size: 14,
+                                color: Theme.of(context).primaryColor),
                             const SizedBox(width: 6),
-                            Expanded(child: Text(_l10n.allDevices, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+                            Expanded(
+                                child: Text(_l10n.allDevices,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13))),
                           ],
                         ),
                         ..._devices.map((d) => Row(
-                          children: [
-                            Icon(Icons.circle, size: 8, color: _isDeviceOnline(d.lastOnline) ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
-                            const SizedBox(width: 6),
-                            Expanded(child: Text('${d.deviceName} (${d.serialNumber})', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
-                          ],
-                        )),
+                              children: [
+                                Icon(Icons.circle,
+                                    size: 8,
+                                    color: _isDeviceOnline(d.lastOnline)
+                                        ? const Color(0xFF1E3A5F)
+                                        : const Color(0xFFA1A1AA)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                    child: Text(
+                                        '${d.deviceName} (${d.serialNumber})',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13))),
+                              ],
+                            )),
                       ],
                       onChanged: (value) async {
                         setState(() => _selectedDeviceId = value);
@@ -1038,32 +1179,41 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           style: const TextStyle(fontSize: 13),
                           decoration: InputDecoration(
                             hintText: _l10n.search,
-                            hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
-                            prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
+                            hintStyle: const TextStyle(
+                                fontSize: 13, color: Color(0xFFA1A1AA)),
+                            prefixIcon: const Icon(Icons.search,
+                                size: 18, color: Color(0xFFA1A1AA)),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 16),
-                                    onPressed: () => setState(() => _searchQuery = ''),
+                                    onPressed: () =>
+                                        setState(() => _searchQuery = ''),
                                   )
                                 : null,
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 10),
                           ),
-                          onChanged: (value) => setState(() => _searchQuery = value),
+                          onChanged: (value) =>
+                              setState(() => _searchQuery = value),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.fingerprint, color: Theme.of(context).primaryColor, size: 16),
+                          Icon(Icons.fingerprint,
+                              color: Theme.of(context).primaryColor, size: 16),
                           const SizedBox(width: 4),
                           Text(
                             '${_filteredUsers.length}',
@@ -1082,125 +1232,152 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             );
           }
           return Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String?>(
-
-                  value: _selectedDeviceId,
-                  isExpanded: true,
-                  isDense: true,
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Row(
-                        children: [
-                          Icon(Icons.devices, size: 14, color: Colors.grey[500]),
-                          const SizedBox(width: 6),
-                          Text(_l10n.allDevices),
-                        ],
-                      ),
-                    ),
-                    ..._devices.map((d) => DropdownMenuItem<String?>(
-                      value: d.id,
-                      child: Row(
-                        children: [
-                          Icon(Icons.circle, size: 8, color: _isDeviceOnline(d.lastOnline) ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
-                          const SizedBox(width: 6),
-                          Expanded(child: Text('${d.deviceName} (${d.serialNumber})', overflow: TextOverflow.ellipsis)),
-                        ],
-                      ),
-                    )),
-                  ],
-                  selectedItemBuilder: (context) => [
-                    Row(
-                      children: [
-                        Icon(Icons.devices, size: 14, color: Theme.of(context).primaryColor),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(_l10n.allDevices, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+            children: [
+              Expanded(
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: _selectedDeviceId,
+                      isExpanded: true,
+                      isDense: true,
+                      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).textTheme.bodyMedium?.color),
+                      items: [
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Row(
+                            children: [
+                              Icon(Icons.devices,
+                                  size: 14, color: Colors.grey[500]),
+                              const SizedBox(width: 6),
+                              Text(_l10n.allDevices),
+                            ],
+                          ),
+                        ),
+                        ..._devices.map((d) => DropdownMenuItem<String?>(
+                              value: d.id,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle,
+                                      size: 8,
+                                      color: _isDeviceOnline(d.lastOnline)
+                                          ? const Color(0xFF1E3A5F)
+                                          : const Color(0xFFA1A1AA)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: Text(
+                                          '${d.deviceName} (${d.serialNumber})',
+                                          overflow: TextOverflow.ellipsis)),
+                                ],
+                              ),
+                            )),
                       ],
-                    ),
-                    ..._devices.map((d) => Row(
-                      children: [
-                        Icon(Icons.circle, size: 8, color: _isDeviceOnline(d.lastOnline) ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text('${d.deviceName} (${d.serialNumber})', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+                      selectedItemBuilder: (context) => [
+                        Row(
+                          children: [
+                            Icon(Icons.devices,
+                                size: 14,
+                                color: Theme.of(context).primaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                                child: Text(_l10n.allDevices,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13))),
+                          ],
+                        ),
+                        ..._devices.map((d) => Row(
+                              children: [
+                                Icon(Icons.circle,
+                                    size: 8,
+                                    color: _isDeviceOnline(d.lastOnline)
+                                        ? const Color(0xFF1E3A5F)
+                                        : const Color(0xFFA1A1AA)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                    child: Text(
+                                        '${d.deviceName} (${d.serialNumber})',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13))),
+                              ],
+                            )),
                       ],
-                    )),
-                  ],
-                  onChanged: (value) async {
-                    setState(() => _selectedDeviceId = value);
-                    await _loadDeviceUsers();
-                  },
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Search
-          Expanded(
-            child: Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: TextField(
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: _l10n.search,
-                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () => setState(() => _searchQuery = ''),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                onChanged: (value) => setState(() => _searchQuery = value),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.fingerprint, color: Theme.of(context).primaryColor, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  '${_filteredUsers.length} user',
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                      onChanged: (value) async {
+                        setState(() => _selectedDeviceId = value);
+                        await _loadDeviceUsers();
+                      },
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      );
+              ),
+              const SizedBox(width: 12),
+
+              // Search
+              Expanded(
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                  ),
+                  child: TextField(
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: _l10n.search,
+                      hintStyle: const TextStyle(
+                          fontSize: 13, color: Color(0xFFA1A1AA)),
+                      prefixIcon: const Icon(Icons.search,
+                          size: 18, color: Color(0xFFA1A1AA)),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () =>
+                                  setState(() => _searchQuery = ''),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fingerprint,
+                        color: Theme.of(context).primaryColor, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_filteredUsers.length} user',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -1212,7 +1389,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final totalPages = (allFiltered.length / _pageSize).ceil();
     if (_currentPage > totalPages && totalPages > 0) _currentPage = totalPages;
     final startIndex = isMobile ? 0 : (_currentPage - 1) * _pageSize;
-    final endIndex = isMobile ? allFiltered.length : (startIndex + _pageSize).clamp(0, allFiltered.length);
+    final endIndex = isMobile
+        ? allFiltered.length
+        : (startIndex + _pageSize).clamp(0, allFiltered.length);
     final displayedUsers = allFiltered.sublist(startIndex, endIndex);
 
     return Container(
@@ -1229,100 +1408,199 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-      child: Column(
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < 600) {
-                  return _buildMobileUserList(displayedUsers);
-                }
-                return RepaintBoundary(
-                  key: _tableKey,
-                  child: SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(const Color(0xFFFAFAFA)),
-                            dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                              if (states.contains(WidgetState.hovered)) return const Color(0xFFF1F5F9);
-                              return null;
-                            }),
-                            dividerThickness: 0.5,
-                            showCheckboxColumn: false,
-                            headingRowHeight: 44,
-                            dataRowMinHeight: 42,
-                            dataRowMaxHeight: 48,
-                            columns: [
-                              const DataColumn(label: Expanded(child: Text('Photo', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              const DataColumn(label: Expanded(child: Text('ID', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.privilege, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.deviceName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.nameOnDevice, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.employeeName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.password, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              DataColumn(label: Expanded(child: Text(_l10n.cardCode, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                              const DataColumn(label: Expanded(child: Text('Vân tay', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF71717A))))),
-                            ],
-                          rows: displayedUsers.asMap().entries.map((entry) {
-                            final user = entry.value;
-                            final avatarUrl = _getEmployeeAvatarUrl(user);
-                            final avatarFullUrl = avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
-                            return DataRow(
-                              onSelectChanged: (_) => _showUserActionsDialog(user),
-                              cells: [
-                                DataCell(Center(
-                                  child: CircleAvatar(
-                                    radius: 18,
-                                    backgroundImage: avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
-                                    onBackgroundImageError: avatarFullUrl != null ? (_, __) {} : null,
-                                    backgroundColor: Colors.grey[200],
-                                    child: avatarFullUrl == null
-                                        ? Text(
-                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
-                                          )
-                                        : null,
-                                  ),
-                                )),
-                                DataCell(Center(child: Text(user.pin))),
-                                DataCell(Center(child: _buildPrivilegeChip(user.privilege))),
-                                DataCell(Center(child: Text(user.deviceName ?? '-'))),
-                                DataCell(Center(child: Text(user.name))),
-                                DataCell(Center(
-                                  child: user.employeeName != null
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.link, size: 14, color: Colors.green),
-                                            const SizedBox(width: 4),
-                                            Text(_getFullEmployeeName(user), style: const TextStyle(color: Colors.green)),
-                                          ],
-                                        )
-                                      : const Text('-', style: TextStyle(color: Colors.grey)),
-                                )),
-                                DataCell(Center(child: Text(user.password ?? '-'))),
-                                DataCell(Center(child: Text(user.cardNumber ?? '-'))),
-                                DataCell(Center(child: Text('${user.fingerprintCount}', style: TextStyle(color: user.fingerprintCount > 0 ? const Color(0xFFEA580C) : Colors.grey)))),
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) {
+                    return _buildMobileUserList(displayedUsers);
+                  }
+                  return RepaintBoundary(
+                    key: _tableKey,
+                    child: SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minWidth: constraints.maxWidth),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minWidth: constraints.maxWidth),
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(
+                                  const Color(0xFFFAFAFA)),
+                              dataRowColor:
+                                  WidgetStateProperty.resolveWith<Color?>(
+                                      (states) {
+                                if (states.contains(WidgetState.hovered))
+                                  return const Color(0xFFF1F5F9);
+                                return null;
+                              }),
+                              dividerThickness: 0.5,
+                              showCheckboxColumn: false,
+                              headingRowHeight: 44,
+                              dataRowMinHeight: 42,
+                              dataRowMaxHeight: 48,
+                              columns: [
+                                const DataColumn(
+                                    label: Expanded(
+                                        child: Text('Photo',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                const DataColumn(
+                                    label: Expanded(
+                                        child: Text('ID',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.privilege,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.deviceName,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.nameOnDevice,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.employeeName,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.password,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(_l10n.cardCode,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                const DataColumn(
+                                    label: Expanded(
+                                        child: Text('Vân tay',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
                               ],
-                            );
-                          }).toList(),
+                              rows: displayedUsers.asMap().entries.map((entry) {
+                                final user = entry.value;
+                                final avatarUrl = _getEmployeeAvatarUrl(user);
+                                final avatarFullUrl = avatarUrl != null
+                                    ? _apiService.getFileUrl(avatarUrl)
+                                    : null;
+                                return DataRow(
+                                  onSelectChanged: (_) =>
+                                      _showUserActionsDialog(user),
+                                  cells: [
+                                    DataCell(Center(
+                                      child: CircleAvatar(
+                                        radius: 18,
+                                        backgroundImage: avatarFullUrl != null
+                                            ? NetworkImage(avatarFullUrl)
+                                            : null,
+                                        onBackgroundImageError:
+                                            avatarFullUrl != null
+                                                ? (_, __) {}
+                                                : null,
+                                        backgroundColor: Colors.grey[200],
+                                        child: avatarFullUrl == null
+                                            ? Text(
+                                                user.name.isNotEmpty
+                                                    ? user.name[0].toUpperCase()
+                                                    : '?',
+                                                style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              )
+                                            : null,
+                                      ),
+                                    )),
+                                    DataCell(Center(child: Text(user.pin))),
+                                    DataCell(Center(
+                                        child: _buildPrivilegeChip(
+                                            user.privilege))),
+                                    DataCell(Center(
+                                        child: Text(user.deviceName ?? '-'))),
+                                    DataCell(Center(child: Text(user.name))),
+                                    DataCell(Center(
+                                      child: user.employeeName != null
+                                          ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.link,
+                                                    size: 14,
+                                                    color: Colors.green),
+                                                const SizedBox(width: 4),
+                                                Text(_getFullEmployeeName(user),
+                                                    style: const TextStyle(
+                                                        color: Colors.green)),
+                                              ],
+                                            )
+                                          : const Text('-',
+                                              style: TextStyle(
+                                                  color: Colors.grey)),
+                                    )),
+                                    DataCell(Center(
+                                        child: Text(user.password ?? '-'))),
+                                    DataCell(Center(
+                                        child: Text(user.cardNumber ?? '-'))),
+                                    DataCell(Center(
+                                        child: Text('${user.fingerprintCount}',
+                                            style: TextStyle(
+                                                color: user.fingerprintCount > 0
+                                                    ? const Color(0xFFEA580C)
+                                                    : Colors.grey)))),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            ),
+            if (totalPages > 1 && !isMobile)
+              _buildPagination(totalPages, allFiltered.length),
+          ],
         ),
-          if (totalPages > 1 && !isMobile) _buildPagination(totalPages, allFiltered.length),
-        ],
-      ),
       ),
     );
   }
@@ -1336,7 +1614,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       itemBuilder: (_, index) {
         final user = users[index];
         final avatarUrl = _getEmployeeAvatarUrl(user);
-        final avatarFullUrl = avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
+        final avatarFullUrl =
+            avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Container(
@@ -1356,43 +1635,104 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               borderRadius: BorderRadius.circular(12),
               onTap: () => _showUserActionsDialog(user),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
-                    onBackgroundImageError: avatarFullUrl != null ? (_, __) {} : null,
+                    backgroundImage: avatarFullUrl != null
+                        ? NetworkImage(avatarFullUrl)
+                        : null,
+                    onBackgroundImageError:
+                        avatarFullUrl != null ? (_, __) {} : null,
                     backgroundColor: Colors.grey[200],
                     child: avatarFullUrl == null
-                        ? Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 14))
+                        ? Text(
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14))
                         : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 2),
-                      Text([user.pin, user.deviceName ?? '', user.employeeName ?? 'Ch\u01b0a li\u00ean k\u1ebft'].where((s) => s.isNotEmpty).join(' \u00b7 '),
-                        style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 3),
-                      Row(children: [
-                        Icon(Icons.lock_outline, size: 12, color: user.password != null && user.password!.isNotEmpty ? const Color(0xFF16A34A) : const Color(0xFFD4D4D8)),
-                        const SizedBox(width: 2),
-                        Text('MK', style: TextStyle(fontSize: 10, color: user.password != null && user.password!.isNotEmpty ? const Color(0xFF16A34A) : const Color(0xFFA1A1AA))),
-                        const SizedBox(width: 8),
-                        Icon(Icons.credit_card, size: 12, color: user.cardNumber != null && user.cardNumber!.isNotEmpty ? const Color(0xFF2563EB) : const Color(0xFFD4D4D8)),
-                        const SizedBox(width: 2),
-                        Text('Thẻ', style: TextStyle(fontSize: 10, color: user.cardNumber != null && user.cardNumber!.isNotEmpty ? const Color(0xFF2563EB) : const Color(0xFFA1A1AA))),
-                        const SizedBox(width: 8),
-                        Icon(Icons.fingerprint, size: 12, color: user.fingerprintCount > 0 ? const Color(0xFFEA580C) : const Color(0xFFD4D4D8)),
-                        const SizedBox(width: 2),
-                        Text('${user.fingerprintCount} vân tay', style: TextStyle(fontSize: 10, color: user.fingerprintCount > 0 ? const Color(0xFFEA580C) : const Color(0xFFA1A1AA))),
-                      ]),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              user.name.isNotEmpty
+                                  ? user.name
+                                  : 'User ${user.pin}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                              [
+                                user.pin,
+                                user.deviceName ?? '',
+                                user.employeeName ??
+                                    'Ch\u01b0a li\u00ean k\u1ebft'
+                              ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                              style: const TextStyle(
+                                  color: Color(0xFF71717A), fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 3),
+                          Row(children: [
+                            Icon(Icons.lock_outline,
+                                size: 12,
+                                color: user.password != null &&
+                                        user.password!.isNotEmpty
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFFD4D4D8)),
+                            const SizedBox(width: 2),
+                            Text('MK',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: user.password != null &&
+                                            user.password!.isNotEmpty
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFFA1A1AA))),
+                            const SizedBox(width: 8),
+                            Icon(Icons.credit_card,
+                                size: 12,
+                                color: user.cardNumber != null &&
+                                        user.cardNumber!.isNotEmpty
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFFD4D4D8)),
+                            const SizedBox(width: 2),
+                            Text('Thẻ',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: user.cardNumber != null &&
+                                            user.cardNumber!.isNotEmpty
+                                        ? const Color(0xFF2563EB)
+                                        : const Color(0xFFA1A1AA))),
+                            const SizedBox(width: 8),
+                            Icon(Icons.fingerprint,
+                                size: 12,
+                                color: user.fingerprintCount > 0
+                                    ? const Color(0xFFEA580C)
+                                    : const Color(0xFFD4D4D8)),
+                            const SizedBox(width: 2),
+                            Text('${user.fingerprintCount} vân tay',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: user.fingerprintCount > 0
+                                        ? const Color(0xFFEA580C)
+                                        : const Color(0xFFA1A1AA))),
+                          ]),
+                        ]),
                   ),
                   _buildPrivilegeChip(user.privilege),
                   const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: Color(0xFFA1A1AA)),
                 ]),
               ),
             ),
@@ -1420,13 +1760,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           ),
           child: Text(
             'Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, totalItems)} / $totalItems',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF16A34A)),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF16A34A)),
           ),
         );
         final pageSizeSelector = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            Text('Hiển thị:',
+                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             const SizedBox(width: 8),
             Container(
               height: 34,
@@ -1441,9 +1785,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   value: _pageSize,
                   isDense: true,
                   style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                  items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                  items: _pageSizeOptions
+                      .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                      .toList(),
                   onChanged: (v) {
-                    if (v != null) setState(() { _pageSize = v; _currentPage = 1; });
+                    if (v != null)
+                      setState(() {
+                        _pageSize = v;
+                        _currentPage = 1;
+                      });
                   },
                 ),
               ),
@@ -1453,9 +1803,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         final pageNav = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() => _currentPage = 1)),
+            _buildPageNavBtn(Icons.first_page, _currentPage > 1,
+                () => setState(() => _currentPage = 1)),
             const SizedBox(width: 4),
-            _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+            _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                () => setState(() => _currentPage--)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -1465,19 +1817,36 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               ),
               child: Text(
                 '$_currentPage / $totalPages',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white),
               ),
             ),
             const SizedBox(width: 8),
-            _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
+            _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages,
+                () => setState(() => _currentPage++)),
             const SizedBox(width: 4),
-            _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() => _currentPage = totalPages)),
+            _buildPageNavBtn(Icons.last_page, _currentPage < totalPages,
+                () => setState(() => _currentPage = totalPages)),
           ],
         );
         if (isMobile) {
-          return Column(children: [infoChip, const SizedBox(height: 8), pageSizeSelector, const SizedBox(height: 8), pageNav]);
+          return Column(children: [
+            infoChip,
+            const SizedBox(height: 8),
+            pageSizeSelector,
+            const SizedBox(height: 8),
+            pageNav
+          ]);
         }
-        return Row(children: [infoChip, const SizedBox(width: 16), pageSizeSelector, const Spacer(), pageNav]);
+        return Row(children: [
+          infoChip,
+          const SizedBox(width: 16),
+          pageSizeSelector,
+          const Spacer(),
+          pageNav
+        ]);
       }),
     );
   }
@@ -1491,7 +1860,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: enabled ? const Color(0xFF52525B) : const Color(0xFFCBD5E1)),
+          child: Icon(icon,
+              size: 18,
+              color:
+                  enabled ? const Color(0xFF52525B) : const Color(0xFFCBD5E1)),
         ),
       ),
     );
@@ -1503,7 +1875,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final headerWidget = Row(
       children: [
         CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+          backgroundColor:
+              Theme.of(context).primaryColor.withValues(alpha: 0.2),
           child: Text(
             user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin,
             style: TextStyle(
@@ -1517,7 +1890,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               Text(
                 'PIN: ${user.pin} | ${user.privilegeText}',
                 style: TextStyle(
@@ -1544,7 +1918,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               Icons.person,
               'Liên kết NV',
               user.employeeName ?? 'Chưa liên kết',
-              valueColor: user.employeeName != null ? Colors.green : Colors.orange,
+              valueColor:
+                  user.employeeName != null ? Colors.green : Colors.orange,
             ),
           ],
         ),
@@ -1610,8 +1985,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           backgroundColor: Colors.red,
           child: Icon(Icons.delete, color: Colors.white, size: 20),
         ),
-        title: const Text('Xóa người dùng',
-            style: TextStyle(color: Colors.red)),
+        title:
+            const Text('Xóa người dùng', style: TextStyle(color: Colors.red)),
         subtitle: const Text('Xóa khỏi máy chấm công'),
         onTap: () {
           Navigator.pop(context);
@@ -1627,7 +2002,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           insetPadding: EdgeInsets.zero,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}'),
+              title:
+                  Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}'),
               leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(dialogContext),
@@ -1652,7 +2028,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         builder: (context) => AlertDialog(
           title: headerWidget,
           content: SizedBox(
-            width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+            width: math
+                .min(400, MediaQuery.of(context).size.width - 32)
+                .toDouble(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2024,11 +2402,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.fingerprint, color: Colors.blue, size: 20),
+                                  const Icon(Icons.fingerprint,
+                                      color: Colors.blue, size: 20),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Đã đăng ký: ${enrolledFingers.length}/10 vân tay',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -2043,12 +2424,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                                  const Icon(Icons.info_outline,
+                                      color: Colors.orange, size: 16),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'Chọn ngón tay → Đăng ký / Xóa',
-                                      style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.orange.shade700),
                                     ),
                                   ),
                                 ],
@@ -2059,13 +2443,27 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Container(width: 16, height: 16, decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4))),
+                                Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        borderRadius:
+                                            BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
-                                const Text('Đã đăng ký', style: TextStyle(fontSize: 11)),
+                                const Text('Đã đăng ký',
+                                    style: TextStyle(fontSize: 11)),
                                 const SizedBox(width: 16),
-                                Container(width: 16, height: 16, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
+                                Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius:
+                                            BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
-                                const Text('Chưa đăng ký', style: TextStyle(fontSize: 11)),
+                                const Text('Chưa đăng ký',
+                                    style: TextStyle(fontSize: 11)),
                               ],
                             ),
                             const SizedBox(height: 20),
@@ -2082,20 +2480,30 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.purple.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                                  border: Border.all(
+                                      color:
+                                          Colors.purple.withValues(alpha: 0.3)),
                                 ),
                                 child: Column(
                                   children: [
                                     Text(
                                       fingerNames[selectedFinger!],
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.purple),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Colors.purple),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      enrolledFingers.contains(selectedFinger) ? 'Đã đăng ký ✓' : 'Chưa đăng ký',
+                                      enrolledFingers.contains(selectedFinger)
+                                          ? 'Đã đăng ký ✓'
+                                          : 'Chưa đăng ký',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: enrolledFingers.contains(selectedFinger) ? Colors.green : Colors.grey,
+                                        color: enrolledFingers
+                                                .contains(selectedFinger)
+                                            ? Colors.green
+                                            : Colors.grey,
                                       ),
                                     ),
                                   ],
@@ -2108,29 +2516,48 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       onPressed: () async {
-                                        await _enrollFingerprintAndRefresh(user, selectedFinger!, setDialogState, enrolledFingers);
+                                        await _enrollFingerprintAndRefresh(
+                                            user,
+                                            selectedFinger!,
+                                            setDialogState,
+                                            enrolledFingers);
                                       },
                                       icon: const Icon(Icons.add, size: 18),
                                       label: Text(
-                                        enrolledFingers.contains(selectedFinger) ? 'Đăng ký lại' : 'Đăng ký',
+                                        enrolledFingers.contains(selectedFinger)
+                                            ? 'Đăng ký lại'
+                                            : 'Đăng ký',
                                         style: const TextStyle(fontSize: 13),
                                       ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.purple,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12),
                                       ),
                                     ),
                                   ),
-                                  if (enrolledFingers.contains(selectedFinger)) ...[
+                                  if (enrolledFingers
+                                      .contains(selectedFinger)) ...[
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: OutlinedButton.icon(
-                                        onPressed: () => _deleteSingleFingerprint(user, selectedFinger!, setDialogState, enrolledFingers),
-                                        icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                        label: const Text('Xóa', style: TextStyle(fontSize: 13, color: Colors.red)),
+                                        onPressed: () =>
+                                            _deleteSingleFingerprint(
+                                                user,
+                                                selectedFinger!,
+                                                setDialogState,
+                                                enrolledFingers),
+                                        icon: const Icon(Icons.delete,
+                                            size: 18, color: Colors.red),
+                                        label: const Text('Xóa',
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.red)),
                                         style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.red),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          side: const BorderSide(
+                                              color: Colors.red),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12),
                                         ),
                                       ),
                                     ),
@@ -2143,8 +2570,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             if (enrolledFingers.isNotEmpty)
                               TextButton.icon(
                                 onPressed: () => _deleteAllFingerprints(user),
-                                icon: const Icon(Icons.delete_sweep, color: Colors.red, size: 18),
-                                label: const Text('Xóa tất cả', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                icon: const Icon(Icons.delete_sweep,
+                                    color: Colors.red, size: 18),
+                                label: const Text('Xóa tất cả',
+                                    style: TextStyle(
+                                        color: Colors.red, fontSize: 12)),
                               ),
                           ],
                         ),
@@ -2428,17 +2858,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     try {
       final freshDevices = await _apiService.getDevices(storeOnly: true);
       final freshDevice = freshDevices.cast<Map<String, dynamic>?>().firstWhere(
-        (d) => d!['id'] == user.deviceId,
-        orElse: () => null,
-      );
+            (d) => d!['id'] == user.deviceId,
+            orElse: () => null,
+          );
       if (freshDevice != null) {
         final lastOnline = freshDevice['lastOnline'] != null
-            ? DateTime.tryParse(freshDevice['lastOnline'].toString().endsWith('Z')
-                ? freshDevice['lastOnline'].toString()
-                : '${freshDevice['lastOnline']}Z')
+            ? DateTime.tryParse(
+                freshDevice['lastOnline'].toString().endsWith('Z')
+                    ? freshDevice['lastOnline'].toString()
+                    : '${freshDevice['lastOnline']}Z')
             : null;
         if (lastOnline != null && !_isDeviceOnline(lastOnline)) {
-          _showError('Máy chấm công đang offline. Vui lòng kiểm tra kết nối mạng của thiết bị và thử lại.');
+          _showError(
+              'Máy chấm công đang offline. Vui lòng kiểm tra kết nối mạng của thiết bị và thử lại.');
           return;
         }
       }
@@ -2671,9 +3103,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                       : null,
                                 ),
                                 child: Icon(
-                                  hasFace
-                                      ? Icons.face
-                                      : Icons.face_outlined,
+                                  hasFace ? Icons.face : Icons.face_outlined,
                                   size: 50,
                                   color: hasFace
                                       ? Colors.green.shade600
@@ -2740,7 +3170,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             },
                             icon: const Icon(Icons.face, size: 20),
                             label: Text(
-                              hasFace ? 'Đăng ký lại khuôn mặt' : 'Đăng ký khuôn mặt',
+                              hasFace
+                                  ? 'Đăng ký lại khuôn mặt'
+                                  : 'Đăng ký khuôn mặt',
                               style: const TextStyle(fontSize: 14),
                             ),
                             style: ElevatedButton.styleFrom(
@@ -2926,7 +3358,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         return;
       }
 
-      _showSuccess('Đã gửi lệnh đồng bộ. Đang chờ máy trả dữ liệu khuôn mặt...');
+      _showSuccess(
+          'Đã gửi lệnh đồng bộ. Đang chờ máy trả dữ liệu khuôn mặt...');
 
       List<Map<String, dynamic>> faces = [];
       for (var i = 0; i < 10; i++) {
@@ -2944,7 +3377,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       if (faces.isNotEmpty) {
         _showSuccess('Đã đồng bộ khuôn mặt cho ${user.name}');
       } else {
-        _showError('Chưa nhận được dữ liệu khuôn mặt. Hãy đăng ký trực tiếp trên máy rồi thử đồng bộ lại.');
+        _showError(
+            'Chưa nhận được dữ liệu khuôn mặt. Hãy đăng ký trực tiếp trên máy rồi thử đồng bộ lại.');
       }
     } catch (e) {
       if (!mounted) return;
@@ -2974,8 +3408,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
     if (confirm != true) return;
 
-    final success = await _apiService.deleteDeviceUserFace(
-        user.deviceId, user.pin);
+    final success =
+        await _apiService.deleteDeviceUserFace(user.deviceId, user.pin);
     if (success) {
       _showSuccess('Đã gửi lệnh xóa khuôn mặt của ${user.name}');
       setDialogState(() {
@@ -3034,20 +3468,41 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       );
 
       final titleStyle = excel_lib.CellStyle(bold: true, fontSize: 14);
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value =
-          excel_lib.TextCellValue('Danh sách nhân sự chấm công');
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = titleStyle;
-      sheet.merge(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+      sheet
+          .cell(
+              excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = excel_lib.TextCellValue('Danh sách nhân sự chấm công');
+      sheet
+          .cell(
+              excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .cellStyle = titleStyle;
+      sheet.merge(
+          excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
           excel_lib.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 0));
 
-      sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-          excel_lib.TextCellValue('${data.length} nhân viên · Xuất lúc ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
-      sheet.merge(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1),
+      sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: 1))
+              .value =
+          excel_lib.TextCellValue(
+              '${data.length} nhân viên · Xuất lúc ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+      sheet.merge(
+          excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1),
           excel_lib.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 1));
 
-      final headers = ['STT', 'ID', 'Quyền', 'Tên thiết bị', 'Tên trong máy', 'Tên nhân viên', 'Mật khẩu', 'Mã thẻ từ'];
+      final headers = [
+        'STT',
+        'ID',
+        'Quyền',
+        'Tên thiết bị',
+        'Tên trong máy',
+        'Tên nhân viên',
+        'Mật khẩu',
+        'Mã thẻ từ'
+      ];
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+        final cell = sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
         cell.value = excel_lib.TextCellValue(headers[i]);
         cell.cellStyle = headerStyle;
       }
@@ -3066,28 +3521,37 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         final user = data[i];
         final row = i + 4;
 
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
           ..value = excel_lib.IntCellValue(i + 1)
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
           ..value = excel_lib.TextCellValue(user.pin)
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-          ..value = excel_lib.TextCellValue(user.privilege == 14 ? 'Quản trị viên' : 'Người dùng')
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+          ..value = excel_lib.TextCellValue(
+              user.privilege == 14 ? 'Quản trị viên' : 'Người dùng')
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
           ..value = excel_lib.TextCellValue(user.deviceName ?? '-')
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
           ..value = excel_lib.TextCellValue(user.name)
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row))
           ..value = excel_lib.TextCellValue(_getFullEmployeeName(user))
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row))
           ..value = excel_lib.TextCellValue(user.password ?? '-')
           ..cellStyle = dataCellStyle;
-        sheet.cell(excel_lib.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row))
+        sheet.cell(
+            excel_lib.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row))
           ..value = excel_lib.TextCellValue(user.cardNumber ?? '-')
           ..cellStyle = dataCellStyle;
       }
@@ -3095,8 +3559,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       final bytes = excelFile.encode();
       if (bytes == null) throw Exception('Không thể tạo file Excel');
 
-      final fileName = 'NhanSuADMS_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
-      await file_saver.saveFileBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final fileName =
+          'NhanSuADMS_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
+      await file_saver.saveFileBytes(bytes, fileName,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
       if (mounted) {
         _showSuccess('Đã xuất Excel: $fileName (${data.length} nhân viên)');
@@ -3118,7 +3584,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     setState(() => _isExporting = true);
 
     try {
-      final boundary = _tableKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = _tableKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) {
         _showError('Không tìm thấy bảng dữ liệu để chụp');
         return;
@@ -3132,8 +3599,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       }
       final pngBytes = byteData.buffer.asUint8List();
 
-      final fileName = 'NhanSuADMS_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveFileBytes(pngBytes, fileName, 'image/png');
+      final fileName =
+          'NhanSuADMS_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
+      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
 
       if (mounted) {
         _showSuccess('Đã xuất ảnh PNG: $fileName');
@@ -3376,139 +3844,155 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           final isMobileForm = Responsive.isMobile(context);
 
           Widget formFields = Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Thiết bị
+              DropdownButtonFormField<String>(
+                initialValue: selectedDeviceId,
+                decoration: const InputDecoration(
+                  labelText: 'Tên thiết bị *',
+                  prefixIcon: Icon(Icons.devices),
+                  border: OutlineInputBorder(),
+                ),
+                items: _devices
+                    .map((d) => DropdownMenuItem(
+                          value: d.id,
+                          child: Text(d.deviceName),
+                        ))
+                    .toList(),
+                onChanged: isEditing
+                    ? null
+                    : (value) => setDialogState(() => selectedDeviceId = value),
+              ),
+              const SizedBox(height: 16),
+
+              // Row 1: PIN và Quyền
+              Row(
+                children: [
+                  // PIN/ID máy chấm công - Ẩn đi vì máy sẽ tự cấp khi sync
+                  // Nếu muốn hiện lại, bỏ comment phần dưới
+                  // Expanded(
+                  //   child: TextField(
+                  //     controller: pinController,
+                  //     decoration: const InputDecoration(
+                  //       labelText: 'ID máy chấm công (PIN)',
+                  //       prefixIcon: Icon(Icons.pin),
+                  //       hintText: 'Để trống sẽ tự sinh',
+                  //       border: OutlineInputBorder(),
+                  //       helperText: 'Máy chấm công sẽ tự cấp ID khi đồng bộ',
+                  //     ),
+                  //     enabled: !isEditing,
+                  //   ),
+                  // ),
+                  // const SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: selectedPrivilege == 14 ? 14 : 0,
+                      decoration: const InputDecoration(
+                        labelText: 'Quyền',
+                        prefixIcon: Icon(Icons.security),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Người dùng')),
+                        DropdownMenuItem(
+                            value: 14, child: Text('Quản trị viên')),
+                      ],
+                      onChanged: (value) =>
+                          setDialogState(() => selectedPrivilege = value ?? 0),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Tên nhân viên (có dấu)
+              TextField(
+                controller: employeeNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên nhân viên (có dấu)',
+                  prefixIcon: Icon(Icons.person),
+                  hintText: 'VD: Nguyễn Văn A',
+                  border: OutlineInputBorder(),
+                  helperText:
+                      'Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới',
+                ),
+                onChanged: (value) {
+                  if (autoGenerateName) {
+                    setDialogState(() {
+                      nameController.text = removeVietnameseAccents(value);
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Tên trong máy (không dấu) với checkbox tự động
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên trong máy (không dấu) *',
+                        prefixIcon: Icon(Icons.badge),
+                        hintText: 'VD: Nguyen Van A',
+                        border: OutlineInputBorder(),
+                      ),
+                      enabled: !autoGenerateName || isEditing,
+                    ),
+                  ),
+                  if (!isEditing) ...[
+                    const SizedBox(width: 8),
+                    Column(
+                      children: [
+                        Checkbox(
+                          value: autoGenerateName,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              autoGenerateName = value ?? true;
+                              if (autoGenerateName &&
+                                  employeeNameController.text.isNotEmpty) {
+                                nameController.text = removeVietnameseAccents(
+                                    employeeNameController.text);
+                              }
+                            });
+                          },
+                        ),
+                        const Text('Tự động', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 2: Mật khẩu và Mã thẻ từ
+              if (isMobileForm) ...[
+                TextField(
+                  controller: passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mật khẩu',
+                    prefixIcon: Icon(Icons.lock),
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: cardController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mã thẻ từ',
+                    prefixIcon: Icon(Icons.credit_card),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ] else ...[
+                Row(
                   children: [
-                    // Thiết bị
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedDeviceId,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên thiết bị *',
-                        prefixIcon: Icon(Icons.devices),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _devices
-                          .map((d) => DropdownMenuItem(
-                                value: d.id,
-                                child: Text(d.deviceName),
-                              ))
-                          .toList(),
-                      onChanged: isEditing
-                          ? null
-                          : (value) =>
-                              setDialogState(() => selectedDeviceId = value),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Row 1: PIN và Quyền
-                    Row(
-                      children: [
-                        // PIN/ID máy chấm công - Ẩn đi vì máy sẽ tự cấp khi sync
-                        // Nếu muốn hiện lại, bỏ comment phần dưới
-                        // Expanded(
-                        //   child: TextField(
-                        //     controller: pinController,
-                        //     decoration: const InputDecoration(
-                        //       labelText: 'ID máy chấm công (PIN)',
-                        //       prefixIcon: Icon(Icons.pin),
-                        //       hintText: 'Để trống sẽ tự sinh',
-                        //       border: OutlineInputBorder(),
-                        //       helperText: 'Máy chấm công sẽ tự cấp ID khi đồng bộ',
-                        //     ),
-                        //     enabled: !isEditing,
-                        //   ),
-                        // ),
-                        // const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            initialValue: selectedPrivilege == 14 ? 14 : 0,
-                            decoration: const InputDecoration(
-                              labelText: 'Quyền',
-                              prefixIcon: Icon(Icons.security),
-                              border: OutlineInputBorder(),
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 0, child: Text('Người dùng')),
-                              DropdownMenuItem(
-                                  value: 14, child: Text('Quản trị viên')),
-                            ],
-                            onChanged: (value) => setDialogState(
-                                () => selectedPrivilege = value ?? 0),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tên nhân viên (có dấu)
-                    TextField(
-                      controller: employeeNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên nhân viên (có dấu)',
-                        prefixIcon: Icon(Icons.person),
-                        hintText: 'VD: Nguyễn Văn A',
-                        border: OutlineInputBorder(),
-                        helperText:
-                            'Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới',
-                      ),
-                      onChanged: (value) {
-                        if (autoGenerateName) {
-                          setDialogState(() {
-                            nameController.text =
-                                removeVietnameseAccents(value);
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tên trong máy (không dấu) với checkbox tự động
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Tên trong máy (không dấu) *',
-                              prefixIcon: Icon(Icons.badge),
-                              hintText: 'VD: Nguyen Van A',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: !autoGenerateName || isEditing,
-                          ),
-                        ),
-                        if (!isEditing) ...[
-                          const SizedBox(width: 8),
-                          Column(
-                            children: [
-                              Checkbox(
-                                value: autoGenerateName,
-                                onChanged: (value) {
-                                  setDialogState(() {
-                                    autoGenerateName = value ?? true;
-                                    if (autoGenerateName &&
-                                        employeeNameController
-                                            .text.isNotEmpty) {
-                                      nameController.text =
-                                          removeVietnameseAccents(
-                                              employeeNameController.text);
-                                    }
-                                  });
-                                },
-                              ),
-                              const Text('Tự động',
-                                  style: TextStyle(fontSize: 12)),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Row 2: Mật khẩu và Mã thẻ từ
-                    if (isMobileForm) ...[
-                      TextField(
+                    Expanded(
+                      child: TextField(
                         controller: passwordController,
                         decoration: const InputDecoration(
                           labelText: 'Mật khẩu',
@@ -3517,8 +4001,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         ),
                         obscureText: true,
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextField(
                         controller: cardController,
                         decoration: const InputDecoration(
                           labelText: 'Mã thẻ từ',
@@ -3526,56 +4012,32 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           border: OutlineInputBorder(),
                         ),
                       ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: passwordController,
-                              decoration: const InputDecoration(
-                                labelText: 'Mật khẩu',
-                                prefixIcon: Icon(Icons.lock),
-                                border: OutlineInputBorder(),
-                              ),
-                              obscureText: true,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: cardController,
-                              decoration: const InputDecoration(
-                                labelText: 'Mã thẻ từ',
-                                prefixIcon: Icon(Icons.credit_card),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    const SizedBox(height: 16),
-                    // Hiển thị UID nếu đang edit
-                    if (isEditing) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fingerprint, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text('UID: ${user.id}',
-                                style: const TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
-                );
+                ),
+              ],
+
+              const SizedBox(height: 16),
+              // Hiển thị UID nếu đang edit
+              if (isEditing) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.fingerprint, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text('UID: ${user.id}',
+                          style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          );
 
           Future<void> onSubmit() async {
             if (nameController.text.isEmpty) {
@@ -3596,7 +4058,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             };
 
             debugPrint('=== CREATE DEVICE USER ===');
-            debugPrint('PIN: ${pinController.text} (nếu trống, backend tự sinh)');
+            debugPrint(
+                'PIN: ${pinController.text} (nếu trống, backend tự sinh)');
             debugPrint('Name: ${nameController.text}');
             debugPrint('CardNumber: ${cardController.text}');
             debugPrint('Privilege: $selectedPrivilege');
@@ -3649,10 +4112,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           }
 
           return AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             title: Text(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới'),
             content: SizedBox(
-              width: math.min(500, MediaQuery.of(context).size.width - 32).toDouble(),
+              width: math
+                  .min(500, MediaQuery.of(context).size.width - 32)
+                  .toDouble(),
               child: SingleChildScrollView(child: formFields),
             ),
             actions: [
@@ -4042,10 +4508,11 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
         if (_isCancelled) return;
 
         if (status != null) {
-          final commandStatus =
-              status['status']?.toString(); // Backend returns string: Created, Sent, Success, Failed
+          final commandStatus = status['status']
+              ?.toString(); // Backend returns string: Created, Sent, Success, Failed
 
-          if ((commandStatus == 'Sent' || commandStatus == '1') && _status != 'scanning') {
+          if ((commandStatus == 'Sent' || commandStatus == '1') &&
+              _status != 'scanning') {
             // Lệnh đã gửi đến máy → máy đang chờ quét vân tay
             setState(() {
               _status = 'scanning';
@@ -4072,7 +4539,9 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
           if (commandStatus == 'Failed' || commandStatus == '3') {
             // Failed
             final errorMsg = status['errorMessage'] as String?;
-            final displayError = (errorMsg == null || errorMsg.isEmpty || errorMsg == 'Command executed successfully')
+            final displayError = (errorMsg == null ||
+                    errorMsg.isEmpty ||
+                    errorMsg == 'Command executed successfully')
                 ? 'Vui lòng đặt ngón tay lên cảm biến và thử lại.'
                 : errorMsg;
             setState(() {
@@ -4395,7 +4864,8 @@ class _FaceEnrollmentProgressDialogState
         if (status != null) {
           final commandStatus = status['status']?.toString();
 
-          if ((commandStatus == 'Sent' || commandStatus == '1') && _status != 'scanning') {
+          if ((commandStatus == 'Sent' || commandStatus == '1') &&
+              _status != 'scanning') {
             setState(() {
               _status = 'scanning';
               _message =
@@ -4418,7 +4888,9 @@ class _FaceEnrollmentProgressDialogState
 
           if (commandStatus == 'Failed' || commandStatus == '3') {
             final errorMsg = status['errorMessage'] as String?;
-            final displayError = (errorMsg == null || errorMsg.isEmpty || errorMsg == 'Command executed successfully')
+            final displayError = (errorMsg == null ||
+                    errorMsg.isEmpty ||
+                    errorMsg == 'Command executed successfully')
                 ? 'Vui lòng đứng trước camera máy chấm công và thử lại.'
                 : errorMsg;
             setState(() {

@@ -145,3 +145,53 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+
+  android-release:
+    name: Android Release (APK)
+    max_build_duration: 60
+    instance_type: linux_x2
+    working_directory: flutter_client
+
+    environment:
+      flutter: stable
+      java: 17
+      vars:
+        PACKAGE_NAME: "vn.sana.sbox"
+      # To sign the APK, add these groups in Codemagic UI → Environment variables:
+      #   group: android_keystore
+      #     CM_KEYSTORE_PATH, CM_KEY_ALIAS, CM_KEY_PASSWORD, CM_STORE_PASSWORD
+      # groups:
+      #   - android_keystore
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build release APK
+        script: |
+          flutter build apk --release \
+            --build-name=1.0.0 \
+            --build-number=$PROJECT_BUILD_NUMBER
+
+      # Uncomment the block below once you add android_keystore env group in Codemagic UI
+      # - name: Sign APK
+      #   script: |
+      #     jarsigner -verbose \
+      #       -sigalg SHA256withRSA -digestalg SHA-256 \
+      #       -keystore "$CM_KEYSTORE_PATH" \
+      #       -storepass "$CM_STORE_PASSWORD" \
+      #       -keypass "$CM_KEY_PASSWORD" \
+      #       build/app/outputs/flutter-apk/app-release.apk \
+      #       "$CM_KEY_ALIAS"
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+      - build/app/outputs/flutter-apk/app-release.apk.sha1
+
+    publishing:
+      email:
+        recipients:
+          - $CM_SUBMITTER_EMAIL
+        notify:
+          success: true
+          failure: true

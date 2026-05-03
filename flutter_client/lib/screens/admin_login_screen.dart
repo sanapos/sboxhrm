@@ -45,7 +45,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    ).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
     _loadSavedCredentials();
   }
@@ -115,10 +116,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       if (success && mounted) {
         await _saveCredentials();
         final role = authProvider.userRole;
-        if (role != 'SuperAdmin' && role != 'Agent' && role != 'Admin' && role != 'Director') {
+        if (role != 'SuperAdmin' &&
+            role != 'Agent' &&
+            role != 'Admin' &&
+            role != 'Director') {
           await authProvider.logout();
           setState(() {
-            _errorMessage = 'Tài khoản không có quyền truy cập quản trị hệ thống';
+            _errorMessage =
+                'Tài khoản không có quyền truy cập quản trị hệ thống';
           });
         }
       } else if (!success && mounted) {
@@ -156,7 +161,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       if (mounted) {
         if (result['isSuccess'] == true) {
           setState(() {
-            _successMessage = result['data'] ?? 'Tạo SuperAdmin thành công! Hãy đăng nhập.';
+            _successMessage =
+                result['data'] ?? 'Tạo SuperAdmin thành công! Hãy đăng nhập.';
             _isSetupMode = false;
             _confirmPasswordController.clear();
             _fullNameController.clear();
@@ -189,7 +195,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0C0C1D), Color(0xFF1A1035), Color(0xFF0C0C1D)],
+                colors: [
+                  Color(0xFF0C0C1D),
+                  Color(0xFF1A1035),
+                  Color(0xFF0C0C1D)
+                ],
               ),
             ),
           ),
@@ -204,7 +214,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [const Color(0xFF7C3AED).withValues(alpha: 0.12), Colors.transparent],
+                  colors: [
+                    const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                    Colors.transparent
+                  ],
                 ),
               ),
             ),
@@ -218,7 +231,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [const Color(0xFF6366F1).withValues(alpha: 0.10), Colors.transparent],
+                  colors: [
+                    const Color(0xFF6366F1).withValues(alpha: 0.10),
+                    Colors.transparent
+                  ],
                 ),
               ),
             ),
@@ -235,7 +251,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 height: 3 + r.nextDouble() * 3,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06 + r.nextDouble() * 0.08),
+                  color: Colors.white
+                      .withValues(alpha: 0.06 + r.nextDouble() * 0.08),
                 ),
               ),
             );
@@ -245,7 +262,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                 child: FadeTransition(
                   opacity: _fadeAnim,
                   child: SlideTransition(
@@ -264,7 +282,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08)),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.3),
@@ -278,21 +297,29 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                               child: Form(
                                 key: _formKey,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     // Admin badge
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                                        color: const Color(0xFF7C3AED)
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.2)),
+                                        border: Border.all(
+                                            color: const Color(0xFF7C3AED)
+                                                .withValues(alpha: 0.2)),
                                       ),
                                       child: Row(
                                         children: [
                                           Icon(
-                                            _isSetupMode ? Icons.rocket_launch_rounded : Icons.shield_rounded,
-                                            color: const Color(0xFFA78BFA), size: 18,
+                                            _isSetupMode
+                                                ? Icons.rocket_launch_rounded
+                                                : Icons.shield_rounded,
+                                            color: const Color(0xFFA78BFA),
+                                            size: 18,
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(
@@ -300,7 +327,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                               _isSetupMode
                                                   ? 'Khởi tạo tài khoản SuperAdmin đầu tiên cho hệ thống'
                                                   : 'Khu vực quản trị dành cho SuperAdmin và Agent',
-                                              style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 12),
+                                              style: const TextStyle(
+                                                  color: Color(0xFFA78BFA),
+                                                  fontSize: 12),
                                             ),
                                           ),
                                         ],
@@ -312,17 +341,27 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF16A34A).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.35)),
+                                          color: const Color(0xFF16A34A)
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: const Color(0xFF16A34A)
+                                                  .withValues(alpha: 0.35)),
                                         ),
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF86EFAC), size: 20),
+                                            const Icon(
+                                                Icons
+                                                    .check_circle_outline_rounded,
+                                                color: Color(0xFF86EFAC),
+                                                size: 20),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(_successMessage!,
-                                                  style: const TextStyle(color: Color(0xFF86EFAC), fontSize: 13)),
+                                                  style: const TextStyle(
+                                                      color: Color(0xFF86EFAC),
+                                                      fontSize: 13)),
                                             ),
                                           ],
                                         ),
@@ -334,17 +373,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFDC2626).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.35)),
+                                          color: const Color(0xFFDC2626)
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: const Color(0xFFDC2626)
+                                                  .withValues(alpha: 0.35)),
                                         ),
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFFCA5A5), size: 20),
+                                            const Icon(
+                                                Icons.error_outline_rounded,
+                                                color: Color(0xFFFCA5A5),
+                                                size: 20),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(_errorMessage!,
-                                                  style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13)),
+                                                  style: const TextStyle(
+                                                      color: Color(0xFFFCA5A5),
+                                                      fontSize: 13)),
                                             ),
                                           ],
                                         ),
@@ -367,10 +415,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                     _buildGlassField(
                                       controller: _emailController,
                                       label: 'Email',
-                                      hint: _isSetupMode ? 'Nhập email SuperAdmin' : 'Nhập email quản trị',
+                                      hint: _isSetupMode
+                                          ? 'Nhập email SuperAdmin'
+                                          : 'Nhập email quản trị',
                                       icon: Icons.email_rounded,
                                       keyboardType: TextInputType.emailAddress,
-                                      validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập email' : null,
+                                      validator: (v) => (v == null || v.isEmpty)
+                                          ? 'Vui lòng nhập email'
+                                          : null,
                                     ),
                                     const SizedBox(height: 18),
 
@@ -383,14 +435,23 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       obscure: _obscurePassword,
                                       suffixIcon: IconButton(
                                         icon: Icon(
-                                          _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                          color: Colors.white38, size: 20,
+                                          _obscurePassword
+                                              ? Icons.visibility_off_rounded
+                                              : Icons.visibility_rounded,
+                                          color: Colors.white38,
+                                          size: 20,
                                         ),
-                                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                        onPressed: () => setState(() =>
+                                            _obscurePassword =
+                                                !_obscurePassword),
                                       ),
                                       validator: (v) {
-                                        if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
-                                        if (v.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
+                                        if (v == null || v.isEmpty) {
+                                          return 'Vui lòng nhập mật khẩu';
+                                        }
+                                        if (v.length < 6) {
+                                          return 'Mật khẩu phải có ít nhất 6 ký tự';
+                                        }
                                         return null;
                                       },
                                     ),
@@ -406,14 +467,23 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                         obscure: _obscureConfirmPassword,
                                         suffixIcon: IconButton(
                                           icon: Icon(
-                                            _obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                            color: Colors.white38, size: 20,
+                                            _obscureConfirmPassword
+                                                ? Icons.visibility_off_rounded
+                                                : Icons.visibility_rounded,
+                                            color: Colors.white38,
+                                            size: 20,
                                           ),
-                                          onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                          onPressed: () => setState(() =>
+                                              _obscureConfirmPassword =
+                                                  !_obscureConfirmPassword),
                                         ),
                                         validator: (v) {
-                                          if (v == null || v.isEmpty) return 'Vui lòng xác nhận mật khẩu';
-                                          if (v != _passwordController.text) return 'Mật khẩu không khớp';
+                                          if (v == null || v.isEmpty) {
+                                            return 'Vui lòng xác nhận mật khẩu';
+                                          }
+                                          if (v != _passwordController.text) {
+                                            return 'Mật khẩu không khớp';
+                                          }
                                           return null;
                                         },
                                       ),
@@ -423,28 +493,39 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                     if (!_isSetupMode) ...[
                                       const SizedBox(height: 12),
                                       GestureDetector(
-                                        onTap: () => setState(() => _rememberMe = !_rememberMe),
+                                        onTap: () => setState(
+                                            () => _rememberMe = !_rememberMe),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             SizedBox(
-                                              width: 20, height: 20,
+                                              width: 20,
+                                              height: 20,
                                               child: Checkbox(
                                                 value: _rememberMe,
-                                                onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                                                side: const BorderSide(color: Colors.white24),
+                                                onChanged: (v) => setState(() =>
+                                                    _rememberMe = v ?? false),
+                                                side: const BorderSide(
+                                                    color: Colors.white24),
                                                 checkColor: Colors.white,
-                                                fillColor: WidgetStateProperty.resolveWith(
-                                                  (s) => s.contains(WidgetState.selected)
+                                                fillColor: WidgetStateProperty
+                                                    .resolveWith(
+                                                  (s) => s.contains(
+                                                          WidgetState.selected)
                                                       ? const Color(0xFF7C3AED)
                                                       : Colors.transparent,
                                                 ),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4)),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
                                             const Text('Nhớ đăng nhập',
-                                                style: TextStyle(color: Colors.white38, fontSize: 13)),
+                                                style: TextStyle(
+                                                    color: Colors.white38,
+                                                    fontSize: 13)),
                                           ],
                                         ),
                                       ),
@@ -458,10 +539,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             colors: _isSetupMode
-                                                ? [const Color(0xFF16A34A), const Color(0xFF15803D)]
-                                                : [const Color(0xFF7C3AED), const Color(0xFF6D28D9)],
+                                                ? [
+                                                    const Color(0xFF16A34A),
+                                                    const Color(0xFF15803D)
+                                                  ]
+                                                : [
+                                                    const Color(0xFF7C3AED),
+                                                    const Color(0xFF6D28D9)
+                                                  ],
                                           ),
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                           boxShadow: [
                                             BoxShadow(
                                               color: (_isSetupMode
@@ -476,25 +564,36 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                         child: ElevatedButton(
                                           onPressed: _isLoading
                                               ? null
-                                              : (_isSetupMode ? _handleSetup : _handleLogin),
+                                              : (_isSetupMode
+                                                  ? _handleSetup
+                                                  : _handleLogin),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.transparent,
                                             shadowColor: Colors.transparent,
                                             foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(14)),
                                           ),
                                           child: _isLoading
                                               ? const SizedBox(
-                                                  width: 24, height: 24,
-                                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                                  width: 24,
+                                                  height: 24,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2.5,
+                                                          color: Colors.white),
                                                 )
                                               : Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
                                                   children: [
                                                     Icon(
                                                       _isSetupMode
-                                                          ? Icons.rocket_launch_rounded
-                                                          : Icons.admin_panel_settings_rounded,
+                                                          ? Icons
+                                                              .rocket_launch_rounded
+                                                          : Icons
+                                                              .admin_panel_settings_rounded,
                                                       size: 20,
                                                     ),
                                                     const SizedBox(width: 8),
@@ -504,7 +603,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                                           : 'Đăng nhập quản trị',
                                                       style: const TextStyle(
                                                           fontSize: 16,
-                                                          fontWeight: FontWeight.w600,
+                                                          fontWeight:
+                                                              FontWeight.w600,
                                                           letterSpacing: 0.5),
                                                     ),
                                                   ],
@@ -525,12 +625,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                             _formKey.currentState?.reset();
                                           });
                                         },
-                                        style: TextButton.styleFrom(foregroundColor: Colors.white54),
+                                        style: TextButton.styleFrom(
+                                            foregroundColor: Colors.white54),
                                         child: Text(
                                           _isSetupMode
                                               ? '← Quay lại đăng nhập'
                                               : 'Chưa có SuperAdmin? Khởi tạo tài khoản',
-                                          style: const TextStyle(fontSize: 13, decoration: TextDecoration.underline, decorationColor: Colors.white38),
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: Colors.white38),
                                         ),
                                       ),
                                     ),
@@ -546,13 +651,18 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text('Đăng nhập cửa hàng?',
-                                  style: TextStyle(color: Colors.white38, fontSize: 14)),
+                                  style: TextStyle(
+                                      color: Colors.white38, fontSize: 14)),
                               TextButton(
-                                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-                                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                                onPressed: () => Navigator.of(context)
+                                    .pushNamedAndRemoveUntil(
+                                        '/', (route) => false),
+                                style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white),
                                 child: const Text('Về trang chủ',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.w600, fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
                                       decoration: TextDecoration.underline,
                                       decorationColor: Colors.white54,
                                     )),
@@ -593,21 +703,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
               ),
             ],
           ),
-          child: const Icon(Icons.admin_panel_settings_rounded, size: 44, color: Colors.white),
+          child: const Icon(Icons.admin_panel_settings_rounded,
+              size: 44, color: Colors.white),
         ),
         const SizedBox(height: 20),
         const Text(
           'SBOX HRM',
           style: TextStyle(
-            fontSize: 34, fontWeight: FontWeight.w800,
-            color: Colors.white, letterSpacing: 2.5,
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: 2.5,
           ),
         ),
         const SizedBox(height: 6),
         const Text(
           'Quản trị hệ thống',
           style: TextStyle(
-            color: Colors.white54, fontSize: 15, fontWeight: FontWeight.w500,
+            color: Colors.white54,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
             letterSpacing: 0.5,
           ),
         ),
@@ -635,12 +750,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         labelText: label,
         hintText: hint,
         labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.18), fontSize: 14),
+        hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.18), fontSize: 14),
         prefixIcon: Icon(icon, color: Colors.white24, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.06),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),

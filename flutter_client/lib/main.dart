@@ -40,7 +40,8 @@ void main() {
   // the model was historically assumed to be unavailable.
   // Fire-and-forget: any failure is logged; verification code will re-check.
   FaceEmbeddingService.initialize().then((_) {
-    debugPrint('FaceEmbeddingService init: ready=${FaceEmbeddingService.isReady}');
+    debugPrint(
+        'FaceEmbeddingService init: ready=${FaceEmbeddingService.isReady}');
   }).catchError((e) {
     debugPrint('FaceEmbeddingService init failed: $e');
   });
