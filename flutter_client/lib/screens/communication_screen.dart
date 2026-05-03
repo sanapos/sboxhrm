@@ -209,7 +209,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     showDialog(
       context: context,
       barrierDismissible: true,
-      useSafeArea: false,
+      useSafeArea: true,
       builder: (_) => Dialog.fullscreen(
         child: _CommunicationDetailPanel(
           communication: comm,
@@ -2051,8 +2051,11 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
             : '${ApiService.baseUrl}${c.thumbnailUrl}')
         : null;
 
-    return Column(
-      children: [
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
         // Panel header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -2579,7 +2582,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
           ),
         ),
       ],
-    );
+    ),
+  ),
+);
   }
 
   Widget _commentWidget(CommunicationComment cm, {int depth = 0}) {
