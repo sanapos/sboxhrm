@@ -1,12 +1,17 @@
 workflows:
   ios-release:
     name: iOS Release
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
     working_directory: flutter_client
 
     integrations:
       app_store_connect: codemagic
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
 
     environment:
       flutter: stable
@@ -120,12 +125,17 @@ workflows:
 
   ios-debug:
     name: iOS Debug (Ad Hoc)
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
     working_directory: flutter_client
 
     integrations:
       app_store_connect: codemagic
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
 
     environment:
       flutter: stable
