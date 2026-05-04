@@ -104,12 +104,17 @@ class FcmService {
   /// Call after successful login. Requests permission, gets token, posts to backend.
   /// Safe to call multiple times (backend upserts). Tolerant to Firebase being uninitialized.
   Future<void> registerForCurrentUser() async {
+    debugPrint('FCM registerForCurrentUser: start, initialized=$_initialized');
     if (!_initialized) await initialize();
-    if (!_initialized) return;
+    if (!_initialized) {
+      debugPrint('FCM registerForCurrentUser: not initialized, abort');
+      return;
+    }
     try {
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true, badge: true, sound: true,
       );
+      debugPrint('FCM permission status: ${settings.authorizationStatus}');
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('FCM permission denied');
         return;
@@ -120,6 +125,7 @@ class FcmService {
         String? apnsToken;
         for (int i = 0; i < 30; i++) {
           apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          debugPrint('FCM APNs attempt ${i + 1}/30: ${apnsToken != null ? "GOT TOKEN" : "null"}');
           if (apnsToken != null && apnsToken.isNotEmpty) break;
           if (kDebugMode) debugPrint('FCM: APNs token null, attempt ${i + 1}/30...');
           await Future.delayed(const Duration(seconds: 1));
@@ -131,6 +137,7 @@ class FcmService {
         if (kDebugMode) debugPrint('FCM APNs token ready ✓');
       }
       final token = await FirebaseMessaging.instance.getToken();
+      debugPrint('FCM getToken result: ${token != null ? "OK (${token.substring(0, 20)}...)" : "NULL"}');
       if (token == null || token.isEmpty) {
         debugPrint('FCM getToken returned null');
         return;
