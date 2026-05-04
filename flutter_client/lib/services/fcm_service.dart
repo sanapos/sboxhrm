@@ -114,9 +114,20 @@ class FcmService {
         debugPrint('FCM permission denied');
         return;
       }
-      // iOS: APNs token must exist before getToken on cold start
+      // iOS: APNs token must exist before getToken on cold start.
+      // On first launch it may not be ready immediately — retry up to 5s.
       if (Platform.isIOS) {
-        await FirebaseMessaging.instance.getAPNSToken();
+        String? apnsToken;
+        for (int i = 0; i < 5; i++) {
+          apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          if (apnsToken != null && apnsToken.isNotEmpty) break;
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        if (apnsToken == null || apnsToken.isEmpty) {
+          debugPrint('FCM: APNs token still null after retries — skipping registration');
+          return;
+        }
+        if (kDebugMode) debugPrint('FCM APNs token: $apnsToken');
       }
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) {
