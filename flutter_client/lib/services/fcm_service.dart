@@ -132,6 +132,8 @@ class FcmService {
         }
         if (apnsToken == null || apnsToken.isEmpty) {
           debugPrint('FCM: APNs token still null after 30s — skipping registration');
+          // POST debug info to server so we can diagnose remotely
+          _postDebugLog('APNs token null after 30s retries. Permission=${settings.authorizationStatus}');
           return;
         }
         if (kDebugMode) debugPrint('FCM APNs token ready ✓');
@@ -195,6 +197,21 @@ class FcmService {
     } else {
       debugPrint('FCM register failed: ${res.statusCode} ${res.body}');
     }
+  }
+
+  /// Posts a debug log message to the server so remote diagnosis is possible.
+  Future<void> _postDebugLog(String message) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('access_token');
+      if (accessToken == null) return;
+      final url = Uri.parse('${getApiBaseUrl()}/api/notifications/device-token/debug');
+      await http.post(url, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      }, body: jsonEncode({'message': message, 'platform': Platform.isIOS ? 'ios' : 'android'}))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
   }
 
   void _onForegroundMessage(RemoteMessage msg) {
