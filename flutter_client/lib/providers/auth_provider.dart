@@ -235,8 +235,12 @@ class AuthProvider extends ChangeNotifier {
           GlobalLocationReporter.instance.start();
 
           // Register FCM device token (push notifications). Best-effort.
+          // Also schedule a retry after 35s in case APNs token was not ready yet.
           // ignore: discarded_futures
           FcmService.instance.registerForCurrentUser();
+          Future.delayed(const Duration(seconds: 35), () {
+            FcmService.instance.registerForCurrentUser();
+          });
 
           _isLoading = false;
           notifyListeners();

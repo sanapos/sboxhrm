@@ -115,19 +115,20 @@ class FcmService {
         return;
       }
       // iOS: APNs token must exist before getToken on cold start.
-      // On first launch it may not be ready immediately — retry up to 5s.
+      // On first launch / fresh install it can take up to 30s — retry up to 30 times.
       if (Platform.isIOS) {
         String? apnsToken;
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 30; i++) {
           apnsToken = await FirebaseMessaging.instance.getAPNSToken();
           if (apnsToken != null && apnsToken.isNotEmpty) break;
+          if (kDebugMode) debugPrint('FCM: APNs token null, attempt ${i + 1}/30...');
           await Future.delayed(const Duration(seconds: 1));
         }
         if (apnsToken == null || apnsToken.isEmpty) {
-          debugPrint('FCM: APNs token still null after retries — skipping registration');
+          debugPrint('FCM: APNs token still null after 30s — skipping registration');
           return;
         }
-        if (kDebugMode) debugPrint('FCM APNs token: $apnsToken');
+        if (kDebugMode) debugPrint('FCM APNs token ready ✓');
       }
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) {
