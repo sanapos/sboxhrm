@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import 'dart:convert';
 import '../l10n/app_localizations.dart';
 import '../utils/file_saver.dart' as file_saver;
@@ -446,6 +448,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               onPressed: _isLoading ? null : _loadReport,
               icon: const Icon(Icons.refresh, color: Color(0xFF1E3A5F)),
             ),
+            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport'))
             PopupMenuButton<String>(
               tooltip: 'Xuất',
               icon: _isExporting
@@ -476,26 +479,28 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               ],
             ),
           ] else ...[
-            OutlinedButton.icon(
-              onPressed: _isExporting ? null : _exportCsv,
-              icon: const Icon(Icons.file_present, size: 16),
-              label: const Text('CSV'),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: _isExporting ? null : _exportExcel,
-              icon: _isExporting
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.table_chart, size: 16),
-              label: const Text('Excel'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, foregroundColor: Colors.white),
-            ),
-            const SizedBox(width: 8),
+            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport')) ..[
+              OutlinedButton.icon(
+                onPressed: _isExporting ? null : _exportCsv,
+                icon: const Icon(Icons.file_present, size: 16),
+                label: const Text('CSV'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _isExporting ? null : _exportExcel,
+                icon: _isExporting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.table_chart, size: 16),
+                label: const Text('Excel'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green, foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 8),
+            ],
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _loadReport,
               icon: const Icon(Icons.play_arrow, size: 16),

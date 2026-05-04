@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../utils/file_saver.dart' as file_saver;
 import 'dart:convert';
 import '../services/api_service.dart';
@@ -329,6 +331,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                       : const Color(0xFF71717A),
                 ),
               ),
+              if (Provider.of<PermissionProvider>(context, listen: false).canExport('PayrollReport'))
               IconButton(
                 tooltip: 'Xuất CSV',
                 onPressed: _exportCsv,
@@ -337,6 +340,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
             ])
           : Row(children: [
               Expanded(child: title),
+              if (Provider.of<PermissionProvider>(context, listen: false).canExport('PayrollReport'))
               ElevatedButton.icon(
                 onPressed: _exportCsv,
                 icon: const Icon(Icons.download, size: 18),

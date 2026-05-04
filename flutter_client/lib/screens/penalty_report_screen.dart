@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
@@ -241,10 +243,11 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-              icon: const Icon(Icons.file_download_outlined),
-              tooltip: 'Xuất Excel',
-              onPressed: _exportExcel),
+          if (Provider.of<PermissionProvider>(context, listen: false).canExport('PenaltyReport'))
+            IconButton(
+                icon: const Icon(Icons.file_download_outlined),
+                tooltip: 'Xuất Excel',
+                onPressed: _exportExcel),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),

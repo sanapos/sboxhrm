@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
+import '../providers/permission_provider.dart';
 import 'package:excel/excel.dart' as excel_lib;
 
 const _lRowH = 54.0;
@@ -234,10 +236,11 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-              icon: const Icon(Icons.file_download_outlined),
-              tooltip: 'Xuất Excel',
-              onPressed: _exportExcel),
+          if (Provider.of<PermissionProvider>(context, listen: false).canExport('LeaveReport'))
+            IconButton(
+                icon: const Icon(Icons.file_download_outlined),
+                tooltip: 'Xuất Excel',
+                onPressed: _exportExcel),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),

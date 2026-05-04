@@ -118,6 +118,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       {'id': '023', 'module': 'HrReport', 'moduleDisplayName': 'Báo cáo nhân sự', 'displayOrder': 23},
       {'id': '024', 'module': 'AttendanceReport', 'moduleDisplayName': 'Báo cáo chấm công', 'displayOrder': 24},
       {'id': '025', 'module': 'PayrollReport', 'moduleDisplayName': 'Báo cáo lương', 'displayOrder': 25},
+      {'id': '051', 'module': 'LeaveReport', 'moduleDisplayName': 'Báo cáo nghỉ phép', 'displayOrder': 51},
+      {'id': '052', 'module': 'CashReport', 'moduleDisplayName': 'Báo cáo thu chi', 'displayOrder': 52},
+      {'id': '053', 'module': 'PenaltyReport', 'moduleDisplayName': 'Báo cáo phạt', 'displayOrder': 53},
+      {'id': '054', 'module': 'AdvanceReport', 'moduleDisplayName': 'Báo cáo ứng lương', 'displayOrder': 54},
       // ══════════ CÀI ĐẶT ══════════
       {'id': '026', 'module': 'SettingsHub', 'moduleDisplayName': 'Thiết lập HRM', 'displayOrder': 26},
       {'id': '027', 'module': 'ShiftSetup', 'moduleDisplayName': 'Thiết lập ca', 'displayOrder': 27},
