@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
@@ -131,9 +132,44 @@ class FcmService {
           await Future.delayed(const Duration(seconds: 1));
         }
         if (apnsToken == null || apnsToken.isEmpty) {
-          debugPrint('FCM: APNs token still null after 30s — skipping registration');
-          // POST debug info to server so we can diagnose remotely
-          _postDebugLog('APNs token null after 30s retries. Permission=${settings.authorizationStatus}');
+          debugPrint('FCM: APNs token still null after 30s — checking native error, then trying getToken() fallback');
+
+          // Check if iOS reported a registration error via AppDelegate → UserDefaults
+          String? nativeError;
+          try {
+            const ch = MethodChannel('flutter/shared_preferences');
+            final map = await ch.invokeMethod<Map>('getAll');
+            nativeError = map?['flutter.apns_registration_error'] as String?;
+          } catch (_) {}
+
+          // Post debug info to server (error or generic null message)
+          final debugMsg = nativeError != null
+              ? 'APNs registration failed: $nativeError. Permission=${settings.authorizationStatus}'
+              : 'APNs token null after 30s retries. Permission=${settings.authorizationStatus}. Trying getToken() fallback.';
+          _postDebugLog(debugMsg);
+
+          if (nativeError != null) {
+            // APNs registration itself failed — provisioning or entitlement issue
+            debugPrint('FCM: APNs native error: $nativeError');
+            return;
+          }
+
+          // AppDelegate may have set apnsToken in Firebase even though getAPNSToken() returned
+          // null (timing issue). Try getToken() directly — Firebase SDK handles APNs internally.
+          try {
+            final fallbackToken = await FirebaseMessaging.instance
+                .getToken()
+                .timeout(const Duration(seconds: 10));
+            if (fallbackToken != null && fallbackToken.isNotEmpty) {
+              debugPrint('FCM: getToken() fallback succeeded');
+              _postDebugLog('getToken() fallback succeeded after APNs null. Token=${fallbackToken.substring(0, 20)}...');
+              await _registerToken(fallbackToken);
+              return;
+            }
+          } catch (e) {
+            debugPrint('FCM: getToken() fallback failed: $e');
+            _postDebugLog('getToken() fallback failed: $e');
+          }
           return;
         }
         if (kDebugMode) debugPrint('FCM APNs token ready ✓');
