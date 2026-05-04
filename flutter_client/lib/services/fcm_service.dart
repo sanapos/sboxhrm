@@ -46,7 +46,12 @@ class FcmService {
   Future<void> initialize() async {
     if (_initialized) return;
     try {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      // Guard against duplicate init: on iOS, FirebaseApp.configure() is called
+      // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already
+      // populated. On Android (or if not yet initialized), initialize now.
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      }
       FirebaseMessaging.onBackgroundMessage(_firebaseBgHandler);
 
       // Local notification channel for foreground messages on Android.

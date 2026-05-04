@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import FirebaseCore
 import FirebaseMessaging
 
 @main
@@ -9,9 +10,13 @@ import FirebaseMessaging
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Firebase is initialized from Dart via Firebase.initializeApp(options: DefaultFirebaseOptions...)
-    // in FcmService.initialize(). Do NOT call FirebaseApp.configure() here — it would
-    // look for GoogleService-Info.plist which is not bundled (we use programmatic options).
+    // Initialize Firebase natively using GoogleService-Info.plist.
+    // This must happen BEFORE any APNs registration callbacks so that
+    // Firebase Messaging can capture the APNs token via method swizzling.
+    // The Dart-side Firebase.initializeApp() call in FcmService is guarded
+    // with Firebase.apps.isEmpty so there is no duplicate-init error.
+    FirebaseApp.configure()
+
     // Enable foreground local notifications on iOS
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
@@ -29,11 +34,9 @@ import FirebaseMessaging
     }
   }
 
-  // Explicitly forward the APNs device token to Firebase Messaging.
-  // With FlutterImplicitEngineDelegate, plugins are registered after didFinishLaunchingWithOptions
-  // returns, so Firebase's automatic swizzling of this callback may not be wired up in time.
-  // Setting apnsToken directly here guarantees Firebase receives the token and
-  // getAPNSToken() / getToken() will work correctly from Dart.
+  // Explicitly forward the APNs device token to Firebase Messaging as a safety net.
+  // FirebaseApp.configure() enables swizzling which should do this automatically,
+  // but the explicit set here guarantees the token is captured.
   override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -42,12 +45,13 @@ import FirebaseMessaging
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
-  // Log APNs registration failures to UserDefaults so Dart can surface them via debug endpoint.
+  // Write APNs registration failure to UserDefaults so Dart can read it.
+  // Key uses "flutter." prefix so Flutter's shared_preferences plugin can access it.
   override func application(
     _ application: UIApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
-    UserDefaults.standard.set(error.localizedDescription, forKey: "apns_registration_error")
+    UserDefaults.standard.set(error.localizedDescription, forKey: "flutter.apns_registration_error")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 }
