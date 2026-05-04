@@ -104,7 +104,7 @@ class NavigationNotifier {
   // [3]  Hồ sơ nhân sự
   // [4]  Nhân sự chấm công
   // [5]  Phòng ban
-  // [6]  Nghỉ phép
+  // [6]  Nghỉ phép (Chấm công)
   // [7]  Thiết lập lương
   // [8]  Chấm công
   // [9]  Lịch làm việc
@@ -759,9 +759,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Nghỉ phép',
       subtitle: 'Đơn nghỉ phép, phép năm còn lại',
       screen: const LeaveScreen(),
-      group: 'Hồ sơ nhân sự',
+      group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: const Color(0xFF0284C7),
       moduleCode: 'Leave',
     ),
     NavItem(
@@ -898,9 +898,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.card_giftcard_outlined,
       activeIcon: Icons.card_giftcard,
-      label: 'Thưởng / Phạt',
-      subtitle: 'Quản lý thưởng, kỷ luật nhân viên',
-      screen: const BonusPenaltyScreen(),
+      label: 'Phiếu thưởng',
+      subtitle: 'Quản lý phiếu thưởng nhân viên',
+      screen: const BonusPenaltyScreen(bonusOnly: true),
       group: 'Tài chính',
       showInSidebar: false,
       themeColor: const Color(0xFFEC4899),
