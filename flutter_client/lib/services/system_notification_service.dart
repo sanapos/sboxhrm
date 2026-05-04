@@ -24,11 +24,13 @@ class SystemNotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS: request permission for alert, badge, sound
+    // iOS: do NOT request permissions here — FcmService.registerForCurrentUser()
+    // calls FirebaseMessaging.requestPermission() which is the single iOS prompt.
+    // Requesting again here causes a duplicate dialog.
     const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     const initSettings = InitializationSettings(
@@ -46,16 +48,6 @@ class SystemNotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
-
-    // Request notification permission on iOS
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
 
     _initialized = true;
     debugPrint('🔔 SystemNotificationService initialized');
