@@ -63,6 +63,23 @@ public sealed class PushNotificationService : IPushNotificationService
         var success = 0;
         var invalidTokenIds = new List<Guid>();
 
+        // iOS-specific APNS config: high priority + sound + badge increment.
+        // Without this, APNs may delay or silently drop the notification on terminated apps.
+        var apnsConfig = new ApnsConfig
+        {
+            Headers = new Dictionary<string, string>
+            {
+                ["apns-priority"] = "10",          // 10 = immediate, 5 = power-saving
+                ["apns-push-type"] = "alert",       // required for iOS 13+
+            },
+            Aps = new Aps
+            {
+                Sound = "default",
+                Badge = 1,
+                ContentAvailable = true,            // wake app in background for data-only handling
+            },
+        };
+
         // FCM v1 multicast: chunk to 500.
         const int chunkSize = 500;
         for (int i = 0; i < tokens.Count; i += chunkSize)
@@ -73,6 +90,7 @@ public sealed class PushNotificationService : IPushNotificationService
                 Tokens = chunk.Select(t => t.Token).ToList(),
                 Notification = notif,
                 Data = payload,
+                Apns = apnsConfig,
             };
             try
             {
