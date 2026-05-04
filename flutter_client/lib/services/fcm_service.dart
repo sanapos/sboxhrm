@@ -15,11 +15,15 @@ import '../screens/main_layout.dart' show NavigationNotifier, ScreenRefreshNotif
 import 'api_config.dart';
 
 /// Background message handler. Must be a top-level function.
+/// On iOS, this handler is only called for DATA-ONLY messages (no `notification` field).
+/// Notification messages (with title+body) are shown by the OS automatically — no
+/// action needed here. On Android both types invoke this handler.
 @pragma('vm:entry-point')
 Future<void> _firebaseBgHandler(RemoteMessage message) async {
-  // Firebase auto-shows the system notification when message has a `notification` payload
-  // while app is backgrounded/terminated; nothing else needed here.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Guard: Firebase may already be initialized in this isolate.
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
   if (kDebugMode) debugPrint('FCM bg: ${message.messageId} ${message.notification?.title}');
 }
 
