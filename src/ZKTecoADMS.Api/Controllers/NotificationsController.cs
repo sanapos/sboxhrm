@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Notifications;
 using ZKTecoADMS.Application.Queries.Notifications;
@@ -15,8 +16,9 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class NotificationsController(IMediator mediator, ZKTecoDbContext db) : AuthenticatedControllerBase
+public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILogger<NotificationsController> logger) : AuthenticatedControllerBase
 {
+    private readonly ILogger<NotificationsController> _logger = logger;
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     public async Task<ActionResult<AppResponse<PagedResult<NotificationDto>>>> GetUserNotifications(
@@ -205,4 +207,16 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db) : A
         }
         return Ok(AppResponse<bool>.Success(true));
     }
+
+    [HttpPost("device-token/debug")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public ActionResult DebugDeviceToken([FromBody] DeviceTokenDebugRequest request)
+    {
+        var userId = CurrentUserId;
+        _logger.LogWarning("[FCM DEBUG] UserId={UserId} Platform={Platform} Ts={Ts} Message={Message}",
+            userId, request.Platform, request.Ts, request.Message);
+        return Ok(new { ok = true });
+    }
 }
+
+public record DeviceTokenDebugRequest(string Message, string Platform, string? Ts);
