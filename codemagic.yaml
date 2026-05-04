@@ -46,26 +46,45 @@ workflows:
             done
           done
           
-          echo "=== Step 3: Fetch signing files (create new cert + profile) ==="
+          echo "=== Step 3: Delete existing provisioning profiles to force fresh creation with latest capabilities ==="
+          app-store-connect profiles list \
+            --bundle-id-identifier "$BUNDLE_ID" \
+            --profile-type IOS_APP_STORE \
+            --json 2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              profiles = json.load(sys.stdin)
+              for p in profiles:
+                  print(p.get('id', ''))
+          except:
+              pass
+          " | while read profile_id; do
+            if [ -n "$profile_id" ]; then
+              echo "Deleting old provisioning profile: $profile_id"
+              app-store-connect profiles delete "$profile_id" || true
+            fi
+          done
+
+          echo "=== Step 4: Fetch signing files (create fresh cert + profile with Push Notifications) ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
             --create \
             --certificate-key=@file:/tmp/cert_key.pem
           
-          echo "=== Step 4: Initialize keychain ==="
+          echo "=== Step 5: Initialize keychain ==="
           keychain initialize
           
-          echo "=== Step 5: List and save certificates ==="
+          echo "=== Step 6: List and save certificates ==="
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
             --certificate-key=@file:/tmp/cert_key.pem \
             --save
           
-          echo "=== Step 6: Add certificates to keychain ==="
+          echo "=== Step 7: Add certificates to keychain ==="
           keychain add-certificates
           
-          echo "=== Step 7: Apply profiles to Xcode project ==="
+          echo "=== Step 8: Apply profiles to Xcode project ==="
           xcode-project use-profiles
           
           echo "=== Done ==="
