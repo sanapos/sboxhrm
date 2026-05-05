@@ -753,9 +753,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Nhân sự chấm công',
       subtitle: 'Nhân sự trên máy chấm công',
       screen: const DeviceUsersScreen(),
-      group: 'Hồ sơ nhân sự',
+      group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: const Color(0xFF0284C7),
       moduleCode: 'DeviceUser',
     ),
     NavItem(
