@@ -114,6 +114,7 @@ class FcmService {
     if (!_initialized) await initialize();
     if (!_initialized) {
       debugPrint('FCM registerForCurrentUser: not initialized, abort');
+      if (Platform.isIOS) _postDebugLog('registerForCurrentUser: initialize() failed to init Firebase');
       return;
     }
     try {
