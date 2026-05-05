@@ -284,6 +284,35 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   /// Whether the punch button should be tappable.
   /// Face is interactive (opens camera on tap), so we allow tapping
   /// when all non-face conditions are met, or in "any" mode with at least 1 pass.
+  /// Returns a human-readable explanation of which conditions are still unmet.
+  String _buildConditionDetail() {
+    final s = _settings;
+    if (s == null) return '';
+    final reasons = <String>[];
+    if (s.enableGps && !_isLocationVerified) {
+      if (_isGettingLocation) {
+        reasons.add('GPS đang định vị');
+      } else if (_distanceFromOffice != null) {
+        reasons.add('GPS ngoài phạm vi (${_distanceFromOffice!.toInt()}m)');
+      } else {
+        reasons.add('GPS chưa xác định vị trí');
+      }
+    }
+    if (s.enableWifi && !_isWifiVerified) {
+      if (_isCheckingWifi) {
+        reasons.add('WiFi đang kiểm tra');
+      } else if (_connectedWifiSsid != null) {
+        reasons.add('WiFi "${_connectedWifiSsid!}" không khớp');
+      } else {
+        reasons.add('WiFi chưa kết nối đúng mạng');
+      }
+    }
+    if (s.enableFaceId && !_isFaceVerified) {
+      reasons.add('Khuôn mặt chưa xác thực');
+    }
+    return reasons.isEmpty ? '' : reasons.join(' • ');
+  }
+
   bool get _canTapPunch {
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
     if (_allowOutsideCheckIn) return true;
@@ -377,14 +406,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
 
     if (!_conditionsMet && !_allowOutsideCheckIn) {
-      final reasons = <String>[];
-      final s = _settings;
-      if (s != null) {
-        if (s.enableGps && !_isLocationVerified) reasons.add('vị trí');
-        if (s.enableWifi && !_isWifiVerified) reasons.add('WiFi');
-      }
-      final detail = reasons.isEmpty ? '' : ' (${reasons.join(', ')})';
-      _showError('Chưa đạt đủ điều kiện xác thực$detail. Vui lòng kiểm tra lại khi bạn ở khu vực cho phép.');
+      final detail = _buildConditionDetail();
+      _showError(detail.isNotEmpty
+          ? 'Chưa đạt đủ điều kiện xác thực: $detail'
+          : 'Chưa đạt đủ điều kiện xác thực. Vui lòng kiểm tra lại khi bạn ở khu vực cho phép.');
       return;
     }
 
@@ -434,7 +459,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
       // Re-check conditions after face scan
       if (!_conditionsMet) {
-        _showError('Chưa đạt đủ điều kiện xác thực');
+        final detail = _buildConditionDetail();
+        _showError(detail.isNotEmpty
+            ? 'Chưa đạt đủ điều kiện xác thực: $detail'
+            : 'Chưa đạt đủ điều kiện xác thực');
         return;
       }
     }
@@ -985,7 +1013,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ? 'Cần đăng ký thiết bị trước khi chấm công'
         : (!_isDeviceApproved
           ? 'Thiết bị đang chờ duyệt từ quản lý'
-          : 'Hệ thống đang kiểm tra điều kiện'));
+          : () {
+              final d = _buildConditionDetail();
+              return d.isNotEmpty ? 'Chưa đạt: $d' : 'Đang kiểm tra điều kiện...';
+            }()));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
