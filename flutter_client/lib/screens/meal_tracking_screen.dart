@@ -36,6 +36,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalRecords = 0;
+  String _recordSearch = '';
+  String _summarySearch = '';
+  String _debtSearch = '';
   String? _filterSessionId;
 
   // Summary
@@ -1466,6 +1469,21 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
+  // ==================== SESSION COLOR HELPER ====================
+
+  Color _sessionColor(String sessionId) {
+    const colors = [
+      Color(0xFF10B981),
+      Color(0xFF3B82F6),
+      Color(0xFFF59E0B),
+      Color(0xFF8B5CF6),
+      Color(0xFFEF4444),
+      Color(0xFF06B6D4),
+    ];
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    return colors[(idx < 0 ? 0 : idx) % colors.length];
+  }
+
   // ==================== DATE PICKERS ====================
 
   Future<void> _pickDate() async {
@@ -1598,14 +1616,53 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         children: [
           // Date header
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.calendar_today, color: Color(0xFF0284C7)),
-              title: Text(
-                DateFormat('EEEE, dd/MM/yyyy', 'vi').format(summary.date),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Ngày trước',
+                    onPressed: () {
+                      setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
+                      _loadCurrentTab();
+                    },
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                DateFormat('EEEE, dd/MM/yyyy', 'vi').format(summary.date),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}',
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Ngày sau',
+                    onPressed: () {
+                      setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)));
+                      _loadCurrentTab();
+                    },
+                  ),
+                ],
               ),
-              subtitle: Text(
-                  'Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
             ),
           ),
           const SizedBox(height: 16),
@@ -1934,6 +1991,26 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ],
           ),
         ),
+        // Search
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên nhân viên...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+              suffixIcon: _recordSearch.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _recordSearch = ''),
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _recordSearch = v),
+          ),
+        ),
         // Record count
         if (!_isLoading && _records.isNotEmpty)
           Padding(
@@ -1956,47 +2033,59 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   ? const Center(
                       child: Text('Chưa có dữ liệu chấm cơm',
                           style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                      itemCount: _records.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemBuilder: (_, i) {
-                        final r = _records[i];
-                        final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
-                        return Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF10B981),
-                              child: Text(
-                                r.employeeName.isNotEmpty
-                                    ? r.employeeName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(color: Colors.white),
+                  : Builder(builder: (_) {
+                      final filtered = _recordSearch.isEmpty
+                          ? _records
+                          : _records
+                              .where((r) => r.employeeName
+                                  .toLowerCase()
+                                  .contains(_recordSearch.toLowerCase()))
+                              .toList();
+                      if (filtered.isEmpty) {
+                        return const Center(
+                            child: Text('Không tìm thấy',
+                                style: TextStyle(color: Colors.grey)));
+                      }
+                      return ListView.builder(
+                        itemCount: filtered.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemBuilder: (_, i) {
+                          final r = filtered[i];
+                          final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+                          return Card(
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: _sessionColor(r.mealSessionId),
+                                child: Text(
+                                  r.employeeName.isNotEmpty ? r.employeeName[0].toUpperCase() : '?',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
                               ),
+                              title: Text(r.employeeName),
+                              subtitle: Text(
+                                '${r.mealSessionName ?? ''} | ${DateFormat('HH:mm').format(r.mealTime)}',
+                              ),
+                              trailing: canManage
+                                  ? PopupMenuButton<String>(
+                                      icon: Icon(Icons.more_vert, color: Colors.grey[600], size: 20),
+                                      onSelected: (v) {
+                                        if (v == 'edit') _showEditRecordDialog(r);
+                                        if (v == 'delete') _deleteRecord(r);
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                                        const PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: Colors.red))),
+                                      ],
+                                    )
+                                  : Text(
+                                      r.deviceName ?? r.pin ?? '',
+                                      style: const TextStyle(color: Colors.grey),
+                                    ),
                             ),
-                            title: Text(r.employeeName),
-                            subtitle: Text(
-                              '${r.mealSessionName ?? ''} | ${DateFormat('HH:mm').format(r.mealTime)}',
-                            ),
-                            trailing: canManage
-                                ? PopupMenuButton<String>(
-                                    icon: Icon(Icons.more_vert, color: Colors.grey[600], size: 20),
-                                    onSelected: (v) {
-                                      if (v == 'edit') _showEditRecordDialog(r);
-                                      if (v == 'delete') _deleteRecord(r);
-                                    },
-                                    itemBuilder: (_) => [
-                                      const PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                                      const PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: Colors.red))),
-                                    ],
-                                  )
-                                : Text(
-                                    r.deviceName ?? r.pin ?? '',
-                                    style: const TextStyle(color: Colors.grey),
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      );
+                    }),
         ),
         // Pagination
         if (_totalPages > 1)
@@ -2064,7 +2153,27 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ],
           ),
         ),
-        // Summary table
+        // Search
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên / mã nhân viên...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+              suffixIcon: _summarySearch.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _summarySearch = ''),
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _summarySearch = v),
+          ),
+        ),
+        // Summary list
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -2072,48 +2181,122 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   ? const Center(
                       child: Text('Chưa có dữ liệu',
                           style: TextStyle(color: Colors.grey)))
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('STT')),
-                            DataColumn(label: Text('Mã NV')),
-                            DataColumn(label: Text('Họ tên')),
-                            DataColumn(label: Text('Tổng suất'), numeric: true),
-                            DataColumn(label: Text('Tiền cơm'), numeric: true),
-                            DataColumn(label: Text('Đã trả'), numeric: true),
-                            DataColumn(label: Text('Còn nợ'), numeric: true),
-                          ],
-                          rows: _employeeSummaries
-                              .asMap()
-                              .entries
-                              .map((entry) {
-                            final i = entry.key;
-                            final s = entry.value;
-                            return DataRow(
-                              cells: [
-                                DataCell(Text('${i + 1}')),
-                                DataCell(Text(s.employeeCode ?? '')),
-                                DataCell(Text(s.employeeName)),
-                                DataCell(Text(s.totalMeals.toString(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold))),
-                                DataCell(Text(_formatCurrency(s.totalCost))),
-                                DataCell(Text(_formatCurrency(s.totalPaid),
-                                    style: const TextStyle(color: Color(0xFF10B981)))),
-                                DataCell(Text(_formatCurrency(s.balance),
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: s.balance > 0 ? Colors.red : const Color(0xFF10B981)))),
-                              ],
-                              onSelectChanged: (_) =>
-                                  _showEmployeeDetail(s),
+                  : Builder(
+                      builder: (_) {
+                        final q = _summarySearch.toLowerCase();
+                        final filtered = q.isEmpty
+                            ? _employeeSummaries
+                            : _employeeSummaries
+                                .where((s) =>
+                                    s.employeeName.toLowerCase().contains(q) ||
+                                    (s.employeeCode ?? '').toLowerCase().contains(q))
+                                .toList();
+                        if (filtered.isEmpty) {
+                          return const Center(
+                              child: Text('Không tìm thấy',
+                                  style: TextStyle(color: Colors.grey)));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final s = filtered[i];
+                            final paidRatio = s.totalCost > 0
+                                ? (s.totalPaid / s.totalCost).clamp(0.0, 1.0)
+                                : 1.0;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => _showEmployeeDetail(s),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: const Color(0xFF0284C7),
+                                        child: Text(
+                                          s.employeeName.isNotEmpty
+                                              ? s.employeeName[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(s.employeeName,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14)),
+                                            Text(
+                                              '${s.employeeCode ?? ''} | ${s.totalMeals} suất | ${_formatCurrency(s.totalCost)}',
+                                              style: const TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 12),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: LinearProgressIndicator(
+                                                value: paidRatio,
+                                                minHeight: 5,
+                                                backgroundColor: Colors.red
+                                                    .withValues(alpha: 0.15),
+                                                valueColor:
+                                                    const AlwaysStoppedAnimation(
+                                                        Color(0xFF10B981)),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Đã trả ${_formatCurrency(s.totalPaid)}',
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            _formatCurrency(s.balance),
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                                color: s.balance > 0
+                                                    ? Colors.red
+                                                    : const Color(
+                                                        0xFF10B981)),
+                                          ),
+                                          Text(
+                                            s.balance > 0
+                                                ? 'Còn nợ'
+                                                : 'Đã trả đủ',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             );
-                          }).toList(),
-                        ),
-                      ),
+                          },
+                        );
+                      },
                     ),
         ),
         // Total
@@ -2544,64 +2727,188 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ),
           ),
         const SizedBox(height: 8),
-        // Debt summary table
+        // Search
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Tìm theo tên / mã nhân viên...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+              suffixIcon: _debtSearch.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _debtSearch = ''),
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _debtSearch = v),
+          ),
+        ),
+        // Debt list
         Expanded(
           child: _isLoadingDebt
               ? const Center(child: CircularProgressIndicator())
               : _debtSummaries.isEmpty
-                  ? const Center(child: Text('Chưa có dữ liệu công nợ', style: TextStyle(color: Colors.grey)))
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('STT')),
-                            DataColumn(label: Text('Mã NV')),
-                            DataColumn(label: Text('Họ tên')),
-                            DataColumn(label: Text('Số suất'), numeric: true),
-                            DataColumn(label: Text('Tiền cơm'), numeric: true),
-                            DataColumn(label: Text('Đã trả'), numeric: true),
-                            DataColumn(label: Text('Còn nợ'), numeric: true),
-                            DataColumn(label: Text('')),
-                          ],
-                          rows: _debtSummaries.asMap().entries.map((entry) {
-                            final i = entry.key;
-                            final d = entry.value;
-                            return DataRow(
-                              cells: [
-                                DataCell(Text('${i + 1}')),
-                                DataCell(Text(d.employeeCode ?? '')),
-                                DataCell(Text(d.employeeName)),
-                                DataCell(Text(d.totalMeals.toString())),
-                                DataCell(Text(_formatCurrency(d.totalCharged))),
-                                DataCell(Text(_formatCurrency(d.totalPaid),
-                                    style: const TextStyle(color: Color(0xFF10B981)))),
-                                DataCell(Text(_formatCurrency(d.balance),
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: d.balance > 0 ? Colors.red : const Color(0xFF10B981)))),
-                                DataCell(Row(
-                                  mainAxisSize: MainAxisSize.min,
+                  ? const Center(
+                      child: Text('Chưa có dữ liệu công nợ',
+                          style: TextStyle(color: Colors.grey)))
+                  : Builder(
+                      builder: (_) {
+                        final q = _debtSearch.toLowerCase();
+                        final filtered = q.isEmpty
+                            ? _debtSummaries
+                            : _debtSummaries
+                                .where((d) =>
+                                    d.employeeName.toLowerCase().contains(q) ||
+                                    (d.employeeCode ?? '').toLowerCase().contains(q))
+                                .toList();
+                        if (filtered.isEmpty) {
+                          return const Center(
+                              child: Text('Không tìm thấy',
+                                  style: TextStyle(color: Colors.grey)));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final d = filtered[i];
+                            final paidRatio = d.totalCharged > 0
+                                ? (d.totalPaid / d.totalCharged).clamp(0.0, 1.0)
+                                : 1.0;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
                                   children: [
-                                    if (canManage && d.balance > 0)
-                                      IconButton(
-                                        icon: const Icon(Icons.payment, color: Color(0xFF10B981), size: 20),
-                                        tooltip: 'Thu tiền',
-                                        onPressed: () => _showRecordPaymentDialog(d),
+                                    CircleAvatar(
+                                      backgroundColor: d.balance > 0
+                                          ? const Color(0xFFEF4444)
+                                          : const Color(0xFF10B981),
+                                      child: Text(
+                                        d.employeeName.isNotEmpty
+                                            ? d.employeeName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold),
                                       ),
-                                    IconButton(
-                                      icon: const Icon(Icons.history, color: Color(0xFF3B82F6), size: 20),
-                                      tooltip: 'Lịch sử',
-                                      onPressed: () => _showDebtHistoryDialog(d),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(d.employeeName,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
+                                          Text(
+                                            '${d.employeeCode ?? ''} | ${d.totalMeals} suất',
+                                            style: const TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: paidRatio,
+                                              minHeight: 5,
+                                              backgroundColor: Colors.red
+                                                  .withValues(alpha: 0.15),
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation(
+                                                      Color(0xFF10B981)),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Đã trả ${_formatCurrency(d.totalPaid)} / ${_formatCurrency(d.totalCharged)}',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          _formatCurrency(d.balance),
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: d.balance > 0
+                                                  ? Colors.red
+                                                  : const Color(0xFF10B981)),
+                                        ),
+                                        Text(
+                                          d.balance > 0 ? 'Còn nợ' : 'Đã trả đủ',
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey[600]),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (canManage && d.balance > 0) ...
+                                              [
+                                                InkWell(
+                                                  onTap: () =>
+                                                      _showRecordPaymentDialog(d),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  child: const Tooltip(
+                                                    message: 'Thu tiền',
+                                                    child: Padding(
+                                                      padding: EdgeInsets.all(4),
+                                                      child: Icon(
+                                                          Icons.payment,
+                                                          color: Color(
+                                                              0xFF10B981),
+                                                          size: 22),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                              ],
+                                            InkWell(
+                                              onTap: () =>
+                                                  _showDebtHistoryDialog(d),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: const Tooltip(
+                                                message: 'Lịch sử',
+                                                child: Padding(
+                                                  padding: EdgeInsets.all(4),
+                                                  child: Icon(
+                                                      Icons.history,
+                                                      color: Color(0xFF3B82F6),
+                                                      size: 22),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
-                                )),
-                              ],
+                                ),
+                              ),
                             );
-                          }).toList(),
-                        ),
-                      ),
+                          },
+                        );
+                      },
                     ),
         ),
         // Total bar
