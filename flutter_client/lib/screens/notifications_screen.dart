@@ -604,6 +604,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  // == Expandable message text ==
+
+  Widget _buildExpandableMessage(AppNotification n) {
+    final style = TextStyle(
+      fontSize: 13,
+      height: 1.4,
+      color: n.isRead ? Colors.grey.shade500 : Colors.grey.shade700,
+    );
+    return _ExpandableText(text: n.message, style: style);
+  }
+
   Widget _buildDateHeader(String label) {
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 6, left: 4),
@@ -687,14 +698,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade400),
                         ]),
                         const SizedBox(height: 4),
-                        Text(
-                          n.message,
-                          style: TextStyle(
-                            fontSize: 13, height: 1.4,
-                            color: n.isRead ? Colors.grey.shade500 : Colors.grey.shade700,
-                          ),
-                          maxLines: 3, overflow: TextOverflow.ellipsis,
-                        ),
+                        _buildExpandableMessage(n),
                         const SizedBox(height: 6),
                         Text(
                           timeago.format(n.createdAt, locale: 'vi'),
@@ -709,6 +713,70 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Expandable text widget — shows up to 3 lines with "Xem thêm" / "Thu gọn"
+// ---------------------------------------------------------------------------
+class _ExpandableText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  const _ExpandableText({
+    required this.text,
+    required this.style,
+    this.maxLines = 3,
+  });
+
+  @override
+  State<_ExpandableText> createState() => _ExpandableTextState();
+}
+
+class _ExpandableTextState extends State<_ExpandableText> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tp = TextPainter(
+          text: TextSpan(text: widget.text, style: widget.style),
+          maxLines: widget.maxLines,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final isOverflow = tp.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              style: widget.style,
+              maxLines: _expanded ? null : widget.maxLines,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
+            ),
+            if (isOverflow || _expanded)
+              GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    _expanded ? 'Thu gọn' : 'Xem thêm',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
