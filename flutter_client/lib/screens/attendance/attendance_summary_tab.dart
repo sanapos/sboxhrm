@@ -60,6 +60,8 @@ class AttendanceSummaryTab extends StatefulWidget {
   final List<dynamic> holidays;
   final List<dynamic> salaryProfiles;
   final List<dynamic> approvedLeaves;
+  /// Nếu false, ẩn toàn bộ nút yêu cầu chỉnh công (allow_manual_correction = false)
+  final bool allowCorrection;
 
   const AttendanceSummaryTab({
     super.key,
@@ -73,6 +75,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.holidays = const [],
     this.salaryProfiles = const [],
     this.approvedLeaves = const [],
+    this.allowCorrection = true,
   });
 
   @override
@@ -3378,6 +3381,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   /// Hiển thị dialog thêm chấm công mới
   void _showAddPunchDialog(_DailySummary summary, int punchIndex, bool isIn) {
+    if (!widget.allowCorrection) return;
     TimeOfDay selectedTime = TimeOfDay.now();
     DateTime selectedDate = summary.date;
     final reasonController = TextEditingController();
@@ -3578,6 +3582,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   /// Hiển thị dialog sửa/xóa chấm công
   void _showEditPunchDialog(
       _DailySummary summary, int punchIndex, DateTime currentTime, bool isIn) {
+    if (!widget.allowCorrection) return;
     TimeOfDay selectedTime =
         TimeOfDay(hour: currentTime.hour, minute: currentTime.minute);
     final reasonController = TextEditingController();

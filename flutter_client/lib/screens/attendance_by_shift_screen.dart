@@ -34,6 +34,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
+  bool _allowManualCorrection = true;
 
   final DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));
   final DateTime _toDate = DateTime.now();
@@ -94,6 +95,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       final salaryProfilesFuture = _apiService.getSalaryProfiles();
       final holidaysFuture = _apiService.getHolidaySettings(0);
       final dayEndFuture = _apiService.getAppSetting('day_end_time');
+      final allowManualFuture = _apiService.getAppSetting('allow_manual_correction');
 
       final shiftsResult = await shiftsFuture;
       final salaryLevelsResult = await salaryLevelsFuture;
@@ -121,6 +123,13 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           deh = int.tryParse(parts[0]) ?? 0;
           dem = int.tryParse(parts[1]) ?? 0;
         }
+      }
+
+      // Parse allow_manual_correction
+      final allowManualResult = await allowManualFuture;
+      bool allowManual = true;
+      if (allowManualResult['isSuccess'] == true && allowManualResult['data'] is Map) {
+        allowManual = (allowManualResult['data'] as Map)['value']?.toString() != 'false';
       }
 
       // Load approved leaves
@@ -156,6 +165,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _approvedLeaves = approvedLeaves;
           _dayEndHour = deh;
           _dayEndMinute = dem;
+          _allowManualCorrection = allowManual;
           _isLoading = false;
         });
       }

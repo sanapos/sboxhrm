@@ -23,6 +23,7 @@ class _AttendanceCorrectionsScreenState
   List<AttendanceCorrectionRequest> _requests = [];
   List<AttendanceCorrectionRequest> _pendingRequests = [];
   bool _isLoading = true;
+  bool _allowManualCorrection = true;
   late TabController _tabController;
 
   @override
@@ -41,6 +42,11 @@ class _AttendanceCorrectionsScreenState
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
+      final settingResult = await _apiService.getAppSetting('allow_manual_correction');
+      if (mounted) {
+        final val = settingResult['data']?['value']?.toString();
+        setState(() => _allowManualCorrection = val != 'false');
+      }
       final result = await _apiService.getMyAttendanceCorrections(
         page: 1,
         pageSize: 100,
@@ -825,11 +831,13 @@ class _AttendanceCorrectionsScreenState
           _buildRequestsList(_requests),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Yêu cầu mới'),
-      ),
+      floatingActionButton: _allowManualCorrection
+          ? FloatingActionButton.extended(
+              onPressed: _showCreateDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Yêu cầu mới'),
+            )
+          : null,
     );
   }
 }

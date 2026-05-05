@@ -30,6 +30,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
+  bool _allowManualCorrection = true;
 
   final DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));
   final DateTime _toDate = DateTime.now();
@@ -86,6 +87,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
       // Load day_end_time setting
       int deh = 0, dem = 0;
+      bool allowManual = true;
       try {
         final dayEndResult = await _apiService.getAppSetting('day_end_time');
         if (dayEndResult['isSuccess'] == true && dayEndResult['data'] is Map) {
@@ -99,6 +101,14 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         }
       } catch (e) {
         debugPrint('Load day end time error: $e');
+      }
+      try {
+        final amc = await _apiService.getAppSetting('allow_manual_correction');
+        if (amc['isSuccess'] == true && amc['data'] is Map) {
+          allowManual = (amc['data'] as Map)['value']?.toString() != 'false';
+        }
+      } catch (e) {
+        debugPrint('Load allow_manual_correction error: $e');
       }
 
       // Load holidays + salary profiles (for holiday/restday coefficients)
@@ -144,6 +154,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _holidays = holidays;
           _salaryProfiles = salaryProfiles;
           _approvedLeaves = approvedLeaves;
+          _allowManualCorrection = allowManual;
           _isLoading = false;
         });
       }
@@ -281,6 +292,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     holidays: _holidays,
                     salaryProfiles: _salaryProfiles,
                     approvedLeaves: _approvedLeaves,
+                    allowCorrection: _allowManualCorrection,
                   ),
           ),
         ],

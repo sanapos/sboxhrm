@@ -39,6 +39,13 @@ public class CreateAttendanceCorrectionHandler(
             if (user == null)
                 return AppResponse<AttendanceCorrectionRequestDto>.Error("User not found");
 
+            // Check allow_manual_correction setting
+            var allowCorrectionSetting = await appSettingsRepository.GetSingleAsync(
+                s => s.Key == "allow_manual_correction" && s.StoreId == request.StoreId,
+                cancellationToken: cancellationToken);
+            if (allowCorrectionSetting?.Value == "false")
+                return AppResponse<AttendanceCorrectionRequestDto>.Error("Tính năng chấm công bù đã bị tắt. Liên hệ quản trị viên để được hỗ trợ.");
+
             string? oldDevice = null;
             string? oldType = null;
 
