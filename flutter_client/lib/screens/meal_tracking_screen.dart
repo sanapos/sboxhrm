@@ -35,6 +35,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   List<MealRecord> _records = [];
   int _currentPage = 1;
   int _totalPages = 1;
+  int _totalRecords = 0;
   String? _filterSessionId;
 
   // Summary
@@ -50,10 +51,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // Master dish list
   List<MealDish> _masterDishes = [];
 
-  // Registrations
-  List<MealRegistrationDetail> _registrations = [];
-  DateTime _regDate = DateTime.now();
-  String? _regFilterSessionId;
   List<dynamic> _employees = [];
 
   // Debt
@@ -184,6 +181,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             .map((e) => MealRecord.fromJson(e as Map<String, dynamic>))
             .toList();
         _totalPages = data['totalPages'] ?? 1;
+        _totalRecords = data['totalCount'] ?? _records.length;
       }
     } catch (e) {
       debugPrint('Load records error: $e');
@@ -266,26 +264,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
-  }
-
-  Future<void> _loadRegistrations() async {
-    setState(() => _isLoading = true);
-    try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_regDate);
-      final res = await _apiService.getMealRegistrations(
-        date: dateStr,
-        mealSessionId: _regFilterSessionId,
-      );
-      if (res['isSuccess'] == true && res['data'] != null) {
-        final list = res['data'] as List? ?? [];
-        _registrations = list
-            .map((e) => MealRegistrationDetail.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Load registrations error: $e');
-    }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _doBatchCharge() async {
@@ -1962,7 +1940,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('${_records.length} bản ghi', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              child: Text(
+                _totalPages > 1
+                    ? '$_totalRecords bản ghi • Trang $_currentPage/$_totalPages'
+                    : '${_records.length} bản ghi',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
             ),
           ),
         // Records list
@@ -2044,156 +2027,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ],
             ),
           ),
-      ],
-    );
-  }
-
-  // ==================== TAB 3: REGISTRATIONS (Đăng ký ăn) ====================
-
-  // ignore: unused_element
-  Widget _buildRegistrationsTab() {
-    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
-    // Group registrations by session
-    final groupedBySession = <String, List<MealRegistrationDetail>>{};
-    for (final r in _registrations) {
-      final sessionName = _sessions.where((s) => s.id == r.mealSessionId).map((s) => s.name).firstOrNull ?? 'Khác';
-      groupedBySession.putIfAbsent(sessionName, () => []).add(r);
-    }
-
-    return Column(
-      children: [
-        // Filters
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                      labelText: 'Ngày', border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  child: InkWell(
-                    onTap: () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: _regDate,
-                        firstDate: DateTime(2024),
-                        lastDate: DateTime(2030),
-                      );
-                      if (d != null) {
-                        setState(() => _regDate = d);
-                        _loadRegistrations();
-                      }
-                    },
-                    child: Text(DateFormat('dd/MM/yyyy').format(_regDate)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String?>(
-                  initialValue: _regFilterSessionId,
-                  decoration: const InputDecoration(
-                      labelText: 'Buổi ăn', border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                    ..._sessions.map((s) =>
-                        DropdownMenuItem(value: s.id, child: Text(s.name))),
-                  ],
-                  onChanged: (v) {
-                    setState(() => _regFilterSessionId = v);
-                    _loadRegistrations();
-                  },
-                ),
-              ),
-              if (canManage) ...[
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  icon: const Icon(Icons.person_add),
-                  tooltip: 'Đăng ký cho NV',
-                  onPressed: _showAddRegistrationDialog,
-                ),
-              ],
-            ],
-          ),
-        ),
-        // Summary chips
-        if (!_isLoading)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Chip(
-                  avatar: const Icon(Icons.people, size: 16),
-                  label: Text('${_registrations.length} đăng ký'),
-                  backgroundColor: const Color(0xFFDCFCE7),
-                ),
-                const SizedBox(width: 8),
-                ...groupedBySession.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Chip(
-                    label: Text('${e.key}: ${e.value.length}', style: const TextStyle(fontSize: 12)),
-                    backgroundColor: const Color(0xFFE8F4FD),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                )),
-              ],
-            ),
-          ),
-        const SizedBox(height: 4),
-        // Registration list
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _registrations.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.how_to_reg, size: 48, color: Colors.grey),
-                          const SizedBox(height: 12),
-                          Text('Chưa có đăng ký ngày ${DateFormat('dd/MM').format(_regDate)}',
-                              style: const TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _registrations.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemBuilder: (_, i) {
-                        final r = _registrations[i];
-                        final sessionName = _sessions
-                            .where((s) => s.id == r.mealSessionId)
-                            .map((s) => s.name)
-                            .firstOrNull ?? '';
-                        return Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF3B82F6),
-                              child: Text(
-                                r.employeeName.isNotEmpty ? r.employeeName[0].toUpperCase() : '?',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            title: Text(r.employeeName),
-                            subtitle: Text(
-                              '$sessionName${r.note != null && r.note!.isNotEmpty ? ' - ${r.note}' : ''}'),
-                            trailing: canManage
-                                ? IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                    tooltip: 'Hủy đăng ký',
-                                    onPressed: () => _deleteRegistration(r),
-                                  )
-                                : r.registeredAt != null
-                                    ? Text(DateFormat('HH:mm').format(r.registeredAt!),
-                                        style: const TextStyle(color: Colors.grey, fontSize: 12))
-                                    : null,
-                          ),
-                        );
-                      },
-                    ),
-        ),
       ],
     );
   }
@@ -3050,120 +2883,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       _loadRecords();
     } else {
       NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Xóa thất bại');
-    }
-  }
-
-  // ==================== REGISTRATION MANAGEMENT DIALOGS ====================
-
-  void _showAddRegistrationDialog() {
-    String? selectedEmployeeId;
-    String? selectedEmployeeName;
-    String? selectedSessionId = _sessions.isNotEmpty ? _sessions.first.id : null;
-    final noteCtl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('Đăng ký ăn cho NV'),
-          content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Ngày: ${DateFormat('dd/MM/yyyy').format(_regDate)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                Autocomplete<Map<String, dynamic>>(
-                  optionsBuilder: (textEditingValue) {
-                    final list = _employees.cast<Map<String, dynamic>>();
-                    if (textEditingValue.text.isEmpty) return list.take(20);
-                    final q = textEditingValue.text.toLowerCase();
-                    return list.where((e) {
-                      final name = (e['fullName'] ?? '').toString().toLowerCase();
-                      final code = (e['employeeCode'] ?? '').toString().toLowerCase();
-                      return name.contains(q) || code.contains(q);
-                    }).take(20);
-                  },
-                  displayStringForOption: (e) => '${e['fullName']} (${e['employeeCode'] ?? ''})',
-                  fieldViewBuilder: (ctx, ctl, fn, onSubmit) => TextField(
-                    controller: ctl, focusNode: fn,
-                    decoration: const InputDecoration(labelText: 'Nhân viên *', border: OutlineInputBorder()),
-                  ),
-                  onSelected: (e) {
-                    selectedEmployeeId = e['userId']?.toString();
-                    selectedEmployeeName = e['fullName']?.toString() ?? '';
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedSessionId,
-                  decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
-                  items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
-                  onChanged: (v) => setDlgState(() => selectedSessionId = v),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: noteCtl,
-                  decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            FilledButton(
-              onPressed: () async {
-                if (selectedEmployeeId == null || selectedSessionId == null) {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn nhân viên và buổi ăn');
-                  return;
-                }
-                Navigator.pop(ctx);
-                final res = await _apiService.createMealRegistration({
-                  'employeeUserId': selectedEmployeeId,
-                  'employeeName': selectedEmployeeName ?? '',
-                  'mealSessionId': selectedSessionId,
-                  'date': DateFormat('yyyy-MM-dd').format(_regDate),
-                  'note': noteCtl.text.trim(),
-                });
-                if (res['isSuccess'] == true) {
-                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã đăng ký ăn');
-                  _loadRegistrations();
-                } else {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Đăng ký thất bại');
-                }
-              },
-              child: const Text('Đăng ký'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _deleteRegistration(MealRegistrationDetail reg) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hủy đăng ký'),
-        content: Text('Hủy đăng ký ăn của ${reg.employeeName}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hủy đăng ký'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    final res = await _apiService.deleteMealRegistration(reg.id);
-    if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Đã hủy', message: 'Hủy đăng ký thành công');
-      _loadRegistrations();
-    } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Hủy thất bại');
     }
   }
 
