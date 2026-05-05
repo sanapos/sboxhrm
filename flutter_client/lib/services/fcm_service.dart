@@ -178,16 +178,26 @@ class FcmService {
           return;
         }
         if (kDebugMode) debugPrint('FCM APNs token ready ✓');
+        _postDebugLog('APNs token received OK (len=${apnsToken!.length}). Calling getToken()...');
       }
-      final token = await FirebaseMessaging.instance.getToken();
-      debugPrint('FCM getToken result: ${token != null ? "OK (${token.substring(0, 20)}...)" : "NULL"}');
-      if (token == null || token.isEmpty) {
-        debugPrint('FCM getToken returned null');
-        return;
+      try {
+        final token = await FirebaseMessaging.instance
+            .getToken()
+            .timeout(const Duration(seconds: 15));
+        debugPrint('FCM getToken result: ${token != null ? "OK (${token.substring(0, 20)}...)" : "NULL"}');
+        if (token == null || token.isEmpty) {
+          debugPrint('FCM getToken returned null');
+          _postDebugLog('getToken() returned null after APNs token was set');
+          return;
+        }
+        await _registerToken(token);
+      } catch (e) {
+        debugPrint('FCM getToken threw: $e');
+        _postDebugLog('getToken() threw after APNs was set: $e');
       }
-      await _registerToken(token);
     } catch (e) {
       debugPrint('FcmService.registerForCurrentUser failed: $e');
+      if (Platform.isIOS) _postDebugLog('registerForCurrentUser top-level catch: $e');
     }
   }
 
