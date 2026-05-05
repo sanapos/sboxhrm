@@ -63,6 +63,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   String _historySearchQuery = '';
   String? _historyEmployeeFilter;
   final TextEditingController _historySearchCtl = TextEditingController();
+  final TextEditingController _managerReportSearchCtl = TextEditingController();
 
   // Manager tab
   List<FieldLocationAssignment> _allAssignments = [];
@@ -70,6 +71,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   List<JourneyTracking> _managerJourneys = [];
   bool _isLoadingManager = false;
   String _managerCustomerStatusFilter = 'Tất cả';
+  String _managerReportSearch = '';
   DateTime _reportFrom = DateTime.now().subtract(const Duration(days: 7));
   DateTime _reportTo = DateTime.now();
   List<Map<String, dynamic>> _employees = [];
@@ -126,6 +128,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     _mapController.dispose();
     _managerMapController.dispose();
     _historySearchCtl.dispose();
+    _managerReportSearchCtl.dispose();
     super.dispose();
   }
 
@@ -1767,6 +1770,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   child: _buildJourneyButton(),
                 ),
 
+                // Today's progress summary
+                if (_myAssignments.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+                    child: _buildTodayProgressBar(),
+                  ),
+
                 // Dwell summary (when route has dwell points)
                 if (_todayJourney != null && _todayJourney!.routePoints.any((p) => p.isDwell))
                   Padding(
@@ -2002,6 +2012,50 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       ]),
       Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
     ]);
+  }
+
+  Widget _buildTodayProgressBar() {
+    final total = _myAssignments.length;
+    final completed = _todayVisits.where((v) => v.isCheckedOut || v.isReviewed).length;
+    final active = _todayVisits.where((v) => v.isCheckedIn).length;
+    final progress = total > 0 ? completed / total : 0.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E3A5F).withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.12)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.checklist_rtl, size: 15, color: Color(0xFF1E3A5F)),
+          const SizedBox(width: 6),
+          Text('Tiến độ hôm nay', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+          const Spacer(),
+          if (active > 0) ...[            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+              child: Text('$active đang ở', style: const TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w600)),
+            ),
+          ],
+          Text('$completed', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
+          Text('/$total điểm xong', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        ]),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 5,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation(
+              progress >= 1.0 ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 
   Widget _buildJourneyButton() {
@@ -4030,6 +4084,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   Widget _buildManagerListView() {
     final weekly = _weeklyManagerReports;
     final filteredReports = _filteredManagerReports;
+    final searchFiltered = _managerReportSearch.isEmpty
+        ? filteredReports
+        : filteredReports.where((v) {
+            final q = _managerReportSearch.toLowerCase();
+            return (v.employeeName ?? '').toLowerCase().contains(q) ||
+                (v.locationName ?? '').toLowerCase().contains(q) ||
+                (v.reportNote ?? '').toLowerCase().contains(q);
+          }).toList();
     final weeklyTotal = weekly.length;
     final weeklyWithPhotos = weekly.where((v) => v.photos.isNotEmpty).length;
     final weeklyWithStructured = weekly.where((v) {
@@ -4078,7 +4140,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         const SizedBox(height: 16),
 
         // Reports
-        Text('Báo cáo check-in (${filteredReports.length}/${_reports.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text('Báo cáo check-in (${searchFiltered.length}/${_reports.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -4093,7 +4155,38 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
           }).toList(),
         ),
         const SizedBox(height: 8),
-        if (filteredReports.isEmpty)
+        TextField(
+          controller: _managerReportSearchCtl,
+          decoration: InputDecoration(
+            hintText: 'Tìm nhân viên, điểm bán...',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _managerReportSearch.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _managerReportSearchCtl.clear();
+                      setState(() => _managerReportSearch = '');
+                    },
+                  )
+                : null,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+            ),
+          ),
+          style: const TextStyle(fontSize: 13),
+          onChanged: (v) => setState(() => _managerReportSearch = v),
+        ),
+        const SizedBox(height: 8),
+        if (searchFiltered.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -4101,7 +4194,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             ),
           )
         else
-          ...filteredReports.map(_buildManagerReportCard),
+          ...searchFiltered.map(_buildManagerReportCard),
       ],
     );
   }
