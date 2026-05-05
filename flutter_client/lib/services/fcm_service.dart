@@ -142,16 +142,18 @@ class FcmService {
 
           // Check if iOS reported a registration error via AppDelegate → UserDefaults
           String? nativeError;
+          String? nativeStatus;
           try {
             const ch = MethodChannel('flutter/shared_preferences');
             final map = await ch.invokeMethod<Map>('getAll');
             nativeError = map?['flutter.apns_registration_error'] as String?;
+            nativeStatus = map?['flutter.apns_registration_status'] as String?;
           } catch (_) {}
 
           // Post debug info to server (error or generic null message)
           final debugMsg = nativeError != null
               ? 'APNs registration failed: $nativeError. Permission=${settings.authorizationStatus}'
-              : 'APNs token null after 30s retries. Permission=${settings.authorizationStatus}. Trying getToken() fallback.';
+              : 'APNs token null after 30s retries. NativeStatus=$nativeStatus. Permission=${settings.authorizationStatus}. Trying getToken() fallback.';
           _postDebugLog(debugMsg);
 
           if (nativeError != null) {
