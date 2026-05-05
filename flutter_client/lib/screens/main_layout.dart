@@ -240,6 +240,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   OverlayEntry? _currentPopupEntry;
   bool _isShowingPopup = false;
 
+  // Tracks when SignalR connected so we can suppress stale notifications
+  // that were already shown by FCM while the app was in the background.
+  DateTime? _signalRConnectedAt;
+
   @override
   void initState() {
     super.initState();
@@ -374,6 +378,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Pass token factory for auto-refresh on reconnection
       await _signalRService.connect(
           null, token, () => authProvider.getValidToken());
+      _signalRConnectedAt = DateTime.now();
 
       if (!mounted) return;
       // Join store group for store-scoped notifications
@@ -525,7 +530,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             entityTypeLower == 'newattendance';
 
         if (isMobile) {
-          // Mobile: gửi notification hệ thống Android cho TẤT CẢ loại thông báo
+          // Tránh trùng notification: nếu SignalR vừa kết nối (<8s) và notification
+          // được tạo TRƯỚC khi kết nối → FCM đã show rồi khi app ở background, bỏ qua.
+          final createdAtStr = data['createdAt'] as String?;
+          if (createdAtStr != null && _signalRConnectedAt != null) {
+            final notifTs = DateTime.tryParse(createdAtStr)?.toLocal();
+            final connectedSince = DateTime.now().difference(_signalRConnectedAt!);
+            if (notifTs != null &&
+                connectedSince < const Duration(seconds: 8) &&
+                notifTs.isBefore(_signalRConnectedAt!.add(const Duration(seconds: 1)))) {
+              return; // Already shown by FCM
+            }
+          }
           _systemNotification.showGeneral(
             title: title,
             message: message,

@@ -110,97 +110,59 @@ class FcmService {
   /// Call after successful login. Requests permission, gets token, posts to backend.
   /// Safe to call multiple times (backend upserts). Tolerant to Firebase being uninitialized.
   Future<void> registerForCurrentUser() async {
-    debugPrint('FCM registerForCurrentUser: start, initialized=$_initialized');
     if (!_initialized) await initialize();
-    if (!_initialized) {
-      debugPrint('FCM registerForCurrentUser: not initialized, abort');
-      if (Platform.isIOS) _postDebugLog('registerForCurrentUser: initialize() failed to init Firebase');
-      return;
-    }
+    if (!_initialized) return;
     try {
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true, badge: true, sound: true,
       );
-      debugPrint('FCM permission status: ${settings.authorizationStatus}');
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        debugPrint('FCM permission denied');
-        return;
-      }
-      // iOS: APNs token must exist before getToken on cold start.
-      // On first launch / fresh install it can take up to 30s — retry up to 30 times.
+      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+
+      // iOS: APNs token must exist before getToken() on cold start.
+      // registerForRemoteNotifications() is called natively in AppDelegate, but
+      // the OS may still take a few seconds to deliver the token.
       if (Platform.isIOS) {
         String? apnsToken;
         for (int i = 0; i < 30; i++) {
           apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-          debugPrint('FCM APNs attempt ${i + 1}/30: ${apnsToken != null ? "GOT TOKEN" : "null"}');
           if (apnsToken != null && apnsToken.isNotEmpty) break;
-          if (kDebugMode) debugPrint('FCM: APNs token null, attempt ${i + 1}/30...');
           await Future.delayed(const Duration(seconds: 1));
         }
         if (apnsToken == null || apnsToken.isEmpty) {
-          debugPrint('FCM: APNs token still null after 30s — checking native error, then trying getToken() fallback');
-
-          // Check if iOS reported a registration error via AppDelegate → UserDefaults
+          // Check if iOS reported a native APNs registration error
           String? nativeError;
-          String? nativeStatus;
           try {
             const ch = MethodChannel('flutter/shared_preferences');
             final map = await ch.invokeMethod<Map>('getAll');
             nativeError = map?['flutter.apns_registration_error'] as String?;
-            nativeStatus = map?['flutter.apns_registration_status'] as String?;
           } catch (_) {}
-
-          // Post debug info to server (error or generic null message)
-          final debugMsg = nativeError != null
-              ? 'APNs registration failed: $nativeError. Permission=${settings.authorizationStatus}'
-              : 'APNs token null after 30s retries. NativeStatus=$nativeStatus. Permission=${settings.authorizationStatus}. Trying getToken() fallback.';
-          _postDebugLog(debugMsg);
-
           if (nativeError != null) {
-            // APNs registration itself failed — provisioning or entitlement issue
-            debugPrint('FCM: APNs native error: $nativeError');
+            debugPrint('FCM: APNs registration error: $nativeError');
             return;
           }
-
-          // AppDelegate may have set apnsToken in Firebase even though getAPNSToken() returned
-          // null (timing issue). Try getToken() directly — Firebase SDK handles APNs internally.
+          // Try getToken() directly — Firebase may have captured APNs internally
           try {
             final fallbackToken = await FirebaseMessaging.instance
                 .getToken()
                 .timeout(const Duration(seconds: 10));
             if (fallbackToken != null && fallbackToken.isNotEmpty) {
-              debugPrint('FCM: getToken() fallback succeeded');
-              _postDebugLog('getToken() fallback succeeded after APNs null. Token=${fallbackToken.substring(0, 20)}...');
               await _registerToken(fallbackToken);
-              return;
             }
-          } catch (e) {
-            debugPrint('FCM: getToken() fallback failed: $e');
-            _postDebugLog('getToken() fallback failed: $e');
-          }
+          } catch (_) {}
           return;
         }
-        if (kDebugMode) debugPrint('FCM APNs token ready ✓');
-        _postDebugLog('APNs token received OK (len=${apnsToken!.length}). Calling getToken()...');
       }
+
       try {
         final token = await FirebaseMessaging.instance
             .getToken()
             .timeout(const Duration(seconds: 15));
-        debugPrint('FCM getToken result: ${token != null ? "OK (${token.substring(0, 20)}...)" : "NULL"}');
-        if (token == null || token.isEmpty) {
-          debugPrint('FCM getToken returned null');
-          _postDebugLog('getToken() returned null after APNs token was set');
-          return;
-        }
-        await _registerToken(token);
+        if (token != null && token.isNotEmpty) await _registerToken(token);
       } catch (e) {
         debugPrint('FCM getToken threw: $e');
-        _postDebugLog('getToken() threw after APNs was set: $e');
       }
     } catch (e) {
       debugPrint('FcmService.registerForCurrentUser failed: $e');
-      if (Platform.isIOS) _postDebugLog('registerForCurrentUser top-level catch: $e');
     }
   }
 
@@ -251,21 +213,6 @@ class FcmService {
     } else {
       debugPrint('FCM register failed: ${res.statusCode} ${res.body}');
     }
-  }
-
-  /// Posts a debug log message to the server so remote diagnosis is possible.
-  Future<void> _postDebugLog(String message) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final accessToken = prefs.getString('access_token');
-      if (accessToken == null) return;
-      final url = Uri.parse('${getApiBaseUrl()}/api/notifications/device-token/debug');
-      await http.post(url, headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      }, body: jsonEncode({'message': message, 'platform': Platform.isIOS ? 'ios' : 'android'}))
-          .timeout(const Duration(seconds: 5));
-    } catch (_) {}
   }
 
   void _onForegroundMessage(RemoteMessage msg) {

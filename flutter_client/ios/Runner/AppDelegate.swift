@@ -48,9 +48,6 @@ import FirebaseMessaging
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
     Messaging.messaging().apnsToken = deviceToken
-    // Record success in UserDefaults so Dart can confirm the callback fired.
-    let tokenHex = deviceToken.map { String(format: "%02x", $0) }.joined()
-    UserDefaults.standard.set("ok:\(tokenHex.prefix(20))", forKey: "flutter.apns_registration_status")
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
