@@ -30,12 +30,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   // Số cấp phê duyệt chấm công (1, 2, 3)
   int _approvalLevels = 1;
 
-  // Số ngày công chuẩn
-  int _standardWorkDays = 26;
-
-  // Số giờ công chuẩn/ngày
-  int _standardWorkHours = 8;
-
   // Quy tắc làm tròn giờ công
   String _roundingRule = 'none';
 
@@ -66,8 +60,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       final results = await Future.wait([
         _apiService.getAppSetting('day_end_time'),
         _apiService.getAppSetting('attendance_approval_levels'),
-        _apiService.getAppSetting('standard_work_days'),
-        _apiService.getAppSetting('standard_work_hours'),
         _apiService.getAppSetting('rounding_rule'),
         _apiService.getAppSetting('allow_manual_correction'),
         _apiService.getAppSetting('payroll_cutoff_day'),
@@ -86,35 +78,25 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         final data1 = results[1]['data'] as Map;
         _approvalLevels = int.tryParse(data1['value']?.toString() ?? '1') ?? 1;
       }
-      // standard_work_days
+      // rounding_rule
       if (results[2]['isSuccess'] == true && results[2]['data'] is Map) {
         final data2 = results[2]['data'] as Map;
-        _standardWorkDays = int.tryParse(data2['value']?.toString() ?? '26') ?? 26;
-      }
-      // standard_work_hours
-      if (results[3]['isSuccess'] == true && results[3]['data'] is Map) {
-        final data3 = results[3]['data'] as Map;
-        _standardWorkHours = int.tryParse(data3['value']?.toString() ?? '8') ?? 8;
-      }
-      // rounding_rule
-      if (results[4]['isSuccess'] == true && results[4]['data'] is Map) {
-        final data4 = results[4]['data'] as Map;
-        _roundingRule = data4['value']?.toString() ?? 'none';
+        _roundingRule = data2['value']?.toString() ?? 'none';
       }
       // allow_manual_correction
-      if (results[5]['isSuccess'] == true && results[5]['data'] is Map) {
-        final data5 = results[5]['data'] as Map;
-        _allowManualCorrection = data5['value']?.toString() != 'false';
+      if (results[3]['isSuccess'] == true && results[3]['data'] is Map) {
+        final data3 = results[3]['data'] as Map;
+        _allowManualCorrection = data3['value']?.toString() != 'false';
       }
       // payroll_cutoff_day
-      if (results[6]['isSuccess'] == true && results[6]['data'] is Map) {
-        final data6 = results[6]['data'] as Map;
-        _payrollCutoffDay = int.tryParse(data6['value']?.toString() ?? '25') ?? 25;
+      if (results[4]['isSuccess'] == true && results[4]['data'] is Map) {
+        final data4 = results[4]['data'] as Map;
+        _payrollCutoffDay = int.tryParse(data4['value']?.toString() ?? '25') ?? 25;
       }
       // leave_approval_levels
-      if (results[7]['isSuccess'] == true && results[7]['data'] is Map) {
-        final data7 = results[7]['data'] as Map;
-        _leaveApprovalLevels = int.tryParse(data7['value']?.toString() ?? '1') ?? 1;
+      if (results[5]['isSuccess'] == true && results[5]['data'] is Map) {
+        final data5 = results[5]['data'] as Map;
+        _leaveApprovalLevels = int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
       }
     } catch (e) {
       debugPrint('Error loading system settings: $e');
@@ -150,16 +132,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           key: 'attendance_approval_levels',
           value: _approvalLevels.toString(),
           description: 'Số cấp phê duyệt yêu cầu chấm công',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'standard_work_days',
-          value: _standardWorkDays.toString(),
-          description: 'Số ngày công chuẩn trong tháng',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'standard_work_hours',
-          value: _standardWorkHours.toString(),
-          description: 'Số giờ công chuẩn mỗi ngày',
         ),
         _apiService.upsertAppSetting(
           key: 'rounding_rule',
@@ -297,30 +269,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   // Row 1.5: Phê duyệt nghỉ phép
                   _buildLeaveApprovalCard(),
                   const SizedBox(height: 20),
-                  // Row 2: Ngày công chuẩn + Giờ công chuẩn
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth > 900) {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildStandardWorkDaysCard()),
-                            const SizedBox(width: 20),
-                            Expanded(child: _buildStandardWorkHoursCard()),
-                          ],
-                        );
-                      }
-                      return Column(
-                        children: [
-                          _buildStandardWorkDaysCard(),
-                          const SizedBox(height: 20),
-                          _buildStandardWorkHoursCard(),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // Row 3: Quy tắc làm tròn + Chấm công bù + Ngày chốt công
+                  // Row 2: Quy tắc làm tròn + Chấm công bù + Ngày chốt công
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth > 900) {
@@ -680,152 +629,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   }
 
   // ══════════════════════════════════════════════════
-  // CARD: Số ngày công chuẩn
-  // ══════════════════════════════════════════════════
-  Widget _buildStandardWorkDaysCard() {
-    return _buildSettingCard(
-      icon: Icons.calendar_month,
-      iconColor: const Color(0xFF0F2340),
-      title: 'Ngày công chuẩn',
-      subtitle: 'Số ngày công chuẩn trong 1 tháng',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F2340).withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF0F2340).withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  '$_standardWorkDays ngày',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: _standardWorkDays < 31 ? () => setState(() => _standardWorkDays++) : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: const Color(0xFF0F2340),
-                  ),
-                  IconButton(
-                    onPressed: _standardWorkDays > 20 ? () => setState(() => _standardWorkDays--) : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    color: const Color(0xFF0F2340),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [22, 24, 26, 28, 30].map((d) => ActionChip(
-              label: Text('$d'),
-              backgroundColor: _standardWorkDays == d
-                  ? const Color(0xFF0F2340).withValues(alpha: 0.1)
-                  : Colors.grey.shade100,
-              labelStyle: TextStyle(
-                color: _standardWorkDays == d ? const Color(0xFF0F2340) : const Color(0xFF52525B),
-                fontWeight: _standardWorkDays == d ? FontWeight.w600 : FontWeight.normal,
-              ),
-              side: BorderSide(
-                color: _standardWorkDays == d
-                    ? const Color(0xFF0F2340).withValues(alpha: 0.3)
-                    : Colors.grey.shade300,
-              ),
-              onPressed: () => setState(() => _standardWorkDays = d),
-            )).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════
-  // CARD: Số giờ công chuẩn/ngày
-  // ══════════════════════════════════════════════════
-  Widget _buildStandardWorkHoursCard() {
-    return _buildSettingCard(
-      icon: Icons.timer,
-      iconColor: const Color(0xFF1E3A5F),
-      title: 'Giờ công chuẩn/ngày',
-      subtitle: 'Số giờ làm việc tiêu chuẩn mỗi ngày',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  '$_standardWorkHours giờ',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: _standardWorkHours < 12 ? () => setState(() => _standardWorkHours++) : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: const Color(0xFF1E3A5F),
-                  ),
-                  IconButton(
-                    onPressed: _standardWorkHours > 4 ? () => setState(() => _standardWorkHours--) : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    color: const Color(0xFF1E3A5F),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [6, 7, 8, 9, 10].map((h) => ActionChip(
-              label: Text('$h giờ'),
-              backgroundColor: _standardWorkHours == h
-                  ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
-                  : Colors.grey.shade100,
-              labelStyle: TextStyle(
-                color: _standardWorkHours == h ? const Color(0xFF1E3A5F) : const Color(0xFF52525B),
-                fontWeight: _standardWorkHours == h ? FontWeight.w600 : FontWeight.normal,
-              ),
-              side: BorderSide(
-                color: _standardWorkHours == h
-                    ? const Color(0xFF1E3A5F).withValues(alpha: 0.3)
-                    : Colors.grey.shade300,
-              ),
-              onPressed: () => setState(() => _standardWorkHours = h),
-            )).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════
   // CARD: Quy tắc làm tròn giờ công
   // ══════════════════════════════════════════════════
   Widget _buildRoundingRuleCard() {
@@ -837,6 +640,28 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Cảnh báo chưa áp dụng
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFED7AA)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.construction_outlined, color: Color(0xFFD97706), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade800, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
           ..._roundingRuleOptions.map((opt) {
             final isSelected = _roundingRule == opt['value'];
             return Padding(
@@ -890,10 +715,6 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
             );
           }),
-        ],
-      ),
-    );
-  }
 
   List<Map<String, String>> get _roundingRuleOptions => [
     {'value': 'none', 'label': 'Không làm tròn', 'desc': 'Tính chính xác theo phút'},
@@ -1013,8 +834,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           const SizedBox(height: 14),
           _buildInfoBox(
-            '• Ngày chốt công xác định kỳ tính lương\n'
-            '• VD: Ngày 25 → Chu kỳ từ 26 tháng trước đến 25 tháng này',
+            '• Ngày chốt công xác định chu kỳ tính lương\n'
+            '• VD: Ngày 25 → Chu kỳ từ 26/tháng trước đến 25/tháng này\n'
+            '• Ngày 1 → Chốt theo tháng lịch (1–31 mỗi tháng)\n'
+            '• Thiết lập này được lưu và sẽ được dùng khi module Tổng hợp lương được cập nhật',
           ),
         ],
       ),
