@@ -51,7 +51,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       if (_modules.isEmpty) {
         setState(() => _modules = _getAllModules());
       }
-      
+
       // Auto select first role
       if (_roles.isNotEmpty && _selectedRoleName == null) {
         _selectRole(_roles.first['roleName']);
@@ -67,13 +67,41 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   void _loadSampleData() {
     setState(() {
       _roles = [
-        {'roleName': 'Admin', 'roleDisplayName': 'Quản trị viên', 'permissionCount': 42},
-        {'roleName': 'Director', 'roleDisplayName': 'Giám đốc', 'permissionCount': 42},
-        {'roleName': 'Accountant', 'roleDisplayName': 'Kế toán', 'permissionCount': 42},
-        {'roleName': 'DepartmentHead', 'roleDisplayName': 'Trưởng phòng', 'permissionCount': 42},
-        {'roleName': 'Manager', 'roleDisplayName': 'Quản lý', 'permissionCount': 42},
-        {'roleName': 'Employee', 'roleDisplayName': 'Nhân viên', 'permissionCount': 42},
-        {'roleName': 'User', 'roleDisplayName': 'Người dùng', 'permissionCount': 42},
+        {
+          'roleName': 'Admin',
+          'roleDisplayName': 'Quản trị viên',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Director',
+          'roleDisplayName': 'Giám đốc',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Accountant',
+          'roleDisplayName': 'Kế toán',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'DepartmentHead',
+          'roleDisplayName': 'Trưởng phòng',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Manager',
+          'roleDisplayName': 'Quản lý',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Employee',
+          'roleDisplayName': 'Nhân viên',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'User',
+          'roleDisplayName': 'Người dùng',
+          'permissionCount': 42
+        },
       ];
       _modules = _getAllModules();
     });
@@ -82,64 +110,324 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   static List<Map<String, dynamic>> _getAllModules() {
     return [
       // ══════════ TỔNG QUAN ══════════
-      {'id': '001', 'module': 'Home', 'moduleDisplayName': 'Trang chủ', 'displayOrder': 1},
-      {'id': '002', 'module': 'Notification', 'moduleDisplayName': 'Thông báo', 'displayOrder': 2},
+      {
+        'id': '001',
+        'module': 'Home',
+        'moduleDisplayName': 'Trang chủ',
+        'displayOrder': 1
+      },
+      {
+        'id': '002',
+        'module': 'Notification',
+        'moduleDisplayName': 'Thông báo',
+        'displayOrder': 2
+      },
       // ══════════ HỒ SƠ NHÂN SỰ ══════════
-      {'id': '003', 'module': 'Dashboard', 'moduleDisplayName': 'Tổng quan', 'displayOrder': 3},
-      {'id': '004', 'module': 'Employee', 'moduleDisplayName': 'Hồ sơ nhân sự', 'displayOrder': 4},
-      {'id': '005', 'module': 'DeviceUser', 'moduleDisplayName': 'Nhân sự chấm công', 'displayOrder': 5},
-      {'id': '006', 'module': 'Department', 'moduleDisplayName': 'Phòng ban', 'displayOrder': 6},
-      {'id': '007', 'module': 'Leave', 'moduleDisplayName': 'Nghỉ phép', 'displayOrder': 7},
-      {'id': '008', 'module': 'SalarySettings', 'moduleDisplayName': 'Thiết lập lương', 'displayOrder': 8},
+      {
+        'id': '003',
+        'module': 'Dashboard',
+        'moduleDisplayName': 'Tổng quan',
+        'displayOrder': 3
+      },
+      {
+        'id': '004',
+        'module': 'Employee',
+        'moduleDisplayName': 'Hồ sơ nhân sự',
+        'displayOrder': 4
+      },
+      {
+        'id': '005',
+        'module': 'DeviceUser',
+        'moduleDisplayName': 'Nhân sự chấm công',
+        'displayOrder': 5
+      },
+      {
+        'id': '006',
+        'module': 'Department',
+        'moduleDisplayName': 'Phòng ban',
+        'displayOrder': 6
+      },
+      {
+        'id': '007',
+        'module': 'Leave',
+        'moduleDisplayName': 'Nghỉ phép',
+        'displayOrder': 7
+      },
+      {
+        'id': '008',
+        'module': 'SalarySettings',
+        'moduleDisplayName': 'Thiết lập lương',
+        'displayOrder': 8
+      },
       // ══════════ CHẤM CÔNG ══════════
-      {'id': '009', 'module': 'Attendance', 'moduleDisplayName': 'Chấm công', 'displayOrder': 9},
-      {'id': '010', 'module': 'WorkSchedule', 'moduleDisplayName': 'Lịch làm việc', 'displayOrder': 10},
-      {'id': '011', 'module': 'AttendanceSummary', 'moduleDisplayName': 'Tổng hợp chấm công', 'displayOrder': 11},
-      {'id': '012', 'module': 'AttendanceByShift', 'moduleDisplayName': 'Tổng hợp theo ca', 'displayOrder': 12},
-      {'id': '013', 'module': 'AttendanceApproval', 'moduleDisplayName': 'Duyệt chấm công', 'displayOrder': 13},
-      {'id': '014', 'module': 'ScheduleApproval', 'moduleDisplayName': 'Duyệt lịch làm việc', 'displayOrder': 14},
-      {'id': '015', 'module': 'Payroll', 'moduleDisplayName': 'Tổng hợp lương', 'displayOrder': 15},
+      {
+        'id': '009',
+        'module': 'Attendance',
+        'moduleDisplayName': 'Chấm công',
+        'displayOrder': 9
+      },
+      {
+        'id': '010',
+        'module': 'WorkSchedule',
+        'moduleDisplayName': 'Lịch làm việc',
+        'displayOrder': 10
+      },
+      {
+        'id': '011',
+        'module': 'AttendanceSummary',
+        'moduleDisplayName': 'Tổng hợp chấm công',
+        'displayOrder': 11
+      },
+      {
+        'id': '012',
+        'module': 'AttendanceByShift',
+        'moduleDisplayName': 'Tổng hợp theo ca',
+        'displayOrder': 12
+      },
+      {
+        'id': '013',
+        'module': 'AttendanceApproval',
+        'moduleDisplayName': 'Duyệt chấm công',
+        'displayOrder': 13
+      },
+      {
+        'id': '014',
+        'module': 'ScheduleApproval',
+        'moduleDisplayName': 'Duyệt lịch làm việc',
+        'displayOrder': 14
+      },
+      {
+        'id': '015',
+        'module': 'Payroll',
+        'moduleDisplayName': 'Tổng hợp lương',
+        'displayOrder': 15
+      },
       // ══════════ TÀI CHÍNH ══════════
-      {'id': '016', 'module': 'BonusPenalty', 'moduleDisplayName': 'Thưởng / Phạt', 'displayOrder': 16},
-      {'id': '043', 'module': 'PenaltyTickets', 'moduleDisplayName': 'Phiếu phạt', 'displayOrder': 43},
-      {'id': '017', 'module': 'AdvanceRequests', 'moduleDisplayName': 'Ứng lương', 'displayOrder': 17},
-      {'id': '018', 'module': 'CashTransaction', 'moduleDisplayName': 'Thu chi', 'displayOrder': 18},
+      {
+        'id': '016',
+        'module': 'BonusPenalty',
+        'moduleDisplayName': 'Phiếu thưởng',
+        'displayOrder': 16
+      },
+      {
+        'id': '043',
+        'module': 'PenaltyTickets',
+        'moduleDisplayName': 'Phiếu phạt',
+        'displayOrder': 43
+      },
+      {
+        'id': '017',
+        'module': 'AdvanceRequests',
+        'moduleDisplayName': 'Ứng lương',
+        'displayOrder': 17
+      },
+      {
+        'id': '018',
+        'module': 'CashTransaction',
+        'moduleDisplayName': 'Thu chi',
+        'displayOrder': 18
+      },
       // ══════════ QUẢN LÝ VẬN HÀNH ══════════
-      {'id': '019', 'module': 'Asset', 'moduleDisplayName': 'Tài sản', 'displayOrder': 19},
-      {'id': '020', 'module': 'Task', 'moduleDisplayName': 'Công việc', 'displayOrder': 20},
-      {'id': '021', 'module': 'Communication', 'moduleDisplayName': 'Truyền thông', 'displayOrder': 21},
-      {'id': '022', 'module': 'KPI', 'moduleDisplayName': 'KPI', 'displayOrder': 22},
-      {'id': '044', 'module': 'Production', 'moduleDisplayName': 'Sản lượng', 'displayOrder': 43},
-      {'id': '045', 'module': 'MobileDeviceRegistration', 'moduleDisplayName': 'Đăng ký chấm công Mobile', 'displayOrder': 46},
-      {'id': '046', 'module': 'MobileAttendanceApproval', 'moduleDisplayName': 'Duyệt chấm công Mobile', 'displayOrder': 47},
-      {'id': '047', 'module': 'Meal', 'moduleDisplayName': 'Chấm cơm', 'displayOrder': 48},
-      {'id': '048', 'module': 'FieldCheckIn', 'moduleDisplayName': 'Check-in điểm bán', 'displayOrder': 49},
+      {
+        'id': '019',
+        'module': 'Asset',
+        'moduleDisplayName': 'Tài sản',
+        'displayOrder': 19
+      },
+      {
+        'id': '020',
+        'module': 'Task',
+        'moduleDisplayName': 'Công việc',
+        'displayOrder': 20
+      },
+      {
+        'id': '021',
+        'module': 'Communication',
+        'moduleDisplayName': 'Truyền thông',
+        'displayOrder': 21
+      },
+      {
+        'id': '022',
+        'module': 'KPI',
+        'moduleDisplayName': 'KPI',
+        'displayOrder': 22
+      },
+      {
+        'id': '044',
+        'module': 'Production',
+        'moduleDisplayName': 'Sản lượng',
+        'displayOrder': 43
+      },
+      {
+        'id': '045',
+        'module': 'MobileDeviceRegistration',
+        'moduleDisplayName': 'Đăng ký chấm công Mobile',
+        'displayOrder': 46
+      },
+      {
+        'id': '046',
+        'module': 'MobileAttendanceApproval',
+        'moduleDisplayName': 'Duyệt chấm công Mobile',
+        'displayOrder': 47
+      },
+      {
+        'id': '047',
+        'module': 'Meal',
+        'moduleDisplayName': 'Chấm cơm',
+        'displayOrder': 48
+      },
+      {
+        'id': '048',
+        'module': 'FieldCheckIn',
+        'moduleDisplayName': 'Check-in điểm bán',
+        'displayOrder': 49
+      },
       // ══════════ BÁO CÁO ══════════
-      {'id': '023', 'module': 'HrReport', 'moduleDisplayName': 'Báo cáo nhân sự', 'displayOrder': 23},
-      {'id': '024', 'module': 'AttendanceReport', 'moduleDisplayName': 'Báo cáo chấm công', 'displayOrder': 24},
-      {'id': '025', 'module': 'PayrollReport', 'moduleDisplayName': 'Báo cáo lương', 'displayOrder': 25},
-      {'id': '051', 'module': 'LeaveReport', 'moduleDisplayName': 'Báo cáo nghỉ phép', 'displayOrder': 51},
-      {'id': '052', 'module': 'CashReport', 'moduleDisplayName': 'Báo cáo thu chi', 'displayOrder': 52},
-      {'id': '053', 'module': 'PenaltyReport', 'moduleDisplayName': 'Báo cáo phạt', 'displayOrder': 53},
-      {'id': '054', 'module': 'AdvanceReport', 'moduleDisplayName': 'Báo cáo ứng lương', 'displayOrder': 54},
+      {
+        'id': '023',
+        'module': 'HrReport',
+        'moduleDisplayName': 'Báo cáo nhân sự',
+        'displayOrder': 23
+      },
+      {
+        'id': '024',
+        'module': 'AttendanceReport',
+        'moduleDisplayName': 'Báo cáo chấm công',
+        'displayOrder': 24
+      },
+      {
+        'id': '025',
+        'module': 'PayrollReport',
+        'moduleDisplayName': 'Báo cáo lương',
+        'displayOrder': 25
+      },
+      {
+        'id': '051',
+        'module': 'LeaveReport',
+        'moduleDisplayName': 'Báo cáo nghỉ phép',
+        'displayOrder': 51
+      },
+      {
+        'id': '052',
+        'module': 'CashReport',
+        'moduleDisplayName': 'Báo cáo thu chi',
+        'displayOrder': 52
+      },
+      {
+        'id': '053',
+        'module': 'PenaltyReport',
+        'moduleDisplayName': 'Báo cáo phạt',
+        'displayOrder': 53
+      },
+      {
+        'id': '054',
+        'module': 'AdvanceReport',
+        'moduleDisplayName': 'Báo cáo ứng lương',
+        'displayOrder': 54
+      },
       // ══════════ CÀI ĐẶT ══════════
-      {'id': '026', 'module': 'SettingsHub', 'moduleDisplayName': 'Thiết lập HRM', 'displayOrder': 26},
-      {'id': '027', 'module': 'ShiftSetup', 'moduleDisplayName': 'Thiết lập ca', 'displayOrder': 27},
-      {'id': '028', 'module': 'MobileAttendance', 'moduleDisplayName': 'Chấm công mobile', 'displayOrder': 28},
-      {'id': '029', 'module': 'Holiday', 'moduleDisplayName': 'Ngày lễ', 'displayOrder': 29},
-      {'id': '030', 'module': 'Device', 'moduleDisplayName': 'Máy chấm công', 'displayOrder': 30},
-      {'id': '031', 'module': 'Allowance', 'moduleDisplayName': 'Phụ cấp', 'displayOrder': 31},
-      {'id': '032', 'module': 'PenaltySetup', 'moduleDisplayName': 'Phạt', 'displayOrder': 32},
-      {'id': '033', 'module': 'Insurance', 'moduleDisplayName': 'Bảo hiểm', 'displayOrder': 33},
-      {'id': '034', 'module': 'Tax', 'moduleDisplayName': 'Thuế TNCN', 'displayOrder': 34},
-      {'id': '049', 'module': 'ProductSalary', 'moduleDisplayName': 'Lương sản phẩm', 'displayOrder': 44},
-      {'id': '050', 'module': 'Feedback', 'moduleDisplayName': 'Phản ánh / Ý kiến', 'displayOrder': 45},
-      {'id': '035', 'module': 'UserManagement', 'moduleDisplayName': 'Tài khoản', 'displayOrder': 35},
-      {'id': '036', 'module': 'Role', 'moduleDisplayName': 'Phân quyền', 'displayOrder': 36},
-      {'id': '038', 'module': 'SystemSettings', 'moduleDisplayName': 'Hệ thống', 'displayOrder': 38},
-      {'id': '039', 'module': 'NotificationSettings', 'moduleDisplayName': 'Thiết lập thông báo', 'displayOrder': 39},
-      {'id': '041', 'module': 'AIGemini', 'moduleDisplayName': 'Thiết lập AI', 'displayOrder': 41},
-      {'id': '042', 'module': 'Settings', 'moduleDisplayName': 'Cài đặt', 'displayOrder': 42},
+      {
+        'id': '026',
+        'module': 'SettingsHub',
+        'moduleDisplayName': 'Thiết lập HRM',
+        'displayOrder': 26
+      },
+      {
+        'id': '027',
+        'module': 'ShiftSetup',
+        'moduleDisplayName': 'Thiết lập ca',
+        'displayOrder': 27
+      },
+      {
+        'id': '028',
+        'module': 'MobileAttendance',
+        'moduleDisplayName': 'Chấm công mobile',
+        'displayOrder': 28
+      },
+      {
+        'id': '029',
+        'module': 'Holiday',
+        'moduleDisplayName': 'Ngày lễ',
+        'displayOrder': 29
+      },
+      {
+        'id': '030',
+        'module': 'Device',
+        'moduleDisplayName': 'Máy chấm công',
+        'displayOrder': 30
+      },
+      {
+        'id': '031',
+        'module': 'Allowance',
+        'moduleDisplayName': 'Phụ cấp',
+        'displayOrder': 31
+      },
+      {
+        'id': '032',
+        'module': 'PenaltySetup',
+        'moduleDisplayName': 'Phạt',
+        'displayOrder': 32
+      },
+      {
+        'id': '033',
+        'module': 'Insurance',
+        'moduleDisplayName': 'Bảo hiểm',
+        'displayOrder': 33
+      },
+      {
+        'id': '034',
+        'module': 'Tax',
+        'moduleDisplayName': 'Thuế TNCN',
+        'displayOrder': 34
+      },
+      {
+        'id': '049',
+        'module': 'ProductSalary',
+        'moduleDisplayName': 'Lương sản phẩm',
+        'displayOrder': 44
+      },
+      {
+        'id': '050',
+        'module': 'Feedback',
+        'moduleDisplayName': 'Phản ánh / Ý kiến',
+        'displayOrder': 45
+      },
+      {
+        'id': '035',
+        'module': 'UserManagement',
+        'moduleDisplayName': 'Tài khoản',
+        'displayOrder': 35
+      },
+      {
+        'id': '036',
+        'module': 'Role',
+        'moduleDisplayName': 'Phân quyền',
+        'displayOrder': 36
+      },
+      {
+        'id': '038',
+        'module': 'SystemSettings',
+        'moduleDisplayName': 'Hệ thống',
+        'displayOrder': 38
+      },
+      {
+        'id': '039',
+        'module': 'NotificationSettings',
+        'moduleDisplayName': 'Thiết lập thông báo',
+        'displayOrder': 39
+      },
+      {
+        'id': '041',
+        'module': 'AIGemini',
+        'moduleDisplayName': 'Thiết lập AI',
+        'displayOrder': 41
+      },
+      {
+        'id': '042',
+        'module': 'Settings',
+        'moduleDisplayName': 'Cài đặt',
+        'displayOrder': 42
+      },
     ];
   }
 
@@ -152,7 +440,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     try {
       // Check if we already have permissions loaded from getRoles() (GET /all)
       final existingRole = _roles.firstWhere(
-        (r) => r['roleName'] == roleName && r['permissions'] != null && (r['permissions'] as List).isNotEmpty,
+        (r) =>
+            r['roleName'] == roleName &&
+            r['permissions'] != null &&
+            (r['permissions'] as List).isNotEmpty,
         orElse: () => {},
       );
 
@@ -204,73 +495,272 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     });
   }
 
-  static Map<String, bool> _getDefaultPermission(String roleName, String module) {
+  static Map<String, bool> _getDefaultPermission(
+      String roleName, String module) {
     switch (roleName.toLowerCase()) {
       case 'admin':
-        return {'canView': true, 'canCreate': true, 'canEdit': true, 'canDelete': true, 'canExport': true, 'canApprove': true};
+        return {
+          'canView': true,
+          'canCreate': true,
+          'canEdit': true,
+          'canDelete': true,
+          'canExport': true,
+          'canApprove': true
+        };
 
       case 'director':
         if (['Settings', 'Device', 'Geofence', 'DeviceUser'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
         if (['Store', 'Role', 'UserManagement'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': true, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': true,
+            'canApprove': false
+          };
         }
-        return {'canView': true, 'canCreate': true, 'canEdit': true, 'canDelete': true, 'canExport': true, 'canApprove': true};
+        return {
+          'canView': true,
+          'canCreate': true,
+          'canEdit': true,
+          'canDelete': true,
+          'canExport': true,
+          'canApprove': true
+        };
 
       case 'accountant':
-        if (['Salary', 'Payslip', 'Allowance', 'Insurance', 'Tax', 'Advance', 'Transaction', 'CashTransaction', 'BankAccount', 'Benefit'].contains(module)) {
-          return {'canView': true, 'canCreate': true, 'canEdit': true, 'canDelete': true, 'canExport': true, 'canApprove': false};
+        if ([
+          'Salary',
+          'Payslip',
+          'Allowance',
+          'Insurance',
+          'Tax',
+          'Advance',
+          'Transaction',
+          'CashTransaction',
+          'BankAccount',
+          'Benefit'
+        ].contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': true,
+            'canEdit': true,
+            'canDelete': true,
+            'canExport': true,
+            'canApprove': false
+          };
         }
         if (['Report', 'Employee', 'Attendance'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': true, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': true,
+            'canApprove': false
+          };
         }
-        if (['Dashboard', 'Leave', 'Shift', 'Holiday', 'Overtime', 'Notification'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        if ([
+          'Dashboard',
+          'Leave',
+          'Shift',
+          'Holiday',
+          'Overtime',
+          'Notification'
+        ].contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        return {'canView': false, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        return {
+          'canView': false,
+          'canCreate': false,
+          'canEdit': false,
+          'canDelete': false,
+          'canExport': false,
+          'canApprove': false
+        };
 
       case 'departmenthead':
-        if (['Employee', 'Attendance', 'Leave', 'Shift', 'Overtime', 'AttendanceCorrection', 'WorkSchedule', 'ShiftSwap', 'Task', 'KPI', 'HrDocument'].contains(module)) {
-          return {'canView': true, 'canCreate': true, 'canEdit': true, 'canDelete': false, 'canExport': true, 'canApprove': true};
+        if ([
+          'Employee',
+          'Attendance',
+          'Leave',
+          'Shift',
+          'Overtime',
+          'AttendanceCorrection',
+          'WorkSchedule',
+          'ShiftSwap',
+          'Task',
+          'KPI',
+          'HrDocument'
+        ].contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': true,
+            'canEdit': true,
+            'canDelete': false,
+            'canExport': true,
+            'canApprove': true
+          };
         }
         if (['Notification', 'Communication'].contains(module)) {
-          return {'canView': true, 'canCreate': true, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': true,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
         if (['Report', 'Salary', 'Payslip'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': true, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': true,
+            'canApprove': false
+          };
         }
-        if (['Dashboard', 'Allowance', 'Holiday', 'Insurance', 'Advance', 'ShiftTemplate', 'ShiftSalaryLevel', 'Benefit', 'Asset', 'OrgChart', 'Department'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        if ([
+          'Dashboard',
+          'Allowance',
+          'Holiday',
+          'Insurance',
+          'Advance',
+          'ShiftTemplate',
+          'ShiftSalaryLevel',
+          'Benefit',
+          'Asset',
+          'OrgChart',
+          'Department'
+        ].contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        return {'canView': false, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        return {
+          'canView': false,
+          'canCreate': false,
+          'canEdit': false,
+          'canDelete': false,
+          'canExport': false,
+          'canApprove': false
+        };
 
       case 'manager':
         if (['Settings', 'Store', 'Role'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        return {'canView': true, 'canCreate': true, 'canEdit': true, 'canDelete': false, 'canExport': true, 'canApprove': true};
+        return {
+          'canView': true,
+          'canCreate': true,
+          'canEdit': true,
+          'canDelete': false,
+          'canExport': true,
+          'canApprove': true
+        };
 
       case 'employee':
-        if (['Dashboard', 'Attendance', 'Payslip', 'Shift', 'Notification'].contains(module)) {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        if (['Dashboard', 'Attendance', 'Payslip', 'Shift', 'Notification']
+            .contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        if (['Leave', 'ShiftSwap', 'AttendanceCorrection', 'Overtime'].contains(module)) {
-          return {'canView': true, 'canCreate': true, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        if (['Leave', 'ShiftSwap', 'AttendanceCorrection', 'Overtime']
+            .contains(module)) {
+          return {
+            'canView': true,
+            'canCreate': true,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
         if (module == 'Task') {
-          return {'canView': true, 'canCreate': false, 'canEdit': true, 'canDelete': false, 'canExport': false, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': true,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        return {'canView': false, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        return {
+          'canView': false,
+          'canCreate': false,
+          'canEdit': false,
+          'canDelete': false,
+          'canExport': false,
+          'canApprove': false
+        };
 
       case 'user':
         if (module == 'Dashboard') {
-          return {'canView': true, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': false,
+            'canExport': false,
+            'canApprove': false
+          };
         }
-        return {'canView': false, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        return {
+          'canView': false,
+          'canCreate': false,
+          'canEdit': false,
+          'canDelete': false,
+          'canExport': false,
+          'canApprove': false
+        };
 
       default:
-        return {'canView': false, 'canCreate': false, 'canEdit': false, 'canDelete': false, 'canExport': false, 'canApprove': false};
+        return {
+          'canView': false,
+          'canCreate': false,
+          'canEdit': false,
+          'canDelete': false,
+          'canExport': false,
+          'canApprove': false
+        };
     }
   }
 
@@ -282,7 +772,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       await _apiService.saveRolePermissions(_selectedRolePermissions!);
       appNotification.showSuccess(
         title: 'Thành công',
-        message: 'Đã lưu phân quyền cho ${_selectedRolePermissions!['roleDisplayName']}',
+        message:
+            'Đã lưu phân quyền cho ${_selectedRolePermissions!['roleDisplayName']}',
       );
       _loadData(); // Reload to update permission count
     } catch (e) {
@@ -297,20 +788,23 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   void _togglePermission(int index, String permissionType) {
     if (_selectedRolePermissions == null) return;
-    
+
     setState(() {
-      final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions']);
+      final permissions = List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions']);
       permissions[index] = Map<String, dynamic>.from(permissions[index]);
-      permissions[index][permissionType] = !(permissions[index][permissionType] ?? false);
+      permissions[index][permissionType] =
+          !(permissions[index][permissionType] ?? false);
       _selectedRolePermissions!['permissions'] = permissions;
     });
   }
 
   void _toggleAllForModule(int index, bool value) {
     if (_selectedRolePermissions == null) return;
-    
+
     setState(() {
-      final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions']);
+      final permissions = List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions']);
       permissions[index] = Map<String, dynamic>.from(permissions[index]);
       permissions[index]['canView'] = value;
       permissions[index]['canCreate'] = value;
@@ -324,9 +818,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   void _setAllPermissions(String permissionType, bool value) {
     if (_selectedRolePermissions == null) return;
-    
+
     setState(() {
-      final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions']);
+      final permissions = List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions']);
       for (int i = 0; i < permissions.length; i++) {
         permissions[i] = Map<String, dynamic>.from(permissions[i]);
         permissions[i][permissionType] = value;
@@ -338,9 +833,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   // Chọn tất cả quyền cho role
   void _selectAllPermissions() {
     if (_selectedRolePermissions == null) return;
-    
+
     setState(() {
-      final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions']);
+      final permissions = List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions']);
       for (int i = 0; i < permissions.length; i++) {
         permissions[i] = Map<String, dynamic>.from(permissions[i]);
         permissions[i]['canView'] = true;
@@ -357,9 +853,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   // Bỏ tất cả quyền cho role
   void _deselectAllPermissions() {
     if (_selectedRolePermissions == null) return;
-    
+
     setState(() {
-      final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions']);
+      final permissions = List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions']);
       for (int i = 0; i < permissions.length; i++) {
         permissions[i] = Map<String, dynamic>.from(permissions[i]);
         permissions[i]['canView'] = false;
@@ -381,33 +878,36 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isMobile ? 0 : 16)),
+        insetPadding: isMobile
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isMobile ? 0 : 16)),
         title: const Text('Thêm chức danh mới'),
         content: SizedBox(
           width: isMobile ? double.infinity : null,
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Mã chức danh',
-                hintText: 'VD: Accountant, HRManager...',
-                border: OutlineInputBorder(),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Mã chức danh',
+                  hintText: 'VD: Accountant, HRManager...',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: displayNameController,
-              decoration: const InputDecoration(
-                labelText: 'Tên hiển thị',
-                hintText: 'VD: Kế toán, Quản lý nhân sự...',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: displayNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên hiển thị',
+                  hintText: 'VD: Kế toán, Quản lý nhân sự...',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -416,38 +916,48 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.isEmpty || displayNameController.text.isEmpty) {
-                appNotification.showWarning(title: 'Cảnh báo', message: 'Vui lòng nhập đầy đủ thông tin');
+              if (nameController.text.isEmpty ||
+                  displayNameController.text.isEmpty) {
+                appNotification.showWarning(
+                    title: 'Cảnh báo',
+                    message: 'Vui lòng nhập đầy đủ thông tin');
                 return;
               }
-              
+
               // Check if role already exists
-              final exists = _roles.any((r) => r['roleName'] == nameController.text);
+              final exists =
+                  _roles.any((r) => r['roleName'] == nameController.text);
               if (exists) {
-                appNotification.showWarning(title: 'Cảnh báo', message: 'Chức danh "${nameController.text}" đã tồn tại');
+                appNotification.showWarning(
+                    title: 'Cảnh báo',
+                    message: 'Chức danh "${nameController.text}" đã tồn tại');
                 return;
               }
-              
+
               Navigator.pop(context);
-              
+
               // Save empty permissions to backend to persist the role
               final defaultModules = _getAllModules();
-              final permissions = defaultModules.map((m) => {
-                'permissionId': m['id'],
-                'canView': false,
-                'canCreate': false,
-                'canEdit': false,
-                'canDelete': false,
-                'canExport': false,
-                'canApprove': false,
-              }).toList();
-              
+              final permissions = defaultModules
+                  .map((m) => {
+                        'permissionId': m['id'],
+                        'canView': false,
+                        'canCreate': false,
+                        'canEdit': false,
+                        'canDelete': false,
+                        'canExport': false,
+                        'canApprove': false,
+                      })
+                  .toList();
+
               final result = await _apiService.saveRolePermissions({
                 'roleName': nameController.text,
                 'permissions': permissions,
               });
-              
-              if (result['isSuccess'] == true || (result['statusCode'] != null && result['statusCode'] < 400)) {
+
+              if (result['isSuccess'] == true ||
+                  (result['statusCode'] != null &&
+                      result['statusCode'] < 400)) {
                 // Add new role to local list
                 setState(() {
                   _roles.add({
@@ -457,9 +967,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   });
                 });
                 _selectRole(nameController.text);
-                appNotification.showSuccess(title: 'Thành công', message: 'Đã tạo chức danh "${displayNameController.text}"');
+                appNotification.showSuccess(
+                    title: 'Thành công',
+                    message:
+                        'Đã tạo chức danh "${displayNameController.text}"');
               } else {
-                appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể tạo chức danh');
+                appNotification.showError(
+                    title: 'Lỗi',
+                    message: result['message'] ?? 'Không thể tạo chức danh');
               }
             },
             child: const Text('Thêm'),
@@ -470,7 +985,15 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Future<void> _deleteRole(String roleName) async {
-    final defaultRoles = ['Admin', 'Director', 'Accountant', 'DepartmentHead', 'Manager', 'Employee', 'User'];
+    final defaultRoles = [
+      'Admin',
+      'Director',
+      'Accountant',
+      'DepartmentHead',
+      'Manager',
+      'Employee',
+      'User'
+    ];
     if (defaultRoles.contains(roleName)) {
       appNotification.showWarning(
         title: 'Không thể xóa',
@@ -483,7 +1006,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa chức danh "$roleName" và tất cả quyền liên quan?'),
+        content: Text(
+            'Bạn có chắc muốn xóa chức danh "$roleName" và tất cả quyền liên quan?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -491,7 +1015,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -538,27 +1063,37 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         automaticallyImplyLeading: false,
         title: const Text(
           'Phân quyền Chức danh',
-          style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+              color: Color(0xFF18181B),
+              fontWeight: FontWeight.bold,
+              fontSize: 18),
         ),
-        leading: Responsive.isMobile(context) ? null : IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => SettingsHubScreen.goBack(context),
-        ),
+        leading: Responsive.isMobile(context)
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+                onPressed: () => SettingsHubScreen.goBack(context),
+              ),
         actions: [
           if (_selectedRolePermissions != null)
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: ElevatedButton.icon(
                 onPressed: _isSaving ? null : _savePermissions,
-                icon: _isSaving 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.save, size: 18),
                 label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -569,93 +1104,100 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           : Responsive.isMobile(context)
               ? _buildMobileBody()
               : Row(
-              children: [
-                // Left sidebar - Role list
-                Container(
-                  width: 280,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(right: BorderSide(color: Color(0xFFE4E4E7))),
-                  ),
-                  child: Column(
-                    children: [
-                      // Header
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F2340).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.badge, color: Color(0xFF0F2340), size: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Chức danh',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: Color(0xFF18181B),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Chọn để phân quyền',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF71717A),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: _showAddRoleDialog,
-                              icon: const Icon(Icons.add_circle, color: Color(0xFF0F2340)),
-                              tooltip: 'Thêm chức danh',
-                            ),
-                          ],
-                        ),
+                  children: [
+                    // Left sidebar - Role list
+                    Container(
+                      width: 280,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border:
+                            Border(right: BorderSide(color: Color(0xFFE4E4E7))),
                       ),
-                      // Role list
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _roles.length,
-                          itemBuilder: (context, index) {
-                            final role = _roles[index];
-                            final isSelected = role['roleName'] == _selectedRoleName;
-                            return _buildRoleItem(role, isSelected);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Right content - Permissions table
-                Expanded(
-                  child: _selectedRolePermissions == null
-                      ? const Center(
-                          child: Text(
-                            'Chọn một chức danh để xem và chỉnh sửa quyền',
-                            style: TextStyle(color: Color(0xFF71717A)),
+                      child: Column(
+                        children: [
+                          // Header
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                  bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F2340)
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.badge,
+                                      color: Color(0xFF0F2340), size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Chức danh',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                          color: Color(0xFF18181B),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Chọn để phân quyền',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF71717A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: _showAddRoleDialog,
+                                  icon: const Icon(Icons.add_circle,
+                                      color: Color(0xFF0F2340)),
+                                  tooltip: 'Thêm chức danh',
+                                ),
+                              ],
+                            ),
                           ),
-                        )
-                      : _isLoadingPermissions
-                          ? const LoadingWidget()
-                          : _buildPermissionsTable(),
+                          // Role list
+                          Expanded(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: _roles.length,
+                              itemBuilder: (context, index) {
+                                final role = _roles[index];
+                                final isSelected =
+                                    role['roleName'] == _selectedRoleName;
+                                return _buildRoleItem(role, isSelected);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Right content - Permissions table
+                    Expanded(
+                      child: _selectedRolePermissions == null
+                          ? const Center(
+                              child: Text(
+                                'Chọn một chức danh để xem và chỉnh sửa quyền',
+                                style: TextStyle(color: Color(0xFF71717A)),
+                              ),
+                            )
+                          : _isLoadingPermissions
+                              ? const LoadingWidget()
+                              : _buildPermissionsTable(),
+                    ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 
@@ -679,15 +1221,22 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     color: const Color(0xFF0F2340).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.badge, color: Color(0xFF0F2340), size: 20),
+                  child: const Icon(Icons.badge,
+                      color: Color(0xFF0F2340), size: 20),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Chức danh', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF18181B))),
-                      Text('Chọn để phân quyền', style: TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                      Text('Chức danh',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF18181B))),
+                      Text('Chọn để phân quyền',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF71717A))),
                     ],
                   ),
                 ),
@@ -715,7 +1264,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     }
 
     // Step 2: Show permissions for selected role
-    final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions'] ?? []);
+    final permissions = List<Map<String, dynamic>>.from(
+        _selectedRolePermissions!['permissions'] ?? []);
     return Column(
       children: [
         // Header with back and role info
@@ -735,7 +1285,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               Expanded(
                 child: Text(
                   _selectedRolePermissions!['roleDisplayName'] ?? '',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF18181B)),
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF18181B)),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -792,28 +1345,38 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: _getModuleColor(perm['module']).withValues(alpha: 0.1),
+                                  color: _getModuleColor(perm['module'])
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Icon(_getModuleIcon(perm['module']), size: 16, color: _getModuleColor(perm['module'])),
+                                child: Icon(_getModuleIcon(perm['module']),
+                                    size: 16,
+                                    color: _getModuleColor(perm['module'])),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   perm['moduleDisplayName'] ?? perm['module'],
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14),
                                 ),
                               ),
                               // Toggle all
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(allChecked ? 'Toàn quyền' : '', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                  Text(allChecked ? 'Toàn quyền' : '',
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF71717A))),
                                   Checkbox(
                                     value: allChecked,
-                                    onChanged: (value) => _toggleAllForModule(index, value ?? false),
+                                    onChanged: (value) => _toggleAllForModule(
+                                        index, value ?? false),
                                     activeColor: const Color(0xFF0F2340),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                     visualDensity: VisualDensity.compact,
                                   ),
                                 ],
@@ -825,12 +1388,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                             spacing: 4,
                             runSpacing: 4,
                             children: [
-                              _mobilePermChip('Xem', index, 'canView', perm['canView'] ?? false),
-                              _mobilePermChip('Thêm', index, 'canCreate', perm['canCreate'] ?? false),
-                              _mobilePermChip('Sửa', index, 'canEdit', perm['canEdit'] ?? false),
-                              _mobilePermChip('Xóa', index, 'canDelete', perm['canDelete'] ?? false),
-                              _mobilePermChip('Xuất', index, 'canExport', perm['canExport'] ?? false),
-                              _mobilePermChip('Duyệt', index, 'canApprove', perm['canApprove'] ?? false),
+                              _mobilePermChip('Xem', index, 'canView',
+                                  perm['canView'] ?? false),
+                              _mobilePermChip('Thêm', index, 'canCreate',
+                                  perm['canCreate'] ?? false),
+                              _mobilePermChip('Sửa', index, 'canEdit',
+                                  perm['canEdit'] ?? false),
+                              _mobilePermChip('Xóa', index, 'canDelete',
+                                  perm['canDelete'] ?? false),
+                              _mobilePermChip('Xuất', index, 'canExport',
+                                  perm['canExport'] ?? false),
+                              _mobilePermChip('Duyệt', index, 'canApprove',
+                                  perm['canApprove'] ?? false),
                             ],
                           ),
                         ],
@@ -849,9 +1418,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: value ? _getPermissionColor(permType).withValues(alpha: 0.1) : const Color(0xFFF4F4F5),
+          color: value
+              ? _getPermissionColor(permType).withValues(alpha: 0.1)
+              : const Color(0xFFF4F4F5),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: value ? _getPermissionColor(permType).withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
+          border: Border.all(
+              color: value
+                  ? _getPermissionColor(permType).withValues(alpha: 0.3)
+                  : const Color(0xFFE4E4E7)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -859,10 +1433,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             Icon(
               value ? Icons.check_circle : Icons.circle_outlined,
               size: 14,
-              color: value ? _getPermissionColor(permType) : const Color(0xFFA1A1AA),
+              color: value
+                  ? _getPermissionColor(permType)
+                  : const Color(0xFFA1A1AA),
             ),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: value ? _getPermissionColor(permType) : const Color(0xFF71717A))),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: value
+                        ? _getPermissionColor(permType)
+                        : const Color(0xFF71717A))),
           ],
         ),
       ),
@@ -874,13 +1456,23 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     final permCount = permissions != null
         ? permissions.where((p) => p['canView'] == true).length
         : (role['permissionCount'] ?? 0);
-    final defaultRoles = ['Admin', 'Director', 'Accountant', 'DepartmentHead', 'Manager', 'Employee', 'User'];
+    final defaultRoles = [
+      'Admin',
+      'Director',
+      'Accountant',
+      'DepartmentHead',
+      'Manager',
+      'Employee',
+      'User'
+    ];
     final canDelete = !defaultRoles.contains(role['roleName']);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF0F2340).withValues(alpha: 0.1) : Colors.transparent,
+        color: isSelected
+            ? const Color(0xFF0F2340).withValues(alpha: 0.1)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isSelected ? const Color(0xFF0F2340) : Colors.transparent,
@@ -905,7 +1497,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           role['roleDisplayName'] ?? role['roleName'],
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? const Color(0xFF0F2340) : const Color(0xFF18181B),
+            color:
+                isSelected ? const Color(0xFF0F2340) : const Color(0xFF18181B),
           ),
         ),
         subtitle: Text(
@@ -916,7 +1509,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF0F2340), size: 20),
+              const Icon(Icons.check_circle,
+                  color: Color(0xFF0F2340), size: 20),
             if (canDelete)
               IconButton(
                 onPressed: () => _deleteRole(role['roleName']),
@@ -933,8 +1527,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Widget _buildPermissionsTable() {
-    final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions'] ?? []);
-    
+    final permissions = List<Map<String, dynamic>>.from(
+        _selectedRolePermissions!['permissions'] ?? []);
+
     return Column(
       children: [
         // Header with role info
@@ -952,7 +1547,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   gradient: LinearGradient(
                     colors: [
                       _getRoleColor(_selectedRoleName ?? ''),
-                      _getRoleColor(_selectedRoleName ?? '').withValues(alpha: 0.7),
+                      _getRoleColor(_selectedRoleName ?? '')
+                          .withValues(alpha: 0.7),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -999,7 +1595,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF1E3A5F),
                         side: const BorderSide(color: Color(0xFF1E3A5F)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -1009,7 +1606,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFEF4444),
                         side: const BorderSide(color: Color(0xFFEF4444)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                       ),
                     ),
                   ],
@@ -1032,11 +1630,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 children: [
                   // Table header
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
                       color: Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                      border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(12)),
+                      border:
+                          Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
                     ),
                     child: Row(
                       children: [
@@ -1044,7 +1645,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                           width: 200,
                           child: Text(
                             'Chức năng',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF52525B)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF52525B)),
                           ),
                         ),
                         _buildHeaderCheckbox('Xem danh sách', 'canView'),
@@ -1053,99 +1656,143 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                         _buildHeaderCheckbox('Xóa', 'canDelete'),
                         _buildHeaderCheckbox('Xuất Excel', 'canExport'),
                         _buildHeaderCheckbox('Phê duyệt', 'canApprove'),
-                        const SizedBox(width: 90, child: Text('Toàn quyền', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF52525B)))),
+                        const SizedBox(
+                            width: 90,
+                            child: Text('Toàn quyền',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF52525B)))),
                       ],
                     ),
                   ),
                   // Table rows - paginated
                   Builder(builder: (_) {
-                    final totalPages = (permissions.length / _permPageSize).ceil();
-                    final safePage = _permPage.clamp(1, totalPages == 0 ? 1 : totalPages);
+                    final totalPages =
+                        (permissions.length / _permPageSize).ceil();
+                    final safePage =
+                        _permPage.clamp(1, totalPages == 0 ? 1 : totalPages);
                     final startIdx = (safePage - 1) * _permPageSize;
-                    final endIdx = (startIdx + _permPageSize).clamp(0, permissions.length);
+                    final endIdx =
+                        (startIdx + _permPageSize).clamp(0, permissions.length);
                     final pagePerms = permissions.sublist(startIdx, endIdx);
                     return Column(children: [
-                    ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: pagePerms.length,
-                    separatorBuilder: (_, __) => const Divider(height: 24, color: Color(0xFFE4E4E7)),
-                    itemBuilder: (context, index) {
-                      final globalIndex = startIdx + index;
-                      final perm = pagePerms[index];
-                      final allChecked = (perm['canView'] ?? false) &&
-                          (perm['canCreate'] ?? false) &&
-                          (perm['canEdit'] ?? false) &&
-                          (perm['canDelete'] ?? false) &&
-                          (perm['canExport'] ?? false) &&
-                          (perm['canApprove'] ?? false);
-                      
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        color: index % 2 == 0 ? Colors.white : const Color(0xFFFAFAFA),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 200,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: _getModuleColor(perm['module']).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(
-                                      _getModuleIcon(perm['module']),
-                                      size: 16,
-                                      color: _getModuleColor(perm['module']),
-                                    ),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: pagePerms.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 24, color: Color(0xFFE4E4E7)),
+                        itemBuilder: (context, index) {
+                          final globalIndex = startIdx + index;
+                          final perm = pagePerms[index];
+                          final allChecked = (perm['canView'] ?? false) &&
+                              (perm['canCreate'] ?? false) &&
+                              (perm['canEdit'] ?? false) &&
+                              (perm['canDelete'] ?? false) &&
+                              (perm['canExport'] ?? false) &&
+                              (perm['canApprove'] ?? false);
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            color: index % 2 == 0
+                                ? Colors.white
+                                : const Color(0xFFFAFAFA),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 200,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: _getModuleColor(perm['module'])
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Icon(
+                                          _getModuleIcon(perm['module']),
+                                          size: 16,
+                                          color:
+                                              _getModuleColor(perm['module']),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          perm['moduleDisplayName'] ??
+                                              perm['module'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      perm['moduleDisplayName'] ?? perm['module'],
-                                      style: const TextStyle(fontWeight: FontWeight.w500),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _buildPermissionCheckbox(globalIndex, 'canView', perm['canView'] ?? false),
-                            _buildPermissionCheckbox(globalIndex, 'canCreate', perm['canCreate'] ?? false),
-                            _buildPermissionCheckbox(globalIndex, 'canEdit', perm['canEdit'] ?? false),
-                            _buildPermissionCheckbox(globalIndex, 'canDelete', perm['canDelete'] ?? false),
-                            _buildPermissionCheckbox(globalIndex, 'canExport', perm['canExport'] ?? false),
-                            _buildPermissionCheckbox(globalIndex, 'canApprove', perm['canApprove'] ?? false),
-                            SizedBox(
-                              width: 90,
-                              child: Center(
-                                child: Checkbox(
-                                  value: allChecked,
-                                  onChanged: (value) => _toggleAllForModule(globalIndex, value ?? false),
-                                  activeColor: const Color(0xFF0F2340),
                                 ),
-                              ),
+                                _buildPermissionCheckbox(globalIndex, 'canView',
+                                    perm['canView'] ?? false),
+                                _buildPermissionCheckbox(globalIndex,
+                                    'canCreate', perm['canCreate'] ?? false),
+                                _buildPermissionCheckbox(globalIndex, 'canEdit',
+                                    perm['canEdit'] ?? false),
+                                _buildPermissionCheckbox(globalIndex,
+                                    'canDelete', perm['canDelete'] ?? false),
+                                _buildPermissionCheckbox(globalIndex,
+                                    'canExport', perm['canExport'] ?? false),
+                                _buildPermissionCheckbox(globalIndex,
+                                    'canApprove', perm['canApprove'] ?? false),
+                                SizedBox(
+                                  width: 90,
+                                  child: Center(
+                                    child: Checkbox(
+                                      value: allChecked,
+                                      onChanged: (value) => _toggleAllForModule(
+                                          globalIndex, value ?? false),
+                                      activeColor: const Color(0xFF0F2340),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                    if (totalPages > 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(icon: const Icon(Icons.first_page), onPressed: safePage > 1 ? () => setState(() => _permPage = 1) : null),
-                            IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 1 ? () => setState(() => _permPage--) : null),
-                            Text('Trang $safePage / $totalPages (${permissions.length} dòng)', style: const TextStyle(fontSize: 13)),
-                            IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _permPage++) : null),
-                            IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _permPage = totalPages) : null),
-                          ],
-                        ),
+                          );
+                        },
                       ),
+                      if (totalPages > 1)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                  icon: const Icon(Icons.first_page),
+                                  onPressed: safePage > 1
+                                      ? () => setState(() => _permPage = 1)
+                                      : null),
+                              IconButton(
+                                  icon: const Icon(Icons.chevron_left),
+                                  onPressed: safePage > 1
+                                      ? () => setState(() => _permPage--)
+                                      : null),
+                              Text(
+                                  'Trang $safePage / $totalPages (${permissions.length} dòng)',
+                                  style: const TextStyle(fontSize: 13)),
+                              IconButton(
+                                  icon: const Icon(Icons.chevron_right),
+                                  onPressed: safePage < totalPages
+                                      ? () => setState(() => _permPage++)
+                                      : null),
+                              IconButton(
+                                  icon: const Icon(Icons.last_page),
+                                  onPressed: safePage < totalPages
+                                      ? () =>
+                                          setState(() => _permPage = totalPages)
+                                      : null),
+                            ],
+                          ),
+                        ),
                     ]);
                   }),
                 ],
@@ -1163,8 +1810,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       child: InkWell(
         onTap: () {
           // Check if all are selected
-          final permissions = List<Map<String, dynamic>>.from(_selectedRolePermissions!['permissions'] ?? []);
-          final allSelected = permissions.every((p) => p[permissionType] == true);
+          final permissions = List<Map<String, dynamic>>.from(
+              _selectedRolePermissions!['permissions'] ?? []);
+          final allSelected =
+              permissions.every((p) => p[permissionType] == true);
           _setAllPermissions(permissionType, !allSelected);
         },
         child: Row(
@@ -1173,7 +1822,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF52525B), fontSize: 12),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF52525B),
+                    fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1184,7 +1836,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     );
   }
 
-  Widget _buildPermissionCheckbox(int index, String permissionType, bool value) {
+  Widget _buildPermissionCheckbox(
+      int index, String permissionType, bool value) {
     return SizedBox(
       width: 100,
       child: Center(

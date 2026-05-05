@@ -117,7 +117,7 @@ class NavigationNotifier {
   // [16] Chấm công Mobile
   // [17] Duyệt chấm công Mobile
   // [18] Chấm cơm (Meal)
-  // [19] Thưởng / Phạt
+  // [19] Phiếu thưởng
   // [20] Ứng lương
   // [21] Thu chi
   // [22] Tài sản
