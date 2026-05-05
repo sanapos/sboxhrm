@@ -23,6 +23,7 @@ import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import 'employee_career_tab.dart';
 
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
@@ -4044,6 +4045,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           icon: const Icon(Icons.phone, color: Colors.green),
           label: const Text('Gọi điện', style: TextStyle(color: Colors.green)),
         ),
+      TextButton.icon(
+        onPressed: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EmployeeCareerScreen(employee: employee),
+            ),
+          );
+        },
+        icon: const Icon(Icons.work_history_outlined,
+            color: Color(0xFF0369A1)),
+        label: const Text('Quá trình CT',
+            style: TextStyle(color: Color(0xFF0369A1))),
+      ),
       TextButton(
         onPressed: () => Navigator.pop(context),
         child: const Text('Đóng'),

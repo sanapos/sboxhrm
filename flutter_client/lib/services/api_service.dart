@@ -5832,11 +5832,13 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getOrgAssignments() async {
+  Future<Map<String, dynamic>> getOrgAssignments({String? employeeId}) async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/orgchart/assignments'),
-          headers: _headers);
+      final params = <String, String>{};
+      if (employeeId != null) params['employeeId'] = employeeId;
+      final uri = Uri.parse('$baseUrl/api/orgchart/assignments')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9237,7 +9239,7 @@ class ApiService {
       {String? employeeId, String? type}) async {
     try {
       final params = <String, String>{};
-      if (employeeId != null) params['employeeId'] = employeeId;
+      if (employeeId != null) params['employeeUserId'] = employeeId;
       if (type != null) params['type'] = type;
       final uri = Uri.parse('$baseUrl/api/hr-documents')
           .replace(queryParameters: params.isNotEmpty ? params : null);

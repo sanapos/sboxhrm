@@ -207,7 +207,8 @@ public class OrgChartController(
     [HttpGet("assignments")]
     public async Task<ActionResult<AppResponse<List<OrgAssignmentDto>>>> GetAssignments(
         [FromQuery] Guid? departmentId = null,
-        [FromQuery] Guid? positionId = null)
+        [FromQuery] Guid? positionId = null,
+        [FromQuery] Guid? employeeId = null)
     {
         var storeId = CurrentStoreId;
         var query = dbContext.OrgAssignments
@@ -224,9 +225,12 @@ public class OrgChartController(
             query = query.Where(a => a.DepartmentId == departmentId.Value);
         if (positionId.HasValue)
             query = query.Where(a => a.PositionId == positionId.Value);
+        if (employeeId.HasValue)
+            query = query.Where(a => a.EmployeeId == employeeId.Value);
 
         var assignments = await query
-            .OrderBy(a => a.Department!.Name)
+            .OrderByDescending(a => a.StartDate)
+            .ThenBy(a => a.Department!.Name)
             .ThenBy(a => a.Position!.Level)
             .ThenBy(a => a.Employee!.FirstName)
             .Select(a => new OrgAssignmentDto
