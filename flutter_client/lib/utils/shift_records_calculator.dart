@@ -215,8 +215,16 @@ class _ShiftLookups {
       if (st == null) continue;
       if (st['isActive'] == false) continue;
       final startMinutes = _parseTimeSpanToMinutes(st['startTime']?.toString());
+      // "Cho phép chấm sớm: X phút" – use earlyCheckInMinutes as the match window
+      final earlyWindow =
+          (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
       int dist = (punchInMinutes - startMinutes).abs();
       if (dist > 720) dist = 1440 - dist;
+      // Reject punches that arrive more than earlyWindow minutes before shift start
+      final rawEarly = punchInMinutes < startMinutes
+          ? startMinutes - punchInMinutes
+          : 0;
+      if (rawEarly > earlyWindow) continue; // too early for this shift
       if (dist < bestDistance) {
         bestDistance = dist;
         bestMatch = st;
@@ -400,8 +408,10 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           lateGrace = (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
           earlyGrace =
               (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+          // "Tính tăng ca sau: X phút" – use the shift's OvertimeMinutesThreshold,
+          // NOT breakTimeMinutes (which is break duration, unrelated to OT).
           overtimeThreshold =
-              (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+              (matchedShift['overtimeMinutesThreshold'] as num?)?.toInt() ?? 30;
 
           if (isCrossMidnight) {
             if (punchInMinutes >= shiftStartMin) {

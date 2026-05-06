@@ -227,6 +227,12 @@ public class AttendanceService(
         TimeSpan shiftEnd;
         Guid? shiftIdForTicket;
 
+        // Shift-specific tolerance thresholds (from ShiftTemplate config)
+        int lateGraceMinutes;
+        int earlyLeaveGraceMinutes;
+        int maxAllowedLateMinutes;
+        int maxAllowedEarlyLeaveMinutes;
+
         if (schedule != null)
         {
             if (schedule.IsDayOff) return;
@@ -235,6 +241,11 @@ public class AttendanceService(
             shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
             shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
             shiftIdForTicket = schedule.ShiftId;
+            // Apply per-shift tolerances; fall back to sensible defaults when no template linked.
+            lateGraceMinutes          = schedule.Shift?.LateGraceMinutes ?? 5;
+            earlyLeaveGraceMinutes    = schedule.Shift?.EarlyLeaveGraceMinutes ?? 5;
+            maxAllowedLateMinutes     = schedule.Shift?.MaximumAllowedLateMinutes ?? 30;
+            maxAllowedEarlyLeaveMinutes = schedule.Shift?.MaximumAllowedEarlyLeaveMinutes ?? 30;
         }
         else
         {
@@ -243,7 +254,11 @@ public class AttendanceService(
                 attendance.AttendanceState, employeeBenefits, shiftTemplatesByName);
             if (fallback == null) return;
             shiftStart = fallback.Value.start;
-            shiftEnd = fallback.Value.end;
+            shiftEnd   = fallback.Value.end;
+            lateGraceMinutes          = fallback.Value.lateGrace;
+            earlyLeaveGraceMinutes    = fallback.Value.earlyLeaveGrace;
+            maxAllowedLateMinutes     = fallback.Value.maxLate;
+            maxAllowedEarlyLeaveMinutes = fallback.Value.maxEarlyLeave;
             shiftIdForTicket = null;
         }
 
@@ -260,6 +275,13 @@ public class AttendanceService(
             {
                 var lateMinutes = (int)(punchTime - shiftStart).TotalMinutes;
                 if (lateMinutes <= 0) return;
+
+                // Within grace period → no penalty (e.g. "Tính đi trễ sau: 5 phút")
+                if (lateMinutes <= lateGraceMinutes) return;
+
+                // Beyond maximum allowed late → outside shift window, skip (treat as absent elsewhere)
+                // e.g. "Cho phép chấm trễ: 30 phút" – punches more than 30 min late are not penalised here
+                if (lateMinutes > maxAllowedLateMinutes) return;
 
                 var (tier, amount) = CalculateLatePenalty(lateMinutes, penaltySetting);
                 if (amount <= 0) return;
@@ -321,6 +343,13 @@ public class AttendanceService(
             {
                 var earlyMinutes = (int)(shiftEnd - punchTime).TotalMinutes;
                 if (earlyMinutes <= 0) return;
+
+                // Within grace period → no penalty (e.g. "Tính về sớm sau: 5 phút")
+                if (earlyMinutes <= earlyLeaveGraceMinutes) return;
+
+                // Beyond maximum allowed early leave → outside shift window, skip
+                // e.g. "Cho phép về sớm: 30 phút" – punches more than 30 min early are not penalised here
+                if (earlyMinutes > maxAllowedEarlyLeaveMinutes) return;
 
                 var (tier, amount) = CalculateEarlyPenalty(earlyMinutes, penaltySetting);
                 if (amount <= 0) return;
@@ -479,7 +508,7 @@ public class AttendanceService(
     /// để lấy danh sách ca làm việc và chọn ca phù hợp với thời điểm chấm công.
     /// Đảm bảo logic phạt đồng nhất với màn hình "Tổng hợp theo ca".
     /// </summary>
-    private static (TimeSpan start, TimeSpan end)? ResolveFallbackShift(
+    private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyLeaveGrace, int maxLate, int maxEarlyLeave)? ResolveFallbackShift(
         Guid employeeId, DateTime violationDate, TimeSpan punchTime,
         AttendanceStates state,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
@@ -515,7 +544,7 @@ public class AttendanceService(
         {
             // Last-resort fallback: Benefit's own CheckIn/CheckOut times.
             if (benefit.CheckIn.HasValue && benefit.CheckOut.HasValue)
-                return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan());
+                return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan(), 5, 5, 30, 30);
             return null;
         }
 
@@ -542,7 +571,9 @@ public class AttendanceService(
                 ?? candidates.OrderBy(s => Math.Abs((punchTime - s.EndTime).TotalMinutes)).First();
         }
 
-        return (chosen.StartTime, chosen.EndTime);
+        return (chosen.StartTime, chosen.EndTime,
+            chosen.LateGraceMinutes, chosen.EarlyLeaveGraceMinutes,
+            chosen.MaximumAllowedLateMinutes, chosen.MaximumAllowedEarlyLeaveMinutes);
     }
 
     private static string NormalizeShiftName(string s)
