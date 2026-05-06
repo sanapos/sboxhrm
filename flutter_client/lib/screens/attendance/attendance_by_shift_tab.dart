@@ -503,6 +503,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
         // Collect all punch times and attendance IDs for display/edit
         final punchTimes = dayAttendances.map((a) => a.punchTime).toList();
+        // displayPunchTimes mirrors punchTimes but with check-in/check-out snapped
+        // to shift start/end when within tolerance settings (lateGrace, maxAllowedLate,
+        // earlyGrace, maxAllowedEarlyLeave, overtimeThreshold). Populated in pair loop.
+        final displayPunchTimes = List<DateTime>.from(punchTimes);
         final attendanceIds = dayAttendances.map((a) => a.id).toList();
 
         // Lookup employee info
@@ -556,6 +560,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           int shiftDurationMin = 0;
           bool isCrossMidnight = false;
           int overtimeThreshold = 0;
+          int maxAllowedLate = 0;
+          int maxAllowedEarlyLeave = 0;
           if (matchedShift != null) {
             shiftStartMin =
                 _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
@@ -571,6 +577,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
             overtimeThreshold =
                 (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+            maxAllowedLate =
+                (matchedShift['maximumAllowedLateMinutes'] as num?)?.toInt() ?? 0;
+            maxAllowedEarlyLeave =
+                (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)?.toInt() ?? 0;
 
             if (isCrossMidnight) {
               if (punchInMinutes >= shiftStartMin) {
@@ -583,6 +593,24 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             }
             if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
             if (lateCalc > 0) totalLate += lateCalc;
+
+            // Snap displayed check-in to shift start when within tolerance.
+            // Applies for both grace-period cases (rawLate <= lateGrace)
+            // and maximumAllowedLate cases.
+            final rawLateForSnap = isCrossMidnight
+                ? (punchInMinutes >= shiftStartMin
+                    ? punchInMinutes - shiftStartMin
+                    : 0)
+                : (punchInMinutes > shiftStartMin
+                    ? punchInMinutes - shiftStartMin
+                    : 0);
+            if (rawLateForSnap > 0 &&
+                (rawLateForSnap <= lateGrace ||
+                    (maxAllowedLate > 0 &&
+                        rawLateForSnap <= maxAllowedLate))) {
+              displayPunchTimes[i] = DateTime(punchIn.year, punchIn.month,
+                  punchIn.day, shiftStartMin ~/ 60, shiftStartMin % 60);
+            }
           }
 
           if (punchOut == null) {
@@ -637,14 +665,73 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             }
             if (earlyCalc > 0) totalEarly += earlyCalc;
 
-            // Hours
-            if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
-              totalWorkHours += shiftDurationMin / 60.0;
-            } else {
-              totalWorkHours += actualWorkedMinutes / 60.0;
+            // Snap displayed check-out to shift end when within tolerance.
+            // Covers: early leave within grace/maxAllowedEarlyLeave, and
+            // stayed late but extra minutes don't qualify as OT.
+            {
+              int rawEarlyForSnap;
+              int rawExtraForSnap;
+              if (isCrossMidnight) {
+                rawEarlyForSnap = punchOutMinutes <= shiftEndMin
+                    ? shiftEndMin - punchOutMinutes
+                    : 0;
+                rawExtraForSnap =
+                    (punchOutMinutes > shiftEndMin &&
+                            punchOutMinutes < shiftStartMin)
+                        ? punchOutMinutes - shiftEndMin
+                        : 0;
+              } else {
+                rawEarlyForSnap = punchOutMinutes < shiftEndMin
+                    ? shiftEndMin - punchOutMinutes
+                    : 0;
+                rawExtraForSnap = punchOutMinutes > shiftEndMin
+                    ? punchOutMinutes - shiftEndMin
+                    : 0;
+              }
+              final snapOut = (rawEarlyForSnap > 0 &&
+                      (rawEarlyForSnap <= earlyGrace ||
+                          (maxAllowedEarlyLeave > 0 &&
+                              rawEarlyForSnap <= maxAllowedEarlyLeave))) ||
+                  (rawExtraForSnap > 0 &&
+                      overtimeThreshold > 0 &&
+                      rawExtraForSnap <= overtimeThreshold);
+              if (snapOut) {
+                displayPunchTimes[i + 1] = DateTime(punchOut.year,
+                    punchOut.month, punchOut.day,
+                    shiftEndMin ~/ 60, shiftEndMin % 60);
+              }
             }
+
+            // Hours: snap in/out to shift boundaries when within maxAllowed
+            int effectiveWorkedMin;
+            if (extraMin > 0) {
+              effectiveWorkedMin = actualWorkedMinutes;
+            } else if (lateCalc <= 0 && earlyCalc <= 0) {
+              effectiveWorkedMin = shiftDurationMin;
+            } else {
+              final effIn = (lateCalc > 0 &&
+                      maxAllowedLate > 0 &&
+                      lateCalc <= maxAllowedLate)
+                  ? shiftStartMin
+                  : punchInMinutes;
+              final effOut = (earlyCalc > 0 &&
+                      maxAllowedEarlyLeave > 0 &&
+                      earlyCalc <= maxAllowedEarlyLeave)
+                  ? shiftEndMin
+                  : punchOutMinutes;
+              effectiveWorkedMin = isCrossMidnight
+                  ? ((1440 - effIn) + effOut).clamp(0, shiftDurationMin)
+                  : (effOut - effIn).clamp(0, shiftDurationMin);
+            }
+            totalWorkHours += effectiveWorkedMin / 60.0;
             totalDecimalHours += actualWorkedMinutes / 60.0;
-            totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+            // Chỉ tính 1 ca khi NV làm đủ ít nhất 2/3 số giờ ca quy định
+            final minMinutesForShift = shiftDurationMin > 0
+                ? (shiftDurationMin * 2.0 / 3.0).round()
+                : 0;
+            if (actualWorkedMinutes >= minMinutesForShift) {
+              totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+            }
           } else {
             totalWorkHours += actualWorkedMinutes / 60.0;
             totalDecimalHours += actualWorkedMinutes / 60.0;
@@ -741,6 +828,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           date: date,
           dayOfWeek: _getDayOfWeekVN(date.weekday),
           punchTimes: punchTimes,
+          displayPunchTimes: displayPunchTimes,
           attendanceIds: attendanceIds,
           shiftNames: shiftNames,
           lateMinutes: totalLate,
@@ -1802,7 +1890,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
-                  children: record.punchTimes.asMap().entries.map((e) {
+                  children: record.displayPunchTimes.asMap().entries.map((e) {
                     final isIn = e.key.isEven;
                     return Container(
                       padding: const EdgeInsets.symmetric(
@@ -2483,8 +2571,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   .cell(excel_lib.CellIndex.indexByColumnRow(
                       columnIndex: col++, rowIndex: idx + 1))
                   .value =
-              excel_lib.TextCellValue(i < r.punchTimes.length
-                  ? DateFormat('HH:mm').format(r.punchTimes[i])
+              excel_lib.TextCellValue(i < r.displayPunchTimes.length
+                  ? DateFormat('HH:mm').format(r.displayPunchTimes[i])
                   : '');
         }
 
@@ -2652,8 +2740,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           DateFormat('dd/MM/yyyy').format(r.date)
         ];
         for (int i = 0; i < punchColCount; i++) {
-          row.add(i < r.punchTimes.length
-              ? DateFormat('HH:mm').format(r.punchTimes[i])
+          row.add(i < r.displayPunchTimes.length
+              ? DateFormat('HH:mm').format(r.displayPunchTimes[i])
               : '');
         }
         final h = r.workHours.floor();
@@ -3048,8 +3136,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       } else if (r.status.contains('Tăng ca ngày nghỉ')) {
         bg = Colors.purple.withValues(alpha: 0.08);
       }
-      final p1 = r.punchTimes.isNotEmpty ? r.punchTimes.first : null;
-      final p2 = r.punchTimes.length >= 2 ? r.punchTimes[1] : null;
+      final p1 = r.displayPunchTimes.isNotEmpty ? r.displayPunchTimes.first : null;
+      final p2 = r.displayPunchTimes.length >= 2 ? r.displayPunchTimes[1] : null;
       return Container(
         color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
@@ -3175,6 +3263,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           cellFn,
       required ScrollController scrollCtrl,
       String? subtitle,
+      String? Function(String empId)? subtextFn,
+      Color subtextColor = const Color(0xFF16A34A),
     }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3228,6 +3318,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ),
                     ...employees.asMap().entries.map((e) {
                       final isEven = e.key.isEven;
+                      final sub = subtextFn?.call(e.value.key);
                       return Container(
                         width: empColW,
                         height: rowH,
@@ -3242,13 +3333,25 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 color: Color(0xFFE4E4E7), width: 0.5),
                           ),
                         ),
-                        child: Text(e.value.value,
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF18181B)),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.value.value,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF18181B)),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1),
+                            if (sub != null)
+                              Text(sub,
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: subtextColor,
+                                      fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       );
                     }),
                   ],
@@ -3394,6 +3497,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 titleColor: const Color(0xFF2563EB),
                 cellFn: hrsCell,
                 scrollCtrl: _ctHrsScroll,
+                subtextFn: (empId) {
+                  final total = dates.fold<double>(0.0,
+                      (sum, d) => sum + (getRecord(empId, d)?.workHours ?? 0.0));
+                  return total > 0 ? 'Tổng: ${_formatHoursMinutes(total)}' : null;
+                },
+                subtextColor: const Color(0xFF2563EB),
               ),
               const SizedBox(height: 8),
               buildSection(
@@ -3408,6 +3517,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 titleColor: const Color(0xFF7C3AED),
                 cellFn: wrkCell,
                 scrollCtrl: _ctWrkScroll,
+                subtextFn: (empId) {
+                  final total = dates.fold<double>(0.0,
+                      (sum, d) => sum + (getRecord(empId, d)?.workCount ?? 0.0));
+                  if (total <= 0) return null;
+                  final str = total % 1 == 0
+                      ? '${total.toInt()}'
+                      : total.toStringAsFixed(2);
+                  return 'Tổng: $str công';
+                },
+                subtextColor: const Color(0xFF7C3AED),
               ),
               const SizedBox(height: 20),
             ],
@@ -3599,6 +3718,7 @@ class _DailyShiftRecord {
   final DateTime date;
   final String dayOfWeek;
   final List<DateTime> punchTimes;
+  final List<DateTime> displayPunchTimes;
   final List<String> attendanceIds;
   final List<String> shiftNames;
   final int lateMinutes;
@@ -3617,6 +3737,7 @@ class _DailyShiftRecord {
     required this.date,
     required this.dayOfWeek,
     required this.punchTimes,
+    required this.displayPunchTimes,
     this.attendanceIds = const [],
     this.shiftNames = const [],
     required this.lateMinutes,

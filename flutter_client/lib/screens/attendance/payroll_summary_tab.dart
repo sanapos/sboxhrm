@@ -822,12 +822,33 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
       }
 
-      // Đếm số ca thực tế trong ngày: số cặp IN-OUT, tối đa shiftsPerDay.
-      // Giảm tình trạng nhân máy móc shiftsPerDay khi NV chỉ chấm 1 ca.
+      // Đếm số ca thực tế: mỗi cặp IN-OUT phải đảm bảo >= 2/3 số giờ ca.
+      // Số giờ tối thiểu 1 ca = (standardDayHours / shiftsPerDay) * 2/3
       if (checkIns.isNotEmpty) {
-        final pairs = math.min(checkIns.length, math.max(checkOuts.length, 1));
-        final actualShifts = math.min(pairs, shiftsPerDay);
-        totalShifts += actualShifts > 0 ? actualShifts : 1;
+        final hoursPerShift = shiftsPerDay > 0
+            ? standardDayHours / shiftsPerDay
+            : standardDayHours;
+        final minHoursForShift = hoursPerShift * (2.0 / 3.0);
+        // Dùng logic pairing: min(checkIns, max(checkOuts, 1)), tối đa shiftsPerDay
+        final pairCount = math.min(
+          checkIns.length,
+          math.max(checkOuts.length, 1),
+        );
+        final actualPairCount = math.min(pairCount, shiftsPerDay);
+        int validShifts = 0;
+        for (int i = 0; i < actualPairCount; i++) {
+          final inTime = checkIns[i].attendanceTime;
+          if (i < checkOuts.length) {
+            final outTime = checkOuts[i].attendanceTime;
+            final pairHours =
+                math.max(0.0, outTime.difference(inTime).inMinutes / 60.0);
+            if (pairHours >= minHoursForShift) validShifts++;
+          } else {
+            // Không có checkout tương ứng: giả sử làm đủ ca (đã qua attendanceMode filter)
+            validShifts++;
+          }
+        }
+        totalShifts += validShifts;
       }
 
       // Late/early detection using scheduled times from Benefit
@@ -953,13 +974,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             }
           }
           if (matchedLevel != null) {
-            final lvlRateType =
-                matchedLevel['rateType']?.toString() ?? 'fixed';
+            final lvlRateType = matchedLevel['rateType']?.toString() ?? 'fixed';
             final lvlFixedRate =
                 _toDouble(matchedLevel['fixedRate'], fixedShiftRate);
             final lvlHourlyRate = _toDouble(matchedLevel['hourlyRate']);
-            final lvlMultiplier =
-                _toDouble(matchedLevel['multiplier'], 1.0);
+            final lvlMultiplier = _toDouble(matchedLevel['multiplier'], 1.0);
             shiftLevelAllowance =
                 _toDouble(matchedLevel['shiftAllowance']) * totalShifts;
             shiftIsNightShift = matchedLevel['isNightShift'] == true;
@@ -1022,7 +1041,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // shiftLevelAllowance: phụ cấp ca từ ShiftSalaryLevel (theo số ca)
     double totalAllowance =
         (mealAllowancePerDay + responsibilityAllowance) * workDays +
-        shiftLevelAllowance;
+            shiftLevelAllowance;
 
     // Cộng thêm phụ cấp từ AllowanceSettings (Fixed = cố định/kỳ, Daily = theo ngày công)
     // Lọc theo EmployeeIds và StartDate/EndDate.

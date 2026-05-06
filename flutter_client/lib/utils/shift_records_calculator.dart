@@ -216,14 +216,12 @@ class _ShiftLookups {
       if (st['isActive'] == false) continue;
       final startMinutes = _parseTimeSpanToMinutes(st['startTime']?.toString());
       // "Cho phép chấm sớm: X phút" – use earlyCheckInMinutes as the match window
-      final earlyWindow =
-          (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
+      final earlyWindow = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
       int dist = (punchInMinutes - startMinutes).abs();
       if (dist > 720) dist = 1440 - dist;
       // Reject punches that arrive more than earlyWindow minutes before shift start
-      final rawEarly = punchInMinutes < startMinutes
-          ? startMinutes - punchInMinutes
-          : 0;
+      final rawEarly =
+          punchInMinutes < startMinutes ? startMinutes - punchInMinutes : 0;
       if (rawEarly > earlyWindow) continue; // too early for this shift
       if (dist < bestDistance) {
         bestDistance = dist;
@@ -479,7 +477,13 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             totalWorkHours += actualWorkedMinutes / 60.0;
           }
           totalDecimalHours += actualWorkedMinutes / 60.0;
-          totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+          // Chỉ tính 1 ca khi NV làm đủ ít nhất 2/3 số giờ ca quy định
+          final minMinutesForShift = shiftDurationMin > 0
+              ? (shiftDurationMin * 2.0 / 3.0).round()
+              : 0;
+          if (actualWorkedMinutes >= minMinutesForShift) {
+            totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+          }
         } else {
           totalWorkHours += actualWorkedMinutes / 60.0;
           totalDecimalHours += actualWorkedMinutes / 60.0;
