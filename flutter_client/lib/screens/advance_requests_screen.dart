@@ -72,6 +72,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     return role == 'employee';
   }
 
+  // ignore: unused_element
   bool get _isManagerOrAbove {
     final role = Provider.of<AuthProvider>(context, listen: false)
         .userRole

@@ -4,6 +4,7 @@ using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Repositories;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ZKTecoADMS.API.Controllers;
 
@@ -16,9 +17,25 @@ public class GoogleSheetsController(
     IGoogleSheetService googleSheetService,
     IRepository<Device> deviceRepository,
     IRepository<DeviceUser> employeeRepository,
-    IRepository<Attendance> attendanceRepository)
+    IRepository<Attendance> attendanceRepository,
+    IRepository<AppSettings> appSettingsRepository)
     : AuthenticatedControllerBase
 {
+    /// <summary>
+    /// Computes the attendance fetch window respecting day_end_time setting.
+    /// If day_end_time = "05:00:00", logical day D = [D 05:00, D+1 05:00).
+    /// </summary>
+    private async Task<(DateTime start, DateTime end)> GetAttendanceWindowAsync(DateTime date, Guid storeId)
+    {
+        var setting = await appSettingsRepository.GetSingleAsync(
+            s => s.StoreId == storeId && s.Key == "day_end_time");
+        if (setting?.Value != null && TimeSpan.TryParse(setting.Value, out var cutoff) && cutoff > TimeSpan.Zero)
+        {
+            var start = date.Date.Add(cutoff);
+            return (start, start.AddDays(1));
+        }
+        return (date.Date, date.Date.AddDays(1));
+    }
     /// <summary>
     /// Kiểm tra kết nối Google Sheets
     /// </summary>
@@ -88,8 +105,7 @@ public class GoogleSheetsController(
     public async Task<ActionResult<AppResponse<bool>>> SyncAttendances([FromBody] SyncAttendancesRequest request)
     {
         var storeId = RequiredStoreId;
-        var startDate = request.Date.Date;
-        var endDate = startDate.AddDays(1);
+        var (startDate, endDate) = await GetAttendanceWindowAsync(request.Date, storeId);
         
         var attendances = await attendanceRepository.GetAllAsync(
             a => a.AttendanceTime >= startDate && a.AttendanceTime < endDate
@@ -125,9 +141,9 @@ public class GoogleSheetsController(
 
         // Sync today's attendances
         var today = DateTime.Today;
-        var tomorrow = today.AddDays(1);
+        var (attStart, attEnd) = await GetAttendanceWindowAsync(today, storeId);
         var attendances = await attendanceRepository.GetAllAsync(
-            a => a.AttendanceTime >= today && a.AttendanceTime < tomorrow
+            a => a.AttendanceTime >= attStart && a.AttendanceTime < attEnd
                 && a.Device.StoreId == storeId);
         result.AttendancesSynced = await googleSheetService.PushDailyReportAsync(today, attendances);
         result.AttendancesCount = attendances.Count();

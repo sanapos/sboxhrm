@@ -2205,8 +2205,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           lastDate:
                               DateTime.now().add(const Duration(days: 365)),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(() => sourceDate = picked);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -2755,9 +2756,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           lastDate:
                               DateTime.now().add(const Duration(days: 365)),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(
                               () => targetWeekStart = _getWeekStart(picked));
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -3780,27 +3782,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final confirmedCount = schedules.where((s) => !s.isDayOff).length;
     final dayOffCount = schedules.where((s) => s.isDayOff).length;
     final pendCount = pendingRegs.length + localPending.length;
-    if (confirmedCount > 0)
+    if (confirmedCount > 0) {
       labels.add(Text('$confirmedCount ca',
           style: const TextStyle(
               fontSize: 9,
               color: Color(0xFF1E3A5F),
               fontWeight: FontWeight.w600)));
-    if (dayOffCount > 0)
+    }
+    if (dayOffCount > 0) {
       labels.add(const Text('Nghỉ',
           style: TextStyle(
               fontSize: 9,
               color: Color(0xFF71717A),
               fontWeight: FontWeight.w600)));
-    if (pendCount > 0)
+    }
+    if (pendCount > 0) {
       labels.add(Text('$pendCount chờ',
           style: const TextStyle(
               fontSize: 9,
               color: Color(0xFFA16207),
               fontWeight: FontWeight.w600)));
-    if (rejectedRegs.isNotEmpty)
+    }
+    if (rejectedRegs.isNotEmpty) {
       labels.add(Text('${rejectedRegs.length} từ chối',
           style: const TextStyle(fontSize: 8, color: Color(0xFFEF4444))));
+    }
 
     return GestureDetector(
       onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
@@ -3885,7 +3891,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               final submittedRegs = _getRegistrationsForDay(eid, day);
               if (schedules.isEmpty &&
                   localPending.isEmpty &&
-                  submittedRegs.isEmpty) continue;
+                  submittedRegs.isEmpty) {
+                continue;
+              }
 
               final chips = <Widget>[];
               for (final ws in schedules) {
@@ -3909,7 +3917,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               for (final r in submittedRegs) {
                 if (schedules.any((s) =>
                     s.shiftId == r.shiftId &&
-                    s.employeeUserId == r.employeeUserId)) continue;
+                    s.employeeUserId == r.employeeUserId)) {
+                  continue;
+                }
                 Color c;
                 IconData ic;
                 String suffix;
@@ -4014,7 +4024,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
               ));
             }
-            if (rows.isEmpty)
+            if (rows.isEmpty) {
               return [
                 const Padding(
                     padding: EdgeInsets.all(24),
@@ -4022,6 +4032,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Text('Không có đăng ký',
                             style: TextStyle(color: Color(0xFF71717A)))))
               ];
+            }
             return rows;
           }(),
         ],
@@ -4050,8 +4061,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       for (final day in days) {
         if (_getSchedulesForDay(eid, day).isNotEmpty) return true;
         final regs = _getRegistrationsForDay(eid, day);
-        if (regs.any((r) => r.status == ScheduleRegistrationStatus.approved))
+        if (regs.any((r) => r.status == ScheduleRegistrationStatus.approved)) {
           return true;
+        }
       }
       return false;
     }).toList();
@@ -4664,11 +4676,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     value: s, child: Text('$s')))
                                 .toList(),
                             onChanged: (v) {
-                              if (v != null)
+                              if (v != null) {
                                 setState(() {
                                   _schedulePageSize = v;
                                   _schedulePage = 1;
                                 });
+                              }
                             },
                           ),
                         ),
@@ -6910,11 +6923,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     value: s, child: Text('$s')))
                                 .toList(),
                             onChanged: (v) {
-                              if (v != null)
+                              if (v != null) {
                                 setState(() {
                                   _schedulePageSize = v;
                                   _approvedPage = 1;
                                 });
+                              }
                             },
                           ),
                         ),
@@ -7737,7 +7751,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           : '⏳';
               items.add('${shift?.name ?? "Ca"} $statusLabel');
               if (r.status == ScheduleRegistrationStatus.approved &&
-                  !r.isDayOff) totalShifts++;
+                  !r.isDayOff) {
+                totalShifts++;
+              }
             }
           }
           sheet
@@ -8733,8 +8749,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             DateTime.now().subtract(const Duration(days: 30)),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setDialogState(() => selectedDate = picked);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(

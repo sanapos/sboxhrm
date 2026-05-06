@@ -2,14 +2,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using ZKTecoADMS.Api.Controllers.Base;
-using ZKTecoADMS.Application.Commands.Payslips.GeneratePayslip;
 using ZKTecoADMS.Application.Queries.Payslips.GetEmployeePayslips;
 using ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
 using ZKTecoADMS.Application.Queries.Payslips.GetStorePayslips;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Payslips;
 using ZKTecoADMS.Application.Models;
-using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -17,26 +15,6 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/[controller]")]
 public class PayslipsController(IMediator mediator) : AuthenticatedControllerBase
 {
-    /// <summary>
-    /// Generate a payslip for an employee for the current month
-    /// Only managers can generate payslips
-    /// </summary>
-    [HttpPost("generate")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    public async Task<ActionResult<AppResponse<PayslipDto>>> GeneratePayslip([FromBody] GeneratePayslipRequest request)
-    {
-        var command = new GeneratePayslipCommand(
-            RequiredStoreId,
-            request.EmployeeUserId,
-            request.Year,
-            request.Month,
-            request.Bonus,
-            request.Deductions,
-            request.Notes
-        );
-        return Ok(await mediator.Send(command));
-    }
-
     /// <summary>
     /// Get all payslips for a specific employee by user ID
     /// Employees can only view their own payslips, managers can view any employee's payslips

@@ -15,10 +15,18 @@ public class GetAllLeavesHandler(
         var pagedResult = await repository.GetPagedResultWithIncludesAsync(
             request: request.PaginationRequest,
             filter: request.IsManager
-                ? l => l.StoreId == request.StoreId && (request.SubordinateUserIds == null
-                    || request.SubordinateUserIds.Contains(l.EmployeeUserId)
-                    || l.ApprovalRecords.Any(r => r.AssignedUserId == request.UserId))
-                : l => l.StoreId == request.StoreId && l.EmployeeUserId == request.UserId,
+                ? l => l.StoreId == request.StoreId
+                    && (request.SubordinateUserIds == null
+                        || request.SubordinateUserIds.Contains(l.EmployeeUserId)
+                        || l.ApprovalRecords.Any(r => r.AssignedUserId == request.UserId))
+                    && (request.Status == null || l.Status == request.Status)
+                    && (request.FromDate == null || l.EndDate.Date >= request.FromDate.Value.Date)
+                    && (request.ToDate == null || l.StartDate.Date <= request.ToDate.Value.Date)
+                : l => l.StoreId == request.StoreId
+                    && l.EmployeeUserId == request.UserId
+                    && (request.Status == null || l.Status == request.Status)
+                    && (request.FromDate == null || l.EndDate.Date >= request.FromDate.Value.Date)
+                    && (request.ToDate == null || l.StartDate.Date <= request.ToDate.Value.Date),
             includes: q => q.Include(s => s.EmployeeUser).Include(s => s.ApprovalRecords),
             cancellationToken: cancellationToken
         );

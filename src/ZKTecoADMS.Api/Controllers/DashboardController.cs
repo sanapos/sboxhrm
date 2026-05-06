@@ -185,21 +185,26 @@ public class DashboardController(
         try
         {
             var storeId = RequiredStoreId;
-            days = Math.Clamp(days, 1, 90); // Cap at 90 days to prevent loading excessive data
-            // Use VN calendar for the trend window so punches near midnight VN land on
-            // the correct day on the chart.
+            days = Math.Clamp(days, 1, 90);
             var endDate = DateTime.UtcNow.AddHours(7).Date;
             var startDate = endDate.AddDays(-days);
-            // AttendanceTime is UTC; translate VN [startDate, endDate+1) to UTC range.
             var utcRangeStart = startDate.AddHours(-7);
             var utcRangeEnd = endDate.AddDays(1).AddHours(-7);
 
-            var employees = await dbContext.Employees
+            // Load employees with ApplicationUserId for WorkSchedule lookup
+            var employeeData = await dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null)
-                .Select(e => e.EmployeeCode)
+                .Select(e => new { e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
                 .ToListAsync();
 
-            var employeeCodes = employees;
+            var employeeCodes = employeeData.Select(e => e.EmployeeCode).ToList();
+            // PIN → ApplicationUserId mapping (for shift lookup)
+            var pinToUserId = employeeData
+                .Where(e => e.ApplicationUserId.HasValue)
+                .ToDictionary(e => e.EmployeeCode, e => e.ApplicationUserId!.Value);
+            // PIN → display name mapping (Vietnamese: LastName FirstName)
+            var pinToName = employeeData
+                .ToDictionary(e => e.EmployeeCode, e => $"{e.LastName} {e.FirstName}".Trim());
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
@@ -209,12 +214,45 @@ public class DashboardController(
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
-            // Project each punch into its VN-local date/time once to reuse below.
+            // DB stores VN local time directly (EnableLegacyTimestampBehavior=true – no conversion needed)
             var vnAttendances = attendances
-                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
+                .Select(a => new { a.PIN, VnTime = a.AttendanceTime, a.AttendanceState })
                 .ToList();
 
-            var lateThreshold = new TimeSpan(8, 30, 0);
+            // Load ShiftTemplates for the store (used as fallback when no WorkSchedule exists)
+            var shiftTemplates = await dbContext.ShiftTemplates
+                .Where(st => st.StoreId == storeId && st.IsActive)
+                .Select(st => new {
+                    st.Name, st.StartTime, st.EndTime,
+                    st.LateGraceMinutes, st.EarlyLeaveGraceMinutes, st.EarlyCheckInMinutes
+                })
+                .ToListAsync();
+
+            // Load WorkSchedules with ShiftTemplate for the date range
+            var userIds = pinToUserId.Values.ToList();
+            var workScheduleData = await dbContext.WorkSchedules
+                .Where(ws => ws.Date >= startDate && ws.Date < endDate.AddDays(1)
+                    && userIds.Contains(ws.EmployeeUserId))
+                .Select(ws => new {
+                    ws.EmployeeUserId,
+                    Date = ws.Date.Date,
+                    ws.IsDayOff,
+                    OverrideStart = ws.StartTime,
+                    OverrideEnd = ws.EndTime,
+                    ShiftStart = ws.Shift != null ? ws.Shift.StartTime : (TimeSpan?)null,
+                    ShiftEnd = ws.Shift != null ? (TimeSpan?)ws.Shift.EndTime : null,
+                    LateGraceMinutes = ws.Shift != null ? ws.Shift.LateGraceMinutes : 5,
+                    EarlyLeaveGraceMinutes = ws.Shift != null ? ws.Shift.EarlyLeaveGraceMinutes : 5,
+                    ShiftName = ws.Shift != null ? ws.Shift.Name : null
+                })
+                .ToListAsync();
+
+            // Index: (employeeUserId, date) → schedule info
+            var scheduleIndex = workScheduleData
+                .GroupBy(ws => (ws.EmployeeUserId, ws.Date))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var defaultStart = new TimeSpan(8, 30, 0);
             var trends = new List<object>();
 
             for (var d = startDate; d <= endDate; d = d.AddDays(1))
@@ -225,6 +263,13 @@ public class DashboardController(
                 var dayAttendances = vnAttendances.Where(a => a.VnTime.Date == d).ToList();
                 var presentPins = dayAttendances.Select(a => a.PIN).Distinct().ToList();
                 var lateCount = 0;
+                var onTimeCount = 0;
+                var earlyLeaveCount = 0;
+
+                // shiftName → (present, late, earlyLeave)
+                var shiftStats = new Dictionary<string, (int Present, int Late, int EarlyLeave)>();
+                var lateEmps = new List<object>();
+                var earlyEmps = new List<object>();
 
                 foreach (var pin in presentPins)
                 {
@@ -232,17 +277,109 @@ public class DashboardController(
                         .Where(a => a.PIN == pin && a.AttendanceState == AttendanceStates.CheckIn)
                         .OrderBy(a => a.VnTime)
                         .FirstOrDefault();
-                    if (checkIn != null && checkIn.VnTime.TimeOfDay > lateThreshold)
-                        lateCount++;
+                    if (checkIn == null) continue;
+
+                    // Resolve per-employee shift start/end time
+                    var threshold = defaultStart;
+                    var graceMin = 5;
+                    var shiftLabel = (string?)null;
+                    TimeSpan? shiftEnd = null;
+                    var earlyGraceMin = 5;
+
+                    // Primary: WorkSchedule lookup
+                    if (pinToUserId.TryGetValue(pin, out var uid)
+                        && scheduleIndex.TryGetValue((uid, d), out var sched)
+                        && !sched.IsDayOff)
+                    {
+                        threshold = sched.OverrideStart ?? sched.ShiftStart ?? defaultStart;
+                        graceMin = sched.LateGraceMinutes;
+                        shiftLabel = sched.ShiftName ?? "Ca khác";
+                        shiftEnd = sched.OverrideEnd ?? sched.ShiftEnd;
+                        earlyGraceMin = sched.EarlyLeaveGraceMinutes;
+                    }
+
+                    // Fallback: match check-in time to nearest active ShiftTemplate
+                    if (shiftLabel == null && shiftTemplates.Count > 0)
+                    {
+                        var checkInMins = checkIn.VnTime.TimeOfDay.TotalMinutes;
+                        var best = shiftTemplates
+                            .Where(st => {
+                                var windowStart = st.StartTime.TotalMinutes - st.EarlyCheckInMinutes;
+                                return checkInMins >= windowStart && checkInMins <= st.StartTime.TotalMinutes + 180;
+                            })
+                            .OrderBy(st => Math.Abs(st.StartTime.TotalMinutes - checkInMins))
+                            .FirstOrDefault();
+                        if (best != null)
+                        {
+                            shiftLabel = best.Name;
+                            threshold = best.StartTime;
+                            graceMin = best.LateGraceMinutes;
+                            shiftEnd = best.EndTime;
+                            earlyGraceMin = best.EarlyLeaveGraceMinutes;
+                        }
+                    }
+
+                    shiftLabel ??= "Không xếp ca";
+
+                    if (!shiftStats.ContainsKey(shiftLabel))
+                        shiftStats[shiftLabel] = (0, 0, 0);
+
+                    var isLate = checkIn.VnTime.TimeOfDay > threshold + TimeSpan.FromMinutes(graceMin);
+
+                    // Kiểm tra về sớm: lấy lần checkout cuối cùng trong ngày
+                    var checkOut = dayAttendances
+                        .Where(a => a.PIN == pin && a.AttendanceState == AttendanceStates.CheckOut)
+                        .OrderByDescending(a => a.VnTime)
+                        .FirstOrDefault();
+                    var isEarly = checkOut != null && shiftEnd.HasValue
+                        && checkOut.VnTime.TimeOfDay < shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin);
+
+                    if (isLate) lateCount++;
+                    else onTimeCount++;
+                    if (isEarly) earlyLeaveCount++;
+
+                    var cur = shiftStats[shiftLabel];
+                    shiftStats[shiftLabel] = (
+                        cur.Present + 1,
+                        cur.Late + (isLate ? 1 : 0),
+                        cur.EarlyLeave + (isEarly ? 1 : 0)
+                    );
+
+                    // Track employee details for late/early lists
+                    var empName = pinToName.TryGetValue(pin, out var n2) ? n2 : pin;
+                    if (isLate)
+                    {
+                        var lateMins = (int)(checkIn.VnTime.TimeOfDay - threshold - TimeSpan.FromMinutes(graceMin)).TotalMinutes;
+                        lateEmps.Add(new { pin, name = empName, checkIn = checkIn.VnTime.ToString("HH:mm"), lateMinutes = lateMins, shift = shiftLabel });
+                    }
+                    if (isEarly && checkOut != null && shiftEnd.HasValue)
+                    {
+                        var earlyMins = (int)(shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin) - checkOut.VnTime.TimeOfDay).TotalMinutes;
+                        earlyEmps.Add(new { pin, name = empName, checkOut = checkOut.VnTime.ToString("HH:mm"), earlyMinutes = earlyMins, shift = shiftLabel });
+                    }
                 }
+
+                var totalEmp = employeeCodes.Count;
+                var presentCount = presentPins.Count;
+                var absentCount = Math.Max(0, totalEmp - presentCount);
+                var rate = totalEmp > 0 ? Math.Round((double)presentCount / totalEmp * 100, 1) : 0.0;
 
                 trends.Add(new
                 {
                     date = d.ToString("yyyy-MM-dd"),
-                    present = presentPins.Count,
-                    absent = employees.Count - presentPins.Count,
+                    present = presentCount,
+                    onTime = onTimeCount,
                     late = lateCount,
-                    total = employees.Count
+                    earlyLeave = earlyLeaveCount,
+                    absent = absentCount,
+                    total = totalEmp,
+                    attendanceRate = rate,
+                    shiftBreakdown = shiftStats
+                        .OrderBy(kv => kv.Key)
+                        .Select(kv => new { shiftName = kv.Key, present = kv.Value.Present, late = kv.Value.Late, earlyLeave = kv.Value.EarlyLeave })
+                        .ToList(),
+                    lateEmployees = lateEmps,
+                    earlyEmployees = earlyEmps
                 });
             }
 

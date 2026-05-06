@@ -118,7 +118,7 @@ services:
       - api_uploads:/app/wwwroot
       - /opt/zkteco/secrets/fcm-service-account.json:/app/secrets/fcm-service-account.json:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7070/health || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/7070' 2>/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

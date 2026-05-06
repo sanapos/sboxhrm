@@ -723,12 +723,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _ExpandableText extends StatefulWidget {
   final String text;
   final TextStyle style;
-  final int maxLines;
 
   const _ExpandableText({
     required this.text,
     required this.style,
-    this.maxLines = 3,
   });
 
   @override
@@ -744,8 +742,8 @@ class _ExpandableTextState extends State<_ExpandableText> {
       builder: (context, constraints) {
         final tp = TextPainter(
           text: TextSpan(text: widget.text, style: widget.style),
-          maxLines: widget.maxLines,
-          textDirection: TextDirection.ltr,
+          maxLines: 3,
+          textDirection: Directionality.of(context),
         )..layout(maxWidth: constraints.maxWidth);
 
         final isOverflow = tp.didExceedMaxLines;
@@ -756,7 +754,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
             Text(
               widget.text,
               style: widget.style,
-              maxLines: _expanded ? null : widget.maxLines,
+              maxLines: _expanded ? null : 3,
               overflow: _expanded ? null : TextOverflow.ellipsis,
             ),
             if (isOverflow || _expanded)

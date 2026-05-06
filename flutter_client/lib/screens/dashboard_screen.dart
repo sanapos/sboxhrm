@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
-// ignore_for_file: unused_import
+// ignore_for_file: unused_import, unused_element, unused_field, unused_local_variable
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -770,7 +770,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // These read pre-computed memoized lists populated by _recomputeMemoized().
   List<dynamic> get _todayEmployees => _dailyReportItems;
   List<dynamic> get _lateEmployees => _memoLate;
-  // ignore: unused_element
   List<dynamic> get _absentEmployeesList => _memoAbsent;
 
   int get _totalEmployees {
@@ -4277,7 +4276,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadAllData();
   }
 
-  // ignore: unused_element
   int _daysAgo(DateTime d) {
     final now = DateTime.now();
     final a = DateTime(now.year, now.month, now.day);
@@ -4303,7 +4301,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ignore: unused_element
   Widget _buildDateChip(String label, bool selected, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,

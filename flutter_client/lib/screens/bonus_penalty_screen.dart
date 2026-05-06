@@ -828,8 +828,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   Widget _buildPaginationControls() {
     final totalPages = (_totalCount / _pageSize).ceil();
-    if (totalPages <= 1 && _totalCount <= _pageSize)
+    if (totalPages <= 1 && _totalCount <= _pageSize) {
       return const SizedBox.shrink();
+    }
 
     final start = _totalCount > 0 ? (_currentPage - 1) * _pageSize + 1 : 0;
     final end = (_currentPage * _pageSize).clamp(0, _totalCount);

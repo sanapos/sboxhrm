@@ -28,6 +28,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   String? _statusFilter;
   bool _loading = false;
   List<Map<String, dynamic>> _tickets = [];
+  // ignore: unused_field
   Map<String, dynamic> _stats = {};
   String _empSearch = '';
 
@@ -146,14 +147,16 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             'BaoCaoPhat_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
         await file_saver.saveFileBytes(bytes, fn,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager()
               .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      }
     }
   }
 
@@ -243,7 +246,8 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (Provider.of<PermissionProvider>(context, listen: false).canExport('PenaltyReport'))
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canExport('PenaltyReport'))
             IconButton(
                 icon: const Icon(Icons.file_download_outlined),
                 tooltip: 'Xuất Excel',

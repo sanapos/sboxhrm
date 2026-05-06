@@ -2077,7 +2077,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     final payrollData = _buildPayrollData();
-    final isMobile = Responsive.isMobile(context);
 
     return Padding(
       padding: EdgeInsets.all(Responsive.isMobile(context) ? 10 : 16),
@@ -2947,6 +2946,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // Fixed/frozen column keys (always shown, pinned left)
   static const _frozenKeys = {'stt', 'name'};
 
+  // ignore: unused_element
   Widget _buildPagination(int totalRows, int totalPages) {
     final isMobile = Responsive.isMobile(context);
     if (isMobile) {
@@ -3177,6 +3177,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildTable(
       List<Map<String, dynamic>> data, List<PayrollColumn> visibleCols) {
     final frozenCols =
@@ -3615,8 +3616,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (n == 0) return '0';
     final abs = n.abs();
     final sign = n < 0 ? '-' : '';
-    if (abs >= 1000000)
+    if (abs >= 1000000) {
       return '$sign${(abs / 1000000).toStringAsFixed(abs >= 10000000 ? 1 : 2)}M';
+    }
     if (abs >= 1000) return '$sign${(abs / 1000).toStringAsFixed(0)}k';
     return _currencyFmt.format(n);
   }

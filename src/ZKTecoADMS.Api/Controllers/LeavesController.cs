@@ -14,6 +14,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Leaves;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -113,12 +114,16 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    public async Task<ActionResult<AppResponse<PagedResult<LeaveDto>>>> GetAllLeaves([FromQuery] PaginationRequest request)
+    public async Task<ActionResult<AppResponse<PagedResult<LeaveDto>>>> GetAllLeaves(
+        [FromQuery] PaginationRequest request,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] LeaveStatus? status = null)
     {
         List<Guid>? subordinateUserIds = null;
         if (IsManager && !IsAdmin)
             subordinateUserIds = await dataScopeService.GetSubordinateUserIdsAsync(CurrentUserId, RequiredStoreId);
-        var query = new GetAllLeavesQuery(RequiredStoreId, CurrentUserId, IsManager, request, subordinateUserIds);
+        var query = new GetAllLeavesQuery(RequiredStoreId, CurrentUserId, IsManager, request, subordinateUserIds, fromDate, toDate, status);
         var result = await mediator.Send(query);
         return Ok(result);
     }

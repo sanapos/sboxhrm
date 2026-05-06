@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../screens/main_layout.dart' show NavigationNotifier, ScreenRefreshNotifier;
+import '../screens/main_layout.dart'
+    show NavigationNotifier, ScreenRefreshNotifier;
 import '../services/api_service.dart';
 
 /// Service để hiển thị thông báo trên thanh notification của Android
@@ -230,7 +231,8 @@ class SystemNotificationService {
       body: message,
       channelId: 'sbox_hrm_general',
       channelName: 'Thông báo chung',
-      payload: _makePayload(relatedEntityType ?? 'Notification', notificationId),
+      payload:
+          _makePayload(relatedEntityType ?? 'Notification', notificationId),
     );
   }
 }

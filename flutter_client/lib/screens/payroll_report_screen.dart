@@ -220,8 +220,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
       _filteredPayslips.fold(0.0, (s, p) => s + _d(p['healthInsurance']));
   double get _totUnemp =>
       _filteredPayslips.fold(0.0, (s, p) => s + _d(p['unemploymentInsurance']));
-  double get _totTax =>
-      _filteredPayslips.fold(0.0, (s, p) => s + _d(p['tax']));
+  double get _totTax => _filteredPayslips.fold(0.0, (s, p) => s + _d(p['tax']));
   double get _totDeduct =>
       _filteredPayslips.fold(0.0, (s, p) => s + _d(p['deductions']));
   double get _totGross =>
@@ -230,12 +229,10 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
       _filteredPayslips.fold(0.0, (s, p) => s + _d(p['netSalary']));
   double get _totInsurance => _totSocial + _totHealth + _totUnemp;
 
-  int get _paidCount => _filteredPayslips
-      .where((p) => (p['statusName'] ?? '') == 'Paid')
-      .length;
-  int get _draftCount => _filteredPayslips
-      .where((p) => (p['statusName'] ?? '') == 'Draft')
-      .length;
+  int get _paidCount =>
+      _filteredPayslips.where((p) => (p['statusName'] ?? '') == 'Paid').length;
+  int get _draftCount =>
+      _filteredPayslips.where((p) => (p['statusName'] ?? '') == 'Draft').length;
 
   double get _profileTotBase =>
       _filteredSalaryData.fold(0.0, (s, e) => s + _d(e['baseSalary']));
@@ -303,8 +300,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                 _selectedMonth == null
                     ? 'Cả năm $_selectedYear'
                     : 'Tháng ${_selectedMonth.toString().padLeft(2, '0')}/$_selectedYear',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF71717A)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
               ),
             ],
           ),
@@ -320,8 +316,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
               Expanded(child: title),
               IconButton(
                 tooltip: 'Bộ lọc',
-                onPressed: () => setState(
-                    () => _showMobileFilters = !_showMobileFilters),
+                onPressed: () =>
+                    setState(() => _showMobileFilters = !_showMobileFilters),
                 icon: Icon(
                   _showMobileFilters
                       ? Icons.filter_alt
@@ -331,24 +327,26 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                       : const Color(0xFF71717A),
                 ),
               ),
-              if (Provider.of<PermissionProvider>(context, listen: false).canExport('PayrollReport'))
-              IconButton(
-                tooltip: 'Xuất CSV',
-                onPressed: _exportCsv,
-                icon: const Icon(Icons.download, color: Color(0xFF1E3A5F)),
-              ),
+              if (Provider.of<PermissionProvider>(context, listen: false)
+                  .canExport('PayrollReport'))
+                IconButton(
+                  tooltip: 'Xuất CSV',
+                  onPressed: _exportCsv,
+                  icon: const Icon(Icons.download, color: Color(0xFF1E3A5F)),
+                ),
             ])
           : Row(children: [
               Expanded(child: title),
-              if (Provider.of<PermissionProvider>(context, listen: false).canExport('PayrollReport'))
-              ElevatedButton.icon(
-                onPressed: _exportCsv,
-                icon: const Icon(Icons.download, size: 18),
-                label: const Text('Xuất CSV'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
-                    foregroundColor: Colors.white),
-              ),
+              if (Provider.of<PermissionProvider>(context, listen: false)
+                  .canExport('PayrollReport'))
+                ElevatedButton.icon(
+                  onPressed: _exportCsv,
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text('Xuất CSV'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E3A5F),
+                      foregroundColor: Colors.white),
+                ),
             ]),
     );
   }
@@ -440,8 +438,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                 const DropdownMenuItem<String>(
                     value: null, child: Text('Tất cả')),
                 ...depts.map((d) => DropdownMenuItem(
-                    value: d,
-                    child: Text(d, overflow: TextOverflow.ellipsis))),
+                    value: d, child: Text(d, overflow: TextOverflow.ellipsis))),
               ],
               onChanged: (v) => setState(() => _selectedDepartment = v),
             ),
@@ -460,8 +457,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
               ),
               items: const [
                 DropdownMenuItem<String>(value: null, child: Text('Tất cả')),
-                DropdownMenuItem<String>(
-                    value: 'Draft', child: Text('Nháp')),
+                DropdownMenuItem<String>(value: 'Draft', child: Text('Nháp')),
                 DropdownMenuItem<String>(
                     value: 'Approved', child: Text('Đã duyệt')),
                 DropdownMenuItem<String>(
@@ -522,8 +518,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
           indicatorColor: const Color(0xFF1E3A5F),
           indicatorWeight: 3,
           isScrollable: narrow,
-          tabAlignment:
-              narrow ? TabAlignment.start : TabAlignment.fill,
+          tabAlignment: narrow ? TabAlignment.start : TabAlignment.fill,
           labelPadding: narrow
               ? const EdgeInsets.symmetric(horizontal: 16)
               : const EdgeInsets.symmetric(horizontal: 8),
@@ -608,16 +603,16 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
         hasPayslips ? _filteredPayslips.length : _filteredSalaryData.length;
 
     final cards = <_CardData>[
-      _CardData('Số NV / phiếu', '$count', Icons.people,
-          const Color(0xFF1E3A5F)),
+      _CardData(
+          'Số NV / phiếu', '$count', Icons.people, const Color(0xFF1E3A5F)),
       _CardData('Tổng thực lãnh', _fmtMoney(totNet),
           Icons.account_balance_wallet, const Color(0xFF047857)),
       _CardData('Tổng gộp', _fmtMoney(totGross), Icons.payments,
           const Color(0xFF2D5F8B)),
       _CardData('Lương cơ bản', _fmtMoney(totBase), Icons.account_balance,
           const Color(0xFF0F2340)),
-      _CardData('Phụ cấp', _fmtMoney(totAllow), Icons.card_giftcard,
-          Colors.teal),
+      _CardData(
+          'Phụ cấp', _fmtMoney(totAllow), Icons.card_giftcard, Colors.teal),
       if (hasPayslips) ...[
         _CardData('Tăng ca', _fmtMoney(_totOvertime + _totHoliday + _totNight),
             Icons.timer, Colors.orange.shade700),
@@ -631,8 +626,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
             Icons.remove_circle_outline, Colors.red.shade400),
         _CardData('Đã thanh toán', '$_paidCount', Icons.check_circle,
             Colors.green.shade600),
-        _CardData('Phiếu nháp', '$_draftCount', Icons.drafts,
-            Colors.grey.shade600),
+        _CardData(
+            'Phiếu nháp', '$_draftCount', Icons.drafts, Colors.grey.shade600),
       ],
     ];
 
@@ -761,16 +756,13 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
             SizedBox(
               width: 150,
               child: PieChart(PieChartData(
-                  sections: sections,
-                  centerSpaceRadius: 38,
-                  sectionsSpace: 2)),
+                  sections: sections, centerSpaceRadius: 38, sectionsSpace: 2)),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: ListView(
                 children: items.asMap().entries.map((entry) {
-                  final pct =
-                      total > 0 ? (entry.value.value / total * 100) : 0;
+                  final pct = total > 0 ? (entry.value.value / total * 100) : 0;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(children: [
@@ -861,8 +853,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                                   style: const TextStyle(fontSize: 9));
                             }
                             if (v >= 1000) {
-                              return Text(
-                                  '${(v / 1000).toStringAsFixed(0)}K',
+                              return Text('${(v / 1000).toStringAsFixed(0)}K',
                                   style: const TextStyle(fontSize: 9));
                             }
                             return Text('${v.toInt()}',
@@ -894,12 +885,10 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                   rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false)),
                 ),
-                gridData:
-                    const FlGridData(show: true, drawVerticalLine: false),
+                gridData: const FlGridData(show: true, drawVerticalLine: false),
                 borderData: FlBorderData(show: false),
-                barTouchData: BarTouchData(
-                    touchTooltipData: BarTouchTooltipData(
-                        getTooltipItem: (g, gi, rod, ri) {
+                barTouchData: BarTouchData(touchTooltipData:
+                    BarTouchTooltipData(getTooltipItem: (g, gi, rod, ri) {
                   return BarTooltipItem(
                       '${top[g.x].key}\n${_currFmt.format(rod.toY)}đ',
                       const TextStyle(color: Colors.white, fontSize: 11));
@@ -955,9 +944,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: i < 3
-                            ? Colors.white
-                            : const Color(0xFF1E3A5F))),
+                        color: i < 3 ? Colors.white : const Color(0xFF1E3A5F))),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1080,8 +1067,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
                       child: Text('T${v.toInt()}',
                           style: const TextStyle(fontSize: 10)),
                     ))),
-        topTitles:
-            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles:
             const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
@@ -1142,8 +1128,7 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
             DataCell(Text(_fmtMoney(m['gross']!))),
             DataCell(Text(_fmtMoney(m['net']!),
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF047857)))),
+                    fontWeight: FontWeight.bold, color: Color(0xFF047857)))),
           ]);
         }),
       ),
@@ -1359,9 +1344,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
   }
 
   Widget _payslipCard(Map<String, dynamic> p) {
-    final ot = _d(p['overtimePay']) +
-        _d(p['holidayPay']) +
-        _d(p['nightShiftPay']);
+    final ot =
+        _d(p['overtimePay']) + _d(p['holidayPay']) + _d(p['nightShiftPay']);
     final deduct = _d(p['deductions']) +
         _d(p['socialInsurance']) +
         _d(p['healthInsurance']) +
@@ -1411,8 +1395,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Thực lãnh',
-                    style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(_fmtMoney(_d(p['netSalary'])),
                     style: const TextStyle(
                         fontSize: 15,
@@ -1433,13 +1417,10 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(k,
-              style:
-                  const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
           Text(v,
               style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: color)),
+                  fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -1469,8 +1450,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(label,
-          style: TextStyle(
-              fontSize: 10.5, fontWeight: FontWeight.bold, color: c)),
+          style:
+              TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: c)),
     );
   }
 

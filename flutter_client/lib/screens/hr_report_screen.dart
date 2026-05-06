@@ -60,8 +60,12 @@ class _HrReportScreenState extends State<HrReportScreen>
         }
       }
       if (_selectedStatus != null) {
-        if (_selectedStatus == 'Active' && !e.isActive) { return false; }
-        if (_selectedStatus == 'Inactive' && e.isActive) { return false; }
+        if (_selectedStatus == 'Active' && !e.isActive) {
+          return false;
+        }
+        if (_selectedStatus == 'Inactive' && e.isActive) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -242,7 +246,8 @@ class _HrReportScreenState extends State<HrReportScreen>
       }
     } catch (e) {
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi tải dữ liệu: $e');
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Lỗi tải dữ liệu: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -262,7 +267,8 @@ class _HrReportScreenState extends State<HrReportScreen>
           : Column(
               children: [
                 _buildHeader(),
-                if (!Responsive.isMobile(context) || _showMobileFilters) _buildFilters(),
+                if (!Responsive.isMobile(context) || _showMobileFilters)
+                  _buildFilters(),
                 _buildTabBar(),
                 Expanded(
                   child: TabBarView(
@@ -284,7 +290,8 @@ class _HrReportScreenState extends State<HrReportScreen>
   Widget _buildHeader() {
     final isMobile = Responsive.isMobile(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 12),
+      padding:
+          EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -296,7 +303,8 @@ class _HrReportScreenState extends State<HrReportScreen>
                   color: Colors.teal.shade50,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.assessment, color: Colors.teal.shade700, size: 24),
+                child: Icon(Icons.assessment,
+                    color: Colors.teal.shade700, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -316,13 +324,15 @@ class _HrReportScreenState extends State<HrReportScreen>
                 ),
               ),
               if (!isMobile) ...[
-                if (Provider.of<PermissionProvider>(context, listen: false).canExport('HrReport'))
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canExport('HrReport'))
                   ElevatedButton.icon(
                     onPressed: _filteredEmployees.isEmpty ? null : _exportCsv,
                     icon: const Icon(Icons.download, size: 18),
                     label: Text(_l10n.exportCsv),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white),
                   ),
               ],
             ],
@@ -332,26 +342,43 @@ class _HrReportScreenState extends State<HrReportScreen>
             Row(
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                  onPressed: () =>
+                      setState(() => _showMobileFilters = !_showMobileFilters),
                   icon: Stack(
                     children: [
-                      Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 18),
-                      if (_selectedDepartment != null || _selectedGender != null || _selectedStatus != null)
-                        Positioned(right: 0, top: 0, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
+                      Icon(
+                          _showMobileFilters
+                              ? Icons.filter_alt
+                              : Icons.filter_alt_outlined,
+                          size: 18),
+                      if (_selectedDepartment != null ||
+                          _selectedGender != null ||
+                          _selectedStatus != null)
+                        Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                    color: Colors.orangeAccent,
+                                    shape: BoxShape.circle))),
                     ],
                   ),
                   label: Text(_showMobileFilters ? 'Ẩn lọc' : 'Bộ lọc'),
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
                 ),
                 const SizedBox(width: 8),
-                if (Provider.of<PermissionProvider>(context, listen: false).canExport('HrReport'))
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canExport('HrReport'))
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _filteredEmployees.isEmpty ? null : _exportCsv,
                       icon: const Icon(Icons.download, size: 18),
                       label: Text(_l10n.exportCsv),
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white),
                     ),
                   )
                 else
@@ -570,10 +597,10 @@ class _HrReportScreenState extends State<HrReportScreen>
     }
 
     final cards = <_SummaryCardData>[
-      _SummaryCardData(_l10n.totalHeadcount, '$_totalEmployees', Icons.people,
-          Colors.blue),
-      _SummaryCardData('Đang làm việc', '$_activeCount', Icons.check_circle,
-          Colors.green),
+      _SummaryCardData(
+          _l10n.totalHeadcount, '$_totalEmployees', Icons.people, Colors.blue),
+      _SummaryCardData(
+          'Đang làm việc', '$_activeCount', Icons.check_circle, Colors.green),
       _SummaryCardData('Nam', '$_maleCount', Icons.male, Colors.indigo),
       _SummaryCardData('Nữ', '$_femaleCount', Icons.female, Colors.pink),
       _SummaryCardData(
@@ -582,11 +609,8 @@ class _HrReportScreenState extends State<HrReportScreen>
           Colors.purple),
       _SummaryCardData(
           'Mới trong tháng', '$newThisMonth', Icons.person_add, Colors.teal),
-      _SummaryCardData(
-          'TB thâm niên',
-          '${avgSeniority.toStringAsFixed(1)} năm',
-          Icons.timeline,
-          Colors.amber.shade800),
+      _SummaryCardData('TB thâm niên', '${avgSeniority.toStringAsFixed(1)} năm',
+          Icons.timeline, Colors.amber.shade800),
       _SummaryCardData('Sinh nhật tháng này', '${_birthdaysThisMonth.length}',
           Icons.cake, Colors.red),
     ];
@@ -648,9 +672,7 @@ class _HrReportScreenState extends State<HrReportScreen>
             fit: BoxFit.scaleDown,
             child: Text(value,
                 style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
+                    fontSize: 17, fontWeight: FontWeight.bold, color: color)),
           ),
           const SizedBox(height: 4),
           Text(
@@ -951,11 +973,8 @@ class _HrReportScreenState extends State<HrReportScreen>
               children: [
                 SizedBox(
                   width: cardW,
-                  child: _summaryCard(
-                      'Sinh nhật tháng này',
-                      '${_birthdaysThisMonth.length}',
-                      Icons.cake,
-                      Colors.red),
+                  child: _summaryCard('Sinh nhật tháng này',
+                      '${_birthdaysThisMonth.length}', Icons.cake, Colors.red),
                 ),
                 SizedBox(
                   width: cardW,
@@ -1027,7 +1046,10 @@ class _HrReportScreenState extends State<HrReportScreen>
                           e.avatarUrl != null && e.avatarUrl!.isNotEmpty
                               ? NetworkImage(e.avatarUrl!)
                               : null,
-                      onBackgroundImageError: e.avatarUrl != null && e.avatarUrl!.isNotEmpty ? (_, __) {} : null,
+                      onBackgroundImageError:
+                          e.avatarUrl != null && e.avatarUrl!.isNotEmpty
+                              ? (_, __) {}
+                              : null,
                       child: e.avatarUrl == null || e.avatarUrl!.isEmpty
                           ? Text(e.firstName.isNotEmpty ? e.firstName[0] : '?',
                               style: TextStyle(
@@ -1248,7 +1270,10 @@ class _HrReportScreenState extends State<HrReportScreen>
                         e.avatarUrl != null && e.avatarUrl!.isNotEmpty
                             ? NetworkImage(e.avatarUrl!)
                             : null,
-                    onBackgroundImageError: e.avatarUrl != null && e.avatarUrl!.isNotEmpty ? (_, __) {} : null,
+                    onBackgroundImageError:
+                        e.avatarUrl != null && e.avatarUrl!.isNotEmpty
+                            ? (_, __) {}
+                            : null,
                     child: e.avatarUrl == null || e.avatarUrl!.isEmpty
                         ? Icon(
                             e.gender?.toLowerCase() == 'female' ||
@@ -1674,7 +1699,10 @@ class _HrReportScreenState extends State<HrReportScreen>
                                   e.avatarUrl != null && e.avatarUrl!.isNotEmpty
                                       ? NetworkImage(e.avatarUrl!)
                                       : null,
-                              onBackgroundImageError: e.avatarUrl != null && e.avatarUrl!.isNotEmpty ? (_, __) {} : null,
+                              onBackgroundImageError:
+                                  e.avatarUrl != null && e.avatarUrl!.isNotEmpty
+                                      ? (_, __) {}
+                                      : null,
                               child: e.avatarUrl == null || e.avatarUrl!.isEmpty
                                   ? Icon(
                                       e.gender?.toLowerCase() == 'female' ||
@@ -1744,15 +1772,27 @@ class _HrReportScreenState extends State<HrReportScreen>
               borderRadius: BorderRadius.circular(12),
               onTap: () {},
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundImage: e.avatarUrl != null && e.avatarUrl!.isNotEmpty ? NetworkImage(e.avatarUrl!) : null,
-                      onBackgroundImageError: e.avatarUrl != null && e.avatarUrl!.isNotEmpty ? (_, __) {} : null,
+                      backgroundImage:
+                          e.avatarUrl != null && e.avatarUrl!.isNotEmpty
+                              ? NetworkImage(e.avatarUrl!)
+                              : null,
+                      onBackgroundImageError:
+                          e.avatarUrl != null && e.avatarUrl!.isNotEmpty
+                              ? (_, __) {}
+                              : null,
                       child: e.avatarUrl == null || e.avatarUrl!.isEmpty
-                          ? Icon(e.gender?.toLowerCase() == 'female' || e.gender?.toLowerCase() == 'nữ' ? Icons.woman_rounded : Icons.man_rounded, size: 18)
+                          ? Icon(
+                              e.gender?.toLowerCase() == 'female' ||
+                                      e.gender?.toLowerCase() == 'nữ'
+                                  ? Icons.woman_rounded
+                                  : Icons.man_rounded,
+                              size: 18)
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -1760,17 +1800,24 @@ class _HrReportScreenState extends State<HrReportScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(e.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), overflow: TextOverflow.ellipsis),
+                          Text(e.fullName,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF18181B)),
+                              overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
                           Text(
                             '${e.employeeCode} · ${e.department ?? ''} · ${e.position ?? ''}',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF71717A)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    _statusChip(e.workStatusDisplay, e.isActive ? Colors.green : Colors.red),
+                    _statusChip(e.workStatusDisplay,
+                        e.isActive ? Colors.green : Colors.red),
                   ],
                 ),
               ),
@@ -1846,8 +1893,12 @@ class _HrReportScreenState extends State<HrReportScreen>
           '${i + 1},${e.employeeCode},"${e.fullName}",${e.genderDisplay},${e.dateOfBirth != null ? DateFormat('dd/MM/yyyy').format(e.dateOfBirth!) : ""},"${e.hometown ?? ""}","${e.educationLevelDisplay}",${e.maritalStatusDisplay},"${e.department ?? ""}","${e.position ?? ""}",${e.joinDate != null ? DateFormat('dd/MM/yyyy').format(e.joinDate!) : ""},"$seniority",${e.workStatusDisplay},${e.phone ?? ""}');
     }
     final bytes = utf8.encode(buf.toString());
-    await file_saver.saveFileBytes(bytes, 'bao_cao_nhan_su_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv', 'text/csv;charset=utf-8');
-    NotificationOverlayManager().showSuccess(title: 'Xuất báo cáo', message: 'Đã xuất báo cáo CSV');
+    await file_saver.saveFileBytes(
+        bytes,
+        'bao_cao_nhan_su_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+        'text/csv;charset=utf-8');
+    NotificationOverlayManager()
+        .showSuccess(title: 'Xuất báo cáo', message: 'Đã xuất báo cáo CSV');
   }
 }
 

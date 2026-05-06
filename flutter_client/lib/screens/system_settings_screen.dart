@@ -715,6 +715,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
 
   List<Map<String, String>> get _roundingRuleOptions => [
     {'value': 'none', 'label': 'Không làm tròn', 'desc': 'Tính chính xác theo phút'},

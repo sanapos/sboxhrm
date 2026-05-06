@@ -248,6 +248,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         ticket.ProcessedDate = DateTime.Now;
         ticket.UpdatedAt = DateTime.Now;
 
+        dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
         // Notify employee
@@ -299,6 +300,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         var cashTransaction = await CreateCashTransactionAsync(ticket);
         ticket.CashTransactionId = cashTransaction.Id;
 
+        dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
         // Notify employee
@@ -325,26 +327,41 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Thống kê phiếu phạt theo tháng
+    /// Thống kê phiếu phạt theo tháng hoặc theo khoảng ngày
     /// </summary>
     [HttpGet("stats")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     public async Task<ActionResult<AppResponse<PenaltyStatsSummary>>> GetPenaltyStats(
         [FromQuery] int? month = null,
-        [FromQuery] int? year = null)
+        [FromQuery] int? year = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
     {
         var storeId = RequiredStoreId;
         var now = DateTime.Now;
-        var targetMonth = month ?? now.Month;
-        var targetYear = year ?? now.Year;
-        var monthStart = new DateTime(targetYear, targetMonth, 1);
-        var monthEnd = monthStart.AddMonths(1);
 
+        // Base query — todos os filtros comuns
         var query = dbContext.PenaltyTickets
-            .Where(pt => pt.StoreId == storeId
-                && pt.ViolationDate >= monthStart
-                && pt.ViolationDate < monthEnd
-                && pt.Deleted == null);
+            .Where(pt => pt.StoreId == storeId && pt.Deleted == null)
+            .AsQueryable();
+
+        if (fromDate.HasValue || toDate.HasValue)
+        {
+            // Lọc theo khoảng ngày tường minh (fromDate/toDate) khi được cung cấp.
+            if (fromDate.HasValue)
+                query = query.Where(pt => pt.ViolationDate >= fromDate.Value.Date);
+            if (toDate.HasValue)
+                query = query.Where(pt => pt.ViolationDate <= toDate.Value.Date);
+        }
+        else
+        {
+            // Fallback: lọc theo tháng/năm
+            var targetMonth = month ?? now.Month;
+            var targetYear = year ?? now.Year;
+            var monthStart = new DateTime(targetYear, targetMonth, 1);
+            var monthEnd = monthStart.AddMonths(1);
+            query = query.Where(pt => pt.ViolationDate >= monthStart && pt.ViolationDate < monthEnd);
+        }
 
         var stats = new PenaltyStatsSummary
         {
@@ -523,6 +540,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             ticket.Description = request.Description;
 
         ticket.UpdatedAt = DateTime.Now;
+        dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
         // Notify employee
@@ -576,6 +594,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
 
         ticket.Deleted = DateTime.Now;
         ticket.UpdatedAt = DateTime.Now;
+        dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
         // Notify employee
@@ -617,6 +636,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         {
             ticket.CashTransaction.Deleted = DateTime.Now;
             ticket.CashTransaction.UpdatedAt = DateTime.Now;
+            dbContext.Update(ticket.CashTransaction);
         }
 
         ticket.Status = PenaltyTicketStatus.Pending;
@@ -624,7 +644,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         ticket.ProcessedById = null;
         ticket.ProcessedDate = null;
         ticket.UpdatedAt = DateTime.Now;
-
+        dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
         // Notify employee

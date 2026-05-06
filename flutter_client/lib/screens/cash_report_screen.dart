@@ -29,6 +29,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   int? _typeFilter;
   bool _loading = false;
   List<Map<String, dynamic>> _items = [];
+  // ignore: unused_field
   Map<String, dynamic> _summary = {};
   String _empSearch = '';
 
@@ -46,6 +47,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   double get _totalExpense => _items
       .where((t) => _safeInt(t['type']) == 2)
       .fold(0.0, (s, t) => s + _safeDouble(t['amount']));
+  // ignore: unused_element
   double get _balance => _totalIncome - _totalExpense;
 
   @override
@@ -157,14 +159,16 @@ class _CashReportScreenState extends State<CashReportScreen> {
             'BaoCaoThuChi_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
         await file_saver.saveFileBytes(bytes, fn,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager()
               .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      }
     }
   }
 
@@ -219,7 +223,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (Provider.of<PermissionProvider>(context, listen: false).canExport('CashReport'))
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canExport('CashReport'))
             IconButton(
                 icon: const Icon(Icons.file_download_outlined),
                 tooltip: 'Xuất Excel',

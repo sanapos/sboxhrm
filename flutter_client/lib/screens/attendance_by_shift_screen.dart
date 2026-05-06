@@ -34,6 +34,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
+  // ignore: unused_field
   bool _allowManualCorrection = true;
 
   final DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));

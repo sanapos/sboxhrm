@@ -1433,8 +1433,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               dataRowColor:
                                   WidgetStateProperty.resolveWith<Color?>(
                                       (states) {
-                                if (states.contains(WidgetState.hovered))
+                                if (states.contains(WidgetState.hovered)) {
                                   return const Color(0xFFF1F5F9);
+                                }
                                 return null;
                               }),
                               dividerThickness: 0.5,
@@ -1789,11 +1790,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
                       .toList(),
                   onChanged: (v) {
-                    if (v != null)
+                    if (v != null) {
                       setState(() {
                         _pageSize = v;
                         _currentPage = 1;
                       });
+                    }
                   },
                 ),
               ),

@@ -57,6 +57,8 @@ public class CommunicationController(
             
             if (filter.Status.HasValue)
                 query = query.Where(c => c.Status == filter.Status.Value);
+            else if (IsManager)
+                query = query; // managers/admin see all posts regardless of status
             else
                 query = query.Where(c => c.Status == CommunicationStatus.Published || c.AuthorId == CurrentUserId);
             
@@ -463,17 +465,31 @@ public class CommunicationController(
     {
         try
         {
-            var entity = await dbContext.InternalCommunications.FindAsync(id);
+            // Load without tracking to check authorization
+            var entity = await dbContext.InternalCommunications
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == id);
             if (entity == null)
                 return NotFound(AppResponse<bool>.Fail("Không tìm thấy bài truyền thông"));
 
             if (CurrentStoreId.HasValue && entity.StoreId != CurrentStoreId.Value)
                 return StatusCode(403, AppResponse<bool>.Fail("Bạn không có quyền xuất bản bài viết này"));
 
-            entity.Status = CommunicationStatus.Published;
-            entity.PublishedAt ??= DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
-            await dbContext.SaveChangesAsync();
+            var now = DateTime.UtcNow;
+            var publishedAt = entity.PublishedAt ?? now;
+
+            // Use ExecuteUpdateAsync for direct SQL UPDATE – bypasses all EF change tracking
+            var affected = await dbContext.InternalCommunications
+                .Where(c => c.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.Status, CommunicationStatus.Published)
+                    .SetProperty(c => c.PublishedAt, publishedAt)
+                    .SetProperty(c => c.UpdatedAt, now));
+
+            logger.LogInformation("PublishCommunication: id={Id} affected={Affected}", id, affected);
+
+            if (affected == 0)
+                return StatusCode(500, AppResponse<bool>.Fail("Không thể cập nhật trạng thái bài viết"));
 
             // Broadcast published communication via SignalR
             _ = hubContext.Clients.Group($"store_{entity.StoreId}")

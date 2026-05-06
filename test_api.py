@@ -1,5 +1,59 @@
 import json, urllib.request, sys
 
+# --- Quick test for lateEmployees bug ---
+def test_late_employees():
+    base = "http://localhost:7070"
+    # Login with StoreCode (employee/admin account)
+    credentials = [
+        {"StoreCode": "demo", "UserName": "0358968314", "Password": "123456"},
+        {"StoreCode": "demo", "UserName": "admin@gmail.com", "Password": "Ti100600@"},
+        {"StoreCode": "demo", "UserName": "manager@gmail.com", "Password": "Ti100600@"},
+    ]
+    token = None
+    for cred in credentials:
+        req = urllib.request.Request(f"{base}/api/auth/login",
+            data=json.dumps(cred).encode(),
+            headers={"Content-Type":"application/json"})
+        try:
+            d = json.loads(urllib.request.urlopen(req).read())
+            if d.get('isSuccess'):
+                dd = d.get('data', {})
+                token = dd.get('accessToken','') or dd.get('token','') if isinstance(dd,dict) else ''
+                if token: print(f"Logged in as {cred['UserName']}"); break
+        except Exception as e: print(f"Login {cred['UserName']} failed: {e}")
+    if not token: print("All logins failed"); return
+    print(f"Token len={len(token)}")
+    # Get trends
+    req2 = urllib.request.Request(f"{base}/api/dashboard/attendance-trends?days=14",
+        headers={"Authorization": f"Bearer {token}"})
+    try:
+        raw = urllib.request.urlopen(req2).read()
+        d2 = json.loads(raw)
+    except urllib.error.HTTPError as e:
+        print(f"Trends HTTP {e.code}: {e.read()[:400]}"); return
+    except Exception as e:
+        print(f"Trends error: {e}"); return
+    trends = d2.get('data', [])
+    print(f"items={len(trends)}")
+    for t in trends:
+        le = t.get('lateEmployees', None)
+        ee = t.get('earlyEmployees', None)
+        lat = t.get('late', 0)
+        ear = t.get('earlyLeave', 0)
+        le_count = len(le) if le is not None else 'MISSING_KEY'
+        ee_count = len(ee) if ee is not None else 'MISSING_KEY'
+        match = ("OK" if (lat == (le_count if isinstance(le_count,int) else -1)) else "MISMATCH!") 
+        print(f"  {t['date']} late={lat} earlyLeave={ear} lateEmpCount={le_count} earlyEmpCount={ee_count} {match}")
+        if le:
+            for e in le[:2]: print(f"    late-> {e}")
+        if ee:
+            for e in ee[:2]: print(f"    early-> {e}")
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == 'test_late':
+    test_late_employees()
+    sys.exit(0)
+# --- end test ---
+
 base = "http://localhost:7070"
 
 # Try login with different passwords

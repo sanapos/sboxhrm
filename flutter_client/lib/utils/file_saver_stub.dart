@@ -64,8 +64,9 @@ Future<void> saveDataUrl(String dataUrl, String filename) async {
   final bytes = base64Decode(base64Str);
   String mimeType = 'application/octet-stream';
   if (filename.endsWith('.png')) mimeType = 'image/png';
-  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))
+  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) {
     mimeType = 'image/jpeg';
+  }
   await saveFileBytes(bytes, filename, mimeType);
 }
 
@@ -74,7 +75,8 @@ Future<void> saveAndOpenDataUrl(String dataUrl, String filename) async {
   final base64Str = dataUrl.split(',').last;
   final bytes = base64Decode(base64Str);
   String mimeType = 'image/png';
-  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg'))
+  if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) {
     mimeType = 'image/jpeg';
+  }
   await saveAndOpenFileBytes(bytes, filename, mimeType);
 }

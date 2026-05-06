@@ -479,7 +479,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               ],
             ),
           ] else ...[
-            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport')) ..[
+            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport')) ...[
               OutlinedButton.icon(
                 onPressed: _isExporting ? null : _exportCsv,
                 icon: const Icon(Icons.file_present, size: 16),

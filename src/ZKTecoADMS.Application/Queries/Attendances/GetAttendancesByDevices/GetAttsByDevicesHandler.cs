@@ -18,8 +18,8 @@ public class GetAttsByDevicesHandler(
         var atts = await attRepository.GetPagedResultWithProjectionAsync(
             request.PaginationRequest,
             filter: a => 
-                a.AttendanceTime.Date <= request.Filter.ToDate.Date
-                && a.AttendanceTime.Date >= request.Filter.FromDate.Date
+                a.AttendanceTime >= request.Filter.FromDate
+                && a.AttendanceTime < request.Filter.ToDate
                 && request.Filter.DeviceIds.Contains(a.DeviceId)
                 && (!hasPinFilter || allowedPins!.Contains(a.PIN)),
             projection: a => new AttendanceDto(

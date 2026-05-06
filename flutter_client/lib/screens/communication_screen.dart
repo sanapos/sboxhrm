@@ -1172,9 +1172,10 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   // ─── CONTENT ─────────────────────────────────────────────
   Widget _buildContent() {
-    if (_isLoading)
+    if (_isLoading) {
       return const Center(
           child: CircularProgressIndicator(color: Color(0xFF1E3A5F)));
+    }
     if (_errorMessage != null) {
       return Center(
         child: Column(
@@ -1947,9 +1948,10 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
     try {
       final result = await _api.getCommunicationDetail(widget.communication.id);
       if (result['isSuccess'] == true && result['data'] != null) {
-        if (mounted)
+        if (mounted) {
           setState(() => _communication = InternalCommunication.fromJson(
               result['data'] as Map<String, dynamic>));
+        }
       }
     } catch (e) {
       debugPrint('Load detail error: $e');
@@ -2056,535 +2058,553 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
       body: SafeArea(
         child: Column(
           children: [
-        // Panel header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-            boxShadow: [
-              BoxShadow(
-                  color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2))
-            ],
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.arrow_back, size: 20),
-                tooltip: 'Quay lại',
-                style: IconButton.styleFrom(
-                    foregroundColor: const Color(0xFF52525B)),
+            // Panel header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                boxShadow: [
+                  BoxShadow(
+                      color: Color(0x08000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 2))
+                ],
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.article, size: 20, color: Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              const Expanded(
-                  child: Text('Chi tiết bài viết',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Color(0xFF18181B)))),
-              IconButton(
-                onPressed: widget.onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                tooltip: 'Chỉnh sửa',
-                style: IconButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E3A5F)),
-              ),
-              if (c.status != CommunicationStatus.published)
-                IconButton(
-                  onPressed: widget.onPublish,
-                  icon: const Icon(Icons.send_outlined, size: 18),
-                  tooltip: 'Xuất bản',
-                  style: IconButton.styleFrom(
-                      foregroundColor: const Color(0xFF22C55E)),
-                ),
-              IconButton(
-                onPressed: widget.onDelete,
-                icon: const Icon(Icons.delete_outline, size: 18),
-                tooltip: 'Xóa',
-                style: IconButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444)),
-              ),
-              IconButton(
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.close, size: 18),
-                tooltip: 'Đóng',
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  // Cover image
-                  if (imageUrl != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 400),
-                        child: CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => const Center(
-                                child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))),
-                            errorWidget: (_, __, ___) =>
-                                const SizedBox.shrink()),
-                      ),
-                    ),
-                  if (imageUrl != null) const SizedBox(height: 24),
-
-                  // Type + Status badges
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: _CommunicationScreenState._typeColor(c.type)
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_CommunicationScreenState._typeIcon(c.type),
-                              size: 14,
-                              color:
-                                  _CommunicationScreenState._typeColor(c.type)),
-                          const SizedBox(width: 4),
-                          Text(c.typeDisplay,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: _CommunicationScreenState._typeColor(
-                                      c.type),
-                                  fontWeight: FontWeight.w600)),
-                        ]),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: c.status == CommunicationStatus.published
-                              ? const Color(0xFFECFDF5)
-                              : const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(c.statusDisplay,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: c.status == CommunicationStatus.published
-                                    ? const Color(0xFF059669)
-                                    : const Color(0xFFF59E0B),
-                                fontWeight: FontWeight.w600)),
-                      ),
-                      if (c.isPinned)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.push_pin,
-                                    size: 13, color: Color(0xFFF59E0B)),
-                                SizedBox(width: 4),
-                                Text('Ghim',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFFF59E0B),
-                                        fontWeight: FontWeight.w600)),
-                              ]),
-                        ),
-                    ],
+                  IconButton(
+                    onPressed: widget.onClose,
+                    icon: const Icon(Icons.arrow_back, size: 20),
+                    tooltip: 'Quay lại',
+                    style: IconButton.styleFrom(
+                        foregroundColor: const Color(0xFF52525B)),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Title
-                  Text(c.title,
-                      style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                          height: 1.3,
-                          letterSpacing: -0.3)),
-                  const SizedBox(height: 12),
-
-                  // Author & Date
-                  Row(
-                    children: [
-                      if (c.authorName != null) ...[
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                          child: Text(c.authorName![0].toUpperCase(),
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF1E3A5F),
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(c.authorName!,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF52525B))),
-                        const SizedBox(width: 12),
-                      ],
-                      Icon(Icons.access_time,
-                          size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt),
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Summary
-                  if (c.summary != null && c.summary!.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.summarize,
-                              size: 16, color: Color(0xFF1E3A5F)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: Text(c.summary!,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF1D4ED8),
-                                      fontStyle: FontStyle.italic,
-                                      height: 1.4))),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Content - full width, auto height for web-article reading experience
-                  SizedBox(
-                    width: double.infinity,
-                    child: HtmlContentView(html: c.content, minHeight: 100),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Tags
-                  if (c.tags != null && c.tags!.isNotEmpty) ...[
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: c.tags!
-                          .split(',')
-                          .map((t) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text('#${t.trim()}',
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF1E3A5F))),
-                              ))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Attached images
-                  if (c.attachedImages.isNotEmpty) ...[
-                    const Text('Hình ảnh đính kèm',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF52525B))),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 80,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: c.attachedImages.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) {
-                          final url = c.attachedImages[i].startsWith('http')
-                              ? c.attachedImages[i]
-                              : '${ApiService.baseUrl}${c.attachedImages[i]}';
-                          return GestureDetector(
-                            onTap: () => showDialog(
-                                context: context,
-                                builder: (_) => Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      child: Stack(
-                                          alignment: Alignment.topRight,
-                                          children: [
-                                            ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                child: CachedNetworkImage(
-                                                    imageUrl: url,
-                                                    fit: BoxFit.contain)),
-                                            IconButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                icon: const Icon(Icons.close,
-                                                    color: Colors.white,
-                                                    size: 28),
-                                                style: IconButton.styleFrom(
-                                                    backgroundColor:
-                                                        Colors.black54)),
-                                          ]),
-                                    )),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: CachedNetworkImage(
-                                  imageUrl: url,
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => const Center(
-                                      child: SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2))),
-                                  errorWidget: (_, __, ___) => Container(
-                                      width: 80,
-                                      height: 80,
-                                      color: const Color(0xFFF1F5F9),
-                                      child: const Icon(Icons.broken_image,
-                                          color: Color(0xFFA1A1AA)))),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // Stats row - views, likes, comments
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _detailStat(Icons.visibility_outlined, '${c.viewCount}',
-                            'Lượt xem'),
-                        _detailStat(Icons.favorite, '${c.likeCount}', 'Thích',
-                            color: Colors.red),
-                        _detailStat(Icons.chat_bubble_outline,
-                            '${c.commentCount}', 'Bình luận'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const Divider(height: 24, color: Color(0xFFF1F5F9)),
-                  const SizedBox(height: 16),
-
-                  // ── REACTIONS ──
-                  const Text('Tương tác',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF18181B))),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _reactions.map((r) {
-                      final isActive =
-                          c.hasUserReacted && c.userReactionType == r.$1;
-                      return InkWell(
-                        onTap: () => _toggleReaction(r.$1.index),
-                        borderRadius: BorderRadius.circular(20),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
-                                : const Color(0xFFFAFAFA),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: isActive
-                                    ? const Color(0xFF1E3A5F)
-                                    : const Color(0xFFE4E4E7)),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(r.$2, style: const TextStyle(fontSize: 16)),
-                            const SizedBox(width: 6),
-                            Text(r.$3,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: isActive
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                    color: isActive
-                                        ? const Color(0xFF1E3A5F)
-                                        : const Color(0xFF71717A))),
-                          ]),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-
-                  const Divider(height: 24, color: Color(0xFFF1F5F9)),
-                  const SizedBox(height: 16),
-
-                  // ── COMMENTS ──
-                  Row(
-                    children: [
-                      const Icon(Icons.chat_bubble_outline,
-                          size: 18, color: Color(0xFF1E3A5F)),
-                      const SizedBox(width: 8),
-                      Text('Bình luận (${_comments.length})',
-                          style: const TextStyle(
-                              fontSize: 14,
+                  const SizedBox(width: 8),
+                  const Icon(Icons.article, size: 20, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                      child: Text('Chi tiết bài viết',
+                          style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF18181B))),
-                      const Spacer(),
-                    ],
+                              fontSize: 16,
+                              color: Color(0xFF18181B)))),
+                  IconButton(
+                    onPressed: widget.onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    tooltip: 'Chỉnh sửa',
+                    style: IconButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E3A5F)),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Reply indicator
-                  if (_replyToName != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.reply,
-                              size: 14, color: Color(0xFF1E3A5F)),
-                          const SizedBox(width: 8),
-                          Text('Trả lời $_replyToName',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFF1E3A5F))),
-                          const Spacer(),
-                          InkWell(
-                            onTap: () => setState(() {
-                              _replyToId = null;
-                              _replyToName = null;
-                            }),
-                            child: const Icon(Icons.close,
-                                size: 14, color: Color(0xFFA1A1AA)),
-                          ),
-                        ],
-                      ),
+                  if (c.status != CommunicationStatus.published)
+                    IconButton(
+                      onPressed: widget.onPublish,
+                      icon: const Icon(Icons.send_outlined, size: 18),
+                      tooltip: 'Xuất bản',
+                      style: IconButton.styleFrom(
+                          foregroundColor: const Color(0xFF22C55E)),
                     ),
-
-                  // Comment input
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentCtrl,
-                          decoration: InputDecoration(
-                            hintText: _replyToName != null
-                                ? 'Trả lời $_replyToName...'
-                                : 'Viết bình luận...',
-                            hintStyle: const TextStyle(
-                                fontSize: 13, color: Color(0xFFA1A1AA)),
-                            filled: true,
-                            fillColor: const Color(0xFFFAFAFA),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFE4E4E7))),
-                            enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFE4E4E7))),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                          ),
-                          style: const TextStyle(fontSize: 13),
-                          onSubmitted: (_) => _addComment(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: IconButton(
-                          onPressed: _addComment,
-                          icon: const Icon(Icons.send,
-                              size: 18, color: Colors.white),
-                          tooltip: 'Gửi',
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    onPressed: widget.onDelete,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    tooltip: 'Xóa',
+                    style: IconButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF4444)),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Comments list
-                  if (_loadingComments)
-                    const Center(
-                        child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(strokeWidth: 2)))
-                  else if (_comments.isEmpty)
-                    const Center(
-                        child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 36, color: Color(0xFFCBD5E1)),
-                        SizedBox(height: 8),
-                        Text('Chưa có bình luận nào',
-                            style: TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 13)),
-                        Text('Hãy là người đầu tiên bình luận!',
-                            style: TextStyle(
-                                color: Color(0xFFCBD5E1), fontSize: 12)),
-                      ]),
-                    ))
-                  else
-                    ..._comments.map((cm) => _commentWidget(cm, depth: 0)),
+                  IconButton(
+                    onPressed: widget.onClose,
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: 'Đóng',
+                  ),
                 ],
               ),
             ),
-          ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Cover image
+                      if (imageUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 400),
+                            child: CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Center(
+                                    child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2))),
+                                errorWidget: (_, __, ___) =>
+                                    const SizedBox.shrink()),
+                          ),
+                        ),
+                      if (imageUrl != null) const SizedBox(height: 24),
+
+                      // Type + Status badges
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color:
+                                  _CommunicationScreenState._typeColor(c.type)
+                                      .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(_CommunicationScreenState._typeIcon(c.type),
+                                  size: 14,
+                                  color: _CommunicationScreenState._typeColor(
+                                      c.type)),
+                              const SizedBox(width: 4),
+                              Text(c.typeDisplay,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          _CommunicationScreenState._typeColor(
+                                              c.type),
+                                      fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: c.status == CommunicationStatus.published
+                                  ? const Color(0xFFECFDF5)
+                                  : const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(c.statusDisplay,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: c.status ==
+                                            CommunicationStatus.published
+                                        ? const Color(0xFF059669)
+                                        : const Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                          if (c.isPinned)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(8)),
+                              child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.push_pin,
+                                        size: 13, color: Color(0xFFF59E0B)),
+                                    SizedBox(width: 4),
+                                    Text('Ghim',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFFF59E0B),
+                                            fontWeight: FontWeight.w600)),
+                                  ]),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Title
+                      Text(c.title,
+                          style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                              height: 1.3,
+                              letterSpacing: -0.3)),
+                      const SizedBox(height: 12),
+
+                      // Author & Date
+                      Row(
+                        children: [
+                          if (c.authorName != null) ...[
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: const Color(0xFF1E3A5F)
+                                  .withValues(alpha: 0.1),
+                              child: Text(c.authorName![0].toUpperCase(),
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF1E3A5F),
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(c.authorName!,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF52525B))),
+                            const SizedBox(width: 12),
+                          ],
+                          Icon(Icons.access_time,
+                              size: 14, color: Colors.grey[400]),
+                          const SizedBox(width: 4),
+                          Text(
+                              DateFormat('dd/MM/yyyy HH:mm')
+                                  .format(c.createdAt),
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[500])),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Summary
+                      if (c.summary != null && c.summary!.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.summarize,
+                                  size: 16, color: Color(0xFF1E3A5F)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: Text(c.summary!,
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF1D4ED8),
+                                          fontStyle: FontStyle.italic,
+                                          height: 1.4))),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Content - full width, auto height for web-article reading experience
+                      SizedBox(
+                        width: double.infinity,
+                        child: HtmlContentView(html: c.content, minHeight: 100),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Tags
+                      if (c.tags != null && c.tags!.isNotEmpty) ...[
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: c.tags!
+                              .split(',')
+                              .map((t) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text('#${t.trim()}',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF1E3A5F))),
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Attached images
+                      if (c.attachedImages.isNotEmpty) ...[
+                        const Text('Hình ảnh đính kèm',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF52525B))),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 80,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: c.attachedImages.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (_, i) {
+                              final url = c.attachedImages[i].startsWith('http')
+                                  ? c.attachedImages[i]
+                                  : '${ApiService.baseUrl}${c.attachedImages[i]}';
+                              return GestureDetector(
+                                onTap: () => showDialog(
+                                    context: context,
+                                    builder: (_) => Dialog(
+                                          backgroundColor: Colors.transparent,
+                                          child: Stack(
+                                              alignment: Alignment.topRight,
+                                              children: [
+                                                ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                    child: CachedNetworkImage(
+                                                        imageUrl: url,
+                                                        fit: BoxFit.contain)),
+                                                IconButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context),
+                                                    icon: const Icon(
+                                                        Icons.close,
+                                                        color: Colors.white,
+                                                        size: 28),
+                                                    style: IconButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.black54)),
+                                              ]),
+                                        )),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: CachedNetworkImage(
+                                      imageUrl: url,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => const Center(
+                                          child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2))),
+                                      errorWidget: (_, __, ___) => Container(
+                                          width: 80,
+                                          height: 80,
+                                          color: const Color(0xFFF1F5F9),
+                                          child: const Icon(Icons.broken_image,
+                                              color: Color(0xFFA1A1AA)))),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // Stats row - views, likes, comments
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFFAFAFA),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _detailStat(Icons.visibility_outlined,
+                                '${c.viewCount}', 'Lượt xem'),
+                            _detailStat(
+                                Icons.favorite, '${c.likeCount}', 'Thích',
+                                color: Colors.red),
+                            _detailStat(Icons.chat_bubble_outline,
+                                '${c.commentCount}', 'Bình luận'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 16),
+
+                      // ── REACTIONS ──
+                      const Text('Tương tác',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF18181B))),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _reactions.map((r) {
+                          final isActive =
+                              c.hasUserReacted && c.userReactionType == r.$1;
+                          return InkWell(
+                            onTap: () => _toggleReaction(r.$1.index),
+                            borderRadius: BorderRadius.circular(20),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? const Color(0xFF1E3A5F)
+                                        .withValues(alpha: 0.1)
+                                    : const Color(0xFFFAFAFA),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: isActive
+                                        ? const Color(0xFF1E3A5F)
+                                        : const Color(0xFFE4E4E7)),
+                              ),
+                              child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(r.$2,
+                                        style: const TextStyle(fontSize: 16)),
+                                    const SizedBox(width: 6),
+                                    Text(r.$3,
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: isActive
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                            color: isActive
+                                                ? const Color(0xFF1E3A5F)
+                                                : const Color(0xFF71717A))),
+                                  ]),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 16),
+
+                      // ── COMMENTS ──
+                      Row(
+                        children: [
+                          const Icon(Icons.chat_bubble_outline,
+                              size: 18, color: Color(0xFF1E3A5F)),
+                          const SizedBox(width: 8),
+                          Text('Bình luận (${_comments.length})',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF18181B))),
+                          const Spacer(),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Reply indicator
+                      if (_replyToName != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.reply,
+                                  size: 14, color: Color(0xFF1E3A5F)),
+                              const SizedBox(width: 8),
+                              Text('Trả lời $_replyToName',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Color(0xFF1E3A5F))),
+                              const Spacer(),
+                              InkWell(
+                                onTap: () => setState(() {
+                                  _replyToId = null;
+                                  _replyToName = null;
+                                }),
+                                child: const Icon(Icons.close,
+                                    size: 14, color: Color(0xFFA1A1AA)),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Comment input
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _commentCtrl,
+                              decoration: InputDecoration(
+                                hintText: _replyToName != null
+                                    ? 'Trả lời $_replyToName...'
+                                    : 'Viết bình luận...',
+                                hintStyle: const TextStyle(
+                                    fontSize: 13, color: Color(0xFFA1A1AA)),
+                                filled: true,
+                                fillColor: const Color(0xFFFAFAFA),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE4E4E7))),
+                                enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE4E4E7))),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                              ),
+                              style: const TextStyle(fontSize: 13),
+                              onSubmitted: (_) => _addComment(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E3A5F),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: IconButton(
+                              onPressed: _addComment,
+                              icon: const Icon(Icons.send,
+                                  size: 18, color: Colors.white),
+                              tooltip: 'Gửi',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Comments list
+                      if (_loadingComments)
+                        const Center(
+                            child: Padding(
+                                padding: EdgeInsets.all(20),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)))
+                      else if (_comments.isEmpty)
+                        const Center(
+                            child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.chat_bubble_outline,
+                                size: 36, color: Color(0xFFCBD5E1)),
+                            SizedBox(height: 8),
+                            Text('Chưa có bình luận nào',
+                                style: TextStyle(
+                                    color: Color(0xFFA1A1AA), fontSize: 13)),
+                            Text('Hãy là người đầu tiên bình luận!',
+                                style: TextStyle(
+                                    color: Color(0xFFCBD5E1), fontSize: 12)),
+                          ]),
+                        ))
+                      else
+                        ..._comments.map((cm) => _commentWidget(cm, depth: 0)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  ),
-);
+      ),
+    );
   }
 
   Widget _commentWidget(CommunicationComment cm, {int depth = 0}) {
@@ -2905,9 +2925,10 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Lỗi: $e');
+      }
     } finally {
       if (mounted) setState(() => _isUploadingImage = false);
     }
@@ -2936,8 +2957,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
             _titleCtrl.text = d['title'] ?? _titleCtrl.text;
             _richEditorCtrl.html = d['content'] ?? _richEditorCtrl.html;
             if (d['summary'] != null) _summaryCtrl.text = d['summary'];
-            if (d['suggestedTags'] != null)
+            if (d['suggestedTags'] != null) {
               _tagsCtrl.text = (d['suggestedTags'] as List).join(', ');
+            }
           });
           NotificationOverlayManager()
               .showSuccess(title: 'Thành công', message: 'AI đã tạo nội dung!');
@@ -3009,8 +3031,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                 onImageUpload: (bytes, fileName) async {
                   final r =
                       await _api.uploadCommunicationImage(bytes, fileName);
-                  if (r['isSuccess'] == true && r['data'] != null)
+                  if (r['isSuccess'] == true && r['data'] != null) {
                     return r['data'].toString();
+                  }
                   return null;
                 },
               ),

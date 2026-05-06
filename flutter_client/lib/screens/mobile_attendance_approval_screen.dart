@@ -1047,10 +1047,11 @@ class _MobileAttendanceApprovalScreenState
 
     Widget hoursCell(String emp, DateTime day) {
       final recs = _recordsFor(emp, day);
-      if (recs.isEmpty)
+      if (recs.isEmpty) {
         return const Center(
             child: Text('—',
                 style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)));
+      }
       final ins = recs
           .where((r) => r.punchType == 0)
           .map((r) => r.punchTime.toLocal())

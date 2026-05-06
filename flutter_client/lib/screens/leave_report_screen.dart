@@ -135,14 +135,16 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             'BaoCaoNghiPhep_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
         await file_saver.saveFileBytes(bytes, fn,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted)
+        if (mounted) {
           NotificationOverlayManager()
               .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      }
     }
   }
 
@@ -236,7 +238,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (Provider.of<PermissionProvider>(context, listen: false).canExport('LeaveReport'))
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canExport('LeaveReport'))
             IconButton(
                 icon: const Icon(Icons.file_download_outlined),
                 tooltip: 'Xuất Excel',

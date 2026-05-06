@@ -19,6 +19,7 @@ public class AttendanceService(
     IRepository<PenaltyTicket> penaltyTicketRepository,
     IRepository<EmployeeBenefit> employeeBenefitRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
+    IRepository<AppSettings> appSettingsRepository,
     ILogger<AttendanceService> logger
 )
     : IAttendanceService
@@ -68,6 +69,15 @@ public class AttendanceService(
             filter: ps => ps.StoreId == device.StoreId
         );
 
+        // Load store's day_end_time to correctly determine logical working date for overnight shifts.
+        // E.g. if day_end_time = 05:00, a punch at 03:00 May 3 belongs to the working day May 2.
+        var dayEndSetting = await appSettingsRepository.GetSingleAsync(
+            s => s.StoreId == device.StoreId && s.Key == "day_end_time"
+        );
+        var storesDayEnd = TimeSpan.Zero;
+        if (dayEndSetting?.Value != null && TimeSpan.TryParse(dayEndSetting.Value, out var parsedDayEnd))
+            storesDayEnd = parsedDayEnd;
+
         // Collect unique dates and employee IDs for batch loading
         var pins = attendanceList.Select(a => a.PIN).Distinct().ToList();
         var employeeIds = deviceUsers.Values
@@ -76,7 +86,9 @@ public class AttendanceService(
             .Distinct()
             .ToList();
 
-        var dates = attendanceList.Select(a => a.AttendanceTime.Date).Distinct().ToList();
+        // Compute logical dates: for overnight shifts, a punch before day_end_time
+        // belongs to the PREVIOUS calendar day.
+        var dates = attendanceList.Select(a => GetLogicalDate(a.AttendanceTime, storesDayEnd)).Distinct().ToList();
         var minDate = dates.Min();
         var maxDate = dates.Max();
 
@@ -158,7 +170,7 @@ public class AttendanceService(
                 await ProcessPenaltyForAttendanceBatchAsync(attendance, employeeUser, device,
                     penaltySetting, schedulesByEmployeeDate, employees, existingPenalties,
                     existingTickets, ticketCountsByDate,
-                    employeeBenefits, shiftTemplatesByName);
+                    employeeBenefits, shiftTemplatesByName, storesDayEnd);
             }
             catch (Exception ex)
             {
@@ -166,6 +178,22 @@ public class AttendanceService(
             }
         }
         return true;
+    }
+
+    /// <summary>
+    /// Returns the logical working date for a punch: if the punch falls before the store's
+    /// day_end_time cutoff (e.g. 05:00), it belongs to the PREVIOUS calendar day.
+    /// </summary>
+    private static DateTime GetLogicalDate(DateTime punchTime, TimeSpan storesDayEnd)
+    {
+        // AttendanceTime is stored as UTC (EnableLegacyTimestampBehavior = true, Kind = Unspecified).
+        // Convert to Vietnam local time (UTC+7) before extracting the calendar date so that
+        // early-morning punches (00:00–06:59 VN = 17:00–23:59 UTC previous day) are assigned
+        // to the correct VN working day, not yesterday's UTC date.
+        var vnTime = punchTime.AddHours(7);
+        if (storesDayEnd > TimeSpan.Zero && vnTime.TimeOfDay < storesDayEnd)
+            return vnTime.Date.AddDays(-1);
+        return vnTime.Date;
     }
 
     private async Task ProcessPenaltyForAttendanceBatchAsync(
@@ -177,7 +205,8 @@ public class AttendanceService(
         List<PenaltyTicket> existingTickets,
         Dictionary<DateTime, int> ticketCountsByDate,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
-        Dictionary<string, ShiftTemplate> shiftTemplatesByName)
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName,
+        TimeSpan storesDayEnd)
     {
         if (!deviceUser.EmployeeId.HasValue)
         {
@@ -186,10 +215,12 @@ public class AttendanceService(
         }
 
         var employeeId = deviceUser.EmployeeId.Value;
-        var violationDate = attendance.AttendanceTime.Date;
+        // Use logical date so that overnight punches (before day_end_time) are assigned
+        // to the correct working day rather than the calendar date.
+        var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);
         var punchTime = attendance.AttendanceTime.TimeOfDay;
 
-        // Use pre-loaded schedule
+        // Use pre-loaded schedule (keyed by logical date)
         schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var schedule);
 
         TimeSpan shiftStart;

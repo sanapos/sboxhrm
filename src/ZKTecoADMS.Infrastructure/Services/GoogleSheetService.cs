@@ -364,7 +364,6 @@ public class GoogleSheetService : IGoogleSheetService
         try
         {
             var attendanceList = attendances
-                .Where(a => a.AttendanceTime.Date == date.Date)
                 .GroupBy(a => a.EmployeeId)
                 .ToList();
 
