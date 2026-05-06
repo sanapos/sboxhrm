@@ -901,6 +901,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // ═══ Salary calculation ═══
     double workSalary = 0;
     double hourlyRate = 0;
+    double shiftLevelAllowance = 0;
+    bool shiftIsNightShift = false;
 
     switch (rateType) {
       case 0: // Hourly
@@ -924,26 +926,69 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           workSalary = fixedShiftRate * totalShifts;
           hourlyRate = fixedShiftRate / standardDayHours;
         } else {
-          double levelRate = fixedShiftRate;
+          // Two-pass: prefer level targeting this employee specifically,
+          // then fall back to default level (no employeeIds restriction).
+          Map<String, dynamic>? matchedLevel;
           for (final level in _shiftSalaryLevels) {
-            // Filter by employee if EmployeeIds specified
+            if (level['isActive'] == false) continue;
             final levelEmpIds = level['employeeIds']?.toString();
-            if (levelEmpIds != null && levelEmpIds.isNotEmpty && emp != null) {
-              try {
-                final ids = jsonDecode(levelEmpIds) as List;
-                if (!ids.contains(emp.id)) continue;
-              } catch (_) {}
-            }
-            final minShifts = _toInt(level['minShifts']);
-            final maxShifts = _toInt(level['maxShifts'], 99999);
-            final rate = _toDouble(level['rate'], fixedShiftRate);
-            if (totalShifts >= minShifts && totalShifts <= maxShifts) {
-              levelRate = rate;
-              break;
+            if (levelEmpIds == null || levelEmpIds.isEmpty) continue;
+            if (emp == null) continue;
+            try {
+              final ids = jsonDecode(levelEmpIds) as List;
+              if (ids.contains(emp.id)) {
+                matchedLevel = level;
+                break;
+              }
+            } catch (_) {}
+          }
+          if (matchedLevel == null) {
+            for (final level in _shiftSalaryLevels) {
+              if (level['isActive'] == false) continue;
+              final levelEmpIds = level['employeeIds']?.toString();
+              if (levelEmpIds == null || levelEmpIds.isEmpty) {
+                matchedLevel = level;
+                break;
+              }
             }
           }
-          workSalary = levelRate * totalShifts;
-          hourlyRate = levelRate / standardDayHours;
+          if (matchedLevel != null) {
+            final lvlRateType =
+                matchedLevel['rateType']?.toString() ?? 'fixed';
+            final lvlFixedRate =
+                _toDouble(matchedLevel['fixedRate'], fixedShiftRate);
+            final lvlHourlyRate = _toDouble(matchedLevel['hourlyRate']);
+            final lvlMultiplier =
+                _toDouble(matchedLevel['multiplier'], 1.0);
+            shiftLevelAllowance =
+                _toDouble(matchedLevel['shiftAllowance']) * totalShifts;
+            shiftIsNightShift = matchedLevel['isNightShift'] == true;
+            switch (lvlRateType) {
+              case 'hourly':
+                final effHourly = lvlHourlyRate > 0
+                    ? lvlHourlyRate
+                    : fixedShiftRate / standardDayHours;
+                workSalary = effHourly * totalWorkHours;
+                hourlyRate = effHourly;
+                break;
+              case 'multiplier':
+                final perShift = fixedShiftRate * lvlMultiplier;
+                workSalary = perShift * totalShifts;
+                hourlyRate = perShift / standardDayHours;
+                break;
+              default: // 'fixed'
+                workSalary = lvlFixedRate * totalShifts;
+                hourlyRate = lvlFixedRate / standardDayHours;
+            }
+            // Ca đêm: cộng thêm 30% theo luật lao động
+            if (shiftIsNightShift) {
+              workSalary *= 1.3;
+            }
+          } else {
+            // Không tìm thấy mức lương ca, dùng fixedShiftRate từ Benefit
+            workSalary = fixedShiftRate * totalShifts;
+            hourlyRate = fixedShiftRate / standardDayHours;
+          }
         }
         break;
     }
@@ -974,8 +1019,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     // ═══ Allowances ═══
     // Per-day allowances × actual work days (built-in từ Benefit)
+    // shiftLevelAllowance: phụ cấp ca từ ShiftSalaryLevel (theo số ca)
     double totalAllowance =
-        (mealAllowancePerDay + responsibilityAllowance) * workDays;
+        (mealAllowancePerDay + responsibilityAllowance) * workDays +
+        shiftLevelAllowance;
 
     // Cộng thêm phụ cấp từ AllowanceSettings (Fixed = cố định/kỳ, Daily = theo ngày công)
     // Lọc theo EmployeeIds và StartDate/EndDate.
