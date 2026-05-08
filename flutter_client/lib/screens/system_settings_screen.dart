@@ -91,17 +91,20 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       // payroll_cutoff_day
       if (results[4]['isSuccess'] == true && results[4]['data'] is Map) {
         final data4 = results[4]['data'] as Map;
-        _payrollCutoffDay = int.tryParse(data4['value']?.toString() ?? '25') ?? 25;
+        _payrollCutoffDay =
+            int.tryParse(data4['value']?.toString() ?? '25') ?? 25;
       }
       // leave_approval_levels
       if (results[5]['isSuccess'] == true && results[5]['data'] is Map) {
         final data5 = results[5]['data'] as Map;
-        _leaveApprovalLevels = int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
+        _leaveApprovalLevels =
+            int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
       }
     } catch (e) {
       debugPrint('Error loading system settings: $e');
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể tải thiết lập hệ thống');
+        appNotification.showError(
+            title: 'Lỗi', message: 'Không thể tải thiết lập hệ thống');
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -160,10 +163,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       // Check if any save failed
       final failed = results.where((r) => r['isSuccess'] != true).toList();
       if (failed.isNotEmpty) {
-        debugPrint('❌ Save settings failed: ${failed.map((r) => r['message']).join(', ')}');
+        debugPrint(
+            '❌ Save settings failed: ${failed.map((r) => r['message']).join(', ')}');
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}',
+          message:
+              'Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}',
         );
       } else {
         appNotification.showSuccess(
@@ -278,7 +283,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                           children: [
                             Expanded(child: _buildRoundingRuleCard()),
                             const SizedBox(width: 20),
-                            Expanded(child: _buildManualCorrectionAndCutoffCard()),
+                            Expanded(
+                                child: _buildManualCorrectionAndCutoffCard()),
                           ],
                         );
                       }
@@ -319,16 +325,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 onTap: _pickTime,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                    border: Border.all(
+                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.schedule, color: Color(0xFF1E3A5F), size: 22),
+                      const Icon(Icons.schedule,
+                          color: Color(0xFF1E3A5F), size: 22),
                       const SizedBox(width: 10),
                       Text(
                         _dayEndTimeString,
@@ -351,14 +360,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF1E3A5F),
                   side: const BorderSide(color: Color(0xFF1E3A5F)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           // Quick presets
-          const Text('Chọn nhanh:', style: TextStyle(color: Color(0xFF52525B), fontWeight: FontWeight.w600, fontSize: 12)),
+          const Text('Chọn nhanh:',
+              style: TextStyle(
+                  color: Color(0xFF52525B),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12)),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -471,12 +485,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           child: Row(
             children: [
               Icon(
-                isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                isSelected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
                 size: 20,
-                color: isSelected ? const Color(0xFF0F2340) : Colors.grey.shade400,
+                color:
+                    isSelected ? const Color(0xFF0F2340) : Colors.grey.shade400,
               ),
               const SizedBox(width: 10),
-              Icon(icon, size: 18, color: isSelected ? const Color(0xFF0F2340) : Colors.grey.shade500),
+              Icon(icon,
+                  size: 18,
+                  color: isSelected
+                      ? const Color(0xFF0F2340)
+                      : Colors.grey.shade500),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -485,14 +506,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     Text(
                       label,
                       style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                         color: const Color(0xFF18181B),
                       ),
                     ),
                     Text(
                       desc,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ],
                 ),
@@ -554,9 +577,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(title,
+                          style: const TextStyle(
+                              color: Color(0xFF18181B),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
                       const SizedBox(height: 2),
-                      Text(subtitle, style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12)),
                     ],
                   ),
                 ),
@@ -579,7 +608,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFFEF3C7),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFCD34D).withValues(alpha: 0.5)),
+        border:
+            Border.all(color: const Color(0xFFFCD34D).withValues(alpha: 0.5)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,7 +619,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: Colors.brown.shade700, fontSize: 11, height: 1.5),
+              style: TextStyle(
+                  color: Colors.brown.shade700, fontSize: 11, height: 1.5),
             ),
           ),
         ],
@@ -651,12 +682,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.construction_outlined, color: Color(0xFFD97706), size: 16),
+                const Icon(Icons.construction_outlined,
+                    color: Color(0xFFD97706), size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.',
-                    style: TextStyle(fontSize: 11, color: Colors.orange.shade800, height: 1.4),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange.shade800,
+                        height: 1.4),
                   ),
                 ),
               ],
@@ -667,10 +702,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: InkWell(
-                onTap: () => setState(() => _roundingRule = opt['value'] as String),
+                onTap: () =>
+                    setState(() => _roundingRule = opt['value'] as String),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFF7C3AED).withValues(alpha: 0.08)
@@ -685,9 +722,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
                         size: 20,
-                        color: isSelected ? const Color(0xFF7C3AED) : Colors.grey.shade400,
+                        color: isSelected
+                            ? const Color(0xFF7C3AED)
+                            : Colors.grey.shade400,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -697,14 +738,17 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                             Text(
                               opt['label'] as String,
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                                 fontSize: 13,
                                 color: const Color(0xFF18181B),
                               ),
                             ),
                             Text(
                               opt['desc'] as String,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey.shade500),
                             ),
                           ],
                         ),
@@ -721,11 +765,27 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   }
 
   List<Map<String, String>> get _roundingRuleOptions => [
-    {'value': 'none', 'label': 'Không làm tròn', 'desc': 'Tính chính xác theo phút'},
-    {'value': 'round_up', 'label': 'Làm tròn lên', 'desc': 'Luôn làm tròn lên (có lợi cho nhân viên)'},
-    {'value': 'round_down', 'label': 'Làm tròn xuống', 'desc': 'Luôn làm tròn xuống'},
-    {'value': 'round_nearest', 'label': 'Làm tròn gần nhất', 'desc': 'Làm tròn đến 15 phút gần nhất'},
-  ];
+        {
+          'value': 'none',
+          'label': 'Không làm tròn',
+          'desc': 'Tính chính xác theo phút'
+        },
+        {
+          'value': 'round_up',
+          'label': 'Làm tròn lên',
+          'desc': 'Luôn làm tròn lên (có lợi cho nhân viên)'
+        },
+        {
+          'value': 'round_down',
+          'label': 'Làm tròn xuống',
+          'desc': 'Luôn làm tròn xuống'
+        },
+        {
+          'value': 'round_nearest',
+          'label': 'Làm tròn gần nhất',
+          'desc': 'Làm tròn đến 15 phút gần nhất'
+        },
+      ];
 
   // ══════════════════════════════════════════════════
   // CARD: Chấm công bù + Ngày chốt công
@@ -748,12 +808,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   children: [
                     const Text(
                       'Cho phép chấm công bù',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF18181B)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF18181B)),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Nhân viên có thể yêu cầu bổ sung chấm công',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ],
                 ),
@@ -769,7 +833,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           // Payroll cutoff day
           const Text(
             'Ngày chốt công hàng tháng:',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF18181B)),
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: Color(0xFF18181B)),
           ),
           const SizedBox(height: 4),
           Text(
@@ -780,11 +847,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFD97706).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.2)),
+                  border: Border.all(
+                      color: const Color(0xFFD97706).withValues(alpha: 0.2)),
                 ),
                 child: Text(
                   'Ngày $_payrollCutoffDay',
@@ -799,13 +868,17 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               Column(
                 children: [
                   IconButton(
-                    onPressed: _payrollCutoffDay < 31 ? () => setState(() => _payrollCutoffDay++) : null,
+                    onPressed: _payrollCutoffDay < 31
+                        ? () => setState(() => _payrollCutoffDay++)
+                        : null,
                     icon: const Icon(Icons.add_circle_outline),
                     color: const Color(0xFFD97706),
                     iconSize: 20,
                   ),
                   IconButton(
-                    onPressed: _payrollCutoffDay > 1 ? () => setState(() => _payrollCutoffDay--) : null,
+                    onPressed: _payrollCutoffDay > 1
+                        ? () => setState(() => _payrollCutoffDay--)
+                        : null,
                     icon: const Icon(Icons.remove_circle_outline),
                     color: const Color(0xFFD97706),
                     iconSize: 20,
@@ -818,23 +891,29 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: [1, 15, 20, 25, 28].map((d) => ActionChip(
-              label: Text('Ngày $d'),
-              backgroundColor: _payrollCutoffDay == d
-                  ? const Color(0xFFD97706).withValues(alpha: 0.1)
-                  : Colors.grey.shade100,
-              labelStyle: TextStyle(
-                color: _payrollCutoffDay == d ? const Color(0xFFD97706) : const Color(0xFF52525B),
-                fontWeight: _payrollCutoffDay == d ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 12,
-              ),
-              side: BorderSide(
-                color: _payrollCutoffDay == d
-                    ? const Color(0xFFD97706).withValues(alpha: 0.3)
-                    : Colors.grey.shade300,
-              ),
-              onPressed: () => setState(() => _payrollCutoffDay = d),
-            )).toList(),
+            children: [1, 15, 20, 25, 28]
+                .map((d) => ActionChip(
+                      label: Text('Ngày $d'),
+                      backgroundColor: _payrollCutoffDay == d
+                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          : Colors.grey.shade100,
+                      labelStyle: TextStyle(
+                        color: _payrollCutoffDay == d
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF52525B),
+                        fontWeight: _payrollCutoffDay == d
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        fontSize: 12,
+                      ),
+                      side: BorderSide(
+                        color: _payrollCutoffDay == d
+                            ? const Color(0xFFD97706).withValues(alpha: 0.3)
+                            : Colors.grey.shade300,
+                      ),
+                      onPressed: () => setState(() => _payrollCutoffDay = d),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 14),
           _buildInfoBox(
@@ -878,7 +957,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 onTap: () => setState(() => _leaveApprovalLevels = value),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFF059669).withValues(alpha: 0.08)
@@ -893,12 +973,20 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
                         size: 20,
-                        color: isSelected ? const Color(0xFF059669) : Colors.grey.shade400,
+                        color: isSelected
+                            ? const Color(0xFF059669)
+                            : Colors.grey.shade400,
                       ),
                       const SizedBox(width: 10),
-                      Icon(opt['icon'] as IconData, size: 18, color: isSelected ? const Color(0xFF059669) : Colors.grey.shade500),
+                      Icon(opt['icon'] as IconData,
+                          size: 18,
+                          color: isSelected
+                              ? const Color(0xFF059669)
+                              : Colors.grey.shade500),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -907,14 +995,17 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                             Text(
                               opt['label'] as String,
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                                 fontSize: 13,
                                 color: const Color(0xFF18181B),
                               ),
                             ),
                             Text(
                               opt['desc'] as String,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey.shade500),
                             ),
                           ],
                         ),

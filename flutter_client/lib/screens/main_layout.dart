@@ -244,6 +244,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // that were already shown by FCM while the app was in the background.
   DateTime? _signalRConnectedAt;
 
+  // Tracks background/foreground transitions so we can suppress notifications
+  // that FCM already showed as system notifications while the app was paused.
+  // When SignalR is still alive during background, it buffers events and
+  // re-delivers them on resume — those would duplicate what FCM already showed.
+  DateTime? _lastBackgroundedAt;
+  DateTime? _lastForegroundedAt;
+
   @override
   void initState() {
     super.initState();
@@ -271,7 +278,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused) {
+      // Record when app goes to background so we can suppress notifications
+      // that FCM already showed via the system tray during this period.
+      _lastBackgroundedAt = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      // Record foreground time; _isFcmDuplicate() uses this as the suppression cutoff.
+      _lastForegroundedAt = DateTime.now();
       // Khi app quay lại foreground: kết nối lại SignalR nếu bị mất và cập nhật badge
       if (!_signalRService.isConnected) {
         _connectSignalR();
@@ -506,6 +519,31 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ));
   }
 
+  /// Returns true when this notification was almost certainly already displayed
+  /// by FCM as a system notification while the app was backgrounded.
+  ///
+  /// Scenario: app goes to background → FCM auto-shows system notification
+  /// → SignalR socket buffers the same event → app resumes → Dart processes
+  /// the buffer → would show a duplicate via [_systemNotification.showGeneral].
+  ///
+  /// We suppress if BOTH conditions hold:
+  ///   1. The notification's createdAt falls after the last background time
+  ///      (i.e. it arrived while the app was paused).
+  ///   2. We are still within 15 seconds of the app coming back to foreground
+  ///      (the backlog is processed immediately on resume; after 15 s any new
+  ///      notification is genuinely live and must not be suppressed).
+  bool _isFcmDuplicate(String? createdAtStr) {
+    if (createdAtStr == null || _lastBackgroundedAt == null || _lastForegroundedAt == null) {
+      return false;
+    }
+    final notifTs = DateTime.tryParse(createdAtStr)?.toLocal();
+    if (notifTs == null) return false;
+    // Allow 3-second slack for server/device clock skew.
+    final backgroundedAt = _lastBackgroundedAt!.subtract(const Duration(seconds: 3));
+    final suppressUntil = _lastForegroundedAt!.add(const Duration(seconds: 15));
+    return notifTs.isAfter(backgroundedAt) && DateTime.now().isBefore(suppressUntil);
+  }
+
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
       final title = data['title'] ?? 'Thông báo mới';
@@ -530,17 +568,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             entityTypeLower == 'newattendance';
 
         if (isMobile) {
-          // Tránh trùng notification: nếu SignalR vừa kết nối (<8s) và notification
+          // Guard 1 (reconnect): nếu SignalR vừa kết nối lại (<15s) và notification
           // được tạo TRƯỚC khi kết nối → FCM đã show rồi khi app ở background, bỏ qua.
           final createdAtStr = data['createdAt'] as String?;
           if (createdAtStr != null && _signalRConnectedAt != null) {
             final notifTs = DateTime.tryParse(createdAtStr)?.toLocal();
-            final connectedSince = DateTime.now().difference(_signalRConnectedAt!);
+            final connectedSince =
+                DateTime.now().difference(_signalRConnectedAt!);
             if (notifTs != null &&
-                connectedSince < const Duration(seconds: 8) &&
-                notifTs.isBefore(_signalRConnectedAt!.add(const Duration(seconds: 1)))) {
-              return; // Already shown by FCM
+                connectedSince < const Duration(seconds: 15) &&
+                notifTs.isBefore(
+                    _signalRConnectedAt!.add(const Duration(seconds: 1)))) {
+              return; // Already shown by FCM (reconnect replay)
             }
+          }
+          // Guard 2 (background buffer): SignalR có thể buffer events khi app ở
+          // background và deliver lại khi resume — FCM đã show chúng rồi.
+          if (_isFcmDuplicate(data['createdAt'] as String?)) {
+            debugPrint('🔔 Suppressed background duplicate: $title');
+            return;
           }
           _systemNotification.showGeneral(
             title: title,
@@ -608,6 +654,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
       final isMobile = mounted && MediaQuery.of(context).size.width < 600;
       if (isMobile) {
+        // Suppress if FCM already showed this notification while app was backgrounded.
+        final createdAtStr = data['createdAt'] as String? ?? data['timestamp'] as String?;
+        if (_isFcmDuplicate(createdAtStr)) {
+          debugPrint('🔔 Suppressed background duplicate (communication): $title');
+          return;
+        }
         _systemNotification.showGeneral(
           title: title,
           message: message,

@@ -448,38 +448,40 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               onPressed: _isLoading ? null : _loadReport,
               icon: const Icon(Icons.refresh, color: Color(0xFF1E3A5F)),
             ),
-            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport'))
-            PopupMenuButton<String>(
-              tooltip: 'Xuất',
-              icon: _isExporting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.download, color: Color(0xFF1E3A5F)),
-              onSelected: (v) {
-                if (v == 'excel') _exportExcel();
-                if (v == 'csv') _exportCsv();
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                    value: 'excel',
-                    child: Row(children: [
-                      Icon(Icons.table_chart, size: 18, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text('Xuất Excel'),
-                    ])),
-                PopupMenuItem(
-                    value: 'csv',
-                    child: Row(children: [
-                      Icon(Icons.file_present, size: 18, color: Colors.blue),
-                      SizedBox(width: 8),
-                      Text('Xuất CSV'),
-                    ])),
-              ],
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canExport('AttendanceReport'))
+              PopupMenuButton<String>(
+                tooltip: 'Xuất',
+                icon: _isExporting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.download, color: Color(0xFF1E3A5F)),
+                onSelected: (v) {
+                  if (v == 'excel') _exportExcel();
+                  if (v == 'csv') _exportCsv();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                      value: 'excel',
+                      child: Row(children: [
+                        Icon(Icons.table_chart, size: 18, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('Xuất Excel'),
+                      ])),
+                  PopupMenuItem(
+                      value: 'csv',
+                      child: Row(children: [
+                        Icon(Icons.file_present, size: 18, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('Xuất CSV'),
+                      ])),
+                ],
+              ),
           ] else ...[
-            if (Provider.of<PermissionProvider>(context, listen: false).canExport('AttendanceReport')) ...[
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canExport('AttendanceReport')) ...[
               OutlinedButton.icon(
                 onPressed: _isExporting ? null : _exportCsv,
                 icon: const Icon(Icons.file_present, size: 16),
@@ -497,7 +499,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     : const Icon(Icons.table_chart, size: 16),
                 label: const Text('Excel'),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green, foregroundColor: Colors.white),
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white),
               ),
               const SizedBox(width: 8),
             ],

@@ -42,7 +42,8 @@ class _AttendanceCorrectionsScreenState
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final settingResult = await _apiService.getAppSetting('allow_manual_correction');
+      final settingResult =
+          await _apiService.getAppSetting('allow_manual_correction');
       if (mounted) {
         final val = settingResult['data']?['value']?.toString();
         setState(() => _allowManualCorrection = val != 'false');

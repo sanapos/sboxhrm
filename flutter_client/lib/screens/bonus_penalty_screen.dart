@@ -348,7 +348,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   .canCreate('BonusPenalty')
               ? FloatingActionButton.extended(
                   onPressed: () => _showCreateEditDialog(
-                      presetType: _bonusOnly ? 'Bonus' : null),
+                      presetType: _bonusOnly
+                          ? 'Bonus'
+                          : (_tabController.index == 0 ? 'Bonus' : 'Penalty')),
                   icon: const Icon(Icons.add),
                   label: Text(_bonusOnly ? 'Thêm thưởng' : _l10n.addNew),
                 )
@@ -1783,6 +1785,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   void _showCreateEditDialog(
       {String? presetType, Map<String, dynamic>? editTx}) {
     final bool isEdit = editTx != null;
+    final bool lockType = !isEdit && presetType != null;
 
     // Pre-fill from editTx or defaults
     String type = editTx?['type']?.toString() ?? presetType ?? 'Bonus';
@@ -1965,33 +1968,35 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IgnorePointer(
-                ignoring: isEdit,
-                child: Opacity(
-                  opacity: isEdit ? 0.6 : 1.0,
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                          value: 'Bonus',
-                          label: Text('Thưởng'),
-                          icon: Icon(Icons.card_giftcard)),
-                      ButtonSegment(
-                          value: 'Penalty',
-                          label: Text('Phạt'),
-                          icon: Icon(Icons.gavel)),
-                    ],
-                    selected: {type},
-                    onSelectionChanged: (v) => setDialogState(() {
-                      type = v.first;
-                      category = (type == 'Bonus'
-                              ? _bonusCategories
-                              : _penaltyCategories)
-                          .first;
-                    }),
+              if (!lockType) ...[
+                IgnorePointer(
+                  ignoring: isEdit,
+                  child: Opacity(
+                    opacity: isEdit ? 0.6 : 1.0,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                            value: 'Bonus',
+                            label: Text('Thưởng'),
+                            icon: Icon(Icons.card_giftcard)),
+                        ButtonSegment(
+                            value: 'Penalty',
+                            label: Text('Phạt'),
+                            icon: Icon(Icons.gavel)),
+                      ],
+                      selected: {type},
+                      onSelectionChanged: (v) => setDialogState(() {
+                        type = v.first;
+                        category = (type == 'Bonus'
+                                ? _bonusCategories
+                                : _penaltyCategories)
+                            .first;
+                      }),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
               DropdownButtonFormField<String>(
                 initialValue:
                     categories.contains(category) ? category : categories.first,
@@ -2133,38 +2138,63 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     ),
                   ),
                   body: formContent,
-                  bottomNavigationBar: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
-                        ),
-                        if (!isEdit) ...[
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: onCreateApprove,
+                  bottomNavigationBar: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                visualDensity: VisualDensity.compact),
+                            child: const Text('Hủy'),
+                          ),
+                          const Spacer(),
+                          if (!isEdit) ...[
+                            OutlinedButton.icon(
+                              onPressed: onCreateApprove,
+                              icon: isSaving
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.check_circle, size: 16),
+                              label: const Text('Tạo & Duyệt',
+                                  style: TextStyle(fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.green,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 10),
+                                  visualDensity: VisualDensity.compact),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          ElevatedButton.icon(
+                            onPressed: onSave,
                             icon: isSaving
                                 ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
+                                    width: 14,
+                                    height: 14,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                : const Icon(Icons.check_circle),
-                            label: const Text('Tạo & Duyệt'),
-                            style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.green),
+                                        strokeWidth: 2,
+                                        color: Colors.white))
+                                : Icon(isEdit ? Icons.save : Icons.add,
+                                    size: 16),
+                            label: Text(
+                                isSaving
+                                    ? 'Đang lưu...'
+                                    : (isEdit ? 'Cập nhật' : 'Tạo phiếu'),
+                                style: const TextStyle(fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                visualDensity: VisualDensity.compact),
                           ),
                         ],
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: onSave,
-                          icon: saveIcon,
-                          label: saveLabel,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

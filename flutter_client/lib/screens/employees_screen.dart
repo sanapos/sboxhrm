@@ -4055,8 +4055,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           );
         },
-        icon: const Icon(Icons.work_history_outlined,
-            color: Color(0xFF0369A1)),
+        icon: const Icon(Icons.work_history_outlined, color: Color(0xFF0369A1)),
         label: const Text('Quá trình CT',
             style: TextStyle(color: Color(0xFF0369A1))),
       ),

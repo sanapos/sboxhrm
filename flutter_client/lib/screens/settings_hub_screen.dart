@@ -53,7 +53,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   int? _selectedIndex;
 
   bool get _isSuperAdmin {
-    final role = (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ?? '').toLowerCase();
+    final role =
+        (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ??
+                '')
+            .toLowerCase();
     return role == 'superadmin';
   }
 
@@ -95,10 +98,34 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       icon: Icons.schedule,
       accent: Color(0xFF0F2340),
       items: [
-        _SidebarItem(index: 0, icon: Icons.schedule_send, label: 'Thiết lập ca', desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca', accent: Color(0xFF0F2340), moduleCode: 'ShiftSetup'),
-        _SidebarItem(index: 1, icon: Icons.phone_android, label: 'Chấm công mobile', desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công', accent: Color(0xFF1E3A5F), moduleCode: 'MobileAttendance'),
-        _SidebarItem(index: 2, icon: Icons.celebration, label: 'Ngày lễ', desc: 'Ngày nghỉ lễ, hệ số công, cấu hình lịch nghỉ', accent: Color(0xFFEF4444), moduleCode: 'Holiday'),
-        _SidebarItem(index: 12, icon: Icons.router, label: 'Máy chấm công', desc: 'Kết nối, quản lý, điều khiển máy chấm công', accent: Color(0xFF1E3A5F), moduleCode: 'Device'),
+        _SidebarItem(
+            index: 0,
+            icon: Icons.schedule_send,
+            label: 'Thiết lập ca',
+            desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca',
+            accent: Color(0xFF0F2340),
+            moduleCode: 'ShiftSetup'),
+        _SidebarItem(
+            index: 1,
+            icon: Icons.phone_android,
+            label: 'Chấm công mobile',
+            desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công',
+            accent: Color(0xFF1E3A5F),
+            moduleCode: 'MobileAttendance'),
+        _SidebarItem(
+            index: 2,
+            icon: Icons.celebration,
+            label: 'Ngày lễ',
+            desc: 'Ngày nghỉ lễ, hệ số công, cấu hình lịch nghỉ',
+            accent: Color(0xFFEF4444),
+            moduleCode: 'Holiday'),
+        _SidebarItem(
+            index: 12,
+            icon: Icons.router,
+            label: 'Máy chấm công',
+            desc: 'Kết nối, quản lý, điều khiển máy chấm công',
+            accent: Color(0xFF1E3A5F),
+            moduleCode: 'Device'),
       ],
     ),
     _SidebarGroup(
@@ -106,11 +133,41 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       icon: Icons.payments,
       accent: Color(0xFF1E3A5F),
       items: [
-        _SidebarItem(index: 3, icon: Icons.card_giftcard, label: 'Phụ cấp', desc: 'Phụ cấp cố định, phụ cấp ngày công', accent: Color(0xFFEC4899), moduleCode: 'Allowance'),
-        _SidebarItem(index: 4, icon: Icons.gavel, label: 'Phạt', desc: 'Đi trễ, về sớm, tái phạm, kỷ luật', accent: Color(0xFFF97316), moduleCode: 'PenaltySetup'),
-        _SidebarItem(index: 5, icon: Icons.health_and_safety, label: 'Bảo hiểm', desc: 'BHXH, BHYT, BHTN, lương cơ sở', accent: Color(0xFF2D5F8B), moduleCode: 'Insurance'),
-        _SidebarItem(index: 6, icon: Icons.receipt_long, label: 'Thuế TNCN', desc: 'Bậc thuế, giảm trừ gia cảnh', accent: Color(0xFF0F2340), moduleCode: 'Tax'),
-        _SidebarItem(index: 10, icon: Icons.precision_manufacturing, label: 'Lương sản phẩm', desc: 'Nhóm SP, sản phẩm, đơn giá theo bậc', accent: Color(0xFF059669), moduleCode: 'ProductSalary'),
+        _SidebarItem(
+            index: 3,
+            icon: Icons.card_giftcard,
+            label: 'Phụ cấp',
+            desc: 'Phụ cấp cố định, phụ cấp ngày công',
+            accent: Color(0xFFEC4899),
+            moduleCode: 'Allowance'),
+        _SidebarItem(
+            index: 4,
+            icon: Icons.gavel,
+            label: 'Phạt',
+            desc: 'Đi trễ, về sớm, tái phạm, kỷ luật',
+            accent: Color(0xFFF97316),
+            moduleCode: 'PenaltySetup'),
+        _SidebarItem(
+            index: 5,
+            icon: Icons.health_and_safety,
+            label: 'Bảo hiểm',
+            desc: 'BHXH, BHYT, BHTN, lương cơ sở',
+            accent: Color(0xFF2D5F8B),
+            moduleCode: 'Insurance'),
+        _SidebarItem(
+            index: 6,
+            icon: Icons.receipt_long,
+            label: 'Thuế TNCN',
+            desc: 'Bậc thuế, giảm trừ gia cảnh',
+            accent: Color(0xFF0F2340),
+            moduleCode: 'Tax'),
+        _SidebarItem(
+            index: 10,
+            icon: Icons.precision_manufacturing,
+            label: 'Lương sản phẩm',
+            desc: 'Nhóm SP, sản phẩm, đơn giá theo bậc',
+            accent: Color(0xFF059669),
+            moduleCode: 'ProductSalary'),
       ],
     ),
     _SidebarGroup(
@@ -118,9 +175,27 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       icon: Icons.admin_panel_settings,
       accent: Color(0xFF1E3A5F),
       items: [
-        _SidebarItem(index: 7, icon: Icons.manage_accounts, label: 'Tài khoản', desc: 'Người dùng, kích hoạt, vai trò', accent: Color(0xFF0F2340), moduleCode: 'UserManagement'),
-        _SidebarItem(index: 8, icon: Icons.security, label: 'Phân quyền', desc: 'Ma trận quyền, vai trò, module', accent: Color(0xFFEF4444), moduleCode: 'Role'),
-        _SidebarItem(index: 9, icon: Icons.settings_suggest, label: 'Hệ thống', desc: 'Giờ kết thúc ngày, tham số vận hành', accent: Color(0xFF334155), moduleCode: 'SystemSettings'),
+        _SidebarItem(
+            index: 7,
+            icon: Icons.manage_accounts,
+            label: 'Tài khoản',
+            desc: 'Người dùng, kích hoạt, vai trò',
+            accent: Color(0xFF0F2340),
+            moduleCode: 'UserManagement'),
+        _SidebarItem(
+            index: 8,
+            icon: Icons.security,
+            label: 'Phân quyền',
+            desc: 'Ma trận quyền, vai trò, module',
+            accent: Color(0xFFEF4444),
+            moduleCode: 'Role'),
+        _SidebarItem(
+            index: 9,
+            icon: Icons.settings_suggest,
+            label: 'Hệ thống',
+            desc: 'Giờ kết thúc ngày, tham số vận hành',
+            accent: Color(0xFF334155),
+            moduleCode: 'SystemSettings'),
       ],
     ),
     _SidebarGroup(
@@ -128,34 +203,60 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       icon: Icons.hub,
       accent: Color(0xFF1E3A5F),
       items: [
-        _SidebarItem(index: 11, icon: Icons.auto_awesome, label: 'Thiết lập AI', desc: 'Gemini, DeepSeek, bật/tắt AI', accent: Color(0xFF0F2340), moduleCode: 'AIGemini'),
-        _SidebarItem(index: 15, icon: Icons.cloud_upload, label: 'Google Drive', desc: 'Lưu trữ ảnh, sao lưu dữ liệu lên Drive', accent: Color(0xFF2D5F8B), moduleCode: 'GoogleDrive'),
+        _SidebarItem(
+            index: 11,
+            icon: Icons.auto_awesome,
+            label: 'Thiết lập AI',
+            desc: 'Gemini, bật/tắt AI',
+            accent: Color(0xFF0F2340),
+            moduleCode: 'AIGemini'),
+        _SidebarItem(
+            index: 15,
+            icon: Icons.cloud_upload,
+            label: 'Google Drive',
+            desc: 'Lưu trữ ảnh, sao lưu dữ liệu lên Drive',
+            accent: Color(0xFF2D5F8B),
+            moduleCode: 'GoogleDrive'),
       ],
     ),
   ];
 
   Widget _getScreen(int index) {
     switch (index) {
-      case 0: return const ShiftSettingsScreen();
-      case 1: return const MobileAttendanceSettingsScreen();
-      case 2: return const HolidaySettingsScreen();
-      case 3: return const AllowanceSettingsScreen();
-      case 4: return const PenaltySettingsScreen();
-      case 5: return const InsuranceSettingsScreen();
-      case 6: return const TaxSettingsScreen();
-      case 7: return const AccountManagementScreen();
-      case 8: return const RolePermissionsScreen();
-      case 9: return const SystemSettingsScreen();
-      case 10: return const ProductSalarySettingsScreen();
-      case 11: return const AiSettingsScreen();
-      case 12: return const DeviceManagementSettingsScreen();
+      case 0:
+        return const ShiftSettingsScreen();
+      case 1:
+        return const MobileAttendanceSettingsScreen();
+      case 2:
+        return const HolidaySettingsScreen();
+      case 3:
+        return const AllowanceSettingsScreen();
+      case 4:
+        return const PenaltySettingsScreen();
+      case 5:
+        return const InsuranceSettingsScreen();
+      case 6:
+        return const TaxSettingsScreen();
+      case 7:
+        return const AccountManagementScreen();
+      case 8:
+        return const RolePermissionsScreen();
+      case 9:
+        return const SystemSettingsScreen();
+      case 10:
+        return const ProductSalarySettingsScreen();
+      case 11:
+        return const AiSettingsScreen();
+      case 12:
+        return const DeviceManagementSettingsScreen();
       case 15:
         if (_isSuperAdmin) return const GoogleDriveSettingsScreen();
         return const _SettingsAccessDeniedScreen(
           title: 'Khong co quyen truy cap',
           message: 'Chi SuperAdmin moi duoc cau hinh Google Drive.',
         );
-      default: return const SizedBox();
+      default:
+        return const SizedBox();
     }
   }
 
@@ -205,7 +306,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1D4ED8), Color(0xFF0F2340)],
+                colors: [
+                  Color(0xFF0F172A),
+                  Color(0xFF1D4ED8),
+                  Color(0xFF0F2340)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -223,16 +328,23 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.tune, color: Colors.white, size: 18),
+                        child: const Icon(Icons.tune,
+                            color: Colors.white, size: 18),
                       ),
                       const SizedBox(width: 10),
-                      const Text('Thiết lập HRM', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text('Thiết lập HRM',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
                     'Quản lý toàn bộ cấu hình hệ thống',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 12),
                   ),
                 ],
               ),
@@ -251,7 +363,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   children: [
                     Icon(g.icon, size: 14, color: g.accent),
                     const SizedBox(width: 6),
-                    Text(g.title.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: g.accent, letterSpacing: 0.5)),
+                    Text(g.title.toUpperCase(),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: g.accent,
+                            letterSpacing: 0.5)),
                   ],
                 ),
               ),
@@ -287,7 +404,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 36, height: 36,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: item.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -299,13 +417,22 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textDark)),
+                      Text(item.label,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _textDark)),
                       const SizedBox(height: 2),
-                      Text(item.desc, style: const TextStyle(fontSize: 11, color: _textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(item.desc,
+                          style:
+                              const TextStyle(fontSize: 11, color: _textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, size: 18, color: item.accent.withValues(alpha: 0.5)),
+                Icon(Icons.chevron_right,
+                    size: 18, color: item.accent.withValues(alpha: 0.5)),
               ],
             ),
           ),
@@ -320,18 +447,24 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final isSuperAdmin = role == 'superadmin';
     final isDirector = role == 'director';
     if (isSuperAdmin) return items;
-    final permProvider = Provider.of<PermissionProvider>(context, listen: false);
+    final permProvider =
+        Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
       if (item.moduleCode == 'GoogleDrive' && !isSuperAdmin) {
         return false;
       }
       // Lọc theo gói dịch vụ
-      if (!isDirector && allowedModules != null && allowedModules.isNotEmpty && item.moduleCode != null && !allowedModules.contains(item.moduleCode)) {
+      if (!isDirector &&
+          allowedModules != null &&
+          allowedModules.isNotEmpty &&
+          item.moduleCode != null &&
+          !allowedModules.contains(item.moduleCode)) {
         return false;
       }
       // Lọc theo quyền canView
-      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!)) return false;
+      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!))
+        return false;
       return true;
     }).toList();
   }
@@ -351,9 +484,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           const SizedBox(height: 28),
           // Group cards
           ..._groups.map((g) => Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: _buildGroupSection(g),
-          )),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildGroupSection(g),
+              )),
         ],
       ),
     );
@@ -369,7 +502,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color(0x180F172A), blurRadius: 20, offset: Offset(0, 10))],
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x180F172A), blurRadius: 20, offset: Offset(0, 10))
+        ],
       ),
       child: Row(
         children: [
@@ -378,19 +514,33 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-                  child: const Text('HRM Settings Center', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999)),
+                  child: const Text('HRM Settings Center',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12)),
                 ),
                 const SizedBox(height: 14),
                 const Text(
                   'Trung tâm thiết lập hệ thống HRM',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, height: 1.2),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Quản lý toàn bộ cấu hình ca làm việc, chính sách lương, quản trị hệ thống và tích hợp.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, height: 1.5),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13,
+                      height: 1.5),
                 ),
               ],
             ),
@@ -400,10 +550,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _buildStatBadge(Icons.schedule, '${_groups[0].items.length}', 'Chấm công'),
-              _buildStatBadge(Icons.payments, '${_groups[1].items.length}', 'Lương'),
-              _buildStatBadge(Icons.admin_panel_settings, '${_groups[2].items.length}', 'Quản trị'),
-              _buildStatBadge(Icons.hub, '${_groups[3].items.length}', 'Tích hợp'),
+              _buildStatBadge(
+                  Icons.schedule, '${_groups[0].items.length}', 'Chấm công'),
+              _buildStatBadge(
+                  Icons.payments, '${_groups[1].items.length}', 'Lương'),
+              _buildStatBadge(Icons.admin_panel_settings,
+                  '${_groups[2].items.length}', 'Quản trị'),
+              _buildStatBadge(
+                  Icons.hub, '${_groups[3].items.length}', 'Tích hợp'),
             ],
           ),
         ],
@@ -425,9 +579,15 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         children: [
           Icon(icon, color: Colors.white, size: 18),
           const SizedBox(height: 8),
-          Text(count, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          Text(count,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+          Text(label,
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
         ],
       ),
     );
@@ -437,11 +597,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final totalItems = _groups.fold<int>(0, (sum, g) => sum + g.items.length);
     return Row(
       children: [
-        _buildInfoChip(Icons.apps, '$totalItems cấu hình', const Color(0xFF1E3A5F)),
+        _buildInfoChip(
+            Icons.apps, '$totalItems cấu hình', const Color(0xFF1E3A5F)),
         const SizedBox(width: 12),
-        _buildInfoChip(Icons.category, '${_groups.length} nhóm', const Color(0xFF1E3A5F)),
+        _buildInfoChip(
+            Icons.category, '${_groups.length} nhóm', const Color(0xFF1E3A5F)),
         const SizedBox(width: 12),
-        _buildInfoChip(Icons.check_circle_outline, 'Sẵn sàng', const Color(0xFF1E3A5F)),
+        _buildInfoChip(
+            Icons.check_circle_outline, 'Sẵn sàng', const Color(0xFF1E3A5F)),
       ],
     );
   }
@@ -459,7 +622,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         children: [
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -475,20 +640,31 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: group.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                  color: group.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(group.icon, color: group.accent, size: 18),
             ),
             const SizedBox(width: 12),
-            Text(group.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _textDark)),
+            Text(group.title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: _textDark)),
             const Spacer(),
-            Text('${filteredItems.length} mục', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: group.accent)),
+            Text('${filteredItems.length} mục',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: group.accent)),
           ],
         ),
         const SizedBox(height: 14),
         Wrap(
           spacing: 14,
           runSpacing: 14,
-          children: filteredItems.map((item) => _buildShortcutCard(item)).toList(),
+          children:
+              filteredItems.map((item) => _buildShortcutCard(item)).toList(),
         ),
       ],
     );
@@ -515,7 +691,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [item.accent, item.accent.withValues(alpha: 0.7)]),
+                    gradient: LinearGradient(colors: [
+                      item.accent,
+                      item.accent.withValues(alpha: 0.7)
+                    ]),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(item.icon, color: Colors.white, size: 20),
@@ -525,14 +704,23 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textDark)),
+                      Text(item.label,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _textDark)),
                       const SizedBox(height: 3),
-                      Text(item.desc, style: const TextStyle(fontSize: 11, color: _textMuted, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(item.desc,
+                          style: const TextStyle(
+                              fontSize: 11, color: _textMuted, height: 1.3),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.chevron_right, size: 18, color: item.accent.withValues(alpha: 0.5)),
+                Icon(Icons.chevron_right,
+                    size: 18, color: item.accent.withValues(alpha: 0.5)),
               ],
             ),
           ),
@@ -548,7 +736,11 @@ class _SidebarGroup {
   final IconData icon;
   final Color accent;
   final List<_SidebarItem> items;
-  const _SidebarGroup({required this.title, required this.icon, required this.accent, required this.items});
+  const _SidebarGroup(
+      {required this.title,
+      required this.icon,
+      required this.accent,
+      required this.items});
 }
 
 class _SidebarItem {
@@ -558,7 +750,13 @@ class _SidebarItem {
   final String desc;
   final Color accent;
   final String? moduleCode;
-  const _SidebarItem({required this.index, required this.icon, required this.label, required this.desc, required this.accent, required this.moduleCode});
+  const _SidebarItem(
+      {required this.index,
+      required this.icon,
+      required this.label,
+      required this.desc,
+      required this.accent,
+      required this.moduleCode});
 }
 
 class _SettingsAccessDeniedScreen extends StatelessWidget {
@@ -586,11 +784,19 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.lock_outline_rounded, size: 56, color: Color(0xFF94A3B8)),
+              const Icon(Icons.lock_outline_rounded,
+                  size: 56, color: Color(0xFF94A3B8)),
               const SizedBox(height: 12),
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A))),
               const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
             ],
           ),
         ),

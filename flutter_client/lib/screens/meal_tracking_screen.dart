@@ -124,8 +124,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final res = await _apiService.getMealSessions();
       if (res['isSuccess'] == true) {
         final list = res['data'] as List? ?? [];
-        _sessions =
-            list.map((e) => MealSession.fromJson(e as Map<String, dynamic>)).toList();
+        _sessions = list
+            .map((e) => MealSession.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('Load sessions error: $e');
@@ -137,7 +138,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final res = await _apiService.getMealDishes();
       if (res['isSuccess'] == true) {
         final list = res['data'] as List? ?? [];
-        _masterDishes = list.map((e) => MealDish.fromJson(e as Map<String, dynamic>)).toList();
+        _masterDishes = list
+            .map((e) => MealDish.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('Load dishes error: $e');
@@ -160,7 +163,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       );
       if (menuRes['isSuccess'] == true && menuRes['data'] != null) {
         final list = menuRes['data'] as List? ?? [];
-        _weeklyMenus = list.map((e) => MealMenu.fromJson(e as Map<String, dynamic>)).toList();
+        _weeklyMenus = list
+            .map((e) => MealMenu.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('Load estimate error: $e');
@@ -202,8 +207,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       if (res['isSuccess'] == true && res['data'] != null) {
         final list = res['data'] as List? ?? [];
         _employeeSummaries = list
-            .map((e) =>
-                EmployeeMealSummary.fromJson(e as Map<String, dynamic>))
+            .map((e) => EmployeeMealSummary.fromJson(e as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {
@@ -236,7 +240,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final res = await _apiService.getMealDebtSummary(period: _debtPeriod);
       if (res['isSuccess'] == true && res['data'] != null) {
         final list = res['data'] as List? ?? [];
-        _debtSummaries = list.map((e) => MealDebtSummary.fromJson(e as Map<String, dynamic>)).toList();
+        _debtSummaries = list
+            .map((e) => MealDebtSummary.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('Load debt summary error: $e');
@@ -253,7 +259,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       );
       if (res['isSuccess'] == true && res['data'] != null) {
         final list = res['data'] as List? ?? [];
-        _debtHistory = list.map((e) => MealDebt.fromJson(e as Map<String, dynamic>)).toList();
+        _debtHistory = list
+            .map((e) => MealDebt.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('Load debt history error: $e');
@@ -300,7 +308,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Công nợ hiện tại: ${_formatCurrency(debt.balance)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.red)),
             const SizedBox(height: 16),
             TextField(
               controller: amountCtl,
@@ -322,7 +331,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           FilledButton(
             onPressed: () async {
               final amount = double.tryParse(amountCtl.text.trim());
@@ -339,14 +349,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 });
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager().showSuccess(
-                    title: 'Thu tiền', message: 'Đã ghi nhận thu ${_formatCurrency(amount)}');
+                      title: 'Thu tiền',
+                      message: 'Đã ghi nhận thu ${_formatCurrency(amount)}');
                   _loadDebtSummary();
                 } else {
                   NotificationOverlayManager().showError(
-                    title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                      title: 'Lỗi', message: res['message'] ?? 'Thất bại');
                 }
               } catch (e) {
-                NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+                NotificationOverlayManager()
+                    .showError(title: 'Lỗi', message: 'Lỗi: $e');
               }
             },
             child: const Text('Thu tiền'),
@@ -394,8 +406,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   .showSuccess(title: 'Thành công', message: 'Đã tạo buổi ăn');
               _loadSessions();
             } else {
-              NotificationOverlayManager()
-                  .showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi tạo buổi ăn');
+              NotificationOverlayManager().showError(
+                  title: 'Lỗi', message: res['message'] ?? 'Lỗi tạo buổi ăn');
             }
           }
 
@@ -405,8 +417,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               TextField(
                 controller: nameCtl,
-                decoration:
-                    const InputDecoration(labelText: 'Tên buổi ăn *'),
+                decoration: const InputDecoration(labelText: 'Tên buổi ăn *'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -436,8 +447,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 title: const Text('Giờ kết thúc'),
                 trailing: Text(endTime.format(ctx)),
                 onTap: () async {
-                  final t = await showTimePicker(
-                      context: ctx, initialTime: endTime);
+                  final t =
+                      await showTimePicker(context: ctx, initialTime: endTime);
                   if (t != null) setDlgState(() => endTime = t);
                 },
               ),
@@ -449,15 +460,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Thêm buổi ăn'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                      child: FilledButton(
+                          onPressed: onSave, child: const Text('Lưu')),
                     ),
                   ],
                 ),
-                body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
+                body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16), child: formBody),
               ),
             );
           }
@@ -485,20 +500,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         content: Text('Bạn có chắc muốn xóa "${session.name}"?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               final res = await _apiService.deleteMealSession(session.id);
               if (ctx.mounted) Navigator.pop(ctx);
               if (res['isSuccess'] == true) {
-                NotificationOverlayManager()
-                    .showSuccess(title: 'Thành công', message: 'Đã xóa buổi ăn');
+                NotificationOverlayManager().showSuccess(
+                    title: 'Thành công', message: 'Đã xóa buổi ăn');
                 _loadSessions();
               } else {
-                NotificationOverlayManager()
-                    .showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi xóa buổi ăn');
+                NotificationOverlayManager().showError(
+                    title: 'Lỗi', message: res['message'] ?? 'Lỗi xóa buổi ăn');
               }
             },
             child: const Text('Xóa'),
@@ -526,7 +540,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           Future<void> onSave() async {
             if (selectedSessionId == null) return;
             if (selectedDishIds.isEmpty) {
-              NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+              NotificationOverlayManager().showError(
+                  title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
               return;
             }
             final items = selectedDishIds.toList().asMap().entries.map((entry) {
@@ -547,13 +562,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             final res = await _apiService.createMealMenu(data);
             if (ctx.mounted) Navigator.pop(ctx);
             if (res['isSuccess'] == true) {
-              NotificationOverlayManager().showSuccess(
-                  title: 'Thành công', message: 'Đã tạo thực đơn');
+              NotificationOverlayManager()
+                  .showSuccess(title: 'Thành công', message: 'Đã tạo thực đơn');
               _loadWeeklyMenu();
             } else {
               NotificationOverlayManager().showError(
-                  title: 'Lỗi',
-                  message: res['message'] ?? 'Lỗi tạo thực đơn');
+                  title: 'Lỗi', message: res['message'] ?? 'Lỗi tạo thực đơn');
             }
           }
 
@@ -571,7 +585,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               : grouped;
 
           // Selected dishes list
-          final selectedDishes = _masterDishes.where((d) => selectedDishIds.contains(d.id)).toList();
+          final selectedDishes = _masterDishes
+              .where((d) => selectedDishIds.contains(d.id))
+              .toList();
 
           final formBody = Column(
             mainAxisSize: MainAxisSize.min,
@@ -579,8 +595,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               DropdownButtonFormField<String>(
                 initialValue: selectedSessionId,
-                decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
-                items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
+                decoration: const InputDecoration(
+                    labelText: 'Buổi ăn *', border: OutlineInputBorder()),
+                items: _sessions
+                    .map((s) =>
+                        DropdownMenuItem(value: s.id, child: Text(s.name)))
+                    .toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
               ),
               const SizedBox(height: 12),
@@ -590,15 +610,18 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 trailing: Text(DateFormat('dd/MM/yyyy').format(menuDate)),
                 onTap: () async {
                   final d = await showDatePicker(
-                    context: ctx, initialDate: menuDate,
-                    firstDate: DateTime(2024), lastDate: DateTime(2030),
+                    context: ctx,
+                    initialDate: menuDate,
+                    firstDate: DateTime(2024),
+                    lastDate: DateTime(2030),
                   );
                   if (d != null) setDlgState(() => menuDate = d);
                 },
               ),
               TextField(
                 controller: noteCtl,
-                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               // Selected menu preview
@@ -616,15 +639,22 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.restaurant_menu, size: 16, color: Color(0xFF16A34A)),
+                          const Icon(Icons.restaurant_menu,
+                              size: 16, color: Color(0xFF16A34A)),
                           const SizedBox(width: 6),
                           Text('Thực đơn (${selectedDishes.length} món)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF16A34A))),
                           const Spacer(),
                           if (selectedDishes.isNotEmpty)
                             GestureDetector(
-                              onTap: () => setDlgState(() => selectedDishIds.clear()),
-                              child: const Text('Bỏ hết', style: TextStyle(fontSize: 12, color: Colors.red)),
+                              onTap: () =>
+                                  setDlgState(() => selectedDishIds.clear()),
+                              child: const Text('Bỏ hết',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.red)),
                             ),
                         ],
                       ),
@@ -632,14 +662,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: selectedDishes.map((d) => Chip(
-                          label: Text(d.name, style: const TextStyle(fontSize: 11)),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () => setDlgState(() => selectedDishIds.remove(d.id)),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: const Color(0xFFDCFCE7),
-                        )).toList(),
+                        children: selectedDishes
+                            .map((d) => Chip(
+                                  label: Text(d.name,
+                                      style: const TextStyle(fontSize: 11)),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () => setDlgState(
+                                      () => selectedDishIds.remove(d.id)),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor: const Color(0xFFDCFCE7),
+                                ))
+                            .toList(),
                       ),
                     ],
                   ),
@@ -648,7 +683,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ],
               // Category filter
               Text('Chọn món (${selectedDishIds.length} đã chọn)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 8),
               if (categories.isNotEmpty)
                 Wrap(
@@ -656,18 +692,22 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   runSpacing: 4,
                   children: [
                     FilterChip(
-                      label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                      label:
+                          const Text('Tất cả', style: TextStyle(fontSize: 11)),
                       selected: filterCategory == null,
-                      onSelected: (_) => setDlgState(() => filterCategory = null),
+                      onSelected: (_) =>
+                          setDlgState(() => filterCategory = null),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     ...categories.map((c) {
                       final count = grouped[c]?.length ?? 0;
                       return FilterChip(
-                        label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                        label: Text('$c ($count)',
+                            style: const TextStyle(fontSize: 11)),
                         selected: filterCategory == c,
-                        onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                        onSelected: (_) => setDlgState(() =>
+                            filterCategory = filterCategory == c ? null : c),
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       );
@@ -678,7 +718,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               if (_masterDishes.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text('Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".',
+                  child: Text(
+                      'Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".',
                       style: TextStyle(color: Colors.grey)),
                 ),
               ...filteredGrouped.entries.map((catEntry) {
@@ -691,12 +732,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: Row(
                         children: [
-                          Text(cat, style: const TextStyle(
-                              fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
+                          Text(cat,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0284C7),
+                                  fontSize: 13)),
                           const Spacer(),
                           GestureDetector(
                             onTap: () {
-                              final allSelected = dishes.every((d) => selectedDishIds.contains(d.id));
+                              final allSelected = dishes
+                                  .every((d) => selectedDishIds.contains(d.id));
                               setDlgState(() {
                                 if (allSelected) {
                                   for (final d in dishes) {
@@ -710,28 +755,33 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               });
                             },
                             child: Text(
-                              dishes.every((d) => selectedDishIds.contains(d.id)) ? 'Bỏ chọn' : 'Chọn hết',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+                              dishes.every(
+                                      (d) => selectedDishIds.contains(d.id))
+                                  ? 'Bỏ chọn'
+                                  : 'Chọn hết',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFF0284C7)),
                             ),
                           ),
                         ],
                       ),
                     ),
                     ...dishes.map((dish) => CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(dish.name, style: const TextStyle(fontSize: 14)),
-                      value: selectedDishIds.contains(dish.id),
-                      onChanged: (v) {
-                        setDlgState(() {
-                          if (v == true) {
-                            selectedDishIds.add(dish.id);
-                          } else {
-                            selectedDishIds.remove(dish.id);
-                          }
-                        });
-                      },
-                    )),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(dish.name,
+                              style: const TextStyle(fontSize: 14)),
+                          value: selectedDishIds.contains(dish.id),
+                          onChanged: (v) {
+                            setDlgState(() {
+                              if (v == true) {
+                                selectedDishIds.add(dish.id);
+                              } else {
+                                selectedDishIds.remove(dish.id);
+                              }
+                            });
+                          },
+                        )),
                   ],
                 );
               }),
@@ -743,15 +793,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Tạo thực đơn'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                      child: FilledButton(
+                          onPressed: onSave, child: const Text('Lưu')),
                     ),
                   ],
                 ),
-                body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
+                body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16), child: formBody),
               ),
             );
           }
@@ -763,7 +817,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: SingleChildScrollView(child: formBody),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy')),
               FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
@@ -779,7 +835,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final Set<String> selectedDishIds = {};
     // Pre-select dishes that match master list by name
     for (final item in menu.items) {
-      final match = _masterDishes.where((d) => d.name == item.dishName).firstOrNull;
+      final match =
+          _masterDishes.where((d) => d.name == item.dishName).firstOrNull;
       if (match != null) selectedDishIds.add(match.id);
     }
     final isMobile = Responsive.isMobile(context);
@@ -791,7 +848,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         builder: (ctx, setDlgState) {
           Future<void> onSave() async {
             if (selectedDishIds.isEmpty) {
-              NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+              NotificationOverlayManager().showError(
+                  title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
               return;
             }
             final items = selectedDishIds.toList().asMap().entries.map((entry) {
@@ -810,10 +868,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             final res = await _apiService.updateMealMenu(menu.id, data);
             if (ctx.mounted) Navigator.pop(ctx);
             if (res['isSuccess'] == true) {
-              NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cập nhật thực đơn');
+              NotificationOverlayManager().showSuccess(
+                  title: 'Thành công', message: 'Đã cập nhật thực đơn');
               _loadWeeklyMenu();
             } else {
-              NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi cập nhật');
+              NotificationOverlayManager().showError(
+                  title: 'Lỗi', message: res['message'] ?? 'Lỗi cập nhật');
             }
           }
 
@@ -826,7 +886,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           final filteredGrouped = filterCategory != null
               ? {filterCategory!: grouped[filterCategory] ?? []}
               : grouped;
-          final selectedDishes = _masterDishes.where((d) => selectedDishIds.contains(d.id)).toList();
+          final selectedDishes = _masterDishes
+              .where((d) => selectedDishIds.contains(d.id))
+              .toList();
 
           final formBody = Column(
             mainAxisSize: MainAxisSize.min,
@@ -840,11 +902,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF3B82F6)),
+                    const Icon(Icons.info_outline,
+                        size: 16, color: Color(0xFF3B82F6)),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(
+                    Expanded(
+                        child: Text(
                       '${menu.mealSessionName ?? ''} - ${DateFormat('dd/MM/yyyy').format(menu.date)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E40AF)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E40AF)),
                     )),
                   ],
                 ),
@@ -852,7 +918,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               const SizedBox(height: 12),
               TextField(
                 controller: noteCtl,
-                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               if (selectedDishes.isNotEmpty) ...[
@@ -868,27 +935,40 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        const Icon(Icons.restaurant_menu, size: 16, color: Color(0xFF16A34A)),
+                        const Icon(Icons.restaurant_menu,
+                            size: 16, color: Color(0xFF16A34A)),
                         const SizedBox(width: 6),
                         Text('Thực đơn (${selectedDishes.length} món)',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF16A34A))),
                         const Spacer(),
                         GestureDetector(
-                          onTap: () => setDlgState(() => selectedDishIds.clear()),
-                          child: const Text('Bỏ hết', style: TextStyle(fontSize: 12, color: Colors.red)),
+                          onTap: () =>
+                              setDlgState(() => selectedDishIds.clear()),
+                          child: const Text('Bỏ hết',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.red)),
                         ),
                       ]),
                       const SizedBox(height: 6),
                       Wrap(
-                        spacing: 6, runSpacing: 4,
-                        children: selectedDishes.map((d) => Chip(
-                          label: Text(d.name, style: const TextStyle(fontSize: 11)),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () => setDlgState(() => selectedDishIds.remove(d.id)),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: const Color(0xFFDCFCE7),
-                        )).toList(),
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: selectedDishes
+                            .map((d) => Chip(
+                                  label: Text(d.name,
+                                      style: const TextStyle(fontSize: 11)),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () => setDlgState(
+                                      () => selectedDishIds.remove(d.id)),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor: const Color(0xFFDCFCE7),
+                                ))
+                            .toList(),
                       ),
                     ],
                   ),
@@ -896,25 +976,31 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(height: 12),
               ],
               Text('Chọn món (${selectedDishIds.length} đã chọn)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 8),
               if (categories.isNotEmpty)
                 Wrap(
-                  spacing: 6, runSpacing: 4,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     FilterChip(
-                      label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                      label:
+                          const Text('Tất cả', style: TextStyle(fontSize: 11)),
                       selected: filterCategory == null,
-                      onSelected: (_) => setDlgState(() => filterCategory = null),
+                      onSelected: (_) =>
+                          setDlgState(() => filterCategory = null),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     ...categories.map((c) {
                       final count = grouped[c]?.length ?? 0;
                       return FilterChip(
-                        label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                        label: Text('$c ($count)',
+                            style: const TextStyle(fontSize: 11)),
                         selected: filterCategory == c,
-                        onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                        onSelected: (_) => setDlgState(() =>
+                            filterCategory = filterCategory == c ? null : c),
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       );
@@ -931,41 +1017,54 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Padding(
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: Row(children: [
-                        Text(cat, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13)),
+                        Text(cat,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0284C7),
+                                fontSize: 13)),
                         const Spacer(),
                         GestureDetector(
                           onTap: () {
-                            final allSelected = dishes.every((d) => selectedDishIds.contains(d.id));
+                            final allSelected = dishes
+                                .every((d) => selectedDishIds.contains(d.id));
                             setDlgState(() {
-                              if (allSelected) { for (final d in dishes) {
-                                selectedDishIds.remove(d.id);
-                              } }
-                              else { for (final d in dishes) {
-                                selectedDishIds.add(d.id);
-                              } }
+                              if (allSelected) {
+                                for (final d in dishes) {
+                                  selectedDishIds.remove(d.id);
+                                }
+                              } else {
+                                for (final d in dishes) {
+                                  selectedDishIds.add(d.id);
+                                }
+                              }
                             });
                           },
                           child: Text(
-                            dishes.every((d) => selectedDishIds.contains(d.id)) ? 'Bỏ chọn' : 'Chọn hết',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+                            dishes.every((d) => selectedDishIds.contains(d.id))
+                                ? 'Bỏ chọn'
+                                : 'Chọn hết',
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF0284C7)),
                           ),
                         ),
                       ]),
                     ),
                     ...dishes.map((dish) => CheckboxListTile(
-                      dense: true, contentPadding: EdgeInsets.zero,
-                      title: Text(dish.name, style: const TextStyle(fontSize: 14)),
-                      value: selectedDishIds.contains(dish.id),
-                      onChanged: (v) {
-                        setDlgState(() {
-                          if (v == true) {
-                            selectedDishIds.add(dish.id);
-                          } else {
-                            selectedDishIds.remove(dish.id);
-                          }
-                        });
-                      },
-                    )),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(dish.name,
+                              style: const TextStyle(fontSize: 14)),
+                          value: selectedDishIds.contains(dish.id),
+                          onChanged: (v) {
+                            setDlgState(() {
+                              if (v == true) {
+                                selectedDishIds.add(dish.id);
+                              } else {
+                                selectedDishIds.remove(dish.id);
+                              }
+                            });
+                          },
+                        )),
                   ],
                 );
               }),
@@ -977,22 +1076,30 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Sửa thực đơn'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                   actions: [
-                    Padding(padding: const EdgeInsets.only(right: 8),
-                      child: FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilledButton(
+                          onPressed: onSave, child: const Text('Lưu')),
                     ),
                   ],
                 ),
-                body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
+                body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16), child: formBody),
               ),
             );
           }
           return AlertDialog(
             title: const Text('Sửa thực đơn'),
-            content: SizedBox(width: 400, child: SingleChildScrollView(child: formBody)),
+            content: SizedBox(
+                width: 400, child: SingleChildScrollView(child: formBody)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy')),
               FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
@@ -1006,9 +1113,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xoá thực đơn'),
-        content: Text('Bạn có chắc muốn xoá thực đơn ${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?'),
+        content: Text(
+            'Bạn có chắc muốn xoá thực đơn ${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -1020,10 +1130,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     if (confirmed != true) return;
     final res = await _apiService.deleteMealMenu(menu.id);
     if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xoá thực đơn');
+      NotificationOverlayManager()
+          .showSuccess(title: 'Thành công', message: 'Đã xoá thực đơn');
       _loadWeeklyMenu();
     } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi xoá thực đơn');
+      NotificationOverlayManager().showError(
+          title: 'Lỗi', message: res['message'] ?? 'Lỗi xoá thực đơn');
     }
   }
 
@@ -1042,7 +1154,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
       // Header
       sheet.appendRow([
-        TextCellValue('THỰC ĐƠN TUẦN ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}'),
+        TextCellValue(
+            'THỰC ĐƠN TUẦN ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}'),
       ]);
       sheet.appendRow([]);
       sheet.appendRow([
@@ -1056,8 +1169,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
       for (int i = 0; i < 7; i++) {
         final dayDate = _menuWeekStart.add(Duration(days: i));
-        final dayMenus = _weeklyMenus.where((m) =>
-            m.date.year == dayDate.year && m.date.month == dayDate.month && m.date.day == dayDate.day).toList();
+        final dayMenus = _weeklyMenus
+            .where((m) =>
+                m.date.year == dayDate.year &&
+                m.date.month == dayDate.month &&
+                m.date.day == dayDate.day)
+            .toList();
         if (dayMenus.isEmpty) {
           sheet.appendRow([
             TextCellValue(DateFormat('dd/MM/yyyy').format(dayDate)),
@@ -1086,20 +1203,25 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final bytes = excelLib.encode();
       if (bytes == null) return;
       final dir = await getTemporaryDirectory();
-      final filePath = '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.xlsx';
+      final filePath =
+          '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.xlsx';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(filePath)], text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+      await Share.shareXFiles([XFile(filePath)],
+          text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
     } catch (e) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
     }
   }
 
   Future<void> _exportMenuAsPng() async {
     try {
-      final boundary = _menuRepaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = _menuRepaintKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể chụp ảnh menu');
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Không thể chụp ảnh menu');
         return;
       }
       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -1107,12 +1229,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       if (byteData == null) return;
       final bytes = byteData.buffer.asUint8List();
       final dir = await getTemporaryDirectory();
-      final filePath = '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.png';
+      final filePath =
+          '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.png';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(filePath)], text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+      await Share.shareXFiles([XFile(filePath)],
+          text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
     } catch (e) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
     }
   }
 
@@ -1168,7 +1293,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _showCategoryManagementDialog(ctx, setDlgState),
+                          onPressed: () =>
+                              _showCategoryManagementDialog(ctx, setDlgState),
                           icon: const Icon(Icons.category, size: 18),
                           label: const Text('Nhóm món'),
                         ),
@@ -1185,20 +1311,27 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       runSpacing: 4,
                       children: [
                         FilterChip(
-                          label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                          label: const Text('Tất cả',
+                              style: TextStyle(fontSize: 11)),
                           selected: filterCategory == null,
-                          onSelected: (_) => setDlgState(() => filterCategory = null),
+                          onSelected: (_) =>
+                              setDlgState(() => filterCategory = null),
                           visualDensity: VisualDensity.compact,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                         ...categories.map((c) {
                           final count = grouped[c]?.length ?? 0;
                           return FilterChip(
-                            label: Text('$c ($count)', style: const TextStyle(fontSize: 11)),
+                            label: Text('$c ($count)',
+                                style: const TextStyle(fontSize: 11)),
                             selected: filterCategory == c,
-                            onSelected: (_) => setDlgState(() => filterCategory = filterCategory == c ? null : c),
+                            onSelected: (_) => setDlgState(() =>
+                                filterCategory =
+                                    filterCategory == c ? null : c),
                             visualDensity: VisualDensity.compact,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                           );
                         }),
                       ],
@@ -1207,7 +1340,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(height: 8),
                 Expanded(
                   child: _masterDishes.isEmpty
-                      ? const Center(child: Text('Chưa có món ăn nào', style: TextStyle(color: Colors.grey)))
+                      ? const Center(
+                          child: Text('Chưa có món ăn nào',
+                              style: TextStyle(color: Colors.grey)))
                       : ListView(
                           children: filteredGrouped.entries.map((catEntry) {
                             return Column(
@@ -1215,40 +1350,53 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               children: [
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
                                   color: const Color(0xFFF0F9FF),
                                   child: Row(
                                     children: [
                                       Text(catEntry.key,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0284C7))),
                                       const SizedBox(width: 8),
                                       Text('(${catEntry.value.length})',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey)),
                                     ],
                                   ),
                                 ),
                                 ...catEntry.value.map((dish) => ListTile(
-                                  title: Text(dish.name),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, size: 20, color: Color(0xFF3B82F6)),
-                                        onPressed: () => _showEditDishDialog(ctx, setDlgState, dish),
+                                      title: Text(dish.name),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit,
+                                                size: 20,
+                                                color: Color(0xFF3B82F6)),
+                                            onPressed: () =>
+                                                _showEditDishDialog(
+                                                    ctx, setDlgState, dish),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete,
+                                                size: 20, color: Colors.red),
+                                            onPressed: () async {
+                                              final res = await _apiService
+                                                  .deleteMealDish(dish.id);
+                                              if (res['isSuccess'] == true) {
+                                                await _loadMasterDishes();
+                                                if (ctx.mounted) {
+                                                  setDlgState(() {});
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                                        onPressed: () async {
-                                          final res = await _apiService.deleteMealDish(dish.id);
-                                          if (res['isSuccess'] == true) {
-                                            await _loadMasterDishes();
-                                            if (ctx.mounted) setDlgState(() {});
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                )),
+                                    )),
                               ],
                             );
                           }).toList(),
@@ -1263,7 +1411,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Quản lý danh sách món'),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                 ),
                 body: buildContent(),
               ),
@@ -1272,14 +1422,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return AlertDialog(
             title: const Text('Quản lý danh sách món'),
             content: SizedBox(width: 450, height: 500, child: buildContent()),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))],
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng'))
+            ],
           );
         },
       ),
     );
   }
 
-  void _showCategoryManagementDialog(BuildContext parentCtx, StateSetter parentSetState) {
+  void _showCategoryManagementDialog(
+      BuildContext parentCtx, StateSetter parentSetState) {
     showDialog(
       context: parentCtx,
       builder: (ctx) => StatefulBuilder(
@@ -1291,25 +1446,33 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               width: 350,
               height: 350,
               child: categories.isEmpty
-                  ? const Center(child: Text('Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey)))
+                  ? const Center(
+                      child: Text(
+                          'Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
                       itemCount: categories.length,
                       itemBuilder: (_, i) {
                         final cat = categories[i];
-                        final dishCount = _masterDishes.where((d) =>
-                            d.category?.toLowerCase() == cat.toLowerCase()).length;
+                        final dishCount = _masterDishes
+                            .where((d) =>
+                                d.category?.toLowerCase() == cat.toLowerCase())
+                            .length;
                         return ListTile(
-                          leading: const Icon(Icons.folder_outlined, color: Color(0xFF0284C7)),
+                          leading: const Icon(Icons.folder_outlined,
+                              color: Color(0xFF0284C7)),
                           title: Text(cat),
-                          subtitle: Text('$dishCount món', style: const TextStyle(fontSize: 12)),
+                          subtitle: Text('$dishCount món',
+                              style: const TextStyle(fontSize: 12)),
                         );
                       },
                     ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng')),
             ],
           );
         },
@@ -1333,7 +1496,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Tên món *', border: OutlineInputBorder()),
                 autofocus: true,
               ),
               const SizedBox(height: 12),
@@ -1345,12 +1509,21 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    ...categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                    const DropdownMenuItem(value: '__new__', child: Text('+ Thêm nhóm mới...', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w500))),
+                    ...categories
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                    const DropdownMenuItem(
+                        value: '__new__',
+                        child: Text('+ Thêm nhóm mới...',
+                            style: TextStyle(
+                                color: Color(0xFF0284C7),
+                                fontWeight: FontWeight.w500))),
                   ],
                   onChanged: (v) {
                     if (v == '__new__') {
-                      setDlgState(() { addingNewCat = true; selectedCategory = null; });
+                      setDlgState(() {
+                        addingNewCat = true;
+                        selectedCategory = null;
+                      });
                     } else {
                       setDlgState(() => selectedCategory = v);
                     }
@@ -1373,20 +1546,25 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => setDlgState(() { addingNewCat = false; }),
+                      onPressed: () => setDlgState(() {
+                        addingNewCat = false;
+                      }),
                     ),
                   ],
                 ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton(
               onPressed: () async {
                 if (nameCtl.text.trim().isEmpty) return;
-                final category = addingNewCat ? newCatCtl.text.trim() : selectedCategory;
+                final category =
+                    addingNewCat ? newCatCtl.text.trim() : selectedCategory;
                 if (category == null || category.isEmpty) {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn hoặc tạo nhóm món');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi', message: 'Vui lòng chọn hoặc tạo nhóm món');
                   return;
                 }
                 final res = await _apiService.createMealDish({
@@ -1399,7 +1577,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   await _loadMasterDishes();
                   if (parentCtx.mounted) parentSetState(() {});
                 } else {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi', message: res['message'] ?? 'Thất bại');
                 }
               },
               child: const Text('Thêm'),
@@ -1410,12 +1589,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
-  void _showEditDishDialog(BuildContext parentCtx, StateSetter parentSetState, MealDish dish) {
+  void _showEditDishDialog(
+      BuildContext parentCtx, StateSetter parentSetState, MealDish dish) {
     final nameCtl = TextEditingController(text: dish.name);
     String? selectedCategory = dish.category;
     final categories = _getDistinctCategories();
     // Ensure current category is in the list
-    if (selectedCategory != null && selectedCategory.isNotEmpty && !categories.contains(selectedCategory)) {
+    if (selectedCategory != null &&
+        selectedCategory.isNotEmpty &&
+        !categories.contains(selectedCategory)) {
       categories.add(selectedCategory);
       categories.sort();
     }
@@ -1429,7 +1611,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(labelText: 'Tên món *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Tên món *', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -1438,13 +1621,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   labelText: 'Nhóm món',
                   border: OutlineInputBorder(),
                 ),
-                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: (v) => setDlgState(() => selectedCategory = v),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton(
               onPressed: () async {
                 if (nameCtl.text.trim().isEmpty) return;
@@ -1458,7 +1644,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   await _loadMasterDishes();
                   if (parentCtx.mounted) parentSetState(() {});
                 } else {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thất bại');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi', message: res['message'] ?? 'Thất bại');
                 }
               },
               child: const Text('Lưu'),
@@ -1504,8 +1691,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: context,
       firstDate: DateTime(2024),
       lastDate: DateTime(2030),
-      initialDateRange:
-          DateTimeRange(start: _summaryFrom, end: _summaryTo),
+      initialDateRange: DateTimeRange(start: _summaryFrom, end: _summaryTo),
     );
     if (range != null) {
       setState(() {
@@ -1554,12 +1740,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             itemBuilder: (_) => [
               const PopupMenuItem(
                   value: 'sessions', child: Text('Quản lý buổi ăn')),
-              if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
-              const PopupMenuItem(
-                  value: 'dishes', child: Text('Quản lý danh sách món')),
-              if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
-              const PopupMenuItem(
-                  value: 'createMenu', child: Text('Tạo thực đơn')),
+              if (Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Meal'))
+                const PopupMenuItem(
+                    value: 'dishes', child: Text('Quản lý danh sách món')),
+              if (Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Meal'))
+                const PopupMenuItem(
+                    value: 'createMenu', child: Text('Tạo thực đơn')),
               if (_weeklyMenus.isNotEmpty) ...[
                 const PopupMenuDivider(),
                 const PopupMenuItem(
@@ -1624,7 +1812,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     icon: const Icon(Icons.chevron_left),
                     tooltip: 'Ngày trước',
                     onPressed: () {
-                      setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
+                      setState(() => _selectedDate =
+                          _selectedDate.subtract(const Duration(days: 1)));
                       _loadCurrentTab();
                     },
                   ),
@@ -1634,12 +1823,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Color(0xFF0284C7)),
+                            const Icon(Icons.calendar_today,
+                                size: 16, color: Color(0xFF0284C7)),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('EEEE, dd/MM/yyyy', 'vi').format(summary.date),
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                DateFormat('EEEE, dd/MM/yyyy', 'vi')
+                                    .format(summary.date),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -1648,7 +1840,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         const SizedBox(height: 2),
                         Text(
                           'Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}',
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          style:
+                              const TextStyle(color: Colors.grey, fontSize: 12),
                         ),
                       ],
                     ),
@@ -1657,7 +1850,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     icon: const Icon(Icons.chevron_right),
                     tooltip: 'Ngày sau',
                     onPressed: () {
-                      setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)));
+                      setState(() => _selectedDate =
+                          _selectedDate.add(const Duration(days: 1)));
                       _loadCurrentTab();
                     },
                   ),
@@ -1729,10 +1923,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   }
 
   Widget _buildTodayMenuSection() {
-    final todayMenus = _weeklyMenus.where((m) =>
-        m.date.year == _selectedDate.year &&
-        m.date.month == _selectedDate.month &&
-        m.date.day == _selectedDate.day).toList();
+    final todayMenus = _weeklyMenus
+        .where((m) =>
+            m.date.year == _selectedDate.year &&
+            m.date.month == _selectedDate.month &&
+            m.date.day == _selectedDate.day)
+        .toList();
 
     if (todayMenus.isEmpty) {
       return Card(
@@ -1771,11 +1967,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ),
             child: Row(
               children: [
-                const Icon(Icons.restaurant_menu, color: Colors.white, size: 20),
+                const Icon(Icons.restaurant_menu,
+                    color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'Thực đơn ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15),
                 ),
               ],
             ),
@@ -1788,19 +1988,30 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF0284C7).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             menu.mealSessionName ?? 'Buổi ăn',
-                            style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 13),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0284C7),
+                                fontSize: 13),
                           ),
                         ),
                         if (menu.note != null && menu.note!.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Expanded(child: Text(menu.note!, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+                          Expanded(
+                              child: Text(menu.note!,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic),
+                                  overflow: TextOverflow.ellipsis)),
                         ],
                       ],
                     ),
@@ -1810,19 +2021,31 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           child: Row(
                             children: [
                               Container(
-                                width: 6, height: 6,
-                                decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                    color: Color(0xFF10B981),
+                                    shape: BoxShape.circle),
                               ),
                               const SizedBox(width: 10),
-                              Expanded(child: Text(item.dishName, style: const TextStyle(fontSize: 14))),
-                              if (item.category != null && item.category!.isNotEmpty)
+                              Expanded(
+                                  child: Text(item.dishName,
+                                      style: const TextStyle(fontSize: 14))),
+                              if (item.category != null &&
+                                  item.category!.isNotEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                                    color: const Color(0xFF10B981)
+                                        .withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Text(item.category!, style: const TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w500)),
+                                  child: Text(item.category!,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF10B981),
+                                          fontWeight: FontWeight.w500)),
                                 ),
                             ],
                           ),
@@ -1842,11 +2065,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         ? (est.actualCount / est.estimatedCount).clamp(0.0, 1.0)
         : 0.0;
     // Find today's menu for this session
-    final todayMenus = _weeklyMenus.where((m) =>
-        m.mealSessionId == est.mealSessionId &&
-        m.date.year == _selectedDate.year &&
-        m.date.month == _selectedDate.month &&
-        m.date.day == _selectedDate.day).toList();
+    final todayMenus = _weeklyMenus
+        .where((m) =>
+            m.mealSessionId == est.mealSessionId &&
+            m.date.year == _selectedDate.year &&
+            m.date.month == _selectedDate.month &&
+            m.date.day == _selectedDate.day)
+        .toList();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1871,7 +2096,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('Giá: ${_formatCurrency(est.pricePerMeal)}/suất',
-                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13)),
+                    style: const TextStyle(
+                        color: Color(0xFFF59E0B), fontSize: 13)),
               ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -1880,40 +2106,51 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 value: percent,
                 minHeight: 12,
                 backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation(
-                    percent < 0.7 ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                valueColor: AlwaysStoppedAnimation(percent < 0.7
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFF59E0B)),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                _miniStat('Đăng ký', est.registeredCount.toString(), const Color(0xFF8B5CF6)),
+                _miniStat('Đăng ký', est.registeredCount.toString(),
+                    const Color(0xFF8B5CF6)),
                 const SizedBox(width: 12),
-                _miniStat('Ước tính', est.estimatedCount.toString(), const Color(0xFF3B82F6)),
+                _miniStat('Ước tính', est.estimatedCount.toString(),
+                    const Color(0xFF3B82F6)),
                 const SizedBox(width: 12),
-                _miniStat('Thực tế', est.actualCount.toString(), const Color(0xFF10B981)),
+                _miniStat('Thực tế', est.actualCount.toString(),
+                    const Color(0xFF10B981)),
                 const SizedBox(width: 12),
-                _miniStat('Còn', est.remaining.toString(), const Color(0xFFF59E0B)),
+                _miniStat(
+                    'Còn', est.remaining.toString(), const Color(0xFFF59E0B)),
               ],
             ),
             // Today's menu inline
             if (todayMenus.isNotEmpty) ...[
               const Divider(height: 20),
               const Text('🍽️ Thực đơn hôm nay',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0284C7))),
               const SizedBox(height: 4),
               ...todayMenus.expand((menu) => menu.items.map((item) => Padding(
                     padding: const EdgeInsets.only(left: 8, top: 2),
                     child: Row(
                       children: [
-                        const Icon(Icons.circle, size: 5, color: Color(0xFF10B981)),
+                        const Icon(Icons.circle,
+                            size: 5, color: Color(0xFF10B981)),
                         const SizedBox(width: 6),
-                        Text(item.dishName, style: const TextStyle(fontSize: 13)),
+                        Text(item.dishName,
+                            style: const TextStyle(fontSize: 13)),
                         if (item.category != null && item.category!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(left: 6),
                             child: Text('(${item.category})',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                           ),
                       ],
                     ),
@@ -1929,7 +2166,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     return Expanded(
       child: Column(
         children: [
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 15)),
+          Text(value,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: color, fontSize: 15)),
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
@@ -1939,7 +2178,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== TAB 2: RECORDS ====================
 
   Widget _buildRecordsTab() {
-    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    final canManage = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Meal');
     return Column(
       children: [
         // Filters
@@ -1950,12 +2190,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               Expanded(
                 child: InputDecorator(
                   decoration: const InputDecoration(
-                      labelText: 'Ngày', border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      labelText: 'Ngày',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                   child: InkWell(
                     onTap: _pickDate,
-                    child: Text(
-                        DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                    child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
                   ),
                 ),
               ),
@@ -1964,8 +2205,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 child: DropdownButtonFormField<String?>(
                   initialValue: _filterSessionId,
                   decoration: const InputDecoration(
-                      labelText: 'Buổi ăn', border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      labelText: 'Buổi ăn',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Tất cả')),
                     ..._sessions.map((s) =>
@@ -1999,7 +2242,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               hintText: 'Tìm theo tên nhân viên...',
               prefixIcon: const Icon(Icons.search, size: 20),
               border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               isDense: true,
               suffixIcon: _recordSearch.isNotEmpty
                   ? IconButton(
@@ -2051,13 +2295,18 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         itemBuilder: (_, i) {
                           final r = filtered[i];
-                          final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+                          final canManage = Provider.of<PermissionProvider>(
+                                  context,
+                                  listen: false)
+                              .canCreate('Meal');
                           return Card(
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: _sessionColor(r.mealSessionId),
                                 child: Text(
-                                  r.employeeName.isNotEmpty ? r.employeeName[0].toUpperCase() : '?',
+                                  r.employeeName.isNotEmpty
+                                      ? r.employeeName[0].toUpperCase()
+                                      : '?',
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ),
@@ -2067,19 +2316,28 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               ),
                               trailing: canManage
                                   ? PopupMenuButton<String>(
-                                      icon: Icon(Icons.more_vert, color: Colors.grey[600], size: 20),
+                                      icon: Icon(Icons.more_vert,
+                                          color: Colors.grey[600], size: 20),
                                       onSelected: (v) {
-                                        if (v == 'edit') _showEditRecordDialog(r);
+                                        if (v == 'edit') {
+                                          _showEditRecordDialog(r);
+                                        }
                                         if (v == 'delete') _deleteRecord(r);
                                       },
                                       itemBuilder: (_) => [
-                                        const PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                                        const PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: Colors.red))),
+                                        const PopupMenuItem(
+                                            value: 'edit', child: Text('Sửa')),
+                                        const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text('Xóa',
+                                                style: TextStyle(
+                                                    color: Colors.red))),
                                       ],
                                     )
                                   : Text(
                                       r.deviceName ?? r.pin ?? '',
-                                      style: const TextStyle(color: Colors.grey),
+                                      style:
+                                          const TextStyle(color: Colors.grey),
                                     ),
                             ),
                           );
@@ -2137,7 +2395,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     decoration: const InputDecoration(
                         labelText: 'Khoảng thời gian',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                     child: Text(
                       '${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}',
                     ),
@@ -2161,7 +2420,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               hintText: 'Tìm theo tên / mã nhân viên...',
               prefixIcon: const Icon(Icons.search, size: 20),
               border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               isDense: true,
               suffixIcon: _summarySearch.isNotEmpty
                   ? IconButton(
@@ -2189,7 +2449,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             : _employeeSummaries
                                 .where((s) =>
                                     s.employeeName.toLowerCase().contains(q) ||
-                                    (s.employeeCode ?? '').toLowerCase().contains(q))
+                                    (s.employeeCode ?? '')
+                                        .toLowerCase()
+                                        .contains(q))
                                 .toList();
                         if (filtered.isEmpty) {
                           return const Center(
@@ -2214,7 +2476,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   child: Row(
                                     children: [
                                       CircleAvatar(
-                                        backgroundColor: const Color(0xFF0284C7),
+                                        backgroundColor:
+                                            const Color(0xFF0284C7),
                                         child: Text(
                                           s.employeeName.isNotEmpty
                                               ? s.employeeName[0].toUpperCase()
@@ -2276,8 +2539,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                 fontSize: 15,
                                                 color: s.balance > 0
                                                     ? Colors.red
-                                                    : const Color(
-                                                        0xFF10B981)),
+                                                    : const Color(0xFF10B981)),
                                           ),
                                           Text(
                                             s.balance > 0
@@ -2311,11 +2573,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(
                   'Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
                 ),
                 Text(
                   'Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
@@ -2338,13 +2602,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         itemBuilder: (_, i) {
           final d = emp.details[i];
           return ListTile(
-            leading: const Icon(Icons.restaurant,
-                color: Color(0xFF10B981)),
+            leading: const Icon(Icons.restaurant, color: Color(0xFF10B981)),
             title: Text(d.mealSessionName),
-            subtitle: Text(
-                DateFormat('dd/MM/yyyy').format(d.date)),
-            trailing: Text(
-                DateFormat('HH:mm').format(d.mealTime)),
+            subtitle: Text(DateFormat('dd/MM/yyyy').format(d.date)),
+            trailing: Text(DateFormat('HH:mm').format(d.mealTime)),
           );
         },
       );
@@ -2358,7 +2619,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Scaffold(
               appBar: AppBar(
                 title: Text(emp.employeeName),
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx)),
               ),
               body: buildList(),
             ),
@@ -2374,8 +2637,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
           ],
         );
       },
@@ -2385,9 +2647,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== TAB 4: MENU ====================
 
   Widget _buildMenuTab() {
-    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    final canManage = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Meal');
     final weekEnd = _menuWeekStart.add(const Duration(days: 6));
-    bool isToday(d) => d.year == DateTime.now().year && d.month == DateTime.now().month && d.day == DateTime.now().day;
+    bool isToday(d) =>
+        d.year == DateTime.now().year &&
+        d.month == DateTime.now().month &&
+        d.day == DateTime.now().day;
 
     return Column(
       children: [
@@ -2401,7 +2667,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
                     onPressed: () {
-                      setState(() => _menuWeekStart = _menuWeekStart.subtract(const Duration(days: 7)));
+                      setState(() => _menuWeekStart =
+                          _menuWeekStart.subtract(const Duration(days: 7)));
                       _loadWeeklyMenu();
                     },
                   ),
@@ -2409,14 +2676,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     child: Center(
                       child: Text(
                         'Tuần ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () {
-                      setState(() => _menuWeekStart = _menuWeekStart.add(const Duration(days: 7)));
+                      setState(() => _menuWeekStart =
+                          _menuWeekStart.add(const Duration(days: 7)));
                       _loadWeeklyMenu();
                     },
                   ),
@@ -2431,14 +2700,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       OutlinedButton.icon(
                         icon: const Icon(Icons.image, size: 16),
                         label: const Text('Xuất ảnh'),
-                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
                         onPressed: _exportMenuAsPng,
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.table_chart, size: 16),
                         label: const Text('Xuất Excel'),
-                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
                         onPressed: _exportMenuAsExcel,
                       ),
                     ],
@@ -2455,9 +2726,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.restaurant_menu, size: 72, color: Colors.grey[300]),
+                          Icon(Icons.restaurant_menu,
+                              size: 72, color: Colors.grey[300]),
                           const SizedBox(height: 16),
-                          const Text('Chưa có thực đơn cho tuần này', style: TextStyle(color: Colors.grey, fontSize: 15)),
+                          const Text('Chưa có thực đơn cho tuần này',
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 15)),
                           if (canManage) ...[
                             const SizedBox(height: 16),
                             FilledButton.icon(
@@ -2477,9 +2751,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
                           itemCount: 7,
                           itemBuilder: (_, dayIndex) {
-                            final dayDate = _menuWeekStart.add(Duration(days: dayIndex));
+                            final dayDate =
+                                _menuWeekStart.add(Duration(days: dayIndex));
                             final dayMenus = _weeklyMenus
-                                .where((m) => m.date.year == dayDate.year && m.date.month == dayDate.month && m.date.day == dayDate.day)
+                                .where((m) =>
+                                    m.date.year == dayDate.year &&
+                                    m.date.month == dayDate.month &&
+                                    m.date.day == dayDate.day)
                                 .toList();
                             final today = isToday(dayDate);
 
@@ -2491,8 +2769,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   child: ListTile(
                                     dense: true,
                                     leading: _buildDayBadge(dayDate, today),
-                                    title: Text(_dayNames[dayIndex], style: const TextStyle(fontWeight: FontWeight.w500)),
-                                    subtitle: const Text('Chưa có thực đơn', style: TextStyle(fontSize: 12)),
+                                    title: Text(_dayNames[dayIndex],
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w500)),
+                                    subtitle: const Text('Chưa có thực đơn',
+                                        style: TextStyle(fontSize: 12)),
                                   ),
                                 ),
                               );
@@ -2503,29 +2784,47 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               elevation: today ? 3 : 1,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: today ? const BorderSide(color: Color(0xFF0284C7), width: 1.5) : BorderSide.none,
+                                side: today
+                                    ? const BorderSide(
+                                        color: Color(0xFF0284C7), width: 1.5)
+                                    : BorderSide.none,
                               ),
                               child: Theme(
-                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                data: Theme.of(context)
+                                    .copyWith(dividerColor: Colors.transparent),
                                 child: ExpansionTile(
                                   initiallyExpanded: today,
-                                  tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                                  tilePadding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
                                   leading: _buildDayBadge(dayDate, today),
                                   title: Row(
                                     children: [
-                                      Text(_dayNames[dayIndex], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                      Text(_dayNames[dayIndex],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15)),
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0284C7).withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(0xFF0284C7)
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
-                                        child: Text('${dayMenus.length} buổi', style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w500)),
+                                        child: Text('${dayMenus.length} buổi',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF0284C7),
+                                                fontWeight: FontWeight.w500)),
                                       ),
                                     ],
                                   ),
-                                  children: dayMenus.map((menu) => _buildMenuSessionCard(menu, canManage)).toList(),
+                                  children: dayMenus
+                                      .map((menu) => _buildMenuSessionCard(
+                                          menu, canManage))
+                                      .toList(),
                                 ),
                               ),
                             );
@@ -2540,7 +2839,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   Widget _buildDayBadge(DateTime date, bool isToday) {
     return Container(
-      width: 40, height: 40,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         color: isToday ? const Color(0xFF0284C7) : Colors.grey[200],
         borderRadius: BorderRadius.circular(10),
@@ -2575,16 +2875,21 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               padding: const EdgeInsets.fromLTRB(12, 8, 4, 6),
               decoration: BoxDecoration(
                 color: const Color(0xFF0284C7).withValues(alpha: 0.06),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(10)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.restaurant, size: 18, color: Color(0xFF0284C7)),
+                  const Icon(Icons.restaurant,
+                      size: 18, color: Color(0xFF0284C7)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       menu.mealSessionName ?? 'Buổi ăn',
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0284C7), fontSize: 14),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0284C7),
+                          fontSize: 14),
                     ),
                   ),
                   if (canManage) ...[
@@ -2595,7 +2900,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       onPressed: () => _showEditMenuDialog(menu),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      icon: const Icon(Icons.delete_outline,
+                          size: 18, color: Colors.red),
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Xoá thực đơn',
                       onPressed: () => _deleteMenu(menu),
@@ -2607,7 +2913,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (menu.note != null && menu.note!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: Text(menu.note!, style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey[600], fontSize: 12)),
+                child: Text(menu.note!,
+                    style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey[600],
+                        fontSize: 12)),
               ),
             // Dish list
             Padding(
@@ -2620,19 +2930,29 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     child: Row(
                       children: [
                         Container(
-                          width: 6, height: 6,
-                          decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                              color: Color(0xFF10B981), shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(item.dishName, style: const TextStyle(fontSize: 13.5))),
+                        Expanded(
+                            child: Text(item.dishName,
+                                style: const TextStyle(fontSize: 13.5))),
                         if (item.category != null && item.category!.isNotEmpty)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(item.category!, style: const TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w500)),
+                            child: Text(item.category!,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF10B981),
+                                    fontWeight: FontWeight.w500)),
                           ),
                       ],
                     ),
@@ -2649,7 +2969,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== TAB 5: DEBT ====================
 
   Widget _buildDebtTab() {
-    final canManage = Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    final canManage = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Meal');
     return Column(
       children: [
         // Period selector
@@ -2663,8 +2984,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   final parts = _debtPeriod.split('-');
                   var y = int.parse(parts[0]);
                   var m = int.parse(parts[1]) - 1;
-                  if (m < 1) { m = 12; y--; }
-                  setState(() => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
+                  if (m < 1) {
+                    m = 12;
+                    y--;
+                  }
+                  setState(
+                      () => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
                   _loadDebtSummary();
                 },
               ),
@@ -2672,7 +2997,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 child: Text(
                   'Tháng $_debtPeriod',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
               IconButton(
@@ -2681,8 +3007,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   final parts = _debtPeriod.split('-');
                   var y = int.parse(parts[0]);
                   var m = int.parse(parts[1]) + 1;
-                  if (m > 12) { m = 1; y++; }
-                  setState(() => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
+                  if (m > 12) {
+                    m = 1;
+                    y++;
+                  }
+                  setState(
+                      () => _debtPeriod = '$y-${m.toString().padLeft(2, '0')}');
                   _loadDebtSummary();
                 },
               ),
@@ -2702,11 +3032,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Tính tiền cơm'),
-                          content: Text('Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?'),
+                          content: Text(
+                              'Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Hủy')),
                             FilledButton(
-                              onPressed: () { Navigator.pop(ctx); _doBatchCharge(); },
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _doBatchCharge();
+                              },
                               child: const Text('Xác nhận'),
                             ),
                           ],
@@ -2715,7 +3051,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     },
                     icon: const Icon(Icons.calculate),
                     label: const Text('Tính tiền cơm tháng'),
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2735,7 +3072,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               hintText: 'Tìm theo tên / mã nhân viên...',
               prefixIcon: const Icon(Icons.search, size: 20),
               border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               isDense: true,
               suffixIcon: _debtSearch.isNotEmpty
                   ? IconButton(
@@ -2763,7 +3101,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             : _debtSummaries
                                 .where((d) =>
                                     d.employeeName.toLowerCase().contains(q) ||
-                                    (d.employeeCode ?? '').toLowerCase().contains(q))
+                                    (d.employeeCode ?? '')
+                                        .toLowerCase()
+                                        .contains(q))
                                 .toList();
                         if (filtered.isEmpty) {
                           return const Center(
@@ -2852,7 +3192,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                   : const Color(0xFF10B981)),
                                         ),
                                         Text(
-                                          d.balance > 0 ? 'Còn nợ' : 'Đã trả đủ',
+                                          d.balance > 0
+                                              ? 'Còn nợ'
+                                              : 'Đã trả đủ',
                                           style: TextStyle(
                                               fontSize: 10,
                                               color: Colors.grey[600]),
@@ -2861,27 +3203,25 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            if (canManage && d.balance > 0) ...
-                                              [
-                                                InkWell(
-                                                  onTap: () =>
-                                                      _showRecordPaymentDialog(d),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                  child: const Tooltip(
-                                                    message: 'Thu tiền',
-                                                    child: Padding(
-                                                      padding: EdgeInsets.all(4),
-                                                      child: Icon(
-                                                          Icons.payment,
-                                                          color: Color(
-                                                              0xFF10B981),
-                                                          size: 22),
-                                                    ),
+                                            if (canManage && d.balance > 0) ...[
+                                              InkWell(
+                                                onTap: () =>
+                                                    _showRecordPaymentDialog(d),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: const Tooltip(
+                                                  message: 'Thu tiền',
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(4),
+                                                    child: Icon(Icons.payment,
+                                                        color:
+                                                            Color(0xFF10B981),
+                                                        size: 22),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 6),
-                                              ],
+                                              ),
+                                              const SizedBox(width: 6),
+                                            ],
                                             InkWell(
                                               onTap: () =>
                                                   _showDebtHistoryDialog(d),
@@ -2891,8 +3231,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                 message: 'Lịch sử',
                                                 child: Padding(
                                                   padding: EdgeInsets.all(4),
-                                                  child: Icon(
-                                                      Icons.history,
+                                                  child: Icon(Icons.history,
                                                       color: Color(0xFF3B82F6),
                                                       size: 22),
                                                 ),
@@ -2923,7 +3262,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(
                   'Tổng nợ: ${_formatCurrency(_debtSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.red),
                 ),
               ],
             ),
@@ -2950,7 +3290,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           final isPayment = d.type == 1;
           return ListTile(
             leading: CircleAvatar(
-              backgroundColor: isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              backgroundColor:
+                  isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444),
               child: Icon(isPayment ? Icons.arrow_downward : Icons.arrow_upward,
                   color: Colors.white, size: 18),
             ),
@@ -2958,12 +3299,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               '${isPayment ? "Thu tiền" : "Tính cơm"}: ${_formatCurrency(d.amount)}',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                  color: isPayment
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFEF4444)),
             ),
             subtitle: Text(
               '${DateFormat('dd/MM/yyyy').format(d.date)}${d.note != null && d.note!.isNotEmpty ? ' - ${d.note}' : ''}',
             ),
-            trailing: Text(d.recordedByName ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            trailing: Text(d.recordedByName ?? '',
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
           );
         },
       );
@@ -2977,7 +3321,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Scaffold(
               appBar: AppBar(
                 title: Text('Công nợ - ${debt.employeeName}'),
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx)),
               ),
               body: Column(
                 children: [
@@ -2988,16 +3334,30 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Column(children: [
-                          Text(_formatCurrency(debt.totalCharged), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const Text('Tiền cơm', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(_formatCurrency(debt.totalCharged),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          const Text('Tiền cơm',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
                         Column(children: [
-                          Text(_formatCurrency(debt.totalPaid), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
-                          const Text('Đã trả', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(_formatCurrency(debt.totalPaid),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF10B981))),
+                          const Text('Đã trả',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
                         Column(children: [
-                          Text(_formatCurrency(debt.balance), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                          const Text('Còn nợ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(_formatCurrency(debt.balance),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red)),
+                          const Text('Còn nợ',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
                       ],
                     ),
@@ -3012,7 +3372,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           title: Text('Công nợ - ${debt.employeeName}'),
           content: SizedBox(width: 400, height: 400, child: buildList()),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
           ],
         );
       },
@@ -3023,7 +3384,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   void _showAddRecordDialog() {
     String? selectedEmployeeId;
-    String? selectedSessionId = _sessions.isNotEmpty ? _sessions.first.id : null;
+    String? selectedSessionId =
+        _sessions.isNotEmpty ? _sessions.first.id : null;
     TimeOfDay mealTime = TimeOfDay.now();
 
     showDialog(
@@ -3043,15 +3405,20 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     if (textEditingValue.text.isEmpty) return list.take(20);
                     final q = textEditingValue.text.toLowerCase();
                     return list.where((e) {
-                      final name = (e['fullName'] ?? '').toString().toLowerCase();
-                      final code = (e['employeeCode'] ?? '').toString().toLowerCase();
+                      final name =
+                          (e['fullName'] ?? '').toString().toLowerCase();
+                      final code =
+                          (e['employeeCode'] ?? '').toString().toLowerCase();
                       return name.contains(q) || code.contains(q);
                     }).take(20);
                   },
-                  displayStringForOption: (e) => '${e['fullName']} (${e['employeeCode'] ?? ''})',
+                  displayStringForOption: (e) =>
+                      '${e['fullName']} (${e['employeeCode'] ?? ''})',
                   fieldViewBuilder: (ctx, ctl, fn, onSubmit) => TextField(
-                    controller: ctl, focusNode: fn,
-                    decoration: const InputDecoration(labelText: 'Nhân viên *', border: OutlineInputBorder()),
+                    controller: ctl,
+                    focusNode: fn,
+                    decoration: const InputDecoration(
+                        labelText: 'Nhân viên *', border: OutlineInputBorder()),
                   ),
                   onSelected: (e) {
                     selectedEmployeeId = e['userId']?.toString();
@@ -3061,35 +3428,50 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 // Session dropdown
                 DropdownButtonFormField<String>(
                   initialValue: selectedSessionId,
-                  decoration: const InputDecoration(labelText: 'Buổi ăn *', border: OutlineInputBorder()),
-                  items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
+                  decoration: const InputDecoration(
+                      labelText: 'Buổi ăn *', border: OutlineInputBorder()),
+                  items: _sessions
+                      .map((s) =>
+                          DropdownMenuItem(value: s.id, child: Text(s.name)))
+                      .toList(),
                   onChanged: (v) => setDlgState(() => selectedSessionId = v),
                 ),
                 const SizedBox(height: 12),
                 // Time
                 InkWell(
                   onTap: () async {
-                    final t = await showTimePicker(context: ctx, initialTime: mealTime);
+                    final t = await showTimePicker(
+                        context: ctx, initialTime: mealTime);
                     if (t != null) setDlgState(() => mealTime = t);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Giờ ăn', border: OutlineInputBorder()),
-                    child: Text('${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
+                    decoration: const InputDecoration(
+                        labelText: 'Giờ ăn', border: OutlineInputBorder()),
+                    child: Text(
+                        '${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton(
               onPressed: () async {
                 if (selectedEmployeeId == null || selectedSessionId == null) {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: 'Vui lòng chọn nhân viên và buổi ăn');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi',
+                      message: 'Vui lòng chọn nhân viên và buổi ăn');
                   return;
                 }
                 Navigator.pop(ctx);
-                final mealDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, mealTime.hour, mealTime.minute);
+                final mealDateTime = DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                    mealTime.hour,
+                    mealTime.minute);
                 final res = await _apiService.createMealRecord({
                   'employeeUserId': selectedEmployeeId,
                   'mealSessionId': selectedSessionId,
@@ -3097,10 +3479,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   'mealTime': mealDateTime.toIso8601String(),
                 });
                 if (res['isSuccess'] == true) {
-                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã thêm chấm cơm');
+                  NotificationOverlayManager().showSuccess(
+                      title: 'Thành công', message: 'Đã thêm chấm cơm');
                   _loadRecords();
                 } else {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Thêm thất bại');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi', message: res['message'] ?? 'Thêm thất bại');
                 }
               },
               child: const Text('Thêm'),
@@ -3113,7 +3497,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   void _showEditRecordDialog(MealRecord record) {
     String? selectedSessionId = record.mealSessionId;
-    TimeOfDay mealTime = TimeOfDay(hour: record.mealTime.hour, minute: record.mealTime.minute);
+    TimeOfDay mealTime =
+        TimeOfDay(hour: record.mealTime.hour, minute: record.mealTime.minute);
 
     showDialog(
       context: context,
@@ -3125,38 +3510,54 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               DropdownButtonFormField<String>(
                 initialValue: selectedSessionId,
-                decoration: const InputDecoration(labelText: 'Buổi ăn', border: OutlineInputBorder()),
-                items: _sessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
+                decoration: const InputDecoration(
+                    labelText: 'Buổi ăn', border: OutlineInputBorder()),
+                items: _sessions
+                    .map((s) =>
+                        DropdownMenuItem(value: s.id, child: Text(s.name)))
+                    .toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
               ),
               const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
-                  final t = await showTimePicker(context: ctx, initialTime: mealTime);
+                  final t =
+                      await showTimePicker(context: ctx, initialTime: mealTime);
                   if (t != null) setDlgState(() => mealTime = t);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Giờ ăn', border: OutlineInputBorder()),
-                  child: Text('${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
+                  decoration: const InputDecoration(
+                      labelText: 'Giờ ăn', border: OutlineInputBorder()),
+                  child: Text(
+                      '${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton(
               onPressed: () async {
                 Navigator.pop(ctx);
-                final mealDateTime = DateTime(record.date.year, record.date.month, record.date.day, mealTime.hour, mealTime.minute);
+                final mealDateTime = DateTime(
+                    record.date.year,
+                    record.date.month,
+                    record.date.day,
+                    mealTime.hour,
+                    mealTime.minute);
                 final res = await _apiService.updateMealRecord(record.id, {
                   'mealSessionId': selectedSessionId,
                   'mealTime': mealDateTime.toIso8601String(),
                 });
                 if (res['isSuccess'] == true) {
-                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cập nhật');
+                  NotificationOverlayManager()
+                      .showSuccess(title: 'Thành công', message: 'Đã cập nhật');
                   _loadRecords();
                 } else {
-                  NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Cập nhật thất bại');
+                  NotificationOverlayManager().showError(
+                      title: 'Lỗi',
+                      message: res['message'] ?? 'Cập nhật thất bại');
                 }
               },
               child: const Text('Lưu'),
@@ -3174,7 +3575,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa chấm cơm của ${record.employeeName}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -3186,10 +3589,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     if (confirm != true) return;
     final res = await _apiService.deleteMealRecord(record.id);
     if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: 'Xóa bản ghi thành công');
+      NotificationOverlayManager()
+          .showSuccess(title: 'Đã xóa', message: 'Xóa bản ghi thành công');
       _loadRecords();
     } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Xóa thất bại');
+      NotificationOverlayManager()
+          .showError(title: 'Lỗi', message: res['message'] ?? 'Xóa thất bại');
     }
   }
 
@@ -3212,13 +3617,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             title: Text(s.name),
             subtitle: Text(
                 '${s.startTime ?? ''} - ${s.endTime ?? ''}${s.pricePerMeal > 0 ? ' | ${_formatCurrency(s.pricePerMeal)}/suất' : ''}'),
-            trailing: Provider.of<PermissionProvider>(context, listen: false).canDelete('Meal') ? IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () {
-                Navigator.pop(context);
-                _showDeleteSessionDialog(s);
-              },
-            ) : null,
+            trailing: Provider.of<PermissionProvider>(context, listen: false)
+                    .canDelete('Meal')
+                ? IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showDeleteSessionDialog(s);
+                    },
+                  )
+                : null,
           );
         },
       );
@@ -3232,16 +3640,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Scaffold(
               appBar: AppBar(
                 title: const Text('Quản lý buổi ăn'),
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx)),
                 actions: [
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'))
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _showCreateSessionDialog();
-                    },
-                  ),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canCreate('Meal'))
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showCreateSessionDialog();
+                      },
+                    ),
                 ],
               ),
               body: buildList(),
@@ -3270,8 +3681,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
           ],
         );
       },

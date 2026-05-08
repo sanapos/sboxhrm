@@ -31,6 +31,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   /// Read filter: null = all, true = unread, false = read
   bool? _readFilter;
+
   /// Entity type filter: null = all
   String? _entityFilter;
 
@@ -181,7 +182,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       debugPrint('Error loading notifications: $e');
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi tải thông báo: $e');
+        appNotification.showError(
+            title: 'Lỗi', message: 'Lỗi tải thông báo: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -221,12 +223,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (index != -1 && !_notifications[index].isRead) {
             final old = _notifications[index];
             _notifications[index] = AppNotification(
-              id: old.id, userId: old.userId, title: old.title,
-              message: old.message, type: old.type, isRead: true,
-              readAt: DateTime.now(), actionUrl: old.actionUrl,
+              id: old.id,
+              userId: old.userId,
+              title: old.title,
+              message: old.message,
+              type: old.type,
+              isRead: true,
+              readAt: DateTime.now(),
+              actionUrl: old.actionUrl,
               relatedEntityId: old.relatedEntityId,
               relatedEntityType: old.relatedEntityType,
-              categoryCode: old.categoryCode, createdAt: old.createdAt,
+              categoryCode: old.categoryCode,
+              createdAt: old.createdAt,
             );
             _unreadCount = (_unreadCount - 1).clamp(0, _totalCount);
           }
@@ -242,17 +250,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final summary = await _apiService.getNotificationSummary();
       if (!mounted) return;
       setState(() {
-        _notifications = _notifications.map((n) => AppNotification(
-          id: n.id, userId: n.userId, title: n.title, message: n.message,
-          type: n.type, isRead: true, readAt: DateTime.now(),
-          actionUrl: n.actionUrl, relatedEntityId: n.relatedEntityId,
-          relatedEntityType: n.relatedEntityType,
-          categoryCode: n.categoryCode, createdAt: n.createdAt,
-        )).toList();
+        _notifications = _notifications
+            .map((n) => AppNotification(
+                  id: n.id,
+                  userId: n.userId,
+                  title: n.title,
+                  message: n.message,
+                  type: n.type,
+                  isRead: true,
+                  readAt: DateTime.now(),
+                  actionUrl: n.actionUrl,
+                  relatedEntityId: n.relatedEntityId,
+                  relatedEntityType: n.relatedEntityType,
+                  categoryCode: n.categoryCode,
+                  createdAt: n.createdAt,
+                ))
+            .toList();
         _unreadCount = summary['unreadCount'] ?? 0;
       });
       ScreenRefreshNotifier.refreshNotificationCount();
-      if (mounted) appNotification.showSuccess(title: 'Thành công', message: 'Đã đánh dấu tất cả đã đọc');
+      if (mounted) {
+        appNotification.showSuccess(
+            title: 'Thành công', message: 'Đã đánh dấu tất cả đã đọc');
+      }
     }
   }
 
@@ -262,7 +282,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() {
         final index = _notifications.indexWhere((n) => n.id == id);
         if (index != -1) {
-          if (!_notifications[index].isRead) _unreadCount = (_unreadCount - 1).clamp(0, _totalCount);
+          if (!_notifications[index].isRead) {
+            _unreadCount = (_unreadCount - 1).clamp(0, _totalCount);
+          }
           _notifications.removeAt(index);
           _totalCount--;
         }
@@ -270,7 +292,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ScreenRefreshNotifier.refreshNotificationCount();
       return true;
     } else {
-      if (mounted) appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể xóa');
+      if (mounted) {
+        appNotification.showError(
+            title: 'Lỗi', message: result['message'] ?? 'Không thể xóa');
+      }
       return false;
     }
   }
@@ -282,7 +307,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: const Text('Xóa tất cả thông báo?'),
         content: const Text('Hành động này không thể hoàn tác.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -293,14 +320,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
     if (confirm != true) return;
 
-    final isReadParam = _readFilter == null ? null : (_readFilter! ? false : true);
-    final result = await _apiService.deleteAllNotifications(isRead: isReadParam);
+    final isReadParam =
+        _readFilter == null ? null : (_readFilter! ? false : true);
+    final result =
+        await _apiService.deleteAllNotifications(isRead: isReadParam);
     if (result['isSuccess'] == true) {
       await _loadData();
       ScreenRefreshNotifier.refreshNotificationCount();
-      if (mounted) appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa tất cả thông báo');
+      if (mounted) {
+        appNotification.showSuccess(
+            title: 'Thành công', message: 'Đã xóa tất cả thông báo');
+      }
     } else {
-      if (mounted) appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Không thể xóa');
+      if (mounted) {
+        appNotification.showError(
+            title: 'Lỗi', message: result['message'] ?? 'Không thể xóa');
+      }
     }
   }
 
@@ -310,9 +345,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_entityFilter == null) return _notifications;
     return _notifications.where((n) {
       final et = n.relatedEntityType?.toLowerCase() ?? '';
-      if (_entityFilter == 'attendance') return et == 'attendance' || et == 'newattendance';
-      if (_entityFilter == 'device') return et == 'device' || et == 'devicestatus' || et == 'admsdevice';
-      return et != 'attendance' && et != 'newattendance' && et != 'device' && et != 'devicestatus' && et != 'admsdevice';
+      if (_entityFilter == 'attendance') {
+        return et == 'attendance' || et == 'newattendance';
+      }
+      if (_entityFilter == 'device') {
+        return et == 'device' || et == 'devicestatus' || et == 'admsdevice';
+      }
+      return et != 'attendance' &&
+          et != 'newattendance' &&
+          et != 'device' &&
+          et != 'devicestatus' &&
+          et != 'admsdevice';
     }).toList();
   }
 
@@ -341,41 +384,73 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _getIcon(AppNotification n) {
-    if (n.relatedEntityType == 'Device' || n.relatedEntityType == 'DeviceStatus') {
+    if (n.relatedEntityType == 'Device' ||
+        n.relatedEntityType == 'DeviceStatus') {
       final t = n.title.toLowerCase();
-      if (t.contains('ngắt') || t.contains('mất') || t.contains('offline')) return Icons.wifi_off;
-      if (t.contains('kết nối') || t.contains('online') || t.contains('phát hiện')) return Icons.wifi;
+      if (t.contains('ngắt') || t.contains('mất') || t.contains('offline')) {
+        return Icons.wifi_off;
+      }
+      if (t.contains('kết nối') ||
+          t.contains('online') ||
+          t.contains('phát hiện')) {
+        return Icons.wifi;
+      }
       return Icons.router;
     }
-    if (n.relatedEntityType == 'Attendance' || n.relatedEntityType == 'NewAttendance') return Icons.fingerprint;
+    if (n.relatedEntityType == 'Attendance' ||
+        n.relatedEntityType == 'NewAttendance') {
+      return Icons.fingerprint;
+    }
     switch (n.type) {
-      case NotificationType.warning: return Icons.warning_amber;
-      case NotificationType.error: return Icons.error_outline;
-      case NotificationType.success: return Icons.check_circle_outline;
-      case NotificationType.leaveRequest: return Icons.event_busy;
-      case NotificationType.advanceRequest: return Icons.attach_money;
-      case NotificationType.scheduleRegistration: return Icons.calendar_today;
-      case NotificationType.payslip: return Icons.receipt_long;
-      case NotificationType.system: return Icons.settings;
-      case NotificationType.approvalRequired: return Icons.approval;
-      case NotificationType.reminder: return Icons.alarm;
-      case NotificationType.attendanceCorrection: return Icons.edit_calendar;
-      default: return Icons.notifications_outlined;
+      case NotificationType.warning:
+        return Icons.warning_amber;
+      case NotificationType.error:
+        return Icons.error_outline;
+      case NotificationType.success:
+        return Icons.check_circle_outline;
+      case NotificationType.leaveRequest:
+        return Icons.event_busy;
+      case NotificationType.advanceRequest:
+        return Icons.attach_money;
+      case NotificationType.scheduleRegistration:
+        return Icons.calendar_today;
+      case NotificationType.payslip:
+        return Icons.receipt_long;
+      case NotificationType.system:
+        return Icons.settings;
+      case NotificationType.approvalRequired:
+        return Icons.approval;
+      case NotificationType.reminder:
+        return Icons.alarm;
+      case NotificationType.attendanceCorrection:
+        return Icons.edit_calendar;
+      default:
+        return Icons.notifications_outlined;
     }
   }
 
   Color _getColor(AppNotification n) {
-    if (n.relatedEntityType == 'Device' || n.relatedEntityType == 'DeviceStatus') {
+    if (n.relatedEntityType == 'Device' ||
+        n.relatedEntityType == 'DeviceStatus') {
       final t = n.title.toLowerCase();
-      if (t.contains('ngắt') || t.contains('mất') || t.contains('offline')) return const Color(0xFFEF4444);
+      if (t.contains('ngắt') || t.contains('mất') || t.contains('offline')) {
+        return const Color(0xFFEF4444);
+      }
       return const Color(0xFF22C55E);
     }
-    if (n.relatedEntityType == 'Attendance' || n.relatedEntityType == 'NewAttendance') return const Color(0xFF3B82F6);
+    if (n.relatedEntityType == 'Attendance' ||
+        n.relatedEntityType == 'NewAttendance') {
+      return const Color(0xFF3B82F6);
+    }
     switch (n.type) {
-      case NotificationType.warning: return const Color(0xFFF59E0B);
-      case NotificationType.error: return const Color(0xFFEF4444);
-      case NotificationType.success: return const Color(0xFF22C55E);
-      default: return const Color(0xFF6366F1);
+      case NotificationType.warning:
+        return const Color(0xFFF59E0B);
+      case NotificationType.error:
+        return const Color(0xFFEF4444);
+      case NotificationType.success:
+        return const Color(0xFF22C55E);
+      default:
+        return const Color(0xFF6366F1);
     }
   }
 
@@ -389,7 +464,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'device':
       case 'devicestatus':
       case 'admsdevice':
-        NavigationNotifier.goToDeviceSettings(); // → SettingsHub > Máy chấm công
+        NavigationNotifier
+            .goToDeviceSettings(); // → SettingsHub > Máy chấm công
       case 'leave':
       case 'leaverequest':
         NavigationNotifier.goToLeaves();
@@ -470,9 +546,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ? const LoadingWidget()
                 : filtered.isEmpty
                     ? EmptyState(
-                        icon: _readFilter == true ? Icons.mark_email_read : Icons.notifications_off,
-                        title: _readFilter == true ? 'Không có thông báo chưa đọc' : 'Không có thông báo',
-                        description: _readFilter == true ? 'Tất cả đã được đọc' : 'Chưa có thông báo nào',
+                        icon: _readFilter == true
+                            ? Icons.mark_email_read
+                            : Icons.notifications_off,
+                        title: _readFilter == true
+                            ? 'Không có thông báo chưa đọc'
+                            : 'Không có thông báo',
+                        description: _readFilter == true
+                            ? 'Tất cả đã được đọc'
+                            : 'Chưa có thông báo nào',
                       )
                     : RefreshIndicator(
                         onRefresh: _loadData,
@@ -483,10 +565,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           itemBuilder: (_, i) {
                             final item = flatItems[i];
                             if (item == null) {
-                              return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+                              return const Center(
+                                  child: Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: CircularProgressIndicator()));
                             }
                             if (item is String) return _buildDateHeader(item);
-                            return _buildNotificationCard(item as AppNotification);
+                            return _buildNotificationCard(
+                                item as AppNotification);
                           },
                         ),
                       ),
@@ -505,32 +591,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(children: [
-              _chip('Tất cả', _readFilter == null, () { setState(() => _readFilter = null); _loadData(); }),
+              _chip('Tất cả', _readFilter == null, () {
+                setState(() => _readFilter = null);
+                _loadData();
+              }),
               const SizedBox(width: 6),
-              _chip('Chưa đọc', _readFilter == true, () { setState(() => _readFilter = true); _loadData(); },
-                  count: _unreadCount, activeColor: const Color(0xFFEF4444)),
+              _chip('Chưa đọc', _readFilter == true, () {
+                setState(() => _readFilter = true);
+                _loadData();
+              }, count: _unreadCount, activeColor: const Color(0xFFEF4444)),
               const SizedBox(width: 6),
-              _chip('Đã đọc', _readFilter == false, () { setState(() => _readFilter = false); _loadData(); },
-                  activeColor: const Color(0xFF22C55E)),
-              Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: Colors.grey.shade300),
-              _iconChip(Icons.fingerprint, 'Chấm công', _entityFilter == 'attendance',
-                  () => setState(() => _entityFilter = _entityFilter == 'attendance' ? null : 'attendance'),
+              _chip('Đã đọc', _readFilter == false, () {
+                setState(() => _readFilter = false);
+                _loadData();
+              }, activeColor: const Color(0xFF22C55E)),
+              Container(
+                  width: 1,
+                  height: 20,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.grey.shade300),
+              _iconChip(
+                  Icons.fingerprint,
+                  'Chấm công',
+                  _entityFilter == 'attendance',
+                  () => setState(() => _entityFilter =
+                      _entityFilter == 'attendance' ? null : 'attendance'),
                   activeColor: const Color(0xFF3B82F6)),
               const SizedBox(width: 6),
-              _iconChip(Icons.router, 'Thiết bị', _entityFilter == 'device',
-                  () => setState(() => _entityFilter = _entityFilter == 'device' ? null : 'device'),
+              _iconChip(
+                  Icons.router,
+                  'Thiết bị',
+                  _entityFilter == 'device',
+                  () => setState(() => _entityFilter =
+                      _entityFilter == 'device' ? null : 'device'),
                   activeColor: const Color(0xFF22C55E)),
               const SizedBox(width: 6),
-              _iconChip(Icons.more_horiz, 'Khác', _entityFilter == 'other',
-                  () => setState(() => _entityFilter = _entityFilter == 'other' ? null : 'other'),
+              _iconChip(
+                  Icons.more_horiz,
+                  'Khác',
+                  _entityFilter == 'other',
+                  () => setState(() => _entityFilter =
+                      _entityFilter == 'other' ? null : 'other'),
                   activeColor: const Color(0xFF6366F1)),
-              if (_unreadCount > 0 || _notifications.isNotEmpty) ...[  
-                Container(width: 1, height: 20, margin: const EdgeInsets.symmetric(horizontal: 8), color: Colors.grey.shade300),
+              if (_unreadCount > 0 || _notifications.isNotEmpty) ...[
+                Container(
+                    width: 1,
+                    height: 20,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    color: Colors.grey.shade300),
                 if (_unreadCount > 0)
-                  _actionIcon(Icons.done_all, 'Đánh dấu đã đọc', _markAllAsRead),
-                if (_notifications.isNotEmpty) ...[  
+                  _actionIcon(
+                      Icons.done_all, 'Đánh dấu đã đọc', _markAllAsRead),
+                if (_notifications.isNotEmpty) ...[
                   const SizedBox(width: 4),
-                  _actionIcon(Icons.delete_sweep_outlined, 'Xóa tất cả', _deleteAllNotifications, color: Colors.red.shade400),
+                  _actionIcon(Icons.delete_sweep_outlined, 'Xóa tất cả',
+                      _deleteAllNotifications,
+                      color: Colors.red.shade400),
                 ],
               ],
             ]),
@@ -541,7 +657,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _actionIcon(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) {
+  Widget _actionIcon(IconData icon, String tooltip, VoidCallback onTap,
+      {Color? color}) {
     return GestureDetector(
       onTap: onTap,
       child: Tooltip(
@@ -558,7 +675,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _chip(String label, bool active, VoidCallback onTap, {int? count, Color? activeColor}) {
+  Widget _chip(String label, bool active, VoidCallback onTap,
+      {int? count, Color? activeColor}) {
     final color = activeColor ?? Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onTap,
@@ -567,16 +685,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         decoration: BoxDecoration(
           color: active ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? color.withValues(alpha: 0.4) : Colors.grey.shade300),
+          border: Border.all(
+              color:
+                  active ? color.withValues(alpha: 0.4) : Colors.grey.shade300),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w600 : FontWeight.w400, color: active ? color : Colors.grey.shade600)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  color: active ? color : Colors.grey.shade600)),
           if (count != null && count > 0) ...[
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-              child: Text(count > 99 ? '99+' : '$count', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(10)),
+              child: Text(count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700)),
             ),
           ],
         ]),
@@ -584,7 +713,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _iconChip(IconData icon, String label, bool active, VoidCallback onTap, {Color? activeColor}) {
+  Widget _iconChip(IconData icon, String label, bool active, VoidCallback onTap,
+      {Color? activeColor}) {
     final color = activeColor ?? Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onTap,
@@ -593,12 +723,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         decoration: BoxDecoration(
           color: active ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: active ? color.withValues(alpha: 0.4) : Colors.grey.shade200),
+          border: Border.all(
+              color:
+                  active ? color.withValues(alpha: 0.4) : Colors.grey.shade200),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 15, color: active ? color : Colors.grey.shade500),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: active ? FontWeight.w600 : FontWeight.w400, color: active ? color : Colors.grey.shade600)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  color: active ? color : Colors.grey.shade600)),
         ]),
       ),
     );
@@ -620,7 +756,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       padding: const EdgeInsets.only(top: 14, bottom: 6, left: 4),
       child: Text(
         label,
-        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey.shade600, letterSpacing: 0.3),
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade600,
+            letterSpacing: 0.3),
       ),
     );
   }
@@ -628,7 +768,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _buildNotificationCard(AppNotification n) {
     final color = _getColor(n);
     final icon = _getIcon(n);
-    final hasNav = n.relatedEntityType != null && n.relatedEntityType!.isNotEmpty;
+    final hasNav =
+        n.relatedEntityType != null && n.relatedEntityType!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -638,7 +779,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(color: Colors.red.shade400, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+              color: Colors.red.shade400,
+              borderRadius: BorderRadius.circular(12)),
           child: const Icon(Icons.delete_outline, color: Colors.white),
         ),
         confirmDismiss: (_) => _deleteNotification(n.id),
@@ -656,7 +799,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: n.isRead ? Colors.grey.shade200 : color.withValues(alpha: 0.25),
+                  color: n.isRead
+                      ? Colors.grey.shade200
+                      : color.withValues(alpha: 0.25),
                 ),
               ),
               padding: const EdgeInsets.all(12),
@@ -664,12 +809,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: n.isRead ? Colors.grey.shade100 : color.withValues(alpha: 0.14),
+                      color: n.isRead
+                          ? Colors.grey.shade100
+                          : color.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(icon, color: n.isRead ? Colors.grey.shade400 : color, size: 20),
+                    child: Icon(icon,
+                        color: n.isRead ? Colors.grey.shade400 : color,
+                        size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -679,30 +829,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Row(children: [
                           if (!n.isRead)
                             Container(
-                              width: 8, height: 8,
+                              width: 8,
+                              height: 8,
                               margin: const EdgeInsets.only(right: 6),
-                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                              decoration: BoxDecoration(
+                                  color: color, shape: BoxShape.circle),
                             ),
                           Expanded(
                             child: Text(
                               n.title,
                               style: TextStyle(
-                                fontWeight: n.isRead ? FontWeight.w500 : FontWeight.w700,
+                                fontWeight: n.isRead
+                                    ? FontWeight.w500
+                                    : FontWeight.w700,
                                 fontSize: 14,
-                                color: n.isRead ? Colors.grey.shade600 : Colors.grey.shade900,
+                                color: n.isRead
+                                    ? Colors.grey.shade600
+                                    : Colors.grey.shade900,
                               ),
-                              maxLines: 2, overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (hasNav)
-                            Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade400),
+                            Icon(Icons.chevron_right,
+                                size: 18, color: Colors.grey.shade400),
                         ]),
                         const SizedBox(height: 4),
                         _buildExpandableMessage(n),
                         const SizedBox(height: 6),
                         Text(
                           timeago.format(n.createdAt, locale: 'vi'),
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade400),
                         ),
                       ],
                     ),

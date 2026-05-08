@@ -111,64 +111,82 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   /// Quyền KHÔNG có trong set sẽ bị ẩn (hiển thị dấu trừ) trong bảng phân quyền.
   static const Map<String, Set<String>> _moduleCapabilities = {
     // ── TỔNG QUAN ──
-    'Home':         {'canView'},
+    'Home': {'canView'},
     'Notification': {'canView'},
-    'Dashboard':    {'canView'},
+    'Dashboard': {'canView'},
     // ── HỒ SƠ NHÂN SỰ ──
-    'Employee':       {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'DeviceUser':     {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Department':     {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Leave':          {'canView', 'canCreate', 'canDelete', 'canExport', 'canApprove'},
+    'Employee': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'DeviceUser': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Department': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Leave': {'canView', 'canCreate', 'canDelete', 'canExport', 'canApprove'},
     'SalarySettings': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     // ── CHẤM CÔNG ──
-    'Attendance':          {'canView', 'canExport'},
-    'WorkSchedule':        {'canView', 'canCreate', 'canEdit', 'canDelete', 'canApprove'},
-    'AttendanceSummary':   {'canView', 'canExport'},
-    'AttendanceByShift':   {'canView', 'canExport'},
-    'AttendanceApproval':  {'canView', 'canApprove'},
-    'ScheduleApproval':    {'canView', 'canApprove'},
-    'Payroll':             {'canView', 'canExport'},
+    'Attendance': {'canView', 'canExport'},
+    'WorkSchedule': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canApprove'
+    },
+    'AttendanceSummary': {'canView', 'canExport'},
+    'AttendanceByShift': {'canView', 'canExport'},
+    'AttendanceApproval': {'canView', 'canApprove'},
+    'ScheduleApproval': {'canView', 'canApprove'},
+    'Payroll': {'canView', 'canExport'},
     // ── TÀI CHÍNH ──
-    'BonusPenalty':    {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'PenaltyTickets':  {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'BonusPenalty': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport'
+    },
+    'PenaltyTickets': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'AdvanceRequests': {'canView', 'canCreate', 'canApprove'},
-    'CashTransaction': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'CashTransaction': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport'
+    },
     // ── QUẢN LÝ VẬN HÀNH ──
-    'Asset':                      {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'Task':                       {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Communication':              {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'KPI':                        {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'Production':                 {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'MobileDeviceRegistration':   {'canView', 'canApprove'},
-    'MobileAttendanceApproval':   {'canView', 'canApprove'},
-    'Meal':                       {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'FieldCheckIn':               {'canView', 'canExport'},
+    'Asset': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'Task': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Communication': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'KPI': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'Production': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'MobileDeviceRegistration': {'canView', 'canApprove'},
+    'MobileAttendanceApproval': {'canView', 'canApprove'},
+    'Meal': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'FieldCheckIn': {'canView', 'canExport'},
     // ── BÁO CÁO — chỉ xem + xuất ──
-    'HrReport':         {'canView', 'canExport'},
+    'HrReport': {'canView', 'canExport'},
     'AttendanceReport': {'canView', 'canExport'},
-    'PayrollReport':    {'canView', 'canExport'},
-    'LeaveReport':      {'canView', 'canExport'},
-    'CashReport':       {'canView', 'canExport'},
-    'PenaltyReport':    {'canView', 'canExport'},
-    'AdvanceReport':    {'canView', 'canExport'},
+    'PayrollReport': {'canView', 'canExport'},
+    'LeaveReport': {'canView', 'canExport'},
+    'CashReport': {'canView', 'canExport'},
+    'PenaltyReport': {'canView', 'canExport'},
+    'AdvanceReport': {'canView', 'canExport'},
     // ── CÀI ĐẶT ──
-    'SettingsHub':          {'canView'},
-    'ShiftSetup':           {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'MobileAttendance':     {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Holiday':              {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Device':               {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Allowance':            {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'PenaltySetup':         {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Insurance':            {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Tax':                  {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'ProductSalary':        {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Feedback':             {'canView', 'canCreate', 'canDelete'},
-    'UserManagement':       {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Role':                 {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'SystemSettings':       {'canView', 'canEdit'},
+    'SettingsHub': {'canView'},
+    'ShiftSetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'MobileAttendance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Holiday': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Device': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Allowance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PenaltySetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Insurance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Tax': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'ProductSalary': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Feedback': {'canView', 'canCreate', 'canDelete'},
+    'UserManagement': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Role': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'SystemSettings': {'canView', 'canEdit'},
     'NotificationSettings': {'canView', 'canEdit'},
-    'AIGemini':             {'canView', 'canEdit'},
-    'Settings':             {'canView', 'canEdit'},
+    'AIGemini': {'canView', 'canEdit'},
+    'Settings': {'canView', 'canEdit'},
   };
 
   /// Trả về true nếu module hỗ trợ quyền này
@@ -879,12 +897,24 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           _selectedRolePermissions!['permissions']);
       permissions[index] = Map<String, dynamic>.from(permissions[index]);
       final mod = permissions[index]['module'] as String?;
-      if (_moduleSupports(mod, 'canView'))    permissions[index]['canView']    = value;
-      if (_moduleSupports(mod, 'canCreate'))  permissions[index]['canCreate']  = value;
-      if (_moduleSupports(mod, 'canEdit'))    permissions[index]['canEdit']    = value;
-      if (_moduleSupports(mod, 'canDelete'))  permissions[index]['canDelete']  = value;
-      if (_moduleSupports(mod, 'canExport'))  permissions[index]['canExport']  = value;
-      if (_moduleSupports(mod, 'canApprove')) permissions[index]['canApprove'] = value;
+      if (_moduleSupports(mod, 'canView')) {
+        permissions[index]['canView'] = value;
+      }
+      if (_moduleSupports(mod, 'canCreate')) {
+        permissions[index]['canCreate'] = value;
+      }
+      if (_moduleSupports(mod, 'canEdit')) {
+        permissions[index]['canEdit'] = value;
+      }
+      if (_moduleSupports(mod, 'canDelete')) {
+        permissions[index]['canDelete'] = value;
+      }
+      if (_moduleSupports(mod, 'canExport')) {
+        permissions[index]['canExport'] = value;
+      }
+      if (_moduleSupports(mod, 'canApprove')) {
+        permissions[index]['canApprove'] = value;
+      }
       _selectedRolePermissions!['permissions'] = permissions;
     });
   }
@@ -1399,8 +1429,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     final perm = permissions[index];
                     final modKey = perm['module'] as String?;
                     // allChecked: chỉ tính các quyền module thực sự hỗ trợ
-                    final supportedPerms = ['canView','canCreate','canEdit','canDelete','canExport','canApprove']
-                        .where((p) => _moduleSupports(modKey, p));
+                    final supportedPerms = [
+                      'canView',
+                      'canCreate',
+                      'canEdit',
+                      'canDelete',
+                      'canExport',
+                      'canApprove'
+                    ].where((p) => _moduleSupports(modKey, p));
                     final allChecked = supportedPerms.isNotEmpty &&
                         supportedPerms.every((p) => perm[p] == true);
                     return Container(
@@ -1766,8 +1802,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                           final globalIndex = startIdx + index;
                           final perm = pagePerms[index];
                           final modKey = perm['module'] as String?;
-                          final supportedDesktop = ['canView','canCreate','canEdit','canDelete','canExport','canApprove']
-                              .where((p) => _moduleSupports(modKey, p));
+                          final supportedDesktop = [
+                            'canView',
+                            'canCreate',
+                            'canEdit',
+                            'canDelete',
+                            'canExport',
+                            'canApprove'
+                          ].where((p) => _moduleSupports(modKey, p));
                           final allChecked = supportedDesktop.isNotEmpty &&
                               supportedDesktop.every((p) => perm[p] == true);
 
@@ -1812,22 +1854,28 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                 ),
                                 _buildPermissionCheckbox(globalIndex, 'canView',
                                     perm['canView'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canView')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canView')),
                                 _buildPermissionCheckbox(globalIndex,
                                     'canCreate', perm['canCreate'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canCreate')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canCreate')),
                                 _buildPermissionCheckbox(globalIndex, 'canEdit',
                                     perm['canEdit'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canEdit')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canEdit')),
                                 _buildPermissionCheckbox(globalIndex,
                                     'canDelete', perm['canDelete'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canDelete')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canDelete')),
                                 _buildPermissionCheckbox(globalIndex,
                                     'canExport', perm['canExport'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canExport')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canExport')),
                                 _buildPermissionCheckbox(globalIndex,
                                     'canApprove', perm['canApprove'] ?? false,
-                                    supported: _moduleSupports(modKey, 'canApprove')),
+                                    supported:
+                                        _moduleSupports(modKey, 'canApprove')),
                                 SizedBox(
                                   width: 90,
                                   child: Center(
@@ -1920,8 +1968,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     );
   }
 
-  Widget _buildPermissionCheckbox(
-      int index, String permissionType, bool value, {bool supported = true}) {
+  Widget _buildPermissionCheckbox(int index, String permissionType, bool value,
+      {bool supported = true}) {
     return SizedBox(
       width: 100,
       child: Center(

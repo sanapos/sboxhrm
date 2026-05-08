@@ -96,7 +96,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       final salaryProfilesFuture = _apiService.getSalaryProfiles();
       final holidaysFuture = _apiService.getHolidaySettings(0);
       final dayEndFuture = _apiService.getAppSetting('day_end_time');
-      final allowManualFuture = _apiService.getAppSetting('allow_manual_correction');
+      final allowManualFuture =
+          _apiService.getAppSetting('allow_manual_correction');
 
       final shiftsResult = await shiftsFuture;
       final salaryLevelsResult = await salaryLevelsFuture;
@@ -129,8 +130,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       // Parse allow_manual_correction
       final allowManualResult = await allowManualFuture;
       bool allowManual = true;
-      if (allowManualResult['isSuccess'] == true && allowManualResult['data'] is Map) {
-        allowManual = (allowManualResult['data'] as Map)['value']?.toString() != 'false';
+      if (allowManualResult['isSuccess'] == true &&
+          allowManualResult['data'] is Map) {
+        allowManual =
+            (allowManualResult['data'] as Map)['value']?.toString() != 'false';
       }
 
       // Load approved leaves

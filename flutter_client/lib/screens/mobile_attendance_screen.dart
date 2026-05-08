@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -30,7 +31,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   final ApiService _apiService = ApiService();
-  
+
   bool _isLocationVerified = false;
   bool _isGettingLocation = false;
   bool _isWifiVerified = false;
@@ -42,7 +43,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   double? _currentLongitude;
   double? _distanceFromOffice;
   String? _nearestLocationName;
-  
+
   // Employee data from auth
   String _employeeName = '';
   String _department = '';
@@ -86,11 +87,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    
+
     _loadEmployeeData();
     _initVerification();
   }
@@ -140,7 +141,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     super.dispose();
   }
 
-  Stream<DateTime> _clockStream() => Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
+  Stream<DateTime> _clockStream() =>
+      Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
 
   void _loadEmployeeData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -163,7 +165,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (!mounted || cachedPaths.isEmpty) return;
 
       setState(() => _cachedFacePaths = cachedPaths);
-      debugPrint('Loaded cached faces from device: ${cachedPaths.length} files');
+      debugPrint(
+          'Loaded cached faces from device: ${cachedPaths.length} files');
       FaceEmbeddingService.clearCache();
       await FaceEmbeddingService.initialize();
     } catch (e) {
@@ -187,12 +190,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         }
 
         final faceImages = data['faceImages'];
-        if (faceImages != null && faceImages is List && faceImages.isNotEmpty && _employeeId.isNotEmpty) {
+        if (faceImages != null &&
+            faceImages is List &&
+            faceImages.isNotEmpty &&
+            _employeeId.isNotEmpty) {
           final imageUrls = List<String>.from(faceImages);
-          final paths = await storageService.downloadAndCacheFaces(_employeeId, imageUrls);
+          final paths = await storageService.downloadAndCacheFaces(
+              _employeeId, imageUrls);
           if (mounted && paths.isNotEmpty) {
             setState(() => _cachedFacePaths = paths);
-            debugPrint('Face images refreshed from server: ${paths.length} files');
+            debugPrint(
+                'Face images refreshed from server: ${paths.length} files');
             FaceEmbeddingService.clearCache();
             await FaceEmbeddingService.initialize();
           }
@@ -214,7 +222,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (response['isSuccess'] == true && response['data'] != null) {
         if (mounted) {
           setState(() {
-            _settings = MobileAttendanceSettings.fromJson(response['data'] as Map<String, dynamic>);
+            _settings = MobileAttendanceSettings.fromJson(
+                response['data'] as Map<String, dynamic>);
           });
         }
       }
@@ -237,7 +246,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       _monitorFailCount++;
       final skipCycles = (_monitorFailCount ~/ 3).clamp(0, 4);
       if (_monitorFailCount % (skipCycles + 1) != 0) return;
-      
+
       if (needGps) _getCurrentLocation();
       if (needWifi) _checkWifiConnection();
     });
@@ -249,7 +258,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
 
     if (_allowOutsideCheckIn) return true;
-    
+
     final settings = _settings;
     if (settings == null) return false;
 
@@ -365,11 +374,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
     // Pre-check device status
     if (!_isDeviceRegistered) {
-      _showError('Thiết bị chưa được đăng ký. Vui lòng đăng ký thiết bị trước.');
+      _showError(
+          'Thiết bị chưa được đăng ký. Vui lòng đăng ký thiết bị trước.');
       return;
     }
     if (!_isDeviceApproved) {
-      _showError('Thiết bị chưa được duyệt hoặc đã bị thu hồi. Vui lòng liên hệ quản lý.');
+      _showError(
+          'Thiết bị chưa được duyệt hoặc đã bị thu hồi. Vui lòng liên hệ quản lý.');
       return;
     }
 
@@ -405,7 +416,31 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       });
     }
 
-    if (!_conditionsMet && !_allowOutsideCheckIn) {
+    // Check conditions – but exclude face from the check here because face
+    // will be verified interactively via camera immediately below.
+    // Previously using _conditionsMet (which includes face) caused a false
+    // "Khuôn mặt chưa xác thực" error in "all" mode before the camera opened.
+    final settings = _settings;
+    final bool nonFaceConditionsSatisfied = () {
+      if (_allowOutsideCheckIn) return true;
+      if (settings == null) return false;
+      if (!settings.enableFaceId) return _conditionsMet;
+      // Face is about to be verified → only check GPS + WiFi
+      int enabledNonFace = 0, passedNonFace = 0;
+      if (settings.enableGps) {
+        enabledNonFace++;
+        if (_isLocationVerified) passedNonFace++;
+      }
+      if (settings.enableWifi) {
+        enabledNonFace++;
+        if (_isWifiVerified) passedNonFace++;
+      }
+      if (enabledNonFace == 0) return true;
+      return settings.verificationMode == 'any'
+          ? passedNonFace >= 1
+          : passedNonFace >= enabledNonFace;
+    }();
+    if (!nonFaceConditionsSatisfied && !_allowOutsideCheckIn) {
       final detail = _buildConditionDetail();
       _showError(detail.isNotEmpty
           ? 'Chưa đạt đủ điều kiện xác thực: $detail'
@@ -414,15 +449,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
 
     // If face is enabled and not yet verified, open camera first
-    final settings = _settings;
-    if (settings != null && settings.enableFaceId && !_isFaceVerified && !_allowOutsideCheckIn) {
+    if (settings != null &&
+        settings.enableFaceId &&
+        !_isFaceVerified &&
+        !_allowOutsideCheckIn) {
       // Block if employee has no face registration
       if (_cachedFacePaths.isEmpty) {
         await _loadCachedFacesFromDevice();
       }
       if (!mounted) return;
       if (_cachedFacePaths.isEmpty) {
-        _showError('Chưa có ảnh đăng ký Face ID trên máy. Vui lòng đồng bộ lại hoặc liên hệ quản lý.');
+        _showError(
+            'Chưa có ảnh đăng ký Face ID trên máy. Vui lòng đồng bộ lại hoặc liên hệ quản lý.');
         return;
       }
 
@@ -440,7 +478,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _faceMatchScore = null;
           _faceImageBase64 = null;
         });
-        _showError('Không chụp được ảnh khuôn mặt để gửi xác thực. Vui lòng thử lại.');
+        _showError(
+            'Không chụp được ảnh khuôn mặt để gửi xác thực. Vui lòng thử lại.');
         return;
       }
 
@@ -448,13 +487,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
       setState(() {
         _isFaceVerified = true;
-        _faceMatchScore = serverFaceVerificationPending ? -1 : result.matchScore;
+        _faceMatchScore =
+            serverFaceVerificationPending ? -1 : result.matchScore;
         _faceImageBase64 = result.faceImageBase64;
         _livenessPassed = result.livenessPassed;
       });
 
       if (serverFaceVerificationPending) {
-        _showWarning('Đang dùng xác thực server', 'Thiết bị sẽ gửi ảnh lên server để xác thực khuôn mặt.');
+        _showWarning('Đang dùng xác thực server',
+            'Thiết bị sẽ gửi ảnh lên server để xác thực khuôn mặt.');
       }
 
       // Re-check conditions after face scan
@@ -489,9 +530,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (!mounted) return;
 
       if (response['isSuccess'] == true) {
-
         _showSuccess(
-          punchType == 0 ? 'Chấm công VÀO thành công!' : 'Chấm công RA thành công!',
+          punchType == 0
+              ? 'Chấm công VÀO thành công!'
+              : 'Chấm công RA thành công!',
           _isWifiVerified
               ? 'Đã xác thực qua WiFi: ${_connectedWifiSsid ?? ''}'
               : _isLocationVerified
@@ -509,7 +551,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _faceImageBase64 = null;
         });
       } else {
-        final message = (response['message'] ?? 'Không thể chấm công').toString();
+        final message =
+            (response['message'] ?? 'Không thể chấm công').toString();
 
         // Any failed submit must clear face state so retry always re-opens camera.
         setState(() {
@@ -534,7 +577,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         final data = response['data'];
         if (data is List) {
           setState(() {
-            _workLocations = data.map((e) => WorkLocation.fromJson(e as Map<String, dynamic>)).toList();
+            _workLocations = data
+                .map((e) => WorkLocation.fromJson(e as Map<String, dynamic>))
+                .toList();
           });
           // Recalculate distance if we already have GPS
           if (_currentLatitude != null && _currentLongitude != null) {
@@ -585,7 +630,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _currentLongitude = fastPosition.longitude;
       });
       _calculateNearestLocation();
-      
+
       // If already in range, stop early
       if (_isLocationVerified) {
         setState(() => _isGettingLocation = false);
@@ -593,7 +638,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _refineLocationInBackground();
         return;
       }
-      
+
       // Not in range → high accuracy
       final position = await getCurrentPosition(
         enableHighAccuracy: true,
@@ -614,13 +659,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       }
     }
   }
-  
+
   /// Quietly update location with high accuracy in background
   Future<void> _refineLocationInBackground() async {
     try {
       final position = await getCurrentPosition(
         enableHighAccuracy: true,
-        timeout: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ? 15000 : 8000,
+        timeout: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+            ? 15000
+            : 8000,
       );
       if (!mounted) return;
       setState(() {
@@ -632,7 +679,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   void _calculateNearestLocation() {
-    if (_currentLatitude == null || _currentLongitude == null || _workLocations.isEmpty) return;
+    if (_currentLatitude == null ||
+        _currentLongitude == null ||
+        _workLocations.isEmpty) {
+      return;
+    }
 
     double? nearestDist;
     String? nearestName;
@@ -640,7 +691,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
     for (final loc in _workLocations) {
       if (!loc.isActive) continue;
-      final d = _haversineDistance(_currentLatitude!, _currentLongitude!, loc.latitude, loc.longitude);
+      final d = _haversineDistance(
+          _currentLatitude!, _currentLongitude!, loc.latitude, loc.longitude);
       if (nearestDist == null || d < nearestDist) {
         nearestDist = d;
         nearestName = loc.name;
@@ -655,13 +707,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     });
   }
 
-  double _haversineDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _haversineDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     const R = 6371000.0;
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLon = (lon2 - lon1) * math.pi / 180;
     final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
-        math.sin(dLon / 2) * math.sin(dLon / 2);
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return R * c;
   }
@@ -669,7 +724,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Future<void> _loadTodayRecords() async {
     try {
       final now = DateTime.now();
-      debugPrint('📋 _loadTodayRecords: employeeId=$_employeeId, from=${DateTime(now.year, now.month, now.day)}, to=${DateTime(now.year, now.month, now.day, 23, 59, 59)}');
+      debugPrint(
+          '📋 _loadTodayRecords: employeeId=$_employeeId, from=${DateTime(now.year, now.month, now.day)}, to=${DateTime(now.year, now.month, now.day, 23, 59, 59)}');
       final response = await _apiService.getMobileAttendanceHistory(
         employeeId: _employeeId.isNotEmpty ? _employeeId : null,
         fromDate: DateTime(now.year, now.month, now.day),
@@ -677,17 +733,21 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       );
 
       if (!mounted) return;
-      debugPrint('📋 _loadTodayRecords response: isSuccess=${response['isSuccess']}, data type=${response['data']?.runtimeType}, data=${response['data']}');
+      debugPrint(
+          '📋 _loadTodayRecords response: isSuccess=${response['isSuccess']}, data type=${response['data']?.runtimeType}, data=${response['data']}');
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
-        debugPrint('📋 _loadTodayRecords: data is List=${data is List}, length=${data is List ? data.length : 'N/A'}');
+        debugPrint(
+            '📋 _loadTodayRecords: data is List=${data is List}, length=${data is List ? data.length : 'N/A'}');
         if (data is List) {
           setState(() {
             _todayRecords = data
-                .map((e) => MobileAttendanceRecord.fromJson(e as Map<String, dynamic>))
+                .map((e) =>
+                    MobileAttendanceRecord.fromJson(e as Map<String, dynamic>))
                 .toList();
           });
-          debugPrint('📋 _loadTodayRecords: parsed ${_todayRecords.length} records');
+          debugPrint(
+              '📋 _loadTodayRecords: parsed ${_todayRecords.length} records');
         }
       }
     } catch (e, st) {
@@ -699,7 +759,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Future<void> _checkWifiConnection({bool requestPermissions = false}) async {
     if (_isCheckingWifi) return; // Guard against concurrent checks
-    
+
     // Only show loading indicator on manual/first check, not periodic
     if (requestPermissions || !_wifiPermissionsRequested) {
       setState(() {
@@ -708,7 +768,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     } else {
       _isCheckingWifi = true; // set flag without triggering full UI rebuild
     }
-    
+
     final debugLines = <String>[];
     try {
       // Try to detect BSSID (router MAC address) on supported platforms
@@ -719,26 +779,36 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           // Check location permission status
           var locationStatus = await Permission.locationWhenInUse.status;
           debugLines.add('LocationWhenInUse: $locationStatus');
-          
+
           // Only request permissions on first call or manual refresh
-          if (!locationStatus.isGranted && (requestPermissions || !_wifiPermissionsRequested)) {
+          if (!locationStatus.isGranted &&
+              (requestPermissions || !_wifiPermissionsRequested)) {
             locationStatus = await Permission.locationWhenInUse.request();
             debugLines.add('Requested → $locationStatus');
           }
-          
+
           // Mark that we've attempted permission requests
           _wifiPermissionsRequested = true;
-          
+
           if (!locationStatus.isGranted) {
             debugPrint('Location permission denied - BSSID unavailable');
             _detectedBssid = null;
             debugLines.add('⚠ Quyền vị trí bị từ chối');
-            final response = await _apiService.checkWifi(bssid: null).timeout(const Duration(seconds: 5), onTimeout: () => <String, dynamic>{'isSuccess': false, 'message': 'Timeout'});
+            final response = await _apiService.checkWifi(bssid: null).timeout(
+                const Duration(seconds: 5),
+                onTimeout: () => <String, dynamic>{
+                      'isSuccess': false,
+                      'message': 'Timeout'
+                    });
             debugLines.add('API(bssid=null): ${response['isSuccess']}');
-            if (!mounted) { _isCheckingWifi = false; return; }
+            if (!mounted) {
+              _isCheckingWifi = false;
+              return;
+            }
             if (response['isSuccess'] == true && response['data'] != null) {
               final data = response['data'] as Map<String, dynamic>;
-              debugLines.add('Verified: ${data['isWifiVerified']}, locs: ${data['locationsChecked']}');
+              debugLines.add(
+                  'Verified: ${data['isWifiVerified']}, locs: ${data['locationsChecked']}');
               setState(() {
                 _isWifiVerified = data['isWifiVerified'] == true;
                 _wifiLocationName = data['locationName'] as String?;
@@ -760,8 +830,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           final networkInfo = NetworkInfo();
           // Fetch BSSID and SSID in parallel (saves ~3s)
           final wifiResults = await Future.wait([
-            networkInfo.getWifiBSSID().timeout(const Duration(seconds: 3), onTimeout: () => null),
-            networkInfo.getWifiName().timeout(const Duration(seconds: 3), onTimeout: () => null),
+            networkInfo
+                .getWifiBSSID()
+                .timeout(const Duration(seconds: 3), onTimeout: () => null),
+            networkInfo
+                .getWifiName()
+                .timeout(const Duration(seconds: 3), onTimeout: () => null),
           ]);
           bssid = wifiResults[0];
           ssid = wifiResults[1];
@@ -772,7 +846,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           debugLines.add('Raw BSSID: $bssid');
           debugLines.add('Raw SSID: $ssid');
           debugPrint('WiFi BSSID detected: $bssid, SSID: $ssid');
-          if (bssid != null && bssid.isNotEmpty && bssid != '02:00:00:00:00:00') {
+          if (bssid != null &&
+              bssid.isNotEmpty &&
+              bssid != '02:00:00:00:00:00') {
             _detectedBssid = bssid.toLowerCase().trim();
             debugLines.add('✓ BSSID OK: $_detectedBssid');
           } else {
@@ -791,9 +867,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       }
 
       debugLines.add('Gọi API bssid=${_detectedBssid ?? "null"}');
-      final response = await _apiService.checkWifi(bssid: _detectedBssid).timeout(const Duration(seconds: 5), onTimeout: () => <String, dynamic>{'isSuccess': false, 'message': 'Timeout'});
+      final response = await _apiService
+          .checkWifi(bssid: _detectedBssid)
+          .timeout(const Duration(seconds: 5),
+              onTimeout: () =>
+                  <String, dynamic>{'isSuccess': false, 'message': 'Timeout'});
       debugPrint('WiFi check response: $response');
-      if (!mounted) { _isCheckingWifi = false; return; }
+      if (!mounted) {
+        _isCheckingWifi = false;
+        return;
+      }
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'] as Map<String, dynamic>;
         final isVerified = data['isWifiVerified'] == true;
@@ -835,8 +918,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
   }
 
-
-
   void _showSuccess(String title, String message) {
     NotificationOverlayManager().showSuccess(title: title, message: message);
   }
@@ -847,13 +928,33 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
     try {
       const cp1252Extra = {
-        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84,
-        '\u2026': 0x85, '\u2020': 0x86, '\u2021': 0x87, '\u02c6': 0x88,
-        '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
-        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93,
-        '\u201d': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97,
-        '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
-        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f,
+        '\u20ac': 0x80,
+        '\u201a': 0x82,
+        '\u0192': 0x83,
+        '\u201e': 0x84,
+        '\u2026': 0x85,
+        '\u2020': 0x86,
+        '\u2021': 0x87,
+        '\u02c6': 0x88,
+        '\u2030': 0x89,
+        '\u0160': 0x8a,
+        '\u2039': 0x8b,
+        '\u0152': 0x8c,
+        '\u017d': 0x8e,
+        '\u2018': 0x91,
+        '\u2019': 0x92,
+        '\u201c': 0x93,
+        '\u201d': 0x94,
+        '\u2022': 0x95,
+        '\u2013': 0x96,
+        '\u2014': 0x97,
+        '\u02dc': 0x98,
+        '\u2122': 0x99,
+        '\u0161': 0x9a,
+        '\u203a': 0x9b,
+        '\u0153': 0x9c,
+        '\u017e': 0x9e,
+        '\u0178': 0x9f,
       };
       final bytes = <int>[];
       for (final ch in input.runes) {
@@ -873,7 +974,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   void _showError(String message) {
-    NotificationOverlayManager().showError(title: 'Lỗi', message: _normalizeViText(message));
+    NotificationOverlayManager()
+        .showError(title: 'Lỗi', message: _normalizeViText(message));
   }
 
   void _showWarning(String title, String message) {
@@ -887,9 +989,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       body: Stack(
         children: [
           // Background gradient orbs
-          Positioned(top: -80, right: -60, child: _bgOrb(200, const Color(0xFF3B82F6), 0.15)),
-          Positioned(bottom: 100, left: -40, child: _bgOrb(160, const Color(0xFF8B5CF6), 0.1)),
-          Positioned(top: 300, right: -30, child: _bgOrb(120, const Color(0xFF06B6D4), 0.08)),
+          Positioned(
+              top: -80,
+              right: -60,
+              child: _bgOrb(200, const Color(0xFF3B82F6), 0.15)),
+          Positioned(
+              bottom: 100,
+              left: -40,
+              child: _bgOrb(160, const Color(0xFF8B5CF6), 0.1)),
+          Positioned(
+              top: 300,
+              right: -30,
+              child: _bgOrb(120, const Color(0xFF06B6D4), 0.08)),
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -914,10 +1025,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Widget _bgOrb(double size, Color color, double opacity) {
     return Container(
-      width: size, height: size,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color.withValues(alpha: opacity), Colors.transparent]),
+        gradient: RadialGradient(
+            colors: [color.withValues(alpha: opacity), Colors.transparent]),
       ),
     );
   }
@@ -928,15 +1041,20 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)]),
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)]),
             ),
             child: Center(
               child: Text(
                 _employeeName.isNotEmpty ? _employeeName[0].toUpperCase() : 'U',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18),
               ),
             ),
           ),
@@ -947,13 +1065,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               children: [
                 Text(
                   _employeeName,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _department,
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  style:
+                      const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -961,7 +1083,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
           _glassIconButton(
             Icons.history_rounded,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileAttendanceHistoryScreen())),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const MobileAttendanceHistoryScreen())),
           ),
         ],
       ),
@@ -976,7 +1101,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
@@ -994,29 +1120,37 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final nextPunchType = _getNextPunchType();
     final isCheckIn = nextPunchType == 0;
     final faceEnabled = _settings?.enableFaceId ?? false;
-    final needsFaceScan = faceEnabled && !_isFaceVerified && !_allowOutsideCheckIn;
+    final needsFaceScan =
+        faceEnabled && !_isFaceVerified && !_allowOutsideCheckIn;
     final now = DateTime.now();
     final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
         ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
         : [const Color(0xFFEF4444), const Color(0xFFDC2626)];
-    final List<Color> disabledGradient = [const Color(0xFF334155), const Color(0xFF1E293B)];
+    final List<Color> disabledGradient = [
+      const Color(0xFF334155),
+      const Color(0xFF1E293B)
+    ];
     final ctaLabel = isEnabled
-      ? (needsFaceScan ? 'QUÉT MẶT' : (isCheckIn ? 'CHẤM VÀO' : 'CHẤM RA'))
-      : 'TẠM KHÓA';
+        ? (needsFaceScan ? 'QUÉT MẶT' : (isCheckIn ? 'CHẤM VÀO' : 'CHẤM RA'))
+        : 'TẠM KHÓA';
     final ctaHint = isEnabled
-      ? (needsFaceScan
-        ? (isCheckIn ? 'Bước tiếp theo: Quét khuôn mặt để chấm vào' : 'Bước tiếp theo: Quét khuôn mặt để chấm ra')
-        : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra'))
-      : (!_isDeviceRegistered
-        ? 'Cần đăng ký thiết bị trước khi chấm công'
-        : (!_isDeviceApproved
-          ? 'Thiết bị đang chờ duyệt từ quản lý'
-          : () {
-              final d = _buildConditionDetail();
-              return d.isNotEmpty ? 'Chưa đạt: $d' : 'Đang kiểm tra điều kiện...';
-            }()));
+        ? (needsFaceScan
+            ? (isCheckIn
+                ? 'Bước tiếp theo: Quét khuôn mặt để chấm vào'
+                : 'Bước tiếp theo: Quét khuôn mặt để chấm ra')
+            : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra'))
+        : (!_isDeviceRegistered
+            ? 'Cần đăng ký thiết bị trước khi chấm công'
+            : (!_isDeviceApproved
+                ? 'Thiết bị đang chờ duyệt từ quản lý'
+                : () {
+                    final d = _buildConditionDetail();
+                    return d.isNotEmpty
+                        ? 'Chưa đạt: $d'
+                        : 'Đang kiểm tra điều kiện...';
+                  }()));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1054,17 +1188,25 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 final t = snapshot.data ?? DateTime.now();
                 return Text(
                   ':${t.second.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w300, color: Color(0xFF64748B), fontFeatures: [FontFeature.tabularFigures()]),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w300,
+                      color: Color(0xFF64748B),
+                      fontFeatures: [FontFeature.tabularFigures()]),
                 );
               },
             ),
             const SizedBox(height: 4),
             Text(
               '${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), letterSpacing: 0.5),
+              style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF64748B), letterSpacing: 0.5),
             ),
             const SizedBox(height: 14),
-            _buildNextActionBar(isEnabled: isEnabled, hint: ctaHint, needsFaceScan: needsFaceScan),
+            _buildNextActionBar(
+                isEnabled: isEnabled,
+                hint: ctaHint,
+                needsFaceScan: needsFaceScan),
             const SizedBox(height: 28),
             // Punch button with outer ring
             GestureDetector(
@@ -1076,11 +1218,14 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   return Transform.scale(
                     scale: scale,
                     child: Container(
-                      width: 148, height: 148,
+                      width: 148,
+                      height: 148,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isEnabled ? activeGradient[0].withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
+                          color: isEnabled
+                              ? activeGradient[0].withValues(alpha: 0.3)
+                              : Colors.white.withValues(alpha: 0.05),
                           width: 3,
                         ),
                       ),
@@ -1089,29 +1234,43 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: isEnabled ? activeGradient : disabledGradient,
+                            colors:
+                                isEnabled ? activeGradient : disabledGradient,
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          boxShadow: isEnabled ? [
-                            BoxShadow(color: activeGradient[0].withValues(alpha: 0.4), blurRadius: 28, spreadRadius: 0, offset: const Offset(0, 8)),
-                          ] : [],
+                          boxShadow: isEnabled
+                              ? [
+                                  BoxShadow(
+                                      color: activeGradient[0]
+                                          .withValues(alpha: 0.4),
+                                      blurRadius: 28,
+                                      spreadRadius: 0,
+                                      offset: const Offset(0, 8)),
+                                ]
+                              : [],
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               isEnabled
-                                  ? needsFaceScan ? Icons.face_rounded : (isCheckIn ? Icons.fingerprint_rounded : Icons.logout_rounded)
+                                  ? needsFaceScan
+                                      ? Icons.face_rounded
+                                      : (isCheckIn
+                                          ? Icons.fingerprint_rounded
+                                          : Icons.logout_rounded)
                                   : Icons.lock_outline_rounded,
-                              color: Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.4),
+                              color: Colors.white
+                                  .withValues(alpha: isEnabled ? 1.0 : 0.4),
                               size: 42,
                             ),
                             const SizedBox(height: 6),
                             Text(
                               ctaLabel,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: isEnabled ? 0.95 : 0.3),
+                                color: Colors.white
+                                    .withValues(alpha: isEnabled ? 0.95 : 0.3),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
                                 letterSpacing: 2,
@@ -1130,23 +1289,36 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: activeGradient[0])),
+                  SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: activeGradient[0])),
                   const SizedBox(width: 8),
-                  const Text('Đang xử lý...', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                  const Text('Đang xử lý...',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
                 ],
               )
             else
               Text(
                 isEnabled
                     ? needsFaceScan
-                    ? (isCheckIn ? 'Nhấn để quét mặt và chấm vào' : 'Nhấn để quét mặt và chấm ra')
-                    : (isCheckIn ? 'Nhấn để chấm công vào' : 'Nhấn để chấm công ra')
+                        ? (isCheckIn
+                            ? 'Nhấn để quét mặt và chấm vào'
+                            : 'Nhấn để quét mặt và chấm ra')
+                        : (isCheckIn
+                            ? 'Nhấn để chấm công vào'
+                            : 'Nhấn để chấm công ra')
                     : !_isDeviceRegistered
-                    ? 'Thiết bị chưa đăng ký'
+                        ? 'Thiết bị chưa đăng ký'
                         : !_isDeviceApproved
-                      ? 'Thiết bị chưa được duyệt'
-                      : 'Đang kiểm tra...',
-                style: TextStyle(fontSize: 12, color: isEnabled ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
+                            ? 'Thiết bị chưa được duyệt'
+                            : 'Đang kiểm tra...',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: isEnabled
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF475569)),
               ),
           ],
         ),
@@ -1154,7 +1326,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
-  Widget _buildNextActionBar({required bool isEnabled, required String hint, required bool needsFaceScan}) {
+  Widget _buildNextActionBar(
+      {required bool isEnabled,
+      required String hint,
+      required bool needsFaceScan}) {
     final barColor = isEnabled
         ? (needsFaceScan ? const Color(0xFF0EA5E9) : const Color(0xFF22C55E))
         : const Color(0xFFF59E0B);
@@ -1170,7 +1345,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: Row(
         children: [
           Icon(
-            isEnabled ? (needsFaceScan ? Icons.face_retouching_natural_rounded : Icons.verified_rounded) : Icons.info_outline_rounded,
+            isEnabled
+                ? (needsFaceScan
+                    ? Icons.face_retouching_natural_rounded
+                    : Icons.verified_rounded)
+                : Icons.info_outline_rounded,
             size: 16,
             color: barColor,
           ),
@@ -1178,7 +1357,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           Expanded(
             child: Text(
               hint,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: barColor),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: barColor),
             ),
           ),
         ],
@@ -1186,14 +1366,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
-  Widget _glassCard({required Widget child, EdgeInsets? padding, EdgeInsets? margin}) {
+  Widget _glassCard(
+      {required Widget child, EdgeInsets? padding, EdgeInsets? margin}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           width: double.infinity,
-          padding: padding ?? const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          padding: padding ??
+              const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
           margin: margin,
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B).withValues(alpha: 0.6),
@@ -1234,11 +1416,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
-  Widget _buildStatusBar(bool faceRequired, bool gpsRequired, bool wifiRequired) {
+  Widget _buildStatusBar(
+      bool faceRequired, bool gpsRequired, bool wifiRequired) {
     final mode = _settings?.verificationMode ?? 'all';
     final ready = _canTapPunch;
     final bool deviceReady = _isDeviceRegistered && _isDeviceApproved;
-    final String modeText = mode == 'any' ? 'Cần 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
+    final String modeText =
+        mode == 'any' ? 'Cần 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -1251,16 +1435,28 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 ? const Color(0xFF16A34A).withValues(alpha: 0.1)
                 : const Color(0xFFF59E0B).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ready ? const Color(0xFF16A34A).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(
+                color: ready
+                    ? const Color(0xFF16A34A).withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
               Container(
-                width: 8, height: 8,
+                width: 8,
+                height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: ready ? const Color(0xFF22C55E) : const Color(0xFFF59E0B),
-                  boxShadow: [BoxShadow(color: (ready ? const Color(0xFF22C55E) : const Color(0xFFF59E0B)).withValues(alpha: 0.4), blurRadius: 6)],
+                  color:
+                      ready ? const Color(0xFF22C55E) : const Color(0xFFF59E0B),
+                  boxShadow: [
+                    BoxShadow(
+                        color: (ready
+                                ? const Color(0xFF22C55E)
+                                : const Color(0xFFF59E0B))
+                            .withValues(alpha: 0.4),
+                        blurRadius: 6)
+                  ],
                 ),
               ),
               const SizedBox(width: 10),
@@ -1281,13 +1477,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _buildMiniChip('1. Thiết bị', deviceReady, pending: !deviceReady),
+                        _buildMiniChip('1. Thiết bị', deviceReady,
+                            pending: !deviceReady),
                         if (faceRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('2. Khuôn mặt', _isFaceVerified, pending: !_isFaceVerified),
+                          _buildMiniChip('2. Khuôn mặt', _isFaceVerified,
+                              pending: !_isFaceVerified),
                         if (gpsRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('3. GPS', _isLocationVerified, pending: _isGettingLocation && !_isLocationVerified),
+                          _buildMiniChip('3. GPS', _isLocationVerified,
+                              pending:
+                                  _isGettingLocation && !_isLocationVerified),
                         if (wifiRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('4. WiFi', _isWifiVerified, pending: _isCheckingWifi && !_isWifiVerified),
+                          _buildMiniChip('4. WiFi', _isWifiVerified,
+                              pending: _isCheckingWifi && !_isWifiVerified),
                         if (_allowOutsideCheckIn)
                           _buildMiniChip('Ngoài công ty', true),
                       ],
@@ -1297,9 +1498,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
               if (mode == 'any' && !_allowOutsideCheckIn)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
-                  child: const Text('ANY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 1)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Text('ANY',
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                          letterSpacing: 1)),
                 ),
             ],
           ),
@@ -1324,7 +1533,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 5, height: 5,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: chipColor,
@@ -1338,7 +1548,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               fontWeight: FontWeight.w600,
               color: ok
                   ? const Color(0xFF4ADE80)
-                  : (pending ? const Color(0xFFFCD34D) : const Color(0xFFFCA5A5)),
+                  : (pending
+                      ? const Color(0xFFFCD34D)
+                      : const Color(0xFFFCA5A5)),
             ),
           ),
         ],
@@ -1349,7 +1561,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildGpsCard() {
     final statusColor = _isLocationVerified
         ? const Color(0xFF22C55E)
-        : _isGettingLocation ? const Color(0xFFF59E0B) : const Color(0xFF64748B);
+        : _isGettingLocation
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF64748B);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -1368,42 +1582,64 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 children: [
                   Container(
-                    width: 32, height: 32,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       color: statusColor.withValues(alpha: 0.12),
                     ),
                     child: Icon(
-                      _isLocationVerified ? Icons.location_on_rounded : Icons.gps_not_fixed_rounded,
-                      size: 16, color: statusColor,
+                      _isLocationVerified
+                          ? Icons.location_on_rounded
+                          : Icons.gps_not_fixed_rounded,
+                      size: 16,
+                      color: statusColor,
                     ),
                   ),
                   const Spacer(),
                   if (_isGettingLocation)
-                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5, color: statusColor))
+                    SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: statusColor))
                   else
                     GestureDetector(
                       onTap: _getCurrentLocation,
-                      child: Icon(Icons.refresh_rounded, size: 18, color: Colors.white.withValues(alpha: 0.3)),
+                      child: Icon(Icons.refresh_rounded,
+                          size: 18, color: Colors.white.withValues(alpha: 0.3)),
                     ),
                 ],
               ),
               const SizedBox(height: 10),
               Text(
-                _isGettingLocation ? 'Định vị...' : _isLocationVerified ? 'Trong phạm vi' : 'Ngoài phạm vi',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: statusColor),
+                _isGettingLocation
+                    ? 'Định vị...'
+                    : _isLocationVerified
+                        ? 'Trong phạm vi'
+                        : 'Ngoài phạm vi',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor),
               ),
               if (_nearestLocationName != null) ...[
                 const SizedBox(height: 3),
                 Text(
                   _nearestLocationName!,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
               if (_distanceFromOffice != null) ...[
                 const SizedBox(height: 2),
-                Text('${_distanceFromOffice!.toInt()}m', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: statusColor)),
+                Text('${_distanceFromOffice!.toInt()}m',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: statusColor)),
               ],
             ],
           ),
@@ -1415,7 +1651,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildWifiCard() {
     final statusColor = _isWifiVerified
         ? const Color(0xFF22C55E)
-        : _isCheckingWifi ? const Color(0xFFF59E0B) : const Color(0xFF64748B);
+        : _isCheckingWifi
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF64748B);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -1434,45 +1672,68 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 children: [
                   Container(
-                    width: 32, height: 32,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       color: statusColor.withValues(alpha: 0.12),
                     ),
                     child: Icon(
-                      _isWifiVerified ? Icons.wifi_rounded : Icons.wifi_find_rounded,
-                      size: 16, color: statusColor,
+                      _isWifiVerified
+                          ? Icons.wifi_rounded
+                          : Icons.wifi_find_rounded,
+                      size: 16,
+                      color: statusColor,
                     ),
                   ),
                   const Spacer(),
                   if (_isCheckingWifi)
-                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5, color: statusColor))
+                    SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: statusColor))
                   else
                     GestureDetector(
-                      onTap: () => _checkWifiConnection(requestPermissions: true),
-                      child: Icon(Icons.refresh_rounded, size: 18, color: Colors.white.withValues(alpha: 0.3)),
+                      onTap: () =>
+                          _checkWifiConnection(requestPermissions: true),
+                      child: Icon(Icons.refresh_rounded,
+                          size: 18, color: Colors.white.withValues(alpha: 0.3)),
                     ),
                 ],
               ),
               const SizedBox(height: 10),
               Text(
-                _isCheckingWifi ? 'Kiểm tra...' : _isWifiVerified ? 'Đã xác thực' : 'Chưa xác thực',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: statusColor),
+                _isCheckingWifi
+                    ? 'Kiểm tra...'
+                    : _isWifiVerified
+                        ? 'Đã xác thực'
+                        : 'Chưa xác thực',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor),
               ),
               if (_wifiLocationName != null) ...[
                 const SizedBox(height: 3),
                 Text(
                   _wifiLocationName!,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
               if (_connectedWifiSsid != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   _connectedWifiSsid!,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: statusColor),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: statusColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],
@@ -1489,17 +1750,21 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF22C55E).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.15)),
+        border:
+            Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
           Container(
-            width: 6, height: 6,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF22C55E)),
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+                shape: BoxShape.circle, color: Color(0xFF22C55E)),
           ),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text('Được phép chấm công ngoài công ty', style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80))),
+            child: Text('Được phép chấm công ngoài công ty',
+                style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80))),
           ),
         ],
       ),
@@ -1517,20 +1782,33 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             Row(
               children: [
                 Container(
-                  width: 32, height: 32,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
                   ),
-                  child: const Icon(Icons.timeline_rounded, size: 16, color: Color(0xFF60A5FA)),
+                  child: const Icon(Icons.timeline_rounded,
+                      size: 16, color: Color(0xFF60A5FA)),
                 ),
                 const SizedBox(width: 10),
-                const Text('Hôm nay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                const Text('Hôm nay',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
-                  child: Text('${_todayRecords.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Text('${_todayRecords.length}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B))),
                 ),
               ],
             ),
@@ -1541,9 +1819,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.event_note_rounded, size: 32, color: Colors.white.withValues(alpha: 0.1)),
+                      Icon(Icons.event_note_rounded,
+                          size: 32, color: Colors.white.withValues(alpha: 0.1)),
                       const SizedBox(height: 8),
-                      const Text('Chưa có lượt chấm công', style: TextStyle(fontSize: 13, color: Color(0xFF475569))),
+                      const Text('Chưa có lượt chấm công',
+                          style: TextStyle(
+                              fontSize: 13, color: Color(0xFF475569))),
                     ],
                   ),
                 ),
@@ -1558,7 +1839,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Widget _buildRecordItem(MobileAttendanceRecord record) {
     final isCheckIn = record.punchType == 0;
-    final approved = record.status == 'auto_approved' || record.status == 'approved';
+    final approved =
+        record.status == 'auto_approved' || record.status == 'approved';
     final color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
 
     return Container(
@@ -1572,12 +1854,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: Row(
         children: [
           Container(
-            width: 36, height: 36,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: color.withValues(alpha: 0.12),
             ),
-            child: Icon(isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded, color: color, size: 16),
+            child: Icon(
+                isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded,
+                color: color,
+                size: 16),
           ),
           const SizedBox(width: 12),
           Column(
@@ -1585,18 +1871,27 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             children: [
               Text(
                 '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]),
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontFeatures: [FontFeature.tabularFigures()]),
               ),
               const SizedBox(height: 1),
               Row(
                 children: [
                   Text(
                     isCheckIn ? 'Chấm vào' : 'Chấm ra',
-                    style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
+                    style: TextStyle(
+                        fontSize: 11, color: color.withValues(alpha: 0.8)),
                   ),
                   if (record.distanceFromLocation != null) ...[
-                    Text(' · ', style: TextStyle(color: Colors.white.withValues(alpha: 0.2))),
-                    Text('${record.distanceFromLocation!.toInt()}m', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(' · ',
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.2))),
+                    Text('${record.distanceFromLocation!.toInt()}m',
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF64748B))),
                   ],
                 ],
               ),
@@ -1606,13 +1901,24 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: approved ? const Color(0xFF22C55E).withValues(alpha: 0.1) : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+              color: approved
+                  ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                  : const Color(0xFFF59E0B).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: (approved ? const Color(0xFF22C55E) : const Color(0xFFF59E0B)).withValues(alpha: 0.15)),
+              border: Border.all(
+                  color: (approved
+                          ? const Color(0xFF22C55E)
+                          : const Color(0xFFF59E0B))
+                      .withValues(alpha: 0.15)),
             ),
             child: Text(
               approved ? 'Duyệt' : 'Chờ',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: approved ? const Color(0xFF4ADE80) : const Color(0xFFFCD34D)),
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: approved
+                      ? const Color(0xFF4ADE80)
+                      : const Color(0xFFFCD34D)),
             ),
           ),
         ],
@@ -1620,5 +1926,3 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 }
-
-

@@ -60,6 +60,7 @@ class AttendanceSummaryTab extends StatefulWidget {
   final List<dynamic> holidays;
   final List<dynamic> salaryProfiles;
   final List<dynamic> approvedLeaves;
+
   /// Nếu false, ẩn toàn bộ nút yêu cầu chỉnh công (allow_manual_correction = false)
   final bool allowCorrection;
 
@@ -389,6 +390,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         }
       }
 
+      // Determine code for shift/holiday/weekly-off lookup
+      final empCodeForLookup = first.employeeId?.isNotEmpty == true
+          ? first.employeeId!
+          : (first.enrollNumber ?? '-');
+
       // Calculate shift hours (5 shifts max)
       // Ca 1: Lần 2 - Lần 1
       // Ca 2: Lần 4 - Lần 3
@@ -410,10 +416,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
       double totalShiftHours = shiftHours.fold(0.0, (sum, h) => sum + h);
 
-      // Determine code for holiday/weekly-off lookup
-      final empCodeForLookup = first.employeeId?.isNotEmpty == true
-          ? first.employeeId!
-          : (first.enrollNumber ?? '-');
       final shiftsPerDay = _employeeCodeToShiftsPerDay[empCodeForLookup] ?? 1;
       double workCount = shiftsPerDay > 0
           ? completePairs / shiftsPerDay
@@ -2220,6 +2222,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       required Color titleColor,
       required Widget Function(String empId, DateTime d, _DailySummary?) cellFn,
       required ScrollController scrollCtrl,
+      String? Function(String empId)? subtextFn,
+      Color subtextColor = const Color(0xFF16A34A),
     }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2268,6 +2272,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     ),
                     ...employees.asMap().entries.map((e) {
                       final isEven = e.key.isEven;
+                      final sub = subtextFn?.call(e.value.key);
                       return Container(
                         width: empColW,
                         height: rowH,
@@ -2282,13 +2287,25 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 color: Color(0xFFE4E4E7), width: 0.5),
                           ),
                         ),
-                        child: Text(e.value.value,
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF18181B)),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.value.value,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF18181B)),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1),
+                            if (sub != null)
+                              Text(sub,
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: subtextColor,
+                                      fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       );
                     }),
                   ],
@@ -2419,15 +2436,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             titleColor: const Color(0xFF2563EB),
             cellFn: hrsCell,
             scrollCtrl: _ctHrsScroll,
+            subtextFn: (empId) {
+              final total = dates.fold<double>(0.0,
+                  (sum, d) => sum + (getSummary(empId, d)?.totalHours ?? 0.0));
+              return total > 0 ? _formatHours(total) : null;
+            },
+            subtextColor: const Color(0xFF2563EB),
           ),
           // ── BẢNG NGÀY CÔNG ──────────────────────────────────────────
           Builder(builder: (_) {
-            // Only show employees with rateType 1 (monthly) or 2 (daily)
-            final wrkEmployees = employees.where((e) {
-              final code = empCodeMap[e.key] ?? '';
-              final rt = _employeeCodeToRateType[code] ?? 0;
-              return rt == 1 || rt == 2;
-            }).toList();
+            final wrkEmployees = employees;
             if (wrkEmployees.isEmpty) return const SizedBox.shrink();
 
             // Count expected working days in range per employee (exclude weekly-off)

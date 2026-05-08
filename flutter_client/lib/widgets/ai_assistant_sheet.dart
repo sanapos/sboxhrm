@@ -12,7 +12,8 @@ class _ChatMsg {
   final String role; // 'user' | 'assistant'
   final String content;
   final List<String> actions;
-  _ChatMsg(this.role, this.content, {this.actions = const []});
+  final List<String> creates;
+  _ChatMsg(this.role, this.content, {this.actions = const [], this.creates = const []});
 }
 
 class AiAssistantSheet extends StatefulWidget {
@@ -181,8 +182,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final actions = ((data?['actions'] as List?) ?? [])
             .map((e) => e.toString())
             .toList();
+        final creates = ((data?['creates'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList();
         setState(() {
-          _messages.add(_ChatMsg('assistant', reply, actions: actions));
+          _messages.add(_ChatMsg('assistant', reply, actions: actions, creates: creates));
         });
         _scrollToBottom();
         if (_ttsEnabled && reply.isNotEmpty) {
@@ -291,9 +295,121 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         NavigationNotifier.goTo(NavigationNotifier.dashboard);
         break;
       default:
-        NotificationOverlayManager().showInfo(
-            title: 'Thao tác', message: action);
+        NotificationOverlayManager()
+            .showInfo(title: 'Thao tác', message: action);
     }
+  }
+
+  /// Handle [[CREATE:...]] — parse params and call API directly
+  Future<void> _handleCreate(String createTag) async {
+    if (_isSending) return;
+    try {
+      // Parse: "attendance_correction,date=2026-05-07,time=13:00,action=add,reason=quên chấm công"
+      final parts = createTag.split(',');
+      final type = parts[0].trim();
+      final params = <String, String>{};
+      String? reasonAccum;
+      for (final p in parts.skip(1)) {
+        final idx = p.indexOf('=');
+        if (idx > 0) {
+          final key = p.substring(0, idx).trim();
+          final val = p.substring(idx + 1).trim();
+          if (key == 'reason') {
+            reasonAccum = val;
+          } else {
+            params[key] = val;
+          }
+        } else if (reasonAccum != null) {
+          reasonAccum = '$reasonAccum,$p'; // comma was in reason text
+        }
+      }
+      if (reasonAccum != null) params['reason'] = reasonAccum;
+
+      if (type == 'attendance_correction') {
+        final date = params['date'];
+        final time = params['time'];
+        final reason = params['reason'] ?? 'Quên chấm công';
+        final actionStr = params['action'] ?? 'add';
+        // CorrectionAction: edit=0, add=1, delete=2
+        final actionInt = actionStr == 'edit' ? 0 : actionStr == 'delete' ? 2 : 1;
+
+        if (date == null || time == null) {
+          setState(() {
+            _messages.add(_ChatMsg('assistant', '⚠️ Thiếu ngày hoặc giờ để tạo phiếu.'));
+          });
+          _scrollToBottom();
+          return;
+        }
+
+        setState(() => _isSending = true);
+        _scrollToBottom();
+
+        final result = await _api.createAttendanceCorrection(
+          action: actionInt,
+          newDate: date,
+          newTime: time,
+          reason: reason,
+        );
+        if (!mounted) return;
+
+        if (result['isSuccess'] == true) {
+          final reply = '✅ Đã tạo yêu cầu sửa giờ thành công!\n'
+              '📅 Ngày: ${_formatDate(date)}\n'
+              '🕐 Giờ: $time\n'
+              '📝 Lý do: $reason\n'
+              'Trạng thái: Đang chờ duyệt.';
+          setState(() {
+            _messages.add(_ChatMsg('assistant', reply));
+          });
+          if (_ttsEnabled) {
+            await _tts.stop();
+            await _tts.speak('Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.');
+          }
+        } else {
+          final msg = (result['message'] as String?) ?? 'Lỗi không xác định';
+          setState(() {
+            _messages.add(_ChatMsg('assistant', '❌ Không tạo được phiếu: $msg'));
+          });
+        }
+      } else {
+        setState(() {
+          _messages.add(_ChatMsg('assistant', '⚠️ Loại phiếu "$type" chưa được hỗ trợ tạo trực tiếp.'));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(_ChatMsg('assistant', '❌ Lỗi: $e'));
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+      _scrollToBottom();
+    }
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final d = DateTime.parse(isoDate);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  String _createLabel(String tag) {
+    if (tag.startsWith('attendance_correction')) {
+      // Extract time and date from tag for clearer label
+      final params = <String, String>{};
+      for (final p in tag.split(',').skip(1)) {
+        final idx = p.indexOf('=');
+        if (idx > 0) params[p.substring(0, idx).trim()] = p.substring(idx + 1).trim();
+      }
+      final time = params['time'] ?? '';
+      final date = params['date'] != null ? _formatDate(params['date']!) : '';
+      return '✅ Xác nhận tạo phiếu sửa giờ${date.isNotEmpty ? " $date" : ""}${time.isNotEmpty ? " lúc $time" : ""}';
+    }
+    return '✅ Xác nhận tạo';
   }
 
   (String, IconData) _actionLabelIcon(String action) {
@@ -415,8 +531,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Trợ lý ảo HRM',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 Text('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương',
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
               ],
@@ -459,8 +575,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     final bubble = Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
       decoration: BoxDecoration(
         color: isUser ? const Color(0xFF1E3A5F) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.only(
@@ -490,8 +606,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               children: m.actions.map((a) {
                 final li = _actionLabelIcon(a);
                 return ActionChip(
-                  avatar: Icon(li.$2,
-                      size: 16, color: const Color(0xFF8B5CF6)),
+                  avatar: Icon(li.$2, size: 16, color: const Color(0xFF8B5CF6)),
                   label: Text(li.$1,
                       style: const TextStyle(
                           fontSize: 12,
@@ -500,6 +615,28 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   backgroundColor: const Color(0xFFF3E8FF),
                   side: const BorderSide(color: Color(0xFFDDD6FE)),
                   onPressed: () => _handleAction(a),
+                );
+              }).toList(),
+            ),
+          ],
+          if (m.creates.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: m.creates.map((c) {
+                final label = _createLabel(c);
+                return ActionChip(
+                  avatar: const Icon(Icons.check_circle_outline_rounded,
+                      size: 16, color: Color(0xFF059669)),
+                  label: Text(label,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF059669),
+                          fontWeight: FontWeight.w600)),
+                  backgroundColor: const Color(0xFFECFDF5),
+                  side: const BorderSide(color: Color(0xFF6EE7B7)),
+                  onPressed: _isSending ? null : () => _handleCreate(c),
                 );
               }).toList(),
             ),
@@ -547,8 +684,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          border:
-              Border(top: BorderSide(color: Colors.grey.shade200)),
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -558,9 +694,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               onPressed: _toggleListening,
               icon: Icon(
                 _isListening ? Icons.mic : Icons.mic_none_rounded,
-                color: _isListening
-                    ? Colors.red
-                    : const Color(0xFF8B5CF6),
+                color: _isListening ? Colors.red : const Color(0xFF8B5CF6),
               ),
             ),
             Expanded(
@@ -580,24 +714,23 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
               ),
             ),
             const SizedBox(width: 4),
             Material(
-              color: _isSending
-                  ? Colors.grey.shade300
-                  : const Color(0xFF8B5CF6),
+              color:
+                  _isSending ? Colors.grey.shade300 : const Color(0xFF8B5CF6),
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: _isSending ? null : _send,
                 child: const Padding(
                   padding: EdgeInsets.all(10),
-                  child: Icon(Icons.send_rounded,
-                      color: Colors.white, size: 20),
+                  child:
+                      Icon(Icons.send_rounded, color: Colors.white, size: 20),
                 ),
               ),
             ),

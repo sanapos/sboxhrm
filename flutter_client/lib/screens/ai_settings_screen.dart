@@ -11,9 +11,7 @@ class AiSettingsScreen extends StatefulWidget {
   State<AiSettingsScreen> createState() => _AiSettingsScreenState();
 }
 
-class _AiSettingsScreenState extends State<AiSettingsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _AiSettingsScreenState extends State<AiSettingsScreen> {
   final _apiService = ApiService();
 
   // Gemini
@@ -26,16 +24,6 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
   bool _geminiObscure = true;
   String? _geminiMaskedKey;
 
-  // DeepSeek
-  final _deepSeekApiKeyController = TextEditingController();
-  final _deepSeekModelController = TextEditingController();
-  final _deepSeekMaxTokensController = TextEditingController();
-  final _deepSeekTemperatureController = TextEditingController();
-  bool _deepSeekEnabled = false;
-  bool _deepSeekConfigured = false;
-  bool _deepSeekObscure = true;
-  String? _deepSeekMaskedKey;
-
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isTesting = false;
@@ -45,33 +33,22 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllConfigs());
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _geminiApiKeyController.dispose();
     _geminiModelController.dispose();
     _geminiMaxTokensController.dispose();
     _geminiTemperatureController.dispose();
-    _deepSeekApiKeyController.dispose();
-    _deepSeekModelController.dispose();
-    _deepSeekMaxTokensController.dispose();
-    _deepSeekTemperatureController.dispose();
     super.dispose();
   }
 
   Future<void> _loadAllConfigs() async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _apiService.getGeminiConfig(),
-        _apiService.getDeepSeekConfig(),
-      ]);
-
-      final gemini = results[0];
+      final gemini = await _apiService.getGeminiConfig();
       if (gemini['isSuccess'] == true && gemini['data'] != null) {
         final d = gemini['data'];
         _geminiMaskedKey = d['apiKey'] ?? '';
@@ -83,40 +60,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
         _geminiConfigured = d['isConfigured'] ?? false;
         _geminiEnabled = d['enabled'] ?? false;
       }
-
-      final deepseek = results[1];
-      if (deepseek['isSuccess'] == true && deepseek['data'] != null) {
-        final d = deepseek['data'];
-        _deepSeekMaskedKey = d['apiKey'] ?? '';
-        _deepSeekModelController.text = d['model'] ?? 'deepseek-chat';
-        _deepSeekMaxTokensController.text =
-            (d['maxOutputTokens'] ?? 2048).toString();
-        _deepSeekTemperatureController.text =
-            (d['temperature'] ?? 0.7).toString();
-        _deepSeekConfigured = d['isConfigured'] ?? false;
-        _deepSeekEnabled = d['enabled'] ?? false;
-      }
     } catch (e) {
       debugPrint('Error loading AI configs: $e');
     }
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _toggleProvider(String provider, bool enabled) async {
+  Future<void> _toggleGemini(bool enabled) async {
     setState(() => _isSaving = true);
     try {
-      Map<String, dynamic> result;
-      if (provider == 'gemini') {
-        result = await _apiService.updateGeminiConfig({'enabled': enabled});
-        if (result['isSuccess'] == true) {
-          setState(() => _geminiEnabled = enabled);
-        }
-      } else {
-        result =
-            await _apiService.updateDeepSeekConfig({'enabled': enabled});
-        if (result['isSuccess'] == true) {
-          setState(() => _deepSeekEnabled = enabled);
-        }
+      final result = await _apiService.updateGeminiConfig({'enabled': enabled});
+      if (result['isSuccess'] == true) {
+        setState(() => _geminiEnabled = enabled);
       }
     } catch (e) {
       appNotification.showError(title: 'Lỗi', message: '$e');
@@ -140,7 +95,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
       if (temp != null) data['temperature'] = temp;
       data['enabled'] = _geminiEnabled;
 
-      if (_geminiApiKeyController.text.isEmpty && !_geminiConfigured && data.length <= 2) {
+      if (_geminiApiKeyController.text.isEmpty &&
+          !_geminiConfigured &&
+          data.length <= 2) {
         appNotification.showWarning(
             title: 'Chưa có API Key',
             message: 'Vui lòng nhập API Key để sử dụng Gemini');
@@ -166,58 +123,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
     if (mounted) setState(() => _isSaving = false);
   }
 
-  Future<void> _saveDeepSeekConfig() async {
-    setState(() => _isSaving = true);
-    try {
-      final data = <String, dynamic>{};
-      if (_deepSeekApiKeyController.text.isNotEmpty) {
-        data['apiKey'] = _deepSeekApiKeyController.text.trim();
-      }
-      if (_deepSeekModelController.text.isNotEmpty) {
-        data['model'] = _deepSeekModelController.text.trim();
-      }
-      final maxTokens = int.tryParse(_deepSeekMaxTokensController.text);
-      if (maxTokens != null) data['maxOutputTokens'] = maxTokens;
-      final temp = double.tryParse(_deepSeekTemperatureController.text);
-      if (temp != null) data['temperature'] = temp;
-      data['enabled'] = _deepSeekEnabled;
-
-      if (_deepSeekApiKeyController.text.isEmpty && !_deepSeekConfigured && data.length <= 2) {
-        appNotification.showWarning(
-            title: 'Chưa có API Key',
-            message: 'Vui lòng nhập API Key để sử dụng DeepSeek');
-        setState(() => _isSaving = false);
-        return;
-      }
-
-      final result = await _apiService.updateDeepSeekConfig(data);
-      if (result['isSuccess'] == true) {
-        appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã lưu cấu hình DeepSeek');
-        _deepSeekApiKeyController.clear();
-        await _loadAllConfigs();
-      } else {
-        appNotification.showError(
-            title: 'Lỗi',
-            message: result['message'] ?? 'Không thể lưu cấu hình');
-      }
-    } catch (e) {
-      appNotification.showError(
-          title: 'Lỗi', message: 'Không thể lưu cấu hình: $e');
-    }
-    if (mounted) setState(() => _isSaving = false);
-  }
-
-  Future<void> _testConnection(String provider) async {
+  Future<void> _testConnection() async {
     setState(() {
       _isTesting = true;
       _testResult = null;
       _testSuccess = null;
     });
     try {
-      final result = provider == 'gemini'
-          ? await _apiService.testGeminiConnection()
-          : await _apiService.testDeepSeekConnection();
+      final result = await _apiService.testGeminiConnection();
 
       if (result['isSuccess'] == true && result['data'] != null) {
         final data = result['data'];
@@ -257,152 +170,62 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        leading: Responsive.isMobile(context) ? null : IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => SettingsHubScreen.goBack(context),
-        ),
+        leading: Responsive.isMobile(context)
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+                onPressed: () => SettingsHubScreen.goBack(context),
+              ),
         title: const Text(
           'Thiết lập AI',
-          style: TextStyle(
-              color: Color(0xFF18181B), fontWeight: FontWeight.bold),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF1E3A5F),
-          unselectedLabelColor: const Color(0xFF71717A),
-          indicatorColor: const Color(0xFF2D5F8B),
-          indicatorWeight: 3,
-          onTap: (_) => setState(() {
-            _testResult = null;
-            _testSuccess = null;
-          }),
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.auto_awesome, size: 18),
-                  const SizedBox(width: 6),
-                  const Text('Gemini'),
-                  const SizedBox(width: 6),
-                  _buildStatusDot(_geminiEnabled && _geminiConfigured),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.psychology, size: 18),
-                  const SizedBox(width: 6),
-                  const Text('DeepSeek'),
-                  const SizedBox(width: 6),
-                  _buildStatusDot(_deepSeekEnabled && _deepSeekConfigured),
-                ],
-              ),
-            ),
-          ],
+          style:
+              TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold),
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildProviderTab(
-                  provider: 'gemini',
-                  name: 'Google Gemini',
-                  icon: Icons.auto_awesome,
-                  gradientColors: [
-                    const Color(0xFF2D5F8B),
-                    const Color(0xFF34A853)
-                  ],
-                  enabled: _geminiEnabled,
-                  configured: _geminiConfigured,
-                  apiKeyController: _geminiApiKeyController,
-                  modelController: _geminiModelController,
-                  maxTokensController: _geminiMaxTokensController,
-                  temperatureController: _geminiTemperatureController,
-                  obscure: _geminiObscure,
-                  maskedKey: _geminiMaskedKey,
-                  onToggle: (v) => _toggleProvider('gemini', v),
-                  onObscureToggle: () =>
-                      setState(() => _geminiObscure = !_geminiObscure),
-                  onSave: _saveGeminiConfig,
-                  onTest: () => _testConnection('gemini'),
-                  modelItems: const [
-                    DropdownMenuItem(
-                        value: 'gemini-2.5-flash',
-                        child:
-                            Text('Gemini 2.5 Flash (Nhanh, miễn phí)')),
-                    DropdownMenuItem(
-                        value: 'gemini-2.5-pro',
-                        child:
-                            Text('Gemini 2.5 Pro (Chất lượng cao)')),
-                    DropdownMenuItem(
-                        value: 'gemini-2.0-flash',
-                        child: Text('Gemini 2.0 Flash')),
-                    DropdownMenuItem(
-                        value: 'gemini-2.0-flash-lite',
-                        child:
-                            Text('Gemini 2.0 Flash Lite (Siêu nhanh)')),
-                  ],
-                  helpSteps: const [
-                    _HelpStep(1, 'Truy cập Google AI Studio',
-                        'https://aistudio.google.com/apikey'),
-                    _HelpStep(
-                        2, 'Đăng nhập bằng tài khoản Google', null),
-                    _HelpStep(3,
-                        'Nhấn "Create API Key" hoặc "Tạo API Key"', null),
-                    _HelpStep(
-                        4, 'Copy API Key và dán vào ô phía trên', null),
-                  ],
-                  helpNote:
-                      'Gemini API miễn phí với giới hạn 15 request/phút.',
-                ),
-                _buildProviderTab(
-                  provider: 'deepseek',
-                  name: 'DeepSeek AI',
-                  icon: Icons.psychology,
-                  gradientColors: [
-                    const Color(0xFF1E3A5F),
-                    const Color(0xFF6366F1)
-                  ],
-                  enabled: _deepSeekEnabled,
-                  configured: _deepSeekConfigured,
-                  apiKeyController: _deepSeekApiKeyController,
-                  modelController: _deepSeekModelController,
-                  maxTokensController: _deepSeekMaxTokensController,
-                  temperatureController: _deepSeekTemperatureController,
-                  obscure: _deepSeekObscure,
-                  maskedKey: _deepSeekMaskedKey,
-                  onToggle: (v) => _toggleProvider('deepseek', v),
-                  onObscureToggle: () =>
-                      setState(() => _deepSeekObscure = !_deepSeekObscure),
-                  onSave: _saveDeepSeekConfig,
-                  onTest: () => _testConnection('deepseek'),
-                  modelItems: const [
-                    DropdownMenuItem(
-                        value: 'deepseek-chat',
-                        child: Text('DeepSeek Chat (Đa năng)')),
-                    DropdownMenuItem(
-                        value: 'deepseek-reasoner',
-                        child:
-                            Text('DeepSeek Reasoner (Suy luận mạnh)')),
-                  ],
-                  helpSteps: const [
-                    _HelpStep(1, 'Truy cập DeepSeek Platform',
-                        'https://platform.deepseek.com/api_keys'),
-                    _HelpStep(
-                        2, 'Đăng ký/Đăng nhập tài khoản DeepSeek', null),
-                    _HelpStep(3, 'Tạo API Key mới', null),
-                    _HelpStep(
-                        4, 'Copy API Key và dán vào ô phía trên', null),
-                  ],
-                  helpNote:
-                      'DeepSeek cung cấp giá rẻ nhất thị trường, phù hợp cho nội dung dài.',
-                ),
+          : _buildProviderTab(
+              provider: 'gemini',
+              name: 'Google Gemini',
+              icon: Icons.auto_awesome,
+              gradientColors: [
+                const Color(0xFF2D5F8B),
+                const Color(0xFF34A853)
               ],
+              enabled: _geminiEnabled,
+              configured: _geminiConfigured,
+              apiKeyController: _geminiApiKeyController,
+              modelController: _geminiModelController,
+              maxTokensController: _geminiMaxTokensController,
+              temperatureController: _geminiTemperatureController,
+              obscure: _geminiObscure,
+              maskedKey: _geminiMaskedKey,
+              onToggle: (v) => _toggleGemini(v),
+              onObscureToggle: () =>
+                  setState(() => _geminiObscure = !_geminiObscure),
+              onSave: _saveGeminiConfig,
+              onTest: () => _testConnection(),
+              modelItems: const [
+                DropdownMenuItem(
+                    value: 'gemini-2.5-flash',
+                    child: Text('Gemini 2.5 Flash (Nhanh, miễn phí)')),
+                DropdownMenuItem(
+                    value: 'gemini-2.5-pro',
+                    child: Text('Gemini 2.5 Pro (Chất lượng cao)')),
+                DropdownMenuItem(
+                    value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash')),
+                DropdownMenuItem(
+                    value: 'gemini-2.0-flash-lite',
+                    child: Text('Gemini 2.0 Flash Lite (Siêu nhanh)')),
+              ],
+              helpSteps: const [
+                _HelpStep(1, 'Truy cập Google AI Studio',
+                    'https://aistudio.google.com/apikey'),
+                _HelpStep(2, 'Đăng nhập bằng tài khoản Google', null),
+                _HelpStep(3, 'Nhấn "Create API Key" hoặc "Tạo API Key"', null),
+                _HelpStep(4, 'Copy API Key và dán vào ô phía trên', null),
+              ],
+              helpNote: 'Gemini API miễn phí với giới hạn 15 request/phút.',
             ),
     );
   }
@@ -462,11 +285,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                 _buildApiKeySection(
                     apiKeyController, maskedKey, obscure, onObscureToggle),
                 const SizedBox(height: 24),
-                _buildModelSettingsSection(
-                    modelController, maxTokensController,
+                _buildModelSettingsSection(modelController, maxTokensController,
                     temperatureController, modelItems, isMobile),
                 const SizedBox(height: 24),
-                _buildTestSection(provider, configured),
+                _buildTestSection(configured),
                 const SizedBox(height: 24),
                 _buildSaveButton(onSave),
                 const SizedBox(height: 32),
@@ -506,8 +328,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                       color: const Color(0xFF18181B))),
               const SizedBox(height: 4),
               Text('Tích hợp AI để tự động tạo nội dung',
-                  style:
-                      TextStyle(color: Colors.grey[600], fontSize: isMobile ? 12 : 14)),
+                  style: TextStyle(
+                      color: Colors.grey[600], fontSize: isMobile ? 12 : 14)),
             ],
           ),
         ),
@@ -521,9 +343,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
             Text(enabled ? 'Đang bật' : 'Đang tắt',
                 style: TextStyle(
                     fontSize: 11,
-                    color: enabled
-                        ? const Color(0xFF16A34A)
-                        : Colors.grey[500],
+                    color: enabled ? const Color(0xFF16A34A) : Colors.grey[500],
                     fontWeight: FontWeight.w500)),
           ],
         ),
@@ -579,8 +399,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                         fontWeight: FontWeight.w600, color: textColor)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style:
-                        TextStyle(fontSize: 13, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
               ],
             ),
           ),
@@ -633,8 +452,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
             hintText: 'sk-... hoặc AIza...',
             prefixIcon: const Icon(Icons.vpn_key, size: 20),
             suffixIcon: IconButton(
-              icon: Icon(
-                  obscure ? Icons.visibility_off : Icons.visibility,
+              icon: Icon(obscure ? Icons.visibility_off : Icons.visibility,
                   size: 20),
               onPressed: onObscureToggle,
             ),
@@ -648,8 +466,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                 borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: Color(0xFF2D5F8B), width: 2)),
+                borderSide:
+                    const BorderSide(color: Color(0xFF2D5F8B), width: 2)),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
@@ -717,14 +535,12 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                          color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                          color: Color(0xFFE4E4E7))),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ],
@@ -733,7 +549,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Nhiệt độ (0.0 - 2.0)',
+              const Text('Độ sáng tạo / Temperature (0.0 - 2.0)',
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -749,99 +565,97 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                          color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                          color: Color(0xFFE4E4E7))),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ],
           ),
         ] else
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Độ dài tối đa (tokens)',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF52525B))),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: maxTokensController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: '2048',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFE4E4E7))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFE4E4E7))),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Độ dài tối đa (tokens)',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF52525B))),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: maxTokensController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        hintText: '2048',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE4E4E7))),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE4E4E7))),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Nhiệt độ (0.0 - 2.0)',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF52525B))),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: temperatureController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      hintText: '0.7',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFE4E4E7))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFE4E4E7))),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Độ sáng tạo / Temperature (0.0 - 2.0)',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF52525B))),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: temperatureController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '0.7',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE4E4E7))),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE4E4E7))),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         const SizedBox(height: 8),
         Text(
-          '💡 Nhiệt độ thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.',
+          '💡 Temperature thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.',
           style: TextStyle(fontSize: 12, color: Colors.grey[500]),
         ),
       ],
     );
   }
 
-  Widget _buildTestSection(String provider, bool configured) {
+  Widget _buildTestSection(bool configured) {
     return _buildCard(
       title: 'Kiểm tra kết nối',
       icon: Icons.science,
@@ -855,16 +669,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed:
-                (_isTesting || !configured) ? null : () => _testConnection(provider),
+            onPressed: (_isTesting || !configured) ? null : _testConnection,
             icon: _isTesting
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.play_arrow),
-            label: Text(
-                _isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'),
+            label: Text(_isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF1E3A5F),
               side: const BorderSide(color: Color(0xFF1E3A5F)),
@@ -894,9 +706,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  _testSuccess == true
-                      ? Icons.check_circle
-                      : Icons.error,
+                  _testSuccess == true ? Icons.check_circle : Icons.error,
                   color: _testSuccess == true
                       ? const Color(0xFF16A34A)
                       : const Color(0xFFDC2626),
@@ -937,14 +747,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
             : const Icon(Icons.save),
         label: Text(
           _isSaving ? 'Đang lưu...' : 'Lưu cấu hình',
-          style:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF2D5F8B),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 2,
         ),
       ),
@@ -972,8 +781,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(note,
-                    style: TextStyle(
-                        fontSize: 13, color: Colors.grey[700])),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700])),
               ),
             ],
           ),
@@ -1013,8 +821,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen>
                         fontSize: 14, fontWeight: FontWeight.w500)),
                 if (subtitle != null)
                   Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.blue[600])),
+                      style: TextStyle(fontSize: 12, color: Colors.blue[600])),
               ],
             ),
           ),

@@ -54,14 +54,13 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   Future<void> _loadAssignments() async {
     setState(() => _loadingAssignments = true);
-    final res = await _apiService.getOrgAssignments(
-        employeeId: widget.employee.id);
+    final res =
+        await _apiService.getOrgAssignments(employeeId: widget.employee.id);
     if (mounted) {
       setState(() {
         _loadingAssignments = false;
         if (res['isSuccess'] == true) {
-          _assignments =
-              List<Map<String, dynamic>>.from(res['data'] ?? []);
+          _assignments = List<Map<String, dynamic>>.from(res['data'] ?? []);
         }
       });
     }
@@ -148,8 +147,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     final seen = <String>{};
     final result = <Map<String, dynamic>>[];
     for (final a in _positionHistory) {
-      final key =
-          '${a['departmentId']}_${a['startDate']}_${a['endDate']}';
+      final key = '${a['departmentId']}_${a['startDate']}_${a['endDate']}';
       if (!seen.contains(key)) {
         seen.add(key);
         result.add(a);
@@ -172,10 +170,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         ? List<Map<String, dynamic>>.from(posRes['data'] ?? [])
         : <Map<String, dynamic>>[];
     final departments = deptRes['isSuccess'] != false
-        ? List<Map<String, dynamic>>.from(
-            (deptRes['data'] is List
-                ? deptRes['data']
-                : deptRes['data']?['items'] ?? deptRes['items'] ?? []))
+        ? List<Map<String, dynamic>>.from((deptRes['data'] is List
+            ? deptRes['data']
+            : deptRes['data']?['items'] ?? deptRes['items'] ?? []))
         : <Map<String, dynamic>>[];
 
     String? selectedDeptId;
@@ -189,8 +186,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           final content = SingleChildScrollView(
-            padding:
-                isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+            padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -236,11 +232,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         child: InputDecorator(
                           decoration: const InputDecoration(
                               labelText: 'Ngày bắt đầu',
-                              prefixIcon:
-                                  Icon(Icons.calendar_today)),
+                              prefixIcon: Icon(Icons.calendar_today)),
                           child: Text(startDate != null
-                              ? DateFormat('dd/MM/yyyy')
-                                  .format(startDate!)
+                              ? DateFormat('dd/MM/yyyy').format(startDate!)
                               : 'Chọn ngày'),
                         ),
                       ),
@@ -260,12 +254,10 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Ngày kết thúc',
-                            prefixIcon:
-                                const Icon(Icons.event_available),
+                            prefixIcon: const Icon(Icons.event_available),
                             suffixIcon: endDate != null
                                 ? IconButton(
-                                    icon: const Icon(Icons.clear,
-                                        size: 16),
+                                    icon: const Icon(Icons.clear, size: 16),
                                     onPressed: () =>
                                         setState(() => endDate = null))
                                 : null,
@@ -310,15 +302,13 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 'endDate': endDate?.toIso8601String(),
               };
               Navigator.pop(ctx);
-              final res =
-                  await _apiService.createOrgAssignment(data);
+              final res = await _apiService.createOrgAssignment(data);
               if (mounted) {
                 if (res['isSuccess'] == true) {
                   _showSuccess('Đã thêm ghi nhận chức vụ');
                   _loadAssignments();
                 } else {
-                  _showError(
-                      res['message'] ?? 'Không thể thêm chức vụ');
+                  _showError(res['message'] ?? 'Không thể thêm chức vụ');
                 }
               }
             },
@@ -340,8 +330,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           final content = SingleChildScrollView(
-            padding:
-                isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+            padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -351,8 +340,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                     labelText: isDiscipline
                         ? 'Hình thức kỷ luật *'
                         : 'Nội dung khen thưởng *',
-                    prefixIcon: Icon(
-                        isDiscipline ? Icons.gavel : Icons.star_outline),
+                    prefixIcon:
+                        Icon(isDiscipline ? Icons.gavel : Icons.star_outline),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -408,8 +397,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             isMobile: isMobile,
             onSave: () async {
               if (nameCtrl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Vui lòng nhập nội dung')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập nội dung')));
                 return;
               }
               final data = {
@@ -431,9 +420,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               final res = await _apiService.createHrDocument(data);
               if (mounted) {
                 if (res['isSuccess'] == true) {
-                  _showSuccess(isDiscipline
-                      ? 'Đã thêm kỷ luật'
-                      : 'Đã thêm khen thưởng');
+                  _showSuccess(
+                      isDiscipline ? 'Đã thêm kỷ luật' : 'Đã thêm khen thưởng');
                   if (isDiscipline) {
                     _loadDisciplines();
                   } else {
@@ -462,8 +450,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Xóa'),
           ),
@@ -494,8 +481,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               child: const Text('Hủy')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Xóa'),
           ),
@@ -533,8 +519,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy')),
+            onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: onSave,
@@ -597,8 +582,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             const Text('Quá trình công tác',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(widget.employee.fullName,
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.normal)),
           ],
         ),
         bottom: TabBar(
@@ -658,7 +643,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-            color: isActive ? color.withValues(alpha: 0.5) : const Color(0xFFE4E4E7)),
+            color: isActive
+                ? color.withValues(alpha: 0.5)
+                : const Color(0xFFE4E4E7)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -676,10 +663,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 ),
                 child: Icon(Icons.badge, color: color, size: 18),
               ),
-              if (_positionHistory.indexOf(a) <
-                  _positionHistory.length - 1)
-                Container(
-                    width: 2, height: 20, color: const Color(0xFFE4E4E7)),
+              if (_positionHistory.indexOf(a) < _positionHistory.length - 1)
+                Container(width: 2, height: 20, color: const Color(0xFFE4E4E7)),
             ]),
             const SizedBox(width: 12),
             Expanded(
@@ -730,8 +715,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   const SizedBox(height: 4),
                   Text(
                     a['departmentName']?.toString() ?? '—',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF52525B)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
                   ),
                   const SizedBox(height: 6),
                   Row(children: [
@@ -750,8 +735,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             IconButton(
               icon: const Icon(Icons.delete_outline,
                   size: 18, color: Color(0xFFA1A1AA)),
-              onPressed: () =>
-                  _deleteAssignment(a['id']?.toString() ?? ''),
+              onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
               tooltip: 'Xóa',
             ),
           ],
@@ -842,8 +826,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   const SizedBox(height: 4),
                   Text(
                     'Chức vụ: ${a['positionName']?.toString() ?? '—'}',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF52525B)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
                   ),
                   const SizedBox(height: 6),
                   Row(children: [
@@ -862,8 +846,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             IconButton(
               icon: const Icon(Icons.delete_outline,
                   size: 18, color: Color(0xFFA1A1AA)),
-              onPressed: () =>
-                  _deleteAssignment(a['id']?.toString() ?? ''),
+              onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
               tooltip: 'Xóa',
             ),
           ],
@@ -912,9 +895,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                   itemCount: _disciplines.length,
-                  itemBuilder: (_, i) => _buildDocumentCard(
-                      _disciplines[i],
-                      isDiscipline: true),
+                  itemBuilder: (_, i) =>
+                      _buildDocumentCard(_disciplines[i], isDiscipline: true),
                 ),
     );
   }
@@ -942,10 +924,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 color: bgColor,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                  isDiscipline ? Icons.gavel : Icons.emoji_events,
-                  color: color,
-                  size: 18),
+              child: Icon(isDiscipline ? Icons.gavel : Icons.emoji_events,
+                  color: color, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1003,8 +983,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             IconButton(
               icon: const Icon(Icons.delete_outline,
                   size: 18, color: Color(0xFFA1A1AA)),
-              onPressed: () => _deleteDocument(
-                  doc['id']?.toString() ?? '', isDiscipline),
+              onPressed: () =>
+                  _deleteDocument(doc['id']?.toString() ?? '', isDiscipline),
               tooltip: 'Xóa',
             ),
           ],

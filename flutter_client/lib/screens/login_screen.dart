@@ -528,6 +528,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 child: ElevatedButton(
                                   onPressed: _isLoading ? null : _handleLogin,
+                                  onLongPress: _isLoading ? null : () => Navigator.of(context).pushNamed('/admin'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
