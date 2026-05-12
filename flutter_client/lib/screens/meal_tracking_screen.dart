@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -45,6 +45,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   List<EmployeeMealSummary> _employeeSummaries = [];
   DateTime _summaryFrom = DateTime.now().subtract(const Duration(days: 30));
   DateTime _summaryTo = DateTime.now();
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Menu
   List<MealMenu> _weeklyMenus = [];
@@ -275,6 +277,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   Future<void> _doBatchCharge() async {
@@ -2415,23 +2425,76 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         // Search
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Tìm theo tên / mã nhân viên...',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              border: const OutlineInputBorder(),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              isDense: true,
-              suffixIcon: _summarySearch.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => setState(() => _summarySearch = ''),
-                    )
-                  : null,
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Tìm theo tên / mã nhân viên...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: const OutlineInputBorder(),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                suffixIcon: _summarySearch.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _summarySearch = ''),
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _summarySearch = v),
             ),
-            onChanged: (v) => setState(() => _summarySearch = v),
-          ),
+            if (_branches.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.account_tree_outlined,
+                      size: 16, color: Color(0xFF6B7280)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _selectedBranchId,
+                        isExpanded: true,
+                        isDense: true,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF111827)),
+                        icon: const Icon(Icons.keyboard_arrow_down,
+                            size: 18, color: Color(0xFF9CA3AF)),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Tất cả chi nhánh',
+                                  style: TextStyle(fontSize: 13))),
+                          ..._branches.map((b) => DropdownMenuItem<String?>(
+                              value: b['id']?.toString(),
+                              child: Text(b['name']?.toString() ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13)))),
+                        ],
+                        onChanged: (v) => setState(() => _selectedBranchId = v),
+                      ),
+                    ),
+                  ),
+                  if (_selectedBranchId != null)
+                    InkWell(
+                      onTap: () => setState(() => _selectedBranchId = null),
+                      child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close,
+                              size: 14, color: Color(0xFF9CA3AF))),
+                    ),
+                ]),
+              ),
+            ],
+          ]),
         ),
         // Summary list
         Expanded(
@@ -2444,15 +2507,32 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   : Builder(
                       builder: (_) {
                         final q = _summarySearch.toLowerCase();
-                        final filtered = q.isEmpty
+                        // Filter by branch
+                        Set<String>? branchEmpIds;
+                        if (_selectedBranchId != null) {
+                          branchEmpIds = _employees
+                              .whereType<Map>()
+                              .where((e) =>
+                                  e['branchId']?.toString() ==
+                                  _selectedBranchId)
+                              .map((e) => e['id']?.toString() ?? '')
+                              .toSet();
+                        }
+                        var filtered = branchEmpIds != null
                             ? _employeeSummaries
-                            : _employeeSummaries
                                 .where((s) =>
-                                    s.employeeName.toLowerCase().contains(q) ||
-                                    (s.employeeCode ?? '')
-                                        .toLowerCase()
-                                        .contains(q))
-                                .toList();
+                                    branchEmpIds!.contains(s.employeeUserId))
+                                .toList()
+                            : _employeeSummaries;
+                        if (q.isNotEmpty) {
+                          filtered = filtered
+                              .where((s) =>
+                                  s.employeeName.toLowerCase().contains(q) ||
+                                  (s.employeeCode ?? '')
+                                      .toLowerCase()
+                                      .contains(q))
+                              .toList();
+                        }
                         if (filtered.isEmpty) {
                           return const Center(
                               child: Text('Không tìm thấy',

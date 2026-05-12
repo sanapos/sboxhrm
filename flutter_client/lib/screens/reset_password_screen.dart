@@ -191,20 +191,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Vui lòng nhập mật khẩu mới';
                         }
-                        if (value.length < 8) {
-                          return 'Mật khẩu phải có ít nhất 8 ký tự';
-                        }
-                        if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                          return 'Mật khẩu phải có ít nhất 1 chữ hoa';
-                        }
-                        if (!RegExp(r'[a-z]').hasMatch(value)) {
-                          return 'Mật khẩu phải có ít nhất 1 chữ thường';
-                        }
-                        if (!RegExp(r'[0-9]').hasMatch(value)) {
-                          return 'Mật khẩu phải có ít nhất 1 chữ số';
-                        }
-                        if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
-                          return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt';
+                        if (value.length < 6) {
+                          return 'Mật khẩu phải có ít nhất 6 ký tự';
                         }
                         return null;
                       },

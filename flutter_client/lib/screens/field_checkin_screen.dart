@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -76,6 +76,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   DateTime _reportTo = DateTime.now();
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _locations = [];
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Manager map
   final MapController _managerMapController = MapController();
@@ -325,9 +327,17 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   }
 
   List<VisitReport> get _filteredManagerReports {
-    if (_managerCustomerStatusFilter == 'Tất cả') return _reports;
+    var list = _reports;
+    if (_selectedBranchId != null && _employees.isNotEmpty) {
+      final ids = _employees
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['id']?.toString() ?? '')
+          .toSet();
+      list = list.where((v) => ids.contains(v.employeeId)).toList();
+    }
+    if (_managerCustomerStatusFilter == 'Tất cả') return list;
     final selected = _managerCustomerStatusFilter.toLowerCase();
-    return _reports
+    return list
         .where((v) => _extractCustomerStatus(v).toLowerCase() == selected)
         .toList();
   }
@@ -5074,6 +5084,56 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         Text('Báo cáo check-in (${searchFiltered.length}/${_reports.length})',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
+        if (_branches.isNotEmpty) ...[
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.account_tree_outlined,
+                  size: 16, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _selectedBranchId,
+                    isExpanded: true,
+                    isDense: true,
+                    style:
+                        const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                    icon: const Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: Color(0xFF9CA3AF)),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Tất cả chi nhánh',
+                              style: TextStyle(fontSize: 13))),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13)))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                ),
+              ),
+              if (_selectedBranchId != null)
+                InkWell(
+                  onTap: () => setState(() => _selectedBranchId = null),
+                  child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 14, color: Color(0xFF9CA3AF))),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 8),
+        ],
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -5689,6 +5749,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       try {
         final resp = await _apiService.getEmployees(pageSize: 500);
         _employees = resp.map((e) => e as Map<String, dynamic>).toList();
+      } catch (_) {}
+      try {
+        final br = await _apiService.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
       } catch (_) {}
     }
     if (_locations.isEmpty) {

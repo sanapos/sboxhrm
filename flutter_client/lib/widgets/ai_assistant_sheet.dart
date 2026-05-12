@@ -13,7 +13,8 @@ class _ChatMsg {
   final String content;
   final List<String> actions;
   final List<String> creates;
-  _ChatMsg(this.role, this.content, {this.actions = const [], this.creates = const []});
+  _ChatMsg(this.role, this.content,
+      {this.actions = const [], this.creates = const []});
 }
 
 class AiAssistantSheet extends StatefulWidget {
@@ -186,7 +187,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             .map((e) => e.toString())
             .toList();
         setState(() {
-          _messages.add(_ChatMsg('assistant', reply, actions: actions, creates: creates));
+          _messages.add(
+              _ChatMsg('assistant', reply, actions: actions, creates: creates));
         });
         _scrollToBottom();
         if (_ttsEnabled && reply.isNotEmpty) {
@@ -331,11 +333,16 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final reason = params['reason'] ?? 'Quên chấm công';
         final actionStr = params['action'] ?? 'add';
         // CorrectionAction: edit=0, add=1, delete=2
-        final actionInt = actionStr == 'edit' ? 0 : actionStr == 'delete' ? 2 : 1;
+        final actionInt = actionStr == 'edit'
+            ? 0
+            : actionStr == 'delete'
+                ? 2
+                : 1;
 
         if (date == null || time == null) {
           setState(() {
-            _messages.add(_ChatMsg('assistant', '⚠️ Thiếu ngày hoặc giờ để tạo phiếu.'));
+            _messages.add(
+                _ChatMsg('assistant', '⚠️ Thiếu ngày hoặc giờ để tạo phiếu.'));
           });
           _scrollToBottom();
           return;
@@ -363,17 +370,20 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           });
           if (_ttsEnabled) {
             await _tts.stop();
-            await _tts.speak('Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.');
+            await _tts
+                .speak('Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.');
           }
         } else {
           final msg = (result['message'] as String?) ?? 'Lỗi không xác định';
           setState(() {
-            _messages.add(_ChatMsg('assistant', '❌ Không tạo được phiếu: $msg'));
+            _messages
+                .add(_ChatMsg('assistant', '❌ Không tạo được phiếu: $msg'));
           });
         }
       } else {
         setState(() {
-          _messages.add(_ChatMsg('assistant', '⚠️ Loại phiếu "$type" chưa được hỗ trợ tạo trực tiếp.'));
+          _messages.add(_ChatMsg('assistant',
+              '⚠️ Loại phiếu "$type" chưa được hỗ trợ tạo trực tiếp.'));
         });
       }
     } catch (e) {
@@ -403,7 +413,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       final params = <String, String>{};
       for (final p in tag.split(',').skip(1)) {
         final idx = p.indexOf('=');
-        if (idx > 0) params[p.substring(0, idx).trim()] = p.substring(idx + 1).trim();
+        if (idx > 0) {
+          params[p.substring(0, idx).trim()] = p.substring(idx + 1).trim();
+        }
       }
       final time = params['time'] ?? '';
       final date = params['date'] != null ? _formatDate(params['date']!) : '';

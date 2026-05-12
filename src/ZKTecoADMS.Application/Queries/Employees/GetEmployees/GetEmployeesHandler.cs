@@ -17,6 +17,7 @@ public class GetEmployeesHandler(
             request.PaginationRequest,
             filter: e => e.StoreId == request.StoreId &&
                     (subordinateIds == null || subordinateIds.Contains(e.Id)) && 
+                    (!request.BranchId.HasValue || e.BranchId == request.BranchId) &&
                     (string.IsNullOrEmpty(request.SearchTerm) || 
                     e.EmployeeCode.Contains(request.SearchTerm) ||
                     e.FirstName.Contains(request.SearchTerm) ||
@@ -72,6 +73,8 @@ public class GetEmployeesHandler(
                 DeviceId = e.DeviceUsers.OrderBy(x => x.CreatedAt).Select(x => x.DeviceId).FirstOrDefault(),
                 ApplicationUserId = e.ApplicationUserId,
                 HasAccount = e.ApplicationUserId != null,
+                BranchId = e.BranchId,
+                BranchName = e.Branch != null ? e.Branch.Name : null,
             }
         );
 

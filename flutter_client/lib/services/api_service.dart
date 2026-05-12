@@ -56,6 +56,52 @@ class ApiService {
     await prefs.remove(_refreshTokenKey);
   }
 
+  Future<Map<String, dynamic>> submitLandingConsultation({
+    required String name,
+    required String phone,
+    String? company,
+    String? province,
+    String? interestedPlan,
+    String? notes,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/publicconsultations'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: json.encode({
+              'name': name,
+              'phone': phone,
+              'company': company,
+              'province': province,
+              'interestedPlan': interestedPlan,
+              'notes': notes,
+            }),
+          )
+          .timeout(_defaultTimeout);
+
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return body;
+      }
+      return body.isNotEmpty
+          ? body
+          : {
+              'isSuccess': false,
+              'errors': ['Không thể gửi yêu cầu tư vấn']
+            };
+    } catch (e) {
+      debugPrint('Error submitting landing consultation: $e');
+      return {
+        'isSuccess': false,
+        'errors': ['Không thể gửi yêu cầu tư vấn: $e']
+      };
+    }
+  }
+
   // Lưu refresh token
   Future<void> saveRefreshToken(String refreshToken) async {
     final prefs = await SharedPreferences.getInstance();
@@ -123,9 +169,19 @@ class ApiService {
   }
 
   bool _sessionExpiredTriggered = false;
+  DateTime? _lastSessionExpiredAt;
+
   Future<void> _triggerSessionExpired() async {
+    // Use timestamp-based dedup so the flag is never "reset" while user is
+    // still on the login screen, preventing double-logout cascades.
+    final now = DateTime.now();
+    if (_lastSessionExpiredAt != null &&
+        now.difference(_lastSessionExpiredAt!).inSeconds < 10) {
+      return; // Already triggered recently
+    }
     if (_sessionExpiredTriggered) return;
     _sessionExpiredTriggered = true;
+    _lastSessionExpiredAt = now;
     try {
       final cb = onUnauthorized;
       if (cb != null) {
@@ -134,8 +190,8 @@ class ApiService {
     } catch (e) {
       debugPrint('❌ ApiService: onUnauthorized callback error: $e');
     } finally {
-      // Re-allow triggering for future sessions (after user logs in again).
-      Future<void>.delayed(const Duration(seconds: 2), () {
+      // Re-allow triggering only after a full login cycle (10s window)
+      Future<void>.delayed(const Duration(seconds: 10), () {
         _sessionExpiredTriggered = false;
       });
     }
@@ -145,8 +201,7 @@ class ApiService {
   Future<Map<String, dynamic>> login(
       String storeCode, String email, String password) async {
     try {
-      debugPrint(
-          '🔐 Login attempt: $storeCode / $email to $baseUrl/api/auth/login');
+      debugPrint('🔐 Login attempt to $baseUrl/api/auth/login');
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/auth/login'),
@@ -159,7 +214,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       debugPrint('📥 Login response status: ${response.statusCode}');
-      debugPrint('📥 Login response body: ${response.body}');
+      // NOTE: Never log response.body here — it contains access/refresh tokens
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Login error: $e');
@@ -172,8 +227,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> adminLogin(String email, String password) async {
     try {
-      debugPrint(
-          '🔐 AdminLogin attempt: $email to $baseUrl/api/auth/admin-login');
+      debugPrint('🔐 AdminLogin attempt to $baseUrl/api/auth/AdminLogin');
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/auth/AdminLogin'),
@@ -182,7 +236,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       debugPrint('📥 AdminLogin response status: ${response.statusCode}');
-      debugPrint('📥 AdminLogin response body: ${response.body}');
+      // NOTE: Never log response.body here — it contains access/refresh tokens
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ AdminLogin error: $e');
@@ -220,7 +274,10 @@ class ApiService {
   // Đăng ký cửa hàng mới
   Future<Map<String, dynamic>> register(
       String storeName, String email, String password,
-      {String? phoneNumber, String? storeCode, String? agentCode}) async {
+      {String? phoneNumber,
+      String? storeCode,
+      String? agentCode,
+      String? servicePackageId}) async {
     try {
       debugPrint('📝 Register attempt: $storeName - $email');
       final body = {
@@ -237,6 +294,9 @@ class ApiService {
       if (agentCode != null && agentCode.isNotEmpty) {
         body['agentCode'] = agentCode;
       }
+      if (servicePackageId != null && servicePackageId.isNotEmpty) {
+        body['servicePackageId'] = servicePackageId;
+      }
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/auth/register'),
@@ -245,13 +305,27 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       debugPrint('📥 Register response status: ${response.statusCode}');
-      debugPrint('📥 Register response body: ${response.body}');
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Register error: $e');
       return {
         'isSuccess': false,
         'message': 'Không thể kết nối đến server: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getPublicServicePackages() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/auth/publicservicepackages'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      return {
+        'isSuccess': false,
+        'message': 'Không thể tải danh sách gói dịch vụ: $e',
       };
     }
   }
@@ -685,10 +759,11 @@ class ApiService {
   }
 
   // ==================== EMPLOYEES ====================
-  Future<List<dynamic>> getEmployees({int? pageSize}) async {
+  Future<List<dynamic>> getEmployees({int? pageSize, String? branchId}) async {
     try {
       final params = <String, String>{};
       if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (branchId != null) params['branchId'] = branchId;
       final uri = Uri.parse('$baseUrl/api/employees')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http
@@ -5215,6 +5290,65 @@ class ApiService {
   Future<Map<String, dynamic>> deleteBranch(String id) async {
     try {
       final response = await http.delete(Uri.parse('$baseUrl/api/branches/$id'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getBranchPermissions(String branchId) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/branches/$branchId/permissions'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createBranchPermission(
+      String branchId, Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/branches/$branchId/permissions'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateBranchPermission(
+      String permId, Map<String, dynamic> data) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/branches/permissions/$permId'),
+          headers: _headers,
+          body: jsonEncode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteBranchPermission(String permId) async {
+    try {
+      final response = await http.delete(
+          Uri.parse('$baseUrl/api/branches/permissions/$permId'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMyBranches() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/branches/my-branches'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -11486,6 +11620,53 @@ class ApiService {
           Uri.parse('$baseUrl/api/system-admin/app-reports/$id'),
           headers: _headers,
           body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminGetConsultationRequests({
+    String? status,
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final qp = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/api/system-admin/consultation-requests')
+          .replace(queryParameters: qp);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminUpdateConsultationRequest(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/system-admin/consultation-requests/$id'),
+          headers: _headers,
+          body: jsonEncode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminDeleteConsultationRequest(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/system-admin/consultation-requests/$id'),
+        headers: _headers,
+      );
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};

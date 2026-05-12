@@ -48,7 +48,8 @@ class Device {
   bool get isOnline {
     // Luôn tính từ lastOnline thay vì tin vào deviceStatus cached trong DB
     if (lastOnline == null) return false;
-    return DateTime.now().toUtc().difference(lastOnline!.toUtc()).inSeconds < 90;
+    return DateTime.now().toUtc().difference(lastOnline!.toUtc()).inSeconds <
+        90;
   }
 
   /// Device has never connected to the server (lastOnline is null)
@@ -64,17 +65,14 @@ class Device {
       isActive: json['isActive'] ?? true,
       location: json['location'],
       description: json['description'],
-      lastOnline: json['lastOnline'] != null
-          ? _parseUtc(json['lastOnline'])
-          : null,
+      lastOnline:
+          json['lastOnline'] != null ? _parseUtc(json['lastOnline']) : null,
       userCount: json['userCount'],
       attendanceCount: json['attendanceCount'],
-      createdAt: json['createdAt'] != null
-          ? _parseUtc(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? _parseUtc(json['updatedAt'])
-          : null,
+      createdAt:
+          json['createdAt'] != null ? _parseUtc(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? _parseUtc(json['updatedAt']) : null,
       deviceStatus: json['deviceStatus'],
       isClaimed: json['isClaimed'],
       ownerId: json['ownerId'],

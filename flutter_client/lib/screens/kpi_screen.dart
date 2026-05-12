@@ -54,6 +54,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   // --- Filters ---
   String? _filterDepartment;
   String? _filterEmployeeId;
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // --- Mobile UI ---
   bool _showMobileFilters = false;
@@ -109,6 +111,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       });
       if (_selPeriodId != null) await _loadPeriodData();
       _loadCredentialsStatus();
+      try {
+        final br = await _api.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('Error loading KPI: $e');
     }
@@ -299,7 +309,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             color: Colors.white,
                             size: 18),
                         if (_filterDepartment != null ||
-                            _filterEmployeeId != null)
+                            _filterEmployeeId != null ||
+                            _filterBranchId != null)
                           Positioned(
                               right: 0,
                               top: 0,
@@ -376,8 +387,21 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return depts.toList()..sort();
   }
 
+  Set<String> get _branchEmpIds {
+    if (_filterBranchId == null) return {};
+    return _employees
+        .where((e) => e['branchId']?.toString() == _filterBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+  }
+
   List<Map<String, dynamic>> get _filteredTargets {
     var list = _targets;
+    if (_filterBranchId != null) {
+      final ids = _branchEmpIds;
+      list =
+          list.where((t) => ids.contains(t['employeeId']?.toString())).toList();
+    }
     if (_filterDepartment != null) {
       list = list
           .where((t) => t['department']?.toString() == _filterDepartment)
@@ -414,6 +438,49 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         children: [
           Icon(Icons.filter_list_rounded, size: 18, color: Colors.grey[500]),
           const SizedBox(width: 8),
+          if (_branches.isNotEmpty) ...[
+            Expanded(
+              child: DropdownButtonFormField<String?>(
+                key: ValueKey('branch_$_filterBranchId'),
+                initialValue: _filterBranchId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Chi nhánh',
+                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade200)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _accent)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem(
+                      value: null,
+                      child: Text('Tất cả', style: TextStyle(fontSize: 12))),
+                  ..._branches.map((b) => DropdownMenuItem(
+                      value: b['id']?.toString(),
+                      child: Text(b['name']?.toString() ?? '',
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: (v) => setState(() {
+                  _filterBranchId = v;
+                  _filterDepartment = null;
+                  _filterEmployeeId = null;
+                }),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: DropdownButtonFormField<String?>(
               initialValue: _filterDepartment,
@@ -491,7 +558,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               onChanged: (v) => setState(() => _filterEmployeeId = v),
             ),
           ),
-          if (_filterDepartment != null || _filterEmployeeId != null) ...[
+          if (_filterDepartment != null ||
+              _filterEmployeeId != null ||
+              _filterBranchId != null) ...[
             const SizedBox(width: 4),
             Container(
               decoration: BoxDecoration(
@@ -501,6 +570,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 onPressed: () => setState(() {
                   _filterDepartment = null;
                   _filterEmployeeId = null;
+                  _filterBranchId = null;
                 }),
                 icon: const Icon(Icons.clear_rounded, size: 18, color: _red),
                 tooltip: 'Xóa bộ lọc',

@@ -113,7 +113,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
   }
 
   Future<void> _exportExcel() async {
-    if (_items.isEmpty) {
+    final data = _filtered;
+    if (data.isEmpty) {
       NotificationOverlayManager()
           .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
       return;
@@ -134,8 +135,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
         'Trạng thái',
         'Người tạo'
       ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < _items.length; i++) {
-        final t = _items[i];
+      for (int i = 0; i < data.length; i++) {
+        final t = data[i];
         final date = t['transactionDate'] != null
             ? DateTime.tryParse(t['transactionDate'].toString())
             : null;
@@ -161,7 +162,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
         }
       }
     } catch (e) {
@@ -249,13 +250,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(children: [
         Row(children: [
-          Expanded(child: _DateBtn('Từ ngày', _from, _pickFrom)),
+          Expanded(child: _dateBtn('Từ ngày', _from, _pickFrom)),
           const SizedBox(width: 8),
-          Expanded(child: _DateBtn('Đến ngày', _to, _pickTo)),
+          Expanded(child: _dateBtn('Đến ngày', _to, _pickTo)),
         ]),
         const SizedBox(height: 6),
         Row(children: [
-          Expanded(child: _TypeDrop()),
+          Expanded(child: _typeDrop()),
           const SizedBox(width: 8),
           SizedBox(
             height: 40,
@@ -362,7 +363,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  Widget _DateBtn(String label, DateTime val, VoidCallback onTap) {
+  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -395,7 +396,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  Widget _TypeDrop() {
+  Widget _typeDrop() {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -440,13 +441,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _SumCard('Giao dịch', sCount.toString(), Icons.receipt_outlined,
+          _sumCard('Giao dịch', sCount.toString(), Icons.receipt_outlined,
               Colors.blueGrey),
-          _SumCard('Tổng thu', '${_fmtMoney.format(sIncome)}đ',
+          _sumCard('Tổng thu', '${_fmtMoney.format(sIncome)}đ',
               Icons.arrow_circle_down, const Color(0xFF16A34A)),
-          _SumCard('Tổng chi', '${_fmtMoney.format(sExpense)}đ',
+          _sumCard('Tổng chi', '${_fmtMoney.format(sExpense)}đ',
               Icons.arrow_circle_up, const Color(0xFFDC2626)),
-          _SumCard(
+          _sumCard(
               'Còn lại',
               '${_fmtMoney.format(sBalance)}đ',
               Icons.account_balance_wallet,
@@ -458,7 +459,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  Widget _SumCard(String title, String value, IconData icon, Color color) {
+  Widget _sumCard(String title, String value, IconData icon, Color color) {
     return Container(
       width: 148,
       margin: const EdgeInsets.only(right: 8),

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:collection';
 // ignore_for_file: unused_import, unused_element, unused_field, unused_local_variable
 import 'dart:math' as math;
@@ -1631,7 +1631,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     // ── 3. Union of shifts to display ───────────────────────────────────────
-    final allShiftNames = LinkedHashSet<String>()
+    final allShiftNames = <String>{}
       ..addAll(scheduledByShift.keys)
       ..addAll(attendedByShift.keys);
 
@@ -5012,7 +5012,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     final scheduledShifts =
                                         (schedulesByEmpId[empId] ??
                                                 schedulesByEmpId[empCode] ??
-                                                LinkedHashSet<String>())
+                                                <String>{})
                                             .toList();
                                     // Checked-in shifts
                                     final checkedShifts =
@@ -5264,7 +5264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final shifts = (schedulesByEmpId[code] ??
               schedulesByEmpId[empId] ??
-              LinkedHashSet<String>())
+              <String>{})
           .toList();
       if (shifts.isEmpty) {
         noShiftAbsent.add(raw);
@@ -10882,7 +10882,7 @@ class _ShiftLineChartPainter extends CustomPainter {
       }
       fillPath.lineTo(points.last.dx, topPad + chartH);
       fillPath.close();
-      canvas.drawPath(fillPath, Paint()..color = color.withOpacity(0.07));
+      canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: 0.07));
 
       // Đường kẻ
       final linePaint = Paint()
@@ -10972,7 +10972,7 @@ class _ShiftLineChartPainter extends CustomPainter {
     canvas.drawRRect(
         rrect,
         Paint()
-          ..color = color.withOpacity(0.6)
+          ..color = color.withValues(alpha: 0.6)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1);
     tp.paint(canvas, Offset(bx + hPad, by + vPad));
@@ -11056,7 +11056,7 @@ class _LateEarlyChartPainter extends CustomPainter {
         }
         fillPath.lineTo(points.last.dx, topPad + chartH);
         fillPath.close();
-        canvas.drawPath(fillPath, Paint()..color = color.withOpacity(0.09));
+        canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: 0.09));
 
         // Đường kẻ
         final linePaint = Paint()
@@ -11144,7 +11144,7 @@ class _LateEarlyChartPainter extends CustomPainter {
     canvas.drawRRect(
         rrect,
         Paint()
-          ..color = color.withOpacity(0.6)
+          ..color = color.withValues(alpha: 0.6)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1);
     tp.paint(canvas, Offset(bx + hPad, by + vPad));

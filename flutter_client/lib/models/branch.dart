@@ -83,33 +83,35 @@ class Branch {
       maxEmployees: json['maxEmployees'] as int?,
       isActive: json['isActive'] as bool? ?? true,
       employeeCount: json['employeeCount'] as int? ?? 0,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'code': code,
-    'name': name,
-    'description': description,
-    'phone': phone,
-    'email': email,
-    'address': address,
-    'city': city,
-    'district': district,
-    'ward': ward,
-    'latitude': latitude,
-    'longitude': longitude,
-    'parentBranchId': parentBranchId,
-    'managerId': managerId,
-    'isHeadquarter': isHeadquarter,
-    'sortOrder': sortOrder,
-    'taxCode': taxCode,
-    'openTime': openTime,
-    'closeTime': closeTime,
-    'maxEmployees': maxEmployees,
-    'isActive': isActive,
-  };
+        'id': id,
+        'code': code,
+        'name': name,
+        'description': description,
+        'phone': phone,
+        'email': email,
+        'address': address,
+        'city': city,
+        'district': district,
+        'ward': ward,
+        'latitude': latitude,
+        'longitude': longitude,
+        'parentBranchId': parentBranchId,
+        'managerId': managerId,
+        'isHeadquarter': isHeadquarter,
+        'sortOrder': sortOrder,
+        'taxCode': taxCode,
+        'openTime': openTime,
+        'closeTime': closeTime,
+        'maxEmployees': maxEmployees,
+        'isActive': isActive,
+      };
 
   String get fullAddress {
     final parts = <String>[];
@@ -223,4 +225,73 @@ class BranchSelect {
       isHeadquarter: json['isHeadquarter'] as bool? ?? false,
     );
   }
+}
+
+/// Phân quyền chi nhánh
+class BranchPermissionModel {
+  final String id;
+  final String userId;
+  final String userName;
+  final String userEmail;
+  final String? branchId;
+  final bool includeChildren;
+  final bool canView;
+  final bool canCreate;
+  final bool canEdit;
+  final bool canDelete;
+  final bool isActive;
+  final String? grantedBy;
+  final String? note;
+  final DateTime createdAt;
+
+  BranchPermissionModel({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.userEmail,
+    this.branchId,
+    this.includeChildren = true,
+    this.canView = true,
+    this.canCreate = false,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.isActive = true,
+    this.grantedBy,
+    this.note,
+    required this.createdAt,
+  });
+
+  factory BranchPermissionModel.fromJson(Map<String, dynamic> json) {
+    return BranchPermissionModel(
+      id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? '',
+      userName: json['userName']?.toString() ?? '',
+      userEmail: json['userEmail']?.toString() ?? '',
+      branchId: json['branchId']?.toString(),
+      includeChildren: json['includeChildren'] as bool? ?? true,
+      canView: json['canView'] as bool? ?? true,
+      canCreate: json['canCreate'] as bool? ?? false,
+      canEdit: json['canEdit'] as bool? ?? false,
+      canDelete: json['canDelete'] as bool? ?? false,
+      isActive: json['isActive'] as bool? ?? true,
+      grantedBy: json['grantedBy']?.toString(),
+      note: json['note']?.toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
+        'branchId': branchId,
+        'includeChildren': includeChildren,
+        'canView': canView,
+        'canCreate': canCreate,
+        'canEdit': canEdit,
+        'canDelete': canDelete,
+        'isActive': isActive,
+        'note': note,
+      };
 }

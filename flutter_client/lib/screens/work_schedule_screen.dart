@@ -42,7 +42,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   List<Shift> _shifts = [];
   List<Employee> _employees = [];
   List<Map<String, dynamic>> _departments = [];
+  List<Map<String, dynamic>> _branches = [];
   String? _selectedDepartment;
+  String? _selectedBranchId;
   bool _isLoading = true;
   bool _showMobileFilters = false;
 
@@ -57,10 +59,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   /// Employees filtered by selected department
   List<Employee> get _filteredEmployees {
-    if (_selectedDepartment == null) return _employees;
-    return _employees
-        .where((e) => e.department == _selectedDepartment)
-        .toList();
+    var list = _employees;
+    if (_selectedBranchId != null) {
+      list = list.where((e) => e.branchId == _selectedBranchId).toList();
+    }
+    if (_selectedDepartment == null) return list;
+    return list.where((e) => e.department == _selectedDepartment).toList();
   }
 
   // Pending registrations (local, not submitted yet)
@@ -113,6 +117,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           _loadShifts(),
           _loadEmployees(),
           _loadDepartments(),
+          _loadBranches(),
           _loadSchedules(),
           _loadRegistrations(),
           _loadStaffingQuotas(),
@@ -159,6 +164,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       }
     } catch (e) {
       debugPrint('Load departments error: $e');
+    }
+  }
+
+  Future<void> _loadBranches() async {
+    try {
+      final result = await _apiService.getBranchesForSelect();
+      if (!mounted) return;
+      final data = result['data'];
+      if (data is List) {
+        setState(() {
+          _branches =
+              data.map((b) => Map<String, dynamic>.from(b as Map)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Load branches error: $e');
     }
   }
 
@@ -1826,6 +1847,50 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ],
     );
 
+    final branchDropdown = _branches.isNotEmpty
+        ? DropdownButtonFormField<String?>(
+            initialValue: _selectedBranchId,
+            isExpanded: true,
+            decoration: InputDecoration(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              filled: true,
+              fillColor: const Color(0xFFFAFAFA),
+              prefixIcon: const Icon(Icons.account_tree_outlined,
+                  size: 16, color: Color(0xFF71717A)),
+              isDense: true,
+            ),
+            hint: const Text('Chi nhánh', style: TextStyle(fontSize: 13)),
+            style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+            items: [
+              const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Tất cả chi nhánh',
+                      overflow: TextOverflow.ellipsis)),
+              ..._branches.map((b) => DropdownMenuItem<String?>(
+                    value: b['id']?.toString(),
+                    child: Text(b['name']?.toString() ?? '',
+                        overflow: TextOverflow.ellipsis),
+                  )),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _selectedBranchId = v;
+                _selectedDepartment = null;
+                _selectedEmployeeId = null;
+              });
+              _loadSchedules();
+              _loadRegistrations();
+            },
+          )
+        : null;
+
     final deptDropdown = DropdownButtonFormField<String>(
       initialValue: _selectedDepartment,
       isExpanded: true,
@@ -1960,6 +2025,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 if (_showMobileFilters) ...[
                   const SizedBox(height: 8),
+                  if (branchDropdown != null) ...[
+                    branchDropdown,
+                    const SizedBox(height: 8),
+                  ],
                   Row(children: [
                     Expanded(child: deptDropdown),
                     const SizedBox(width: 8),
@@ -1972,6 +2041,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 navRow,
                 const Spacer(),
+                if (branchDropdown != null) ...[
+                  SizedBox(width: 180, child: branchDropdown),
+                  const SizedBox(width: 8),
+                ],
                 SizedBox(width: 200, child: deptDropdown),
                 const SizedBox(width: 8),
                 SizedBox(width: 220, child: empDropdown),
@@ -4445,6 +4518,79 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
+  // ══════════════════════════════════════════════
+  //  BRANCH GROUPING HELPERS
+  // ══════════════════════════════════════════════
+
+  Widget _buildBranchGroupHeader(String branchName, int count) {
+    final primary = Theme.of(context).primaryColor;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_outlined, size: 15, color: primary),
+                const SizedBox(width: 6),
+                Text(branchName,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: primary)),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: primary, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$count',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Divider(
+                  color: primary.withValues(alpha: 0.25), thickness: 1)),
+        ],
+      ),
+    );
+  }
+
+  /// Returns ordered list of [branchName, List<Employee>] pairs grouped by branch.
+  List<MapEntry<String, List<Employee>>> _groupEmployeesByBranch(
+      List<Employee> employees) {
+    final Map<String, List<Employee>> groupMap = {};
+    for (final e in employees) {
+      final key =
+          (e.branchName?.isNotEmpty == true) ? e.branchName! : '__none__';
+      groupMap.putIfAbsent(key, () => []).add(e);
+    }
+    final branchOrder =
+        _branches.map((b) => b['name']?.toString() ?? '').toList();
+    final List<String> keys = [
+      ...branchOrder.where((n) => groupMap.containsKey(n)),
+      ...groupMap.keys
+          .where((k) => !branchOrder.contains(k) && k != '__none__'),
+      if (groupMap.containsKey('__none__')) '__none__',
+    ];
+    return keys
+        .map((k) =>
+            MapEntry(k == '__none__' ? 'Chưa có chi nhánh' : k, groupMap[k]!))
+        .toList();
+  }
+
   // ignore: unused_element
   Widget _buildScheduleTable() {
     final days =
@@ -4568,80 +4714,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 8, (_) => const DataCell(Text(''))),
                           ]),
                         ]
-                      : pageEmps.map((employee) {
-                          int totalShifts = 0;
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      employee.fullName.toUpperCase(),
-                                      style: const TextStyle(
-                                          color: Color(0xFF18181B),
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13),
-                                    ),
-                                    Text(
-                                      employee.phone ?? employee.employeeCode,
-                                      style: const TextStyle(
-                                          color: Color(0xFF71717A),
-                                          fontSize: 11),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              ...List.generate(7, (dayIndex) {
-                                final day = days[dayIndex];
-                                final effectiveId = _effectiveUserId(employee);
-                                final schedules =
-                                    _getSchedulesForDay(effectiveId, day);
-                                final pendingRegs =
-                                    _getPendingRegistrations(effectiveId, day);
-                                final submittedRegs =
-                                    _getRegistrationsForDay(effectiveId, day);
-
-                                // Count work shifts
-                                totalShifts +=
-                                    schedules.where((s) => !s.isDayOff).length;
-                                if (pendingRegs.isNotEmpty &&
-                                    pendingRegs.first['isDayOff'] != true) {
-                                  totalShifts += pendingRegs.length;
-                                }
-                                // Count approved registrations not yet in schedules
-                                totalShifts += submittedRegs
-                                    .where((r) =>
-                                        r.status ==
-                                            ScheduleRegistrationStatus
-                                                .approved &&
-                                        !r.isDayOff &&
-                                        schedules.isEmpty)
-                                    .length;
-
-                                return DataCell(
-                                  _buildScheduleCell(employee, day, schedules,
-                                      pendingRegs, submittedRegs),
-                                );
-                              }),
-                              DataCell(
-                                Center(
-                                  child: Text(
-                                    '$totalShifts',
-                                    style: TextStyle(
-                                      color: totalShifts > 0
-                                          ? const Color(0xFF1E3A5F)
-                                          : Colors.grey,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                      : _buildScheduleDesktopRows(pageEmps, days),
                 ),
               ),
             ),
@@ -6747,148 +6820,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 8, (_) => const DataCell(Text(''))),
                           ]),
                         ]
-                      : pageEmps.map((employee) {
-                          int totalApproved = 0;
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(employee.fullName.toUpperCase(),
-                                        style: const TextStyle(
-                                            color: Color(0xFF18181B),
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13)),
-                                    Text(
-                                        employee.department ??
-                                            employee.employeeCode,
-                                        style: const TextStyle(
-                                            color: Color(0xFF71717A),
-                                            fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                              ...List.generate(7, (dayIndex) {
-                                final day = days[dayIndex];
-                                final effectiveId = _effectiveUserId(employee);
-                                // Get confirmed schedules (from WorkSchedule)
-                                final confirmedSchedules =
-                                    _getSchedulesForDay(effectiveId, day);
-                                // Get approved registrations
-                                final approvedRegs =
-                                    _getRegistrationsForDay(effectiveId, day)
-                                        .where((r) =>
-                                            r.status ==
-                                            ScheduleRegistrationStatus.approved)
-                                        .toList();
-
-                                // Combine: confirmed schedules + approved registrations not yet in schedules
-                                final allApproved = <Widget>[];
-                                for (final ws in confirmedSchedules) {
-                                  if (ws.isDayOff) {
-                                    allApproved.add(_buildApprovedChip(
-                                        'Nghỉ',
-                                        const Color(0xFF71717A),
-                                        Icons.nightlight_round));
-                                  } else {
-                                    final shift = _shifts.firstWhere(
-                                        (s) => s.id == ws.shiftId,
-                                        orElse: () => Shift(
-                                            id: '',
-                                            name: 'Ca',
-                                            code: '',
-                                            startTime: '',
-                                            endTime: '',
-                                            isActive: true,
-                                            createdAt: DateTime.now()));
-                                    final shiftTime = shift
-                                                .startTime.isNotEmpty &&
-                                            shift.endTime.isNotEmpty
-                                        ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
-                                        : '';
-                                    allApproved.add(_buildApprovedChip(
-                                        shift.name,
-                                        const Color(0xFF1E3A5F),
-                                        Icons.check_circle,
-                                        time: shiftTime));
-                                    totalApproved++;
-                                  }
-                                }
-                                for (final reg in approvedRegs.where((r) =>
-                                    confirmedSchedules.every((s) =>
-                                        s.shiftId != r.shiftId ||
-                                        s.employeeUserId !=
-                                            r.employeeUserId))) {
-                                  if (reg.isDayOff) {
-                                    allApproved.add(_buildApprovedChip(
-                                        reg.note ?? 'Nghỉ',
-                                        const Color(0xFF71717A),
-                                        Icons.nightlight_round));
-                                  } else {
-                                    final shift = reg.shiftId != null
-                                        ? _shifts.firstWhere(
-                                            (s) => s.id == reg.shiftId,
-                                            orElse: () => Shift(
-                                                id: '',
-                                                name: 'Ca',
-                                                code: '',
-                                                startTime: '',
-                                                endTime: '',
-                                                isActive: true,
-                                                createdAt: DateTime.now()))
-                                        : null;
-                                    final shiftTime = shift != null &&
-                                            shift.startTime.isNotEmpty &&
-                                            shift.endTime.isNotEmpty
-                                        ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
-                                        : '';
-                                    allApproved.add(_buildApprovedChip(
-                                        shift?.name ?? 'Ca',
-                                        const Color(0xFF1E3A5F),
-                                        Icons.check_circle,
-                                        time: shiftTime));
-                                    totalApproved++;
-                                  }
-                                }
-
-                                return DataCell(
-                                  Container(
-                                    width: 120,
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 4),
-                                    child: allApproved.isEmpty
-                                        ? Center(
-                                            child: Text('—',
-                                                style: TextStyle(
-                                                    color: Colors.grey[300],
-                                                    fontSize: 16)))
-                                        : Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: allApproved,
-                                          ),
-                                  ),
-                                );
-                              }),
-                              DataCell(
-                                Center(
-                                    child: Text('$totalApproved',
-                                        style: TextStyle(
-                                          color: totalApproved > 0
-                                              ? const Color(0xFF1E3A5F)
-                                              : Colors.grey,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ))),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                      : _buildApprovedDesktopRows(pageEmps, days),
                 ),
               ),
             ),
@@ -7955,6 +7887,101 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     }
   }
 
+  List<DataRow> _buildScheduleDesktopRows(
+      List<Employee> employees, List<DateTime> days) {
+    if (_branches.isEmpty) {
+      return _buildScheduleEmployeeRows(employees, days);
+    }
+    final primary = Theme.of(context).primaryColor;
+    final groups = _groupEmployeesByBranch(employees);
+    final List<DataRow> rows = [];
+    for (final entry in groups) {
+      rows.add(DataRow(
+        color: WidgetStateProperty.all(primary.withValues(alpha: 0.07)),
+        cells: [
+          DataCell(Row(children: [
+            Icon(Icons.account_tree_outlined, size: 14, color: primary),
+            const SizedBox(width: 6),
+            Text(entry.key,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                  color: primary, borderRadius: BorderRadius.circular(9)),
+              child: Text('${entry.value.length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ])),
+          ...List.generate(8, (_) => const DataCell(SizedBox())),
+        ],
+      ));
+      rows.addAll(_buildScheduleEmployeeRows(entry.value, days));
+    }
+    return rows;
+  }
+
+  List<DataRow> _buildScheduleEmployeeRows(
+      List<Employee> employees, List<DateTime> days) {
+    return employees.map((employee) {
+      int totalShifts = 0;
+      return DataRow(
+        cells: [
+          DataCell(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(employee.fullName.toUpperCase(),
+                    style: const TextStyle(
+                        color: Color(0xFF18181B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+                Text(employee.phone ?? employee.employeeCode,
+                    style: const TextStyle(
+                        color: Color(0xFF71717A), fontSize: 11)),
+              ],
+            ),
+          ),
+          ...List.generate(7, (dayIndex) {
+            final day = days[dayIndex];
+            final effectiveId = _effectiveUserId(employee);
+            final schedules = _getSchedulesForDay(effectiveId, day);
+            final pendingRegs = _getPendingRegistrations(effectiveId, day);
+            final submittedRegs = _getRegistrationsForDay(effectiveId, day);
+            totalShifts += schedules.where((s) => !s.isDayOff).length;
+            if (pendingRegs.isNotEmpty &&
+                pendingRegs.first['isDayOff'] != true) {
+              totalShifts += pendingRegs.length;
+            }
+            totalShifts += submittedRegs
+                .where((r) =>
+                    r.status == ScheduleRegistrationStatus.approved &&
+                    !r.isDayOff &&
+                    schedules.isEmpty)
+                .length;
+            return DataCell(
+              _buildScheduleCell(
+                  employee, day, schedules, pendingRegs, submittedRegs),
+            );
+          }),
+          DataCell(Center(
+            child: Text('$totalShifts',
+                style: TextStyle(
+                    color:
+                        totalShifts > 0 ? const Color(0xFF1E3A5F) : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+          )),
+        ],
+      );
+    }).toList();
+  }
+
   Widget _buildMobileScheduleCards(List<Employee> pageEmps, List<DateTime> days,
       List<String> dayNames, DateFormat dateFormat) {
     if (pageEmps.isEmpty) {
@@ -7965,6 +7992,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
+    if (_branches.isNotEmpty) {
+      final groups = _groupEmployeesByBranch(pageEmps);
+      return Column(
+        children: [
+          for (final entry in groups) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _buildBranchGroupHeader(entry.key, entry.value.length),
+            ),
+            _buildMobileScheduleCardsRaw(
+                entry.value, days, dayNames, dateFormat),
+          ],
+        ],
+      );
+    }
+    return _buildMobileScheduleCardsRaw(pageEmps, days, dayNames, dateFormat);
+  }
+
+  Widget _buildMobileScheduleCardsRaw(List<Employee> pageEmps,
+      List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -8338,6 +8385,154 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
+  List<DataRow> _buildApprovedDesktopRows(
+      List<Employee> employees, List<DateTime> days) {
+    if (_branches.isEmpty) {
+      return _buildApprovedEmployeeRows(employees, days);
+    }
+    final primary = Theme.of(context).primaryColor;
+    final groups = _groupEmployeesByBranch(employees);
+    final List<DataRow> rows = [];
+    for (final entry in groups) {
+      rows.add(DataRow(
+        color: WidgetStateProperty.all(primary.withValues(alpha: 0.07)),
+        cells: [
+          DataCell(Row(children: [
+            Icon(Icons.account_tree_outlined, size: 14, color: primary),
+            const SizedBox(width: 6),
+            Text(entry.key,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                  color: primary, borderRadius: BorderRadius.circular(9)),
+              child: Text('${entry.value.length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ])),
+          ...List.generate(8, (_) => const DataCell(SizedBox())),
+        ],
+      ));
+      rows.addAll(_buildApprovedEmployeeRows(entry.value, days));
+    }
+    return rows;
+  }
+
+  List<DataRow> _buildApprovedEmployeeRows(
+      List<Employee> employees, List<DateTime> days) {
+    return employees.map((employee) {
+      int totalApproved = 0;
+      return DataRow(
+        cells: [
+          DataCell(Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(employee.fullName.toUpperCase(),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+              Text(employee.department ?? employee.employeeCode,
+                  style:
+                      const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
+            ],
+          )),
+          ...List.generate(7, (dayIndex) {
+            final day = days[dayIndex];
+            final effectiveId = _effectiveUserId(employee);
+            final confirmedSchedules = _getSchedulesForDay(effectiveId, day);
+            final approvedRegs = _getRegistrationsForDay(effectiveId, day)
+                .where((r) => r.status == ScheduleRegistrationStatus.approved)
+                .toList();
+            final allApproved = <Widget>[];
+            for (final ws in confirmedSchedules) {
+              if (ws.isDayOff) {
+                allApproved.add(_buildApprovedChip(
+                    'Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
+              } else {
+                final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
+                    orElse: () => Shift(
+                        id: '',
+                        name: 'Ca',
+                        code: '',
+                        startTime: '',
+                        endTime: '',
+                        isActive: true,
+                        createdAt: DateTime.now()));
+                final shiftTime = shift.startTime.isNotEmpty &&
+                        shift.endTime.isNotEmpty
+                    ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
+                    : '';
+                allApproved.add(_buildApprovedChip(
+                    shift.name, const Color(0xFF1E3A5F), Icons.check_circle,
+                    time: shiftTime));
+                totalApproved++;
+              }
+            }
+            for (final reg in approvedRegs.where((r) =>
+                confirmedSchedules.every((s) =>
+                    s.shiftId != r.shiftId ||
+                    s.employeeUserId != r.employeeUserId))) {
+              if (reg.isDayOff) {
+                allApproved.add(_buildApprovedChip(reg.note ?? 'Nghỉ',
+                    const Color(0xFF71717A), Icons.nightlight_round));
+              } else {
+                final shift = reg.shiftId != null
+                    ? _shifts.firstWhere((s) => s.id == reg.shiftId,
+                        orElse: () => Shift(
+                            id: '',
+                            name: 'Ca',
+                            code: '',
+                            startTime: '',
+                            endTime: '',
+                            isActive: true,
+                            createdAt: DateTime.now()))
+                    : null;
+                final shiftTime = shift != null &&
+                        shift.startTime.isNotEmpty &&
+                        shift.endTime.isNotEmpty
+                    ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
+                    : '';
+                allApproved.add(_buildApprovedChip(shift?.name ?? 'Ca',
+                    const Color(0xFF1E3A5F), Icons.check_circle,
+                    time: shiftTime));
+                totalApproved++;
+              }
+            }
+            return DataCell(Container(
+              width: 120,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: allApproved.isEmpty
+                  ? Center(
+                      child: Text('—',
+                          style:
+                              TextStyle(color: Colors.grey[300], fontSize: 16)))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: allApproved),
+            ));
+          }),
+          DataCell(Center(
+              child: Text('$totalApproved',
+                  style: TextStyle(
+                      color: totalApproved > 0
+                          ? const Color(0xFF1E3A5F)
+                          : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)))),
+        ],
+      );
+    }).toList();
+  }
+
   Widget _buildMobileApprovedCards(List<Employee> pageEmps, List<DateTime> days,
       List<String> dayNames, DateFormat dateFormat) {
     if (pageEmps.isEmpty) {
@@ -8348,6 +8543,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
+    if (_branches.isNotEmpty) {
+      final groups = _groupEmployeesByBranch(pageEmps);
+      return Column(
+        children: [
+          for (final entry in groups) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _buildBranchGroupHeader(entry.key, entry.value.length),
+            ),
+            _buildMobileApprovedCardsRaw(
+                entry.value, days, dayNames, dateFormat),
+          ],
+        ],
+      );
+    }
+    return _buildMobileApprovedCardsRaw(pageEmps, days, dayNames, dateFormat);
+  }
+
+  Widget _buildMobileApprovedCardsRaw(List<Employee> pageEmps,
+      List<DateTime> days, List<String> dayNames, DateFormat dateFormat) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

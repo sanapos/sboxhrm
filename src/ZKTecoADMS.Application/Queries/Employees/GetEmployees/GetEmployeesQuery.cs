@@ -20,4 +20,6 @@ public class GetEmployeesQuery : IRequest<AppResponse<PagedResult<EmployeeDto>>>
     /// Nếu null, dùng ManagerId truyền thống.
     /// </summary>
     public List<Guid>? SubordinateEmployeeIds { get; set; }
+
+    public Guid? BranchId { get; set; }
 }

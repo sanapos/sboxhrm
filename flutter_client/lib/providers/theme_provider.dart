@@ -1,5 +1,4 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Hệ thống typography chuẩn cho tiếng Việt
@@ -10,44 +9,122 @@ class AppTypography {
   AppTypography._();
 
   static TextTheme _buildTextTheme(Color textColor, Color subtextColor) {
-    final base = GoogleFonts.beVietnamProTextTheme();
-    return base.copyWith(
+    const f = 'BeVietnamPro';
+    return TextTheme(
       // === DISPLAY: Tiêu đề lớn, dashboard header ===
-      displayLarge: base.displayLarge!.copyWith(fontSize: 28, fontWeight: FontWeight.w700, height: 1.35, color: textColor, letterSpacing: -0.5),
-      displayMedium: base.displayMedium!.copyWith(fontSize: 24, fontWeight: FontWeight.w700, height: 1.35, color: textColor, letterSpacing: -0.3),
-      displaySmall: base.displaySmall!.copyWith(fontSize: 22, fontWeight: FontWeight.w600, height: 1.35, color: textColor),
+      displayLarge: TextStyle(
+          fontFamily: f,
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+          color: textColor,
+          letterSpacing: -0.5),
+      displayMedium: TextStyle(
+          fontFamily: f,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+          color: textColor,
+          letterSpacing: -0.3),
+      displaySmall: TextStyle(
+          fontFamily: f,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          height: 1.35,
+          color: textColor),
 
       // === HEADLINE: Tiêu đề section, card header ===
-      headlineLarge: base.headlineLarge!.copyWith(fontSize: 20, fontWeight: FontWeight.w700, height: 1.4, color: textColor),
-      headlineMedium: base.headlineMedium!.copyWith(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4, color: textColor),
-      headlineSmall: base.headlineSmall!.copyWith(fontSize: 16, fontWeight: FontWeight.w600, height: 1.4, color: textColor),
+      headlineLarge: TextStyle(
+          fontFamily: f,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+          color: textColor),
+      headlineMedium: TextStyle(
+          fontFamily: f,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+          color: textColor),
+      headlineSmall: TextStyle(
+          fontFamily: f,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+          color: textColor),
 
       // === TITLE: Tiêu đề item, AppBar, dialog title ===
-      titleLarge: base.titleLarge!.copyWith(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4, color: textColor),
-      titleMedium: base.titleMedium!.copyWith(fontSize: 15, fontWeight: FontWeight.w600, height: 1.4, color: textColor),
-      titleSmall: base.titleSmall!.copyWith(fontSize: 14, fontWeight: FontWeight.w600, height: 1.4, color: textColor),
+      titleLarge: TextStyle(
+          fontFamily: f,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+          color: textColor),
+      titleMedium: TextStyle(
+          fontFamily: f,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+          color: textColor),
+      titleSmall: TextStyle(
+          fontFamily: f,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+          color: textColor),
 
       // === BODY: Nội dung chính ===
-      bodyLarge: base.bodyLarge!.copyWith(fontSize: 15, fontWeight: FontWeight.w400, height: 1.5, color: textColor),
-      bodyMedium: base.bodyMedium!.copyWith(fontSize: 14, fontWeight: FontWeight.w400, height: 1.5, color: textColor),
-      bodySmall: base.bodySmall!.copyWith(fontSize: 13, fontWeight: FontWeight.w400, height: 1.5, color: subtextColor),
+      bodyLarge: TextStyle(
+          fontFamily: f,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          height: 1.5,
+          color: textColor),
+      bodyMedium: TextStyle(
+          fontFamily: f,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          height: 1.5,
+          color: textColor),
+      bodySmall: TextStyle(
+          fontFamily: f,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          height: 1.5,
+          color: subtextColor),
 
       // === LABEL: Nút, badge, form label, caption ===
-      labelLarge: base.labelLarge!.copyWith(fontSize: 14, fontWeight: FontWeight.w500, height: 1.4, color: textColor),
-      labelMedium: base.labelMedium!.copyWith(fontSize: 12, fontWeight: FontWeight.w500, height: 1.4, color: subtextColor),
-      labelSmall: base.labelSmall!.copyWith(fontSize: 11, fontWeight: FontWeight.w500, height: 1.4, color: subtextColor, letterSpacing: 0.3),
+      labelLarge: TextStyle(
+          fontFamily: f,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+          color: textColor),
+      labelMedium: TextStyle(
+          fontFamily: f,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+          color: subtextColor),
+      labelSmall: TextStyle(
+          fontFamily: f,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+          color: subtextColor,
+          letterSpacing: 0.3),
     );
   }
 
   static TextTheme get lightTextTheme => _buildTextTheme(
-    const Color(0xFF18181B),
-    const Color(0xFF71717A),
-  );
+        const Color(0xFF18181B),
+        const Color(0xFF71717A),
+      );
 
   static TextTheme get darkTextTheme => _buildTextTheme(
-    const Color(0xFFE4E4E7),
-    const Color(0xFF9CA3AF),
-  );
+        const Color(0xFFE4E4E7),
+        const Color(0xFF9CA3AF),
+      );
 }
 
 class ThemeProvider extends ChangeNotifier {
@@ -60,7 +137,8 @@ class ThemeProvider extends ChangeNotifier {
 
   bool get isDarkMode => _isDarkMode;
   Locale get locale => _locale;
-  String get languageLabel => _locale.languageCode == 'vi' ? 'Tiếng Việt' : 'English';
+  String get languageLabel =>
+      _locale.languageCode == 'vi' ? 'Tiếng Việt' : 'English';
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
@@ -85,13 +163,14 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   // Màu chính của ứng dụng - Navy Dashboard palette
-  static const Color primaryColor = Color(0xFF1E3A5F); // Navy (màu nền Tổng quan hệ thống)
+  static const Color primaryColor =
+      Color(0xFF1E3A5F); // Navy (màu nền Tổng quan hệ thống)
   static const Color primaryColorLight = Color(0xFF2D5F8B); // Navy Light
   static const Color primaryColorDark = Color(0xFF0F2340); // Navy Dark
   static const Color accentColor = Color(0xFFEC4899); // Pink 500 (accent)
 
   ThemeData get lightTheme {
-    final baseTheme = ThemeData.light();
+    final baseTheme = ThemeData(fontFamily: 'BeVietnamPro');
     final textTheme = AppTypography.lightTextTheme;
     return baseTheme.copyWith(
       textTheme: textTheme,
@@ -191,11 +270,16 @@ class ThemeProvider extends ChangeNotifier {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: const Color(0xFF71717A)),
-        hintStyle: textTheme.bodyMedium?.copyWith(color: const Color(0xFFA1A1AA)),
-        errorStyle: textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
-        floatingLabelStyle: textTheme.labelMedium?.copyWith(color: primaryColor),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle:
+            textTheme.bodyMedium?.copyWith(color: const Color(0xFF71717A)),
+        hintStyle:
+            textTheme.bodyMedium?.copyWith(color: const Color(0xFFA1A1AA)),
+        errorStyle:
+            textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
+        floatingLabelStyle:
+            textTheme.labelMedium?.copyWith(color: primaryColor),
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0xFFE4E4E7),
@@ -205,8 +289,10 @@ class ThemeProvider extends ChangeNotifier {
         backgroundColor: Colors.white,
         selectedIconTheme: const IconThemeData(color: primaryColor),
         unselectedIconTheme: const IconThemeData(color: Color(0xFF71717A)),
-        selectedLabelTextStyle: textTheme.labelLarge?.copyWith(color: primaryColor, fontWeight: FontWeight.w600),
-        unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(color: const Color(0xFF71717A)),
+        selectedLabelTextStyle: textTheme.labelLarge
+            ?.copyWith(color: primaryColor, fontWeight: FontWeight.w600),
+        unselectedLabelTextStyle:
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF71717A)),
       ),
       drawerTheme: const DrawerThemeData(
         backgroundColor: Colors.white,
@@ -233,8 +319,10 @@ class ThemeProvider extends ChangeNotifier {
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
         selectedColor: primaryColor.withValues(alpha: 0.1),
-        labelStyle: textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
+        labelStyle:
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
+        secondaryLabelStyle:
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -314,7 +402,8 @@ class ThemeProvider extends ChangeNotifier {
     const darkText = Color(0xFFE4E4E7);
     const darkSubtext = Color(0xFF9CA3AF);
 
-    final baseDarkTheme = ThemeData.dark();
+    final baseDarkTheme =
+        ThemeData(fontFamily: 'BeVietnamPro', brightness: Brightness.dark);
     final textTheme = AppTypography.darkTextTheme;
     return baseDarkTheme.copyWith(
       textTheme: textTheme,
@@ -412,11 +501,14 @@ class ThemeProvider extends ChangeNotifier {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: textTheme.bodyMedium?.copyWith(color: darkSubtext),
         hintStyle: textTheme.bodyMedium?.copyWith(color: darkSubtext),
-        errorStyle: textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
-        floatingLabelStyle: textTheme.labelMedium?.copyWith(color: primaryColorLight),
+        errorStyle:
+            textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
+        floatingLabelStyle:
+            textTheme.labelMedium?.copyWith(color: primaryColorLight),
       ),
       dividerTheme: const DividerThemeData(
         color: darkBorder,
@@ -426,8 +518,10 @@ class ThemeProvider extends ChangeNotifier {
         backgroundColor: darkSurface,
         selectedIconTheme: const IconThemeData(color: primaryColorLight),
         unselectedIconTheme: const IconThemeData(color: darkSubtext),
-        selectedLabelTextStyle: textTheme.labelLarge?.copyWith(color: primaryColorLight, fontWeight: FontWeight.w600),
-        unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(color: darkSubtext),
+        selectedLabelTextStyle: textTheme.labelLarge
+            ?.copyWith(color: primaryColorLight, fontWeight: FontWeight.w600),
+        unselectedLabelTextStyle:
+            textTheme.labelMedium?.copyWith(color: darkSubtext),
       ),
       drawerTheme: const DrawerThemeData(
         backgroundColor: darkSurface,

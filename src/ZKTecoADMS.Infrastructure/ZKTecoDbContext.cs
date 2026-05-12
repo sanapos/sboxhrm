@@ -87,6 +87,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<DepartmentPermission> DepartmentPermissions => Set<DepartmentPermission>();
+    public DbSet<BranchPermission> BranchPermissions => Set<BranchPermission>();
     
     // License & Agents
     public DbSet<LicenseKey> LicenseKeys => Set<LicenseKey>();
@@ -161,6 +162,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     // Feedback / Ý kiến
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackReply> FeedbackReplies => Set<FeedbackReply>();
+    public DbSet<ConsultationRequest> ConsultationRequests => Set<ConsultationRequest>();
 
     // App Pages & Bug Reports
     public DbSet<AppPage> AppPages => Set<AppPage>();

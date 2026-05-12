@@ -2937,6 +2937,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
             _cache.RemoveByPrefix("public_setting");
+            _cache.Remove("public_settings");
 
             _logger.LogInformation("SuperAdmin {UserId} upserted setting {Key}", CurrentUserId, request.Key);
 
@@ -3005,6 +3006,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
             _cache.RemoveByPrefix("public_setting");
+            _cache.Remove("public_settings");
 
             _logger.LogInformation("SuperAdmin {UserId} batch updated {Count} settings", CurrentUserId, request.Settings.Count);
 
@@ -3054,6 +3056,19 @@ public class SystemAdminController : AuthenticatedControllerBase
                 // Legal
                 (AppSettingKeys.TermsOfService, "Điều khoản sử dụng", "Legal", "textarea", 1),
                 (AppSettingKeys.PrivacyPolicy, "Chính sách bảo mật", "Legal", "textarea", 2),
+
+                // Landing page videos
+                (AppSettingKeys.LandingVideoIntro, "Video giới thiệu SBOX HRM (URL YouTube)", "Landing", "url", 1),
+                (AppSettingKeys.LandingVideoGuide, "Video hướng dẫn sử dụng (URL YouTube)", "Landing", "url", 2),
+
+                // Landing page content
+                (AppSettingKeys.LandingHeroTitle, "Tiêu đề Hero (Landing Page)", "Landing", "text", 3),
+                (AppSettingKeys.LandingHeroSubtext, "Mô tả Hero (Landing Page)", "Landing", "textarea", 4),
+                (AppSettingKeys.LandingFeaturesJson, "Tính năng (JSON array)", "Landing", "textarea", 5),
+                (AppSettingKeys.LandingPricingJson, "Bảng giá (JSON array)", "Landing", "textarea", 6),
+                (AppSettingKeys.LandingGuideJson, "Hướng dẫn (JSON array)", "Landing", "textarea", 7),
+                (AppSettingKeys.LandingProducts, "Sản phẩm thiết bị (JSON array)", "Landing", "textarea", 8),
+                (AppSettingKeys.LandingDownloadsJson, "Phần mềm tải về (JSON array)", "Landing", "textarea", 9),
             };
 
             // Pre-load all existing setting keys to avoid N+1
@@ -3883,6 +3898,8 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", "Chấm công"),
             new("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", "Chấm công"),
             new("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", "Chấm công"),
+            new("MobileDeviceRegistration", "Đăng ký CC Mobile", "Quản lý đăng ký thiết bị chấm công mobile", "Chấm công"),
+            new("MobileAttendanceApproval", "Duyệt CC Mobile", "Duyệt yêu cầu chấm công mobile", "Chấm công"),
 
             // ══════════ TÀI CHÍNH ══════════
             new("BonusPenalty", "Thưởng / Phạt", "Quản lý thưởng phạt", "Tài chính"),
@@ -3895,11 +3912,19 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("Task", "Công việc", "Quản lý công việc", "Quản lý Vận hành"),
             new("Communication", "Truyền thông", "Truyền thông nội bộ", "Quản lý Vận hành"),
             new("KPI", "KPI", "Đánh giá KPI", "Quản lý Vận hành"),
+            new("Production", "Sản lượng", "Nhập sản lượng, tính lương sản phẩm", "Quản lý Vận hành"),
+            new("Meal", "Chấm cơm", "Quản lý suất ăn ca", "Quản lý Vận hành"),
+            new("FieldCheckIn", "Check-in điểm bán", "Quản lý check-in tại điểm bán hàng", "Quản lý Vận hành"),
+            new("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", "Quản lý Vận hành"),
 
             // ══════════ BÁO CÁO ══════════
             new("HrReport", "Báo cáo nhân sự", "Thống kê nhân sự, phòng ban", "Báo cáo"),
             new("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", "Báo cáo"),
             new("PayrollReport", "Báo cáo lương", "Chi phí lương, phân bổ", "Báo cáo"),
+            new("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", "Báo cáo"),
+            new("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", "Báo cáo"),
+            new("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", "Báo cáo"),
+            new("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", "Báo cáo"),
 
             // ══════════ CÀI ĐẶT ══════════
             new("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", "Cài đặt"),
@@ -3918,6 +3943,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("NotificationSettings", "Thiết lập thông báo", "Nhóm thông báo, bật/tắt nhận thông báo", "Cài đặt"),
             new("GoogleDrive", "Google Drive", "Lưu trữ ảnh, service account", "Cài đặt"),
             new("AIGemini", "AI Gemini", "API key, model, tham số AI", "Cài đặt"),
+            new("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", "Cài đặt"),
             new("Settings", "Cài đặt chung", "Cài đặt hệ thống", "Cài đặt"),
         };
 

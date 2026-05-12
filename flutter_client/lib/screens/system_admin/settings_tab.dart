@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -488,13 +489,11 @@ class SettingsTabState extends State<SettingsTab> {
       return;
     }
 
-    // Validate JSON format
+    // Validate JSON format by attempting to parse
     if (enabled && credentials.trim().isNotEmpty) {
       try {
-        final parsed = credentials.trim();
-        if (!parsed.startsWith('{') || !parsed.endsWith('}')) {
-          throw const FormatException('Invalid JSON');
-        }
+        final parsed = jsonDecode(credentials.trim());
+        if (parsed is! Map) throw const FormatException('Must be a JSON object');
       } catch (_) {
         if (ctx.mounted) {
           ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(

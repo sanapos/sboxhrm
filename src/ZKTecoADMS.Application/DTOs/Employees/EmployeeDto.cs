@@ -61,6 +61,9 @@ public class EmployeeDto
     public Guid? DeviceId { get; set; }
     public Guid? ApplicationUserId { get; set; }
 
+    public Guid? BranchId { get; set; }
+    public string? BranchName { get; set; }
+
     public AccountDto? Account {get;set;}
 
     public bool HasAccount {get;set;}

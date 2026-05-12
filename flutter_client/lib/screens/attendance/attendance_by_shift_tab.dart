@@ -578,9 +578,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             overtimeThreshold =
                 (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
             maxAllowedLate =
-                (matchedShift['maximumAllowedLateMinutes'] as num?)?.toInt() ?? 0;
+                (matchedShift['maximumAllowedLateMinutes'] as num?)?.toInt() ??
+                    0;
             maxAllowedEarlyLeave =
-                (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)?.toInt() ?? 0;
+                (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)
+                        ?.toInt() ??
+                    0;
 
             if (isCrossMidnight) {
               if (punchInMinutes >= shiftStartMin) {
@@ -606,8 +609,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     : 0);
             if (rawLateForSnap > 0 &&
                 (rawLateForSnap <= lateGrace ||
-                    (maxAllowedLate > 0 &&
-                        rawLateForSnap <= maxAllowedLate))) {
+                    (maxAllowedLate > 0 && rawLateForSnap <= maxAllowedLate))) {
               displayPunchTimes[i] = DateTime(punchIn.year, punchIn.month,
                   punchIn.day, shiftStartMin ~/ 60, shiftStartMin % 60);
             }
@@ -675,11 +677,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 rawEarlyForSnap = punchOutMinutes <= shiftEndMin
                     ? shiftEndMin - punchOutMinutes
                     : 0;
-                rawExtraForSnap =
-                    (punchOutMinutes > shiftEndMin &&
-                            punchOutMinutes < shiftStartMin)
-                        ? punchOutMinutes - shiftEndMin
-                        : 0;
+                rawExtraForSnap = (punchOutMinutes > shiftEndMin &&
+                        punchOutMinutes < shiftStartMin)
+                    ? punchOutMinutes - shiftEndMin
+                    : 0;
               } else {
                 rawEarlyForSnap = punchOutMinutes < shiftEndMin
                     ? shiftEndMin - punchOutMinutes
@@ -696,9 +697,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       overtimeThreshold > 0 &&
                       rawExtraForSnap <= overtimeThreshold);
               if (snapOut) {
-                displayPunchTimes[i + 1] = DateTime(punchOut.year,
-                    punchOut.month, punchOut.day,
-                    shiftEndMin ~/ 60, shiftEndMin % 60);
+                displayPunchTimes[i + 1] = DateTime(
+                    punchOut.year,
+                    punchOut.month,
+                    punchOut.day,
+                    shiftEndMin ~/ 60,
+                    shiftEndMin % 60);
               }
             }
 
@@ -2678,7 +2682,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất Excel', message: 'Đã xuất file Excel: $fileName');
+              title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fileName');
         }
       }
     } catch (e) {
@@ -2891,7 +2895,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
         if (mounted) {
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
         }
       } else {
         // Mobile fallback: use async renderer with same draw callback
@@ -2975,7 +2979,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           await file_saver.saveAndOpenFileBytes(
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
         } else if (mounted) {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
@@ -3136,8 +3140,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       } else if (r.status.contains('Tăng ca ngày nghỉ')) {
         bg = Colors.purple.withValues(alpha: 0.08);
       }
-      final p1 = r.displayPunchTimes.isNotEmpty ? r.displayPunchTimes.first : null;
-      final p2 = r.displayPunchTimes.length >= 2 ? r.displayPunchTimes[1] : null;
+      final p1 =
+          r.displayPunchTimes.isNotEmpty ? r.displayPunchTimes.first : null;
+      final p2 =
+          r.displayPunchTimes.length >= 2 ? r.displayPunchTimes[1] : null;
       return Container(
         color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
@@ -3498,9 +3504,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 cellFn: hrsCell,
                 scrollCtrl: _ctHrsScroll,
                 subtextFn: (empId) {
-                  final total = dates.fold<double>(0.0,
-                      (sum, d) => sum + (getRecord(empId, d)?.workHours ?? 0.0));
-                  return total > 0 ? 'Tổng: ${_formatHoursMinutes(total)}' : null;
+                  final total = dates.fold<double>(
+                      0.0,
+                      (sum, d) =>
+                          sum + (getRecord(empId, d)?.workHours ?? 0.0));
+                  return total > 0
+                      ? 'Tổng: ${_formatHoursMinutes(total)}'
+                      : null;
                 },
                 subtextColor: const Color(0xFF2563EB),
               ),
@@ -3518,8 +3528,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 cellFn: wrkCell,
                 scrollCtrl: _ctWrkScroll,
                 subtextFn: (empId) {
-                  final total = dates.fold<double>(0.0,
-                      (sum, d) => sum + (getRecord(empId, d)?.workCount ?? 0.0));
+                  final total = dates.fold<double>(
+                      0.0,
+                      (sum, d) =>
+                          sum + (getRecord(empId, d)?.workCount ?? 0.0));
                   if (total <= 0) return null;
                   final str = total % 1 == 0
                       ? '${total.toInt()}'

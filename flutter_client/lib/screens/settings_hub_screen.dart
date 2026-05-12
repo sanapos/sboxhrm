@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -21,6 +21,7 @@ import 'device_management_settings_screen.dart';
 import 'google_drive_settings_screen.dart';
 
 import 'product_salary_settings_screen.dart';
+import 'branch_management_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -196,6 +197,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             desc: 'Giờ kết thúc ngày, tham số vận hành',
             accent: Color(0xFF334155),
             moduleCode: 'SystemSettings'),
+        _SidebarItem(
+            index: 13,
+            icon: Icons.business,
+            label: 'Chi nhánh',
+            desc: 'Quản lý chi nhánh, cây chi nhánh, thống kê',
+            accent: Color(0xFF0F2340),
+            moduleCode: 'Branch'),
       ],
     ),
     _SidebarGroup(
@@ -243,6 +251,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const RolePermissionsScreen();
       case 9:
         return const SystemSettingsScreen();
+      case 13:
+        return const BranchManagementScreen();
       case 10:
         return const ProductSalarySettingsScreen();
       case 11:
@@ -445,8 +455,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = (authUser?.role ?? '').toLowerCase();
     final isSuperAdmin = role == 'superadmin';
+    final isAdmin = role == 'admin';
     final isDirector = role == 'director';
-    if (isSuperAdmin) return items;
+    if (isSuperAdmin || isAdmin) return items;
     final permProvider =
         Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
@@ -463,8 +474,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return false;
       }
       // Lọc theo quyền canView
-      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!))
+      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!)) {
         return false;
+      }
       return true;
     }).toList();
   }

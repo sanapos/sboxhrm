@@ -830,10 +830,12 @@ class UsersTabState extends State<UsersTab> {
     final fullNameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
+    bool saving = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
         title: const Row(children: [
           Icon(Icons.person_add,
               color: AdminHelpers.primaryDark, size: 22),
@@ -856,10 +858,21 @@ class UsersTabState extends State<UsersTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: saving ? null : () => Navigator.pop(ctx),
               child: const Text('Hủy')),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: saving ? null : () async {
+              if (emailCtrl.text.trim().isEmpty ||
+                  passwordCtrl.text.isEmpty ||
+                  fullNameCtrl.text.trim().isEmpty) {
+                AdminHelpers.showError(ctx, 'Vui lòng điền đầy đủ thông tin');
+                return;
+              }
+              if (passwordCtrl.text.length < 6) {
+                AdminHelpers.showError(ctx, 'Mật khẩu tối thiểu 6 ký tự');
+                return;
+              }
+              setSt(() => saving = true);
               final res = await _apiService.createSuperAdmin(
                 email: emailCtrl.text.trim(),
                 password: passwordCtrl.text,
@@ -880,9 +893,12 @@ class UsersTabState extends State<UsersTab> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primaryDark,
                 foregroundColor: Colors.white),
-            child: const Text('Tạo'),
+            child: saving
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Tạo'),
           ),
         ],
+      ),
       ),
     ).then((_) {
       fullNameCtrl.dispose();

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
@@ -27,6 +27,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   List<dynamic> _holidays = [];
   List<dynamic> _salaryProfiles = [];
   List<dynamic> _approvedLeaves = [];
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   bool _isLoading = true;
@@ -40,8 +43,39 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
+      _loadEmployeesAndBranches();
     });
     ScreenRefreshNotifier.attendanceSummary.addListener(_onExternalRefresh);
+  }
+
+  Future<void> _loadEmployeesAndBranches() async {
+    try {
+      final emps = await _apiService.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
+  }
+
+  List<Attendance> get _filteredAttendances {
+    if (_selectedBranchId == null) return _attendances;
+    final branchCodes = _employeesList
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['employeeCode']?.toString() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    return _attendances
+        .where((a) => branchCodes.contains(a.employeeId))
+        .toList();
   }
 
   void _onExternalRefresh() {
@@ -277,12 +311,70 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
               ],
             ),
           ),
+          if (_branches.isNotEmpty)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_tree_outlined,
+                        size: 16, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          key: const ValueKey('branch_\$_selectedBranchId'),
+                          value: _selectedBranchId,
+                          isExpanded: true,
+                          isDense: true,
+                          style: const TextStyle(
+                              fontSize: 13, color: Color(0xFF111827)),
+                          icon: const Icon(Icons.keyboard_arrow_down,
+                              size: 18, color: Color(0xFF9CA3AF)),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                    style: TextStyle(fontSize: 13))),
+                            ..._branches.map((b) => DropdownMenuItem<String?>(
+                                value: b['id']?.toString(),
+                                child: Text(b['name']?.toString() ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13)))),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _selectedBranchId = v),
+                        ),
+                      ),
+                    ),
+                    if (_selectedBranchId != null)
+                      InkWell(
+                        onTap: () => setState(() => _selectedBranchId = null),
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close,
+                              size: 14, color: Color(0xFF9CA3AF)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : AttendanceSummaryTab(
                     key: _tabKey,
-                    attendances: _attendances,
+                    attendances: _filteredAttendances,
                     devices: _devices,
                     fromDate: _fromDate,
                     toDate: _toDate,
@@ -293,6 +385,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     salaryProfiles: _salaryProfiles,
                     approvedLeaves: _approvedLeaves,
                     allowCorrection: _allowManualCorrection,
+                    branches: _branches,
+                    employeesList: _employeesList,
                   ),
           ),
         ],

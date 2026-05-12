@@ -153,6 +153,72 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AdvanceApprovalRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ActualUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActualUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("AdvanceRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StepName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActualUserId");
+
+                    b.HasIndex("AdvanceRequestId");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.ToTable("AdvanceApprovalRecords");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AdvanceRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -174,6 +240,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<int>("CurrentApprovalStep")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("Deleted")
                         .HasColumnType("timestamp without time zone");
@@ -234,6 +303,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("TotalApprovalLevels")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -257,7 +329,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("AdvanceRequests", (string)null);
+                    b.ToTable("AdvanceRequests");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Agent", b =>
@@ -443,7 +515,198 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("Type")
                         .HasDatabaseName("IX_Allowances_Type");
 
-                    b.ToTable("Allowances", (string)null);
+                    b.ToTable("Allowances");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AnnouncementDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AckedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("AnnouncementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ClickedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DismissedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("SeenAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnnouncementId")
+                        .HasDatabaseName("IX_AnnouncementDeliveries_AnnId");
+
+                    b.HasIndex("StoreId")
+                        .HasDatabaseName("IX_AnnouncementDeliveries_StoreId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_AnnouncementDeliveries_UserId");
+
+                    b.HasIndex("UserId", "Status")
+                        .HasDatabaseName("IX_AnnouncementDeliveries_User_Status");
+
+                    b.HasIndex("AnnouncementId", "UserId", "Channel")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AnnouncementDeliveries_Ann_User_Channel");
+
+                    b.ToTable("AnnouncementDeliveries", (string)null);
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AppBugReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("StoreName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserEmail")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppBugReports");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AppPage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppPages");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AppSettings", b =>
@@ -586,9 +849,6 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("PlainTextPassword")
-                        .HasColumnType("text");
-
                     b.Property<string>("Role")
                         .HasColumnType("text");
 
@@ -693,7 +953,73 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId", "RequestType")
                         .HasDatabaseName("IX_ApprovalFlows_StoreId_RequestType");
 
-                    b.ToTable("ApprovalFlows", (string)null);
+                    b.ToTable("ApprovalFlows");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ApprovalRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ActualUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActualUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("CorrectionRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StepName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActualUserId");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("CorrectionRequestId");
+
+                    b.ToTable("ApprovalRecords");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ApprovalStep", b =>
@@ -772,7 +1098,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_ApprovalSteps_FlowId_StepOrder");
 
-                    b.ToTable("ApprovalSteps", (string)null);
+                    b.ToTable("ApprovalSteps");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Asset", b =>
@@ -798,6 +1124,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -870,12 +1199,18 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("QrCode")
+                        .HasColumnType("text");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Size")
+                        .HasColumnType("text");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1166,6 +1501,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<int>("StoredExpectedQuantity")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -1282,6 +1620,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid?>("EmployeeId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("MobileAttendanceRecordId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Note")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -1321,7 +1662,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("PIN", "AttendanceTime")
                         .HasDatabaseName("IX_Attendance_PIN_Time");
 
-                    b.ToTable("AttendanceLogs", (string)null);
+                    b.ToTable("AttendanceLogs");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AttendanceCorrectionRequest", b =>
@@ -1351,6 +1692,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<int>("CurrentApprovalStep")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("Deleted")
                         .HasColumnType("timestamp without time zone");
@@ -1409,6 +1753,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("TotalApprovalLevels")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -1435,7 +1782,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("AttendanceCorrectionRequests", (string)null);
+                    b.ToTable("AttendanceCorrectionRequests");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AuditLog", b =>
@@ -1534,6 +1881,98 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("Timestamp", "Action");
 
                     b.ToTable("AuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AuthorizedMobileDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowOutsideCheckIn")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AuthorizedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("CanUseFaceId")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanUseGps")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("DeviceModel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EmployeeId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmployeeName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsAuthorized")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OsVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WifiBssid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("AuthorizedMobileDevices");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.BankAccount", b =>
@@ -1926,6 +2365,73 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.ToTable("Branches", (string)null);
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.BranchPermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CanCreate")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanDelete")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEdit")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GrantedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IncludeChildren")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "BranchId", "StoreId")
+                        .IsUnique();
+
+                    b.ToTable("BranchPermissions");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.CashTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2099,7 +2605,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("ParentCommentId");
 
-                    b.ToTable("CommunicationComments", (string)null);
+                    b.ToTable("CommunicationComments");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.CommunicationReaction", b =>
@@ -2133,7 +2639,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("CommunicationId");
 
-                    b.ToTable("CommunicationReactions", (string)null);
+                    b.ToTable("CommunicationReactions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ContentCategory", b =>
@@ -2192,7 +2698,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("ContentCategories", (string)null);
+                    b.ToTable("ContentCategories");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Department", b =>
@@ -2304,7 +2810,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Department_Store_Code");
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DepartmentPermission", b =>
@@ -2382,7 +2888,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("UserId", "DepartmentId", "PermissionId", "StoreId")
                         .IsUnique();
 
-                    b.ToTable("DepartmentPermissions", (string)null);
+                    b.ToTable("DepartmentPermissions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Device", b =>
@@ -2422,6 +2928,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<int>("DeviceType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(50)
@@ -2482,7 +2991,120 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId1");
 
-                    b.ToTable("Devices", (string)null);
+                    b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceChangeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NewDeviceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NewDeviceModel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NewDeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NewFaceImagesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NewOsVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("NewWifiBssid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("OldDeviceModel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("OldDeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OldDeviceRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("DeviceChangeRequests");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceCommand", b =>
@@ -2549,7 +3171,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("DeviceId");
 
-                    b.ToTable("DeviceCommands", (string)null);
+                    b.ToTable("DeviceCommands");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceInfo", b =>
@@ -2605,7 +3227,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("DeviceId")
                         .IsUnique();
 
-                    b.ToTable("DeviceInfos", (string)null);
+                    b.ToTable("DeviceInfos");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceSetting", b =>
@@ -2647,7 +3269,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("DeviceId", "SettingKey")
                         .IsUnique();
 
-                    b.ToTable("DeviceSettings", (string)null);
+                    b.ToTable("DeviceSettings");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceUser", b =>
@@ -2724,7 +3346,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("Pin");
 
-                    b.ToTable("DeviceUsers", (string)null);
+                    b.ToTable("DeviceUsers");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Employee", b =>
@@ -2759,6 +3381,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("ContractEndDate")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -2888,9 +3513,6 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<DateTime?>("ProbationEndDate")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<DateTime?>("ContractEndDate")
-                        .HasColumnType("timestamp without time zone");
-
                     b.Property<DateTime?>("ResignationDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -2921,24 +3543,24 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("CompanyEmail")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Employees_CompanyEmail");
-
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("DirectManagerEmployeeId");
-
-                    b.HasIndex("EmployeeCode")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Employees_EmployeeCode");
 
                     b.HasIndex("ManagerId");
 
                     b.HasIndex("StoreId")
                         .HasDatabaseName("IX_Employees_StoreId");
 
-                    b.ToTable("Employees", (string)null);
+                    b.HasIndex("StoreId", "CompanyEmail")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Employees_StoreId_CompanyEmail");
+
+                    b.HasIndex("StoreId", "EmployeeCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Employees_StoreId_EmployeeCode");
+
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.EmployeeBenefit", b =>
@@ -3002,7 +3624,38 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("EmployeeBenefits", (string)null);
+                    b.ToTable("EmployeeBenefits");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.EmployeeLiveLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("Accuracy")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("EmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EmployeeLiveLocations");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.EmployeeTaxDeduction", b =>
@@ -3103,7 +3756,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeUserId");
 
-                    b.ToTable("EmployeeWorkingInfos", (string)null);
+                    b.ToTable("EmployeeWorkingInfos");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FaceTemplate", b =>
@@ -3148,7 +3801,313 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "FaceIndex")
                         .IsUnique();
 
-                    b.ToTable("FaceTemplates", (string)null);
+                    b.ToTable("FaceTemplates");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Feedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageUrls")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("RecipientEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("RespondedByEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Response")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<Guid?>("SenderEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientEmployeeId");
+
+                    b.HasIndex("RespondedByEmployeeId");
+
+                    b.HasIndex("SenderEmployeeId");
+
+                    b.HasIndex("StoreId", "Status");
+
+                    b.ToTable("Feedbacks");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FeedbackReply", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FeedbackId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ImageUrls")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsFromSender")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("SenderEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedbackId");
+
+                    b.HasIndex("SenderEmployeeId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("FeedbackReplies");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FieldLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ContactEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PhotoUrlsJson")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Radius")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RegisteredByEmployeeId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RegisteredByEmployeeName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("FieldLocations");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FieldLocationAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("StoreId", "EmployeeId", "LocationId", "DayOfWeek")
+                        .HasDatabaseName("IX_FieldLocationAssign_Employee_Location");
+
+                    b.ToTable("FieldLocationAssignments", (string)null);
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FingerprintTemplate", b =>
@@ -3193,7 +4152,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "FingerIndex")
                         .IsUnique();
 
-                    b.ToTable("FingerprintTemplates", (string)null);
+                    b.ToTable("FingerprintTemplates");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Geofence", b =>
@@ -3588,7 +4547,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("InsuranceSettings", (string)null);
+                    b.ToTable("InsuranceSettings");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.InternalCommunication", b =>
@@ -3690,7 +4649,111 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("TargetDepartmentId");
 
-                    b.ToTable("InternalCommunications", (string)null);
+                    b.ToTable("InternalCommunications");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.JourneyTracking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AssignedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CheckedInCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("JourneyDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReviewedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("RoutePointsJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("TotalDistanceKm")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("TotalOnSiteMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalTravelMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId", "Status")
+                        .HasDatabaseName("IX_Journey_Status");
+
+                    b.HasIndex("StoreId", "EmployeeId", "JourneyDate")
+                        .HasDatabaseName("IX_Journey_Employee_Date");
+
+                    b.ToTable("JourneyTrackings", (string)null);
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KeyActivationPromotion", b =>
@@ -3743,7 +4806,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("ServicePackageId");
 
-                    b.ToTable("KeyActivationPromotions", (string)null);
+                    b.ToTable("KeyActivationPromotions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiBonusRule", b =>
@@ -3811,7 +4874,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId", "SortOrder")
                         .HasDatabaseName("IX_KpiBonusRule_Store_SortOrder");
 
-                    b.ToTable("KpiBonusRules", (string)null);
+                    b.ToTable("KpiBonusRules");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiConfig", b =>
@@ -3905,7 +4968,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_KpiConfig_Code_StoreId");
 
-                    b.ToTable("KpiConfigs", (string)null);
+                    b.ToTable("KpiConfigs");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiEmployeeTarget", b =>
@@ -4005,7 +5068,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "KpiPeriodId")
                         .HasDatabaseName("IX_KpiEmployeeTarget_Employee_Period");
 
-                    b.ToTable("KpiEmployeeTargets", (string)null);
+                    b.ToTable("KpiEmployeeTargets");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiPeriod", b =>
@@ -4099,7 +5162,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("Year", "Month", "StoreId")
                         .HasDatabaseName("IX_KpiPeriod_Year_Month_StoreId");
 
-                    b.ToTable("KpiPeriods", (string)null);
+                    b.ToTable("KpiPeriods");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiResult", b =>
@@ -4184,7 +5247,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_KpiResult_Employee_Config_Period");
 
-                    b.ToTable("KpiResults", (string)null);
+                    b.ToTable("KpiResults");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KpiSalary", b =>
@@ -4295,7 +5358,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_KpiSalary_Employee_Period");
 
-                    b.ToTable("KpiSalaries", (string)null);
+                    b.ToTable("KpiSalaries");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Leave", b =>
@@ -4312,6 +5375,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<int>("CurrentApprovalStep")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("Deleted")
                         .HasColumnType("timestamp without time zone");
@@ -4371,6 +5437,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("TotalApprovalLevels")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -4396,7 +5465,73 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId", "StartDate", "EndDate")
                         .HasDatabaseName("IX_Leaves_Store_Dates");
 
-                    b.ToTable("Leaves", (string)null);
+                    b.ToTable("Leaves");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.LeaveApprovalRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ActualUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActualUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("LeaveId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StepName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActualUserId");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("LeaveId");
+
+                    b.ToTable("LeaveApprovalRecords");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.LicenseKey", b =>
@@ -4467,7 +5602,963 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("LicenseKeys", (string)null);
+                    b.ToTable("LicenseKeys");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MaintenanceWindow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AffectedModulesJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("BlockAccess")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EndAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("EndNotified")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NotifiedMinutesCsv")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NotifyBeforeMinutesCsv")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("StartAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("StartNotified")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive", "StartAt", "EndAt")
+                        .HasDatabaseName("IX_MaintenanceWindows_Active_Range");
+
+                    b.ToTable("MaintenanceWindows", (string)null);
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MarketingCampaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AnnouncementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AudienceJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}");
+
+                    b.Property<int>("Channels")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClickedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DeliveredCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LaunchedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OpenedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ScheduleAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleAt")
+                        .HasDatabaseName("IX_MarketingCampaigns_ScheduleAt");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_MarketingCampaigns_Status");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("MarketingCampaigns", (string)null);
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealDebt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("EmployeeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("MealSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Period")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("RecordedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeUserId");
+
+                    b.HasIndex("MealSessionId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealDebts");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealDish", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealDishes");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealMenu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MealSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealSessionId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealMenus");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealMenuItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DishName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("MealMenuId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealMenuId");
+
+                    b.ToTable("MealMenuItems");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AttendanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("DeviceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EmployeeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MealSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("MealTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("PIN")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("ShiftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceId");
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("EmployeeUserId");
+
+                    b.HasIndex("MealSessionId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealRecords");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("EmployeeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRegistered")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MealSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeUserId");
+
+                    b.HasIndex("MealSessionId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealRegistrations");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("PricePerMeal")
+                        .HasColumnType("numeric");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MealSessions");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealSessionShift", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MealSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShiftTemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealSessionId");
+
+                    b.HasIndex("ShiftTemplateId");
+
+                    b.ToTable("MealSessionShifts");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileAttendanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<double?>("DistanceFromLocation")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FaceImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<double?>("FaceMatchScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("LocationName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("OdooEmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("PunchTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("PunchType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("VerifyMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("WifiBssid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("WifiIpAddress")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("WifiSsid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MobileAttendanceRecords");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileAttendanceSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowManualApproval")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AutoApproveInRange")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("EnableFaceId")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EnableGps")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EnableLivenessDetection")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EnableWifi")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("GpsRadiusMeters")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxPhotosPerRegistration")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxPunchesPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("MinFaceMatchScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("MinPunchIntervalMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequirePhotoProof")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("VerificationMode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MobileAttendanceSettings");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileFaceRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EmployeeCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FaceImagesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastVerifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OdooEmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MobileFaceRegistrations");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileWorkLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("AllowedIpRange")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("AutoApproveInRange")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Radius")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WifiBssid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("WifiSsid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("MobileWorkLocations");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Notification", b =>
@@ -4561,7 +6652,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId", "TargetUserId", "IsRead")
                         .HasDatabaseName("IX_Notifications_Store_User_Read");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.NotificationCategory", b =>
@@ -4621,14 +6712,14 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId")
                         .HasDatabaseName("IX_NotificationCategories_StoreId");
 
-                    b.ToTable("NotificationCategories", (string)null);
+                    b.ToTable("NotificationCategories");
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000001"),
                             Code = "attendance",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(687),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6629),
                             DefaultEnabled = true,
                             Description = "Thông báo chấm công vào/ra, trễ giờ, vắng mặt",
                             DisplayName = "Chấm công",
@@ -4640,7 +6731,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000002"),
                             Code = "leave",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(762),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6650),
                             DefaultEnabled = true,
                             Description = "Đơn nghỉ phép, duyệt/từ chối phép",
                             DisplayName = "Nghỉ phép",
@@ -4652,7 +6743,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000003"),
                             Code = "overtime",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(767),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6654),
                             DefaultEnabled = true,
                             Description = "Đăng ký tăng ca, duyệt/từ chối tăng ca",
                             DisplayName = "Tăng ca",
@@ -4664,7 +6755,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000004"),
                             Code = "payroll",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(771),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6655),
                             DefaultEnabled = true,
                             Description = "Phiếu lương, thay đổi lương, thanh toán",
                             DisplayName = "Lương & Phiếu lương",
@@ -4676,7 +6767,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000005"),
                             Code = "task",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(774),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6658),
                             DefaultEnabled = true,
                             Description = "Giao việc, cập nhật tiến độ, deadline",
                             DisplayName = "Công việc",
@@ -4688,7 +6779,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000006"),
                             Code = "approval",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(776),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6660),
                             DefaultEnabled = true,
                             Description = "Yêu cầu phê duyệt, kết quả phê duyệt",
                             DisplayName = "Phê duyệt",
@@ -4700,7 +6791,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000007"),
                             Code = "device",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(778),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6662),
                             DefaultEnabled = true,
                             Description = "Trạng thái máy chấm công online/offline",
                             DisplayName = "Thiết bị",
@@ -4712,7 +6803,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000008"),
                             Code = "hr",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(780),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6663),
                             DefaultEnabled = true,
                             Description = "Hợp đồng, bổ nhiệm, thuyên chuyển",
                             DisplayName = "Nhân sự",
@@ -4724,7 +6815,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000009"),
                             Code = "system",
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 378, DateTimeKind.Local).AddTicks(782),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6665),
                             DefaultEnabled = true,
                             Description = "Cập nhật hệ thống, bảo trì, thông báo chung",
                             DisplayName = "Hệ thống",
@@ -4777,7 +6868,62 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_NotificationPreferences_User_Category_Store");
 
-                    b.ToTable("NotificationPreferences", (string)null);
+                    b.ToTable("NotificationPreferences");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.NotificationTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Channels")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Locale")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("VariablesJson")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NotificationTemplates_Code");
+
+                    b.ToTable("NotificationTemplates", (string)null);
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.OrgAssignment", b =>
@@ -4860,7 +7006,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_OrgAssignments_Emp_Dept_Pos");
 
-                    b.ToTable("OrgAssignments", (string)null);
+                    b.ToTable("OrgAssignments");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.OrgPosition", b =>
@@ -4946,7 +7092,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_OrgPositions_StoreId_Code");
 
-                    b.ToTable("OrgPositions", (string)null);
+                    b.ToTable("OrgPositions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Overtime", b =>
@@ -5043,7 +7189,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("Overtimes", (string)null);
+                    b.ToTable("Overtimes");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.PaymentTransaction", b =>
@@ -5148,7 +7294,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("EmployeeUserId", "ForMonth", "ForYear")
                         .HasDatabaseName("IX_PaymentTransactions_Employee_Period");
 
-                    b.ToTable("PaymentTransactions", (string)null);
+                    b.ToTable("PaymentTransactions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Payslip", b =>
@@ -5156,6 +7302,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Allowances")
+                        .HasColumnType("numeric");
 
                     b.Property<Guid?>("ApprovedByUserId")
                         .HasColumnType("uuid");
@@ -5204,6 +7353,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<decimal>("GrossSalary")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("HealthInsurance")
+                        .HasColumnType("numeric");
 
                     b.Property<decimal?>("HolidayPay")
                         .HasPrecision(18, 2)
@@ -5265,11 +7417,20 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<Guid>("SalaryProfileId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("SocialInsurance")
+                        .HasColumnType("numeric");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Tax")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal?>("UnemploymentInsurance")
+                        .HasColumnType("numeric");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -5297,7 +7458,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("EmployeeUserId", "Year", "Month")
                         .IsUnique();
 
-                    b.ToTable("Payslips", (string)null);
+                    b.ToTable("Payslips");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.PenaltySetting", b =>
@@ -5415,7 +7576,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("PenaltySettings", (string)null);
+                    b.ToTable("PenaltySettings");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.PenaltyTicket", b =>
@@ -5533,7 +7694,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId", "Status", "ViolationDate");
 
-                    b.ToTable("PenaltyTickets", (string)null);
+                    b.ToTable("PenaltyTickets");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Permission", b =>
@@ -5576,13 +7737,13 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("Module")
                         .IsUnique();
 
-                    b.ToTable("Permissions", (string)null);
+                    b.ToTable("Permissions");
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111001"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9584),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(542),
                             Description = "Xem tổng quan hệ thống",
                             DisplayOrder = 1,
                             Module = "Dashboard",
@@ -5591,7 +7752,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111002"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9611),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(557),
                             Description = "Quản lý thông tin nhân viên",
                             DisplayOrder = 2,
                             Module = "Employee",
@@ -5600,7 +7761,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111003"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9614),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(560),
                             Description = "Quản lý chấm công",
                             DisplayOrder = 3,
                             Module = "Attendance",
@@ -5609,7 +7770,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111004"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9615),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(562),
                             Description = "Quản lý đơn nghỉ phép",
                             DisplayOrder = 4,
                             Module = "Leave",
@@ -5618,7 +7779,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111005"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9617),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(563),
                             Description = "Quản lý ca làm việc",
                             DisplayOrder = 5,
                             Module = "Shift",
@@ -5627,7 +7788,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111006"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9619),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(565),
                             Description = "Quản lý bảng lương",
                             DisplayOrder = 6,
                             Module = "Salary",
@@ -5636,7 +7797,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111007"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9621),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(566),
                             Description = "Quản lý phiếu lương",
                             DisplayOrder = 7,
                             Module = "Payslip",
@@ -5645,7 +7806,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111008"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9623),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(569),
                             Description = "Quản lý thiết bị chấm công",
                             DisplayOrder = 8,
                             Module = "Device",
@@ -5654,7 +7815,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111009"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9625),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(570),
                             Description = "Xem và xuất báo cáo",
                             DisplayOrder = 9,
                             Module = "Report",
@@ -5663,7 +7824,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111010"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9627),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(572),
                             Description = "Cấu hình hệ thống",
                             DisplayOrder = 10,
                             Module = "Settings",
@@ -5672,7 +7833,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111011"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9629),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(573),
                             Description = "Quản lý tài khoản người dùng",
                             DisplayOrder = 11,
                             Module = "Account",
@@ -5681,7 +7842,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111012"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9630),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(575),
                             Description = "Quản lý phân quyền",
                             DisplayOrder = 12,
                             Module = "Role",
@@ -5690,7 +7851,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111013"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9632),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(576),
                             Description = "Quản lý cửa hàng",
                             DisplayOrder = 13,
                             Module = "Store",
@@ -5699,7 +7860,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111014"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9633),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(578),
                             Description = "Quản lý phụ cấp",
                             DisplayOrder = 14,
                             Module = "Allowance",
@@ -5708,7 +7869,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111015"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9635),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(579),
                             Description = "Quản lý ngày lễ",
                             DisplayOrder = 15,
                             Module = "Holiday",
@@ -5717,7 +7878,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111016"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9636),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(581),
                             Description = "Quản lý bảo hiểm",
                             DisplayOrder = 16,
                             Module = "Insurance",
@@ -5726,7 +7887,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111017"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9638),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(582),
                             Description = "Quản lý thuế thu nhập",
                             DisplayOrder = 17,
                             Module = "Tax",
@@ -5735,7 +7896,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111018"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9639),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(584),
                             Description = "Quản lý tạm ứng lương",
                             DisplayOrder = 18,
                             Module = "Advance",
@@ -5744,7 +7905,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111019"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9641),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(585),
                             Description = "Quản lý thông báo",
                             DisplayOrder = 19,
                             Module = "Notification",
@@ -5753,7 +7914,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111020"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9643),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(587),
                             Description = "Quản lý phòng ban",
                             DisplayOrder = 20,
                             Module = "Department",
@@ -5762,7 +7923,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111021"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9661),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(596),
                             Description = "Quản lý tăng ca",
                             DisplayOrder = 21,
                             Module = "Overtime",
@@ -5771,7 +7932,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111022"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9686),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(617),
                             Description = "Quản lý điều chỉnh chấm công",
                             DisplayOrder = 22,
                             Module = "AttendanceCorrection",
@@ -5780,7 +7941,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111023"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9688),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(619),
                             Description = "Quản lý lịch làm việc",
                             DisplayOrder = 23,
                             Module = "WorkSchedule",
@@ -5789,7 +7950,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111024"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9690),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(620),
                             Description = "Quản lý đổi ca",
                             DisplayOrder = 24,
                             Module = "ShiftSwap",
@@ -5798,7 +7959,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111025"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9692),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(622),
                             Description = "Quản lý mẫu ca làm việc",
                             DisplayOrder = 25,
                             Module = "ShiftTemplate",
@@ -5807,7 +7968,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111026"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9767),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(623),
                             Description = "Quản lý bậc lương theo ca",
                             DisplayOrder = 26,
                             Module = "ShiftSalaryLevel",
@@ -5816,7 +7977,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111027"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9769),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(625),
                             Description = "Quản lý phúc lợi",
                             DisplayOrder = 27,
                             Module = "Benefit",
@@ -5825,7 +7986,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111028"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9771),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(626),
                             Description = "Quản lý giao dịch",
                             DisplayOrder = 28,
                             Module = "Transaction",
@@ -5834,7 +7995,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111029"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9773),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(628),
                             Description = "Quản lý thu chi tiền mặt",
                             DisplayOrder = 29,
                             Module = "CashTransaction",
@@ -5843,7 +8004,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111030"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9777),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(657),
                             Description = "Quản lý tài khoản ngân hàng",
                             DisplayOrder = 30,
                             Module = "BankAccount",
@@ -5852,7 +8013,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111031"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9779),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(658),
                             Description = "Quản lý hồ sơ nhân sự",
                             DisplayOrder = 31,
                             Module = "HrDocument",
@@ -5861,7 +8022,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111032"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9781),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(660),
                             Description = "Quản lý công việc",
                             DisplayOrder = 32,
                             Module = "Task",
@@ -5870,7 +8031,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111033"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9782),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(661),
                             Description = "Quản lý KPI",
                             DisplayOrder = 33,
                             Module = "KPI",
@@ -5879,7 +8040,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111034"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9784),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(663),
                             Description = "Quản lý tài sản",
                             DisplayOrder = 34,
                             Module = "Asset",
@@ -5888,7 +8049,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111035"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9786),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(664),
                             Description = "Quản lý vùng địa lý",
                             DisplayOrder = 35,
                             Module = "Geofence",
@@ -5897,7 +8058,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111036"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9787),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(666),
                             Description = "Quản lý sơ đồ tổ chức",
                             DisplayOrder = 36,
                             Module = "OrgChart",
@@ -5906,7 +8067,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111037"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9789),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(668),
                             Description = "Quản lý chi nhánh",
                             DisplayOrder = 37,
                             Module = "Branch",
@@ -5915,7 +8076,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111038"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9790),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(669),
                             Description = "Quản lý truyền thông nội bộ",
                             DisplayOrder = 38,
                             Module = "Communication",
@@ -5924,7 +8085,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111039"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9792),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(671),
                             Description = "Quản lý user trên máy chấm công",
                             DisplayOrder = 39,
                             Module = "DeviceUser",
@@ -5933,7 +8094,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111040"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9793),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(672),
                             Description = "Quản lý tài khoản hệ thống",
                             DisplayOrder = 40,
                             Module = "UserManagement",
@@ -5942,12 +8103,274 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111041"),
-                            CreatedAt = new DateTime(2026, 3, 24, 20, 43, 19, 381, DateTimeKind.Local).AddTicks(9794),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(673),
                             Description = "Phân quyền theo phòng ban",
                             DisplayOrder = 41,
                             Module = "DepartmentPermission",
                             ModuleDisplayName = "PQ Phòng ban"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111042"),
+                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(677),
+                            Description = "Quản lý check-in điểm bán, giao điểm, báo cáo tại điểm",
+                            DisplayOrder = 42,
+                            Module = "FieldCheckIn",
+                            ModuleDisplayName = "Check-in điểm bán"
                         });
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("ProductGroups");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("ProductGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductGroupId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("ProductItems");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductPriceTier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MaxQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TierLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductItemId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("ProductPriceTiers");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductionEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("ProductItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("WorkDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ProductItemId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("ProductionEntries");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.RolePermission", b =>
@@ -6015,7 +8438,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("RoleName", "PermissionId", "StoreId")
                         .IsUnique();
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleRegistration", b =>
@@ -6101,7 +8524,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("ScheduleRegistrations", (string)null);
+                    b.ToTable("ScheduleRegistrations");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ServicePackage", b =>
@@ -6147,7 +8570,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ServicePackages", (string)null);
+                    b.ToTable("ServicePackages");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Shift", b =>
@@ -6236,7 +8659,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("Shifts", (string)null);
+                    b.ToTable("Shifts");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftSalaryLevel", b =>
@@ -6307,7 +8730,67 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("ShiftSalaryLevels", (string)null);
+                    b.ToTable("ShiftSalaryLevels");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftStaffingQuota", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Department")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxEmployees")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinEmployees")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ShiftTemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("WarningThreshold")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShiftTemplateId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("ShiftStaffingQuotas");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftSwapRequest", b =>
@@ -6423,7 +8906,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("RequesterDate", "TargetDate")
                         .HasDatabaseName("IX_ShiftSwapRequest_Dates");
 
-                    b.ToTable("ShiftSwapRequests", (string)null);
+                    b.ToTable("ShiftSwapRequests");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftTemplate", b =>
@@ -6435,6 +8918,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<int>("BreakTimeMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -6444,11 +8930,20 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<int>("EarlyCheckInMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EarlyLeaveGraceMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("interval");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("LateGraceMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ManagerId")
                         .HasColumnType("uuid");
@@ -6461,6 +8956,15 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<TimeSpan?>("OvernightCutoffTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("OvertimeMinutesThreshold")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShiftType")
                         .HasColumnType("text");
 
                     b.Property<TimeSpan>("StartTime")
@@ -6481,7 +8985,71 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("ShiftTemplates", (string)null);
+                    b.ToTable("ShiftTemplates");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.StockTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BalanceAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PerformedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReferenceCode")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("RelatedInventoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("TransactionType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("PerformedById");
+
+                    b.HasIndex("RelatedInventoryId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("StockTransactions");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Store", b =>
@@ -6581,7 +9149,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("ServicePackageId");
 
-                    b.ToTable("Stores", (string)null);
+                    b.ToTable("Stores");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.SyncLog", b =>
@@ -6637,7 +9205,111 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("DeviceId");
 
-                    b.ToTable("SyncLogs", (string)null);
+                    b.ToTable("SyncLogs");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.SystemAnnouncement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AckedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ActionLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("AllowDismiss")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("AudienceJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}");
+
+                    b.Property<int>("Channels")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClickedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("DeliveredCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequireAck")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ScheduleAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("SeenCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_SystemAnnouncements_ExpiresAt");
+
+                    b.HasIndex("ScheduleAt")
+                        .HasDatabaseName("IX_SystemAnnouncements_ScheduleAt");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_SystemAnnouncements_Status");
+
+                    b.HasIndex("Status", "ExpiresAt")
+                        .HasDatabaseName("IX_SystemAnnouncements_Status_Expires");
+
+                    b.ToTable("SystemAnnouncements", (string)null);
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.SystemConfiguration", b =>
@@ -6681,7 +9353,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("SystemConfigurations", (string)null);
+                    b.ToTable("SystemConfigurations");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.TaskAssignee", b =>
@@ -6787,6 +9459,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("CommentType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -6798,8 +9473,19 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("ImageUrls")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("LinkUrls")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<Guid?>("ParentCommentId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("ProgressSnapshot")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid");
@@ -7096,7 +9782,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("TaxSettings", (string)null);
+                    b.ToTable("TaxSettings");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.TransactionCategory", b =>
@@ -7177,6 +9863,66 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.ToTable("TransactionCategories", (string)null);
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.UserDeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsDisabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("UX_UserDeviceTokens_Token");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_UserDeviceTokens_UserId");
+
+                    b.HasIndex("UserId", "IsDisabled")
+                        .HasDatabaseName("IX_UserDeviceTokens_User_Disabled");
+
+                    b.ToTable("UserDeviceTokens", (string)null);
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.UserRefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7207,7 +9953,143 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("ApplicationUserId")
                         .IsUnique();
 
-                    b.ToTable("UserRefreshTokens", (string)null);
+                    b.ToTable("UserRefreshTokens");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.VisitReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("CheckInDistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CheckInLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CheckInLongitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("CheckInTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<double?>("CheckOutDistance")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CheckOutLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CheckOutLongitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("CheckOutTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("JourneyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LocationName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("OutsideRadius")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PhotoUrlsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReportDataJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReportNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReviewedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("TimeSpentMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("VisitDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("StoreId", "JourneyId")
+                        .HasDatabaseName("IX_VisitReport_Journey");
+
+                    b.HasIndex("StoreId", "Status")
+                        .HasDatabaseName("IX_VisitReport_Status");
+
+                    b.HasIndex("StoreId", "EmployeeId", "VisitDate")
+                        .HasDatabaseName("IX_VisitReport_Employee_Date");
+
+                    b.HasIndex("StoreId", "LocationId", "VisitDate")
+                        .HasDatabaseName("IX_VisitReport_Location_Date");
+
+                    b.ToTable("VisitReports", (string)null);
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.WorkSchedule", b =>
@@ -7291,7 +10173,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_WorkSchedules_Employee_Date");
 
-                    b.ToTable("WorkSchedules", (string)null);
+                    b.ToTable("WorkSchedules");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.WorkTask", b =>
@@ -7478,6 +10360,29 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AdvanceApprovalRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ActualUser")
+                        .WithMany()
+                        .HasForeignKey("ActualUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.AdvanceRequest", "AdvanceRequest")
+                        .WithMany("ApprovalRecords")
+                        .HasForeignKey("AdvanceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.Navigation("ActualUser");
+
+                    b.Navigation("AdvanceRequest");
+
+                    b.Navigation("AssignedUser");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AdvanceRequest", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ApprovedBy")
@@ -7524,6 +10429,32 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AnnouncementDelivery", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.SystemAnnouncement", "Announcement")
+                        .WithMany("Deliveries")
+                        .HasForeignKey("AnnouncementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Announcement");
+
+                    b.Navigation("Store");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AppSettings", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
@@ -7568,6 +10499,29 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ApprovalRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ActualUser")
+                        .WithMany()
+                        .HasForeignKey("ActualUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.AttendanceCorrectionRequest", "CorrectionRequest")
+                        .WithMany("ApprovalRecords")
+                        .HasForeignKey("CorrectionRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ActualUser");
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("CorrectionRequest");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ApprovalStep", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApprovalFlow", "ApprovalFlow")
@@ -7600,7 +10554,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "CurrentAssignee")
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "CurrentAssignee")
                         .WithMany()
                         .HasForeignKey("CurrentAssigneeId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -7649,7 +10603,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AssetInventory", b =>
                 {
-                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ResponsibleUser")
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "ResponsibleUser")
                         .WithMany()
                         .HasForeignKey("ResponsibleUserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -7699,7 +10653,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "FromUser")
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "FromUser")
                         .WithMany()
                         .HasForeignKey("FromUserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -7709,7 +10663,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasForeignKey("PerformedById")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ToUser")
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "ToUser")
                         .WithMany()
                         .HasForeignKey("ToUserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -7770,6 +10724,17 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AuthorizedMobileDevice", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.BankAccount", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
@@ -7810,6 +10775,31 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("ParentBranch");
 
                     b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.BranchPermission", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Store");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.CashTransaction", b =>
@@ -7974,6 +10964,17 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceChangeRequest", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.DeviceCommand", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.Device", "Device")
@@ -8131,6 +11132,90 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Feedback", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "RecipientEmployee")
+                        .WithMany()
+                        .HasForeignKey("RecipientEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "RespondedByEmployee")
+                        .WithMany()
+                        .HasForeignKey("RespondedByEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "SenderEmployee")
+                        .WithMany()
+                        .HasForeignKey("SenderEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("RecipientEmployee");
+
+                    b.Navigation("RespondedByEmployee");
+
+                    b.Navigation("SenderEmployee");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FeedbackReply", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Feedback", "Feedback")
+                        .WithMany("Replies")
+                        .HasForeignKey("FeedbackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "SenderEmployee")
+                        .WithMany()
+                        .HasForeignKey("SenderEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Feedback");
+
+                    b.Navigation("SenderEmployee");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FieldLocation", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FieldLocationAssignment", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.FieldLocation", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.FingerprintTemplate", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.DeviceUser", "Employee")
@@ -8225,6 +11310,17 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
 
                     b.Navigation("TargetDepartment");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.JourneyTracking", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.KeyActivationPromotion", b =>
@@ -8401,6 +11497,29 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.LeaveApprovalRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ActualUser")
+                        .WithMany()
+                        .HasForeignKey("ActualUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Leave", "Leave")
+                        .WithMany("ApprovalRecords")
+                        .HasForeignKey("LeaveId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ActualUser");
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Leave");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.LicenseKey", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.Agent", "Agent")
@@ -8420,6 +11539,210 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Agent");
 
                     b.Navigation("ServicePackage");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MarketingCampaign", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.NotificationTemplate", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealDebt", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "EmployeeUser")
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealSession", "MealSession")
+                        .WithMany()
+                        .HasForeignKey("MealSessionId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("EmployeeUser");
+
+                    b.Navigation("MealSession");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealDish", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealMenu", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealSession", "MealSession")
+                        .WithMany("MealMenus")
+                        .HasForeignKey("MealSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("MealSession");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealMenuItem", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealMenu", "MealMenu")
+                        .WithMany("Items")
+                        .HasForeignKey("MealMenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MealMenu");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Attendance", "Attendance")
+                        .WithMany()
+                        .HasForeignKey("AttendanceId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "EmployeeUser")
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealSession", "MealSession")
+                        .WithMany("MealRecords")
+                        .HasForeignKey("MealSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Attendance");
+
+                    b.Navigation("Device");
+
+                    b.Navigation("EmployeeUser");
+
+                    b.Navigation("MealSession");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealRegistration", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "EmployeeUser")
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealSession", "MealSession")
+                        .WithMany()
+                        .HasForeignKey("MealSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("EmployeeUser");
+
+                    b.Navigation("MealSession");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealSession", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealSessionShift", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MealSession", "MealSession")
+                        .WithMany("MealSessionShifts")
+                        .HasForeignKey("MealSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ShiftTemplate", "ShiftTemplate")
+                        .WithMany()
+                        .HasForeignKey("ShiftTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MealSession");
+
+                    b.Navigation("ShiftTemplate");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileAttendanceRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileAttendanceSetting", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileFaceRegistration", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileWorkLocation", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Store");
                 });
@@ -8677,6 +12000,74 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductGroup", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductItem", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ProductGroup", "ProductGroup")
+                        .WithMany("Products")
+                        .HasForeignKey("ProductGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("ProductGroup");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductPriceTier", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ProductItem", "ProductItem")
+                        .WithMany("PriceTiers")
+                        .HasForeignKey("ProductItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("ProductItem");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductionEntry", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ProductItem", "ProductItem")
+                        .WithMany("ProductionEntries")
+                        .HasForeignKey("ProductItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("ProductItem");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.RolePermission", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.Permission", "Permission")
@@ -8779,6 +12170,25 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftStaffingQuota", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ShiftTemplate", "ShiftTemplate")
+                        .WithMany()
+                        .HasForeignKey("ShiftTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ShiftTemplate");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ShiftSwapRequest", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ApprovedByManager")
@@ -8834,14 +12244,46 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "Manager")
                         .WithMany()
                         .HasForeignKey("ManagerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
                         .WithMany()
-                        .HasForeignKey("StoreId");
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Manager");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.StockTransaction", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Asset", "Asset")
+                        .WithMany("StockTransactions")
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "PerformedBy")
+                        .WithMany()
+                        .HasForeignKey("PerformedById");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.AssetInventory", "RelatedInventory")
+                        .WithMany()
+                        .HasForeignKey("RelatedInventoryId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("PerformedBy");
+
+                    b.Navigation("RelatedInventory");
 
                     b.Navigation("Store");
                 });
@@ -9054,6 +12496,25 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("ApplicationUser");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.VisitReport", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.FieldLocation", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.WorkSchedule", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "AssignedBy")
@@ -9117,6 +12578,11 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AdvanceRequest", b =>
+                {
+                    b.Navigation("ApprovalRecords");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Agent", b =>
                 {
                     b.Navigation("LicenseKeys");
@@ -9158,6 +12624,8 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Navigation("InventoryItems");
 
+                    b.Navigation("StockTransactions");
+
                     b.Navigation("Transfers");
                 });
 
@@ -9171,6 +12639,11 @@ namespace ZKTecoADMS.Infrastructure.Migrations
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AssetInventory", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.AttendanceCorrectionRequest", b =>
+                {
+                    b.Navigation("ApprovalRecords");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.BankAccount", b =>
@@ -9239,6 +12712,11 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("EmployeeBenefits");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Feedback", b =>
+                {
+                    b.Navigation("Replies");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.InternalCommunication", b =>
                 {
                     b.Navigation("Comments");
@@ -9258,6 +12736,25 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("KpiSalaries");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Leave", b =>
+                {
+                    b.Navigation("ApprovalRecords");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealMenu", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MealSession", b =>
+                {
+                    b.Navigation("MealMenus");
+
+                    b.Navigation("MealRecords");
+
+                    b.Navigation("MealSessionShifts");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.OrgAssignment", b =>
                 {
                     b.Navigation("DirectReports");
@@ -9271,6 +12768,18 @@ namespace ZKTecoADMS.Infrastructure.Migrations
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductGroup", b =>
+                {
+                    b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ProductItem", b =>
+                {
+                    b.Navigation("PriceTiers");
+
+                    b.Navigation("ProductionEntries");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ServicePackage", b =>
@@ -9290,6 +12799,11 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("LicenseKeys");
 
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.SystemAnnouncement", b =>
+                {
+                    b.Navigation("Deliveries");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.TaskComment", b =>

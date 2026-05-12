@@ -207,11 +207,12 @@ class MaintenanceTabState extends State<MaintenanceTab> {
     final title = TextEditingController(text: 'Bảo trì định kỳ');
     final message = TextEditingController(
         text: 'Hệ thống sẽ tạm dừng phục vụ để bảo trì. Vui lòng lưu công việc.');
+    // notifyCtrl lives outside StatefulBuilder to avoid re-creation on every setState
+    final notifyCtrl = TextEditingController(text: '60,15,5');
     DateTime start = DateTime.now().add(const Duration(hours: 2));
     DateTime end = start.add(const Duration(hours: 1));
     bool blockAccess = true;
     bool isActive = true;
-    String notifyCsv = '60,15,5';
 
     await showDialog(
       context: context,
@@ -262,8 +263,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                   decoration: const InputDecoration(
                       labelText: 'Nhắc trước (phút, CSV)',
                       hintText: 'VD: 60,15,5'),
-                  controller: TextEditingController(text: notifyCsv),
-                  onChanged: (v) => notifyCsv = v,
+                  controller: notifyCtrl,
                 ),
                 SwitchListTile(
                     dense: true,
@@ -297,6 +297,8 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                       content: Text('Thời gian kết thúc phải > bắt đầu')));
                   return;
                 }
+                // Capture messenger before async gap to avoid BuildContext-across-await lint
+                final messenger = ScaffoldMessenger.of(context);
                 final res = await _api.createMaintenanceWindow({
                   'title': title.text.trim(),
                   'message': message.text.trim(),
@@ -304,15 +306,15 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                   'endAt': end.toUtc().toIso8601String(),
                   'isActive': isActive,
                   'blockAccess': blockAccess,
-                  'notifyBeforeMinutes': notifyCsv
+                  'notifyBeforeMinutes': notifyCtrl.text
                       .split(',')
                       .map((e) => int.tryParse(e.trim()) ?? 0)
                       .where((x) => x > 0)
                       .toList(),
                 });
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                messenger.showSnackBar(SnackBar(
                     content: Text(res['isSuccess'] == true
                         ? 'Đã tạo cửa sổ bảo trì'
                         : (res['message']?.toString() ?? 'Lỗi'))));
@@ -323,7 +325,11 @@ class MaintenanceTabState extends State<MaintenanceTab> {
           ],
         );
       }),
-    );
+    ).then((_) {
+      title.dispose();
+      message.dispose();
+      notifyCtrl.dispose();
+    });
   }
 
   Future<DateTime?> _pickDateTime(BuildContext ctx, DateTime initial) async {

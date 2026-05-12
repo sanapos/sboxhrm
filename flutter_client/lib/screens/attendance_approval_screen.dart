@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/web_canvas.dart' as web_canvas;
 import 'package:intl/intl.dart';
@@ -39,6 +39,19 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   DateTime? _fromDate;
   DateTime? _toDate;
   bool _isExporting = false;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+
+  List<Map<String, dynamic>> get _filteredRequests {
+    if (_selectedBranchId == null) return _requests;
+    final ids = _employees
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+    return _requests
+        .where((r) => ids.contains(r['employeeUserId']?.toString()))
+        .toList();
+  }
 
   // Sorting
   String _sortColumn = 'createdAt';
@@ -69,6 +82,14 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     } catch (e) {
       debugPrint('Error loading employees: $e');
     }
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -1217,7 +1238,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           Expanded(
             child: _isLoading
                 ? const LoadingWidget(message: 'Đang tải dữ liệu...')
-                : _requests.isEmpty
+                : _filteredRequests.isEmpty
                     ? const EmptyState(
                         icon: Icons.fact_check_outlined,
                         title: 'Không có yêu cầu',
@@ -1301,6 +1322,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
         runSpacing: 12,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (_branches.isNotEmpty) _buildBranchChip(),
           _buildDropdown<String>(
             value: _selectedDatePreset,
             items: const [
@@ -1363,6 +1385,55 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBranchChip() {
+    return Container(
+      height: 38,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.account_tree_outlined,
+            size: 15, color: Color(0xFF6B7280)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String?>(
+              value: _selectedBranchId,
+              isExpanded: true,
+              isDense: true,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+              icon: const Icon(Icons.keyboard_arrow_down,
+                  size: 16, color: Color(0xFF9CA3AF)),
+              items: [
+                const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Tất cả chi nhánh',
+                        style: TextStyle(fontSize: 12))),
+                ..._branches.map((b) => DropdownMenuItem<String?>(
+                    value: b['id']?.toString(),
+                    child: Text(b['name']?.toString() ?? '',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12)))),
+              ],
+              onChanged: (v) => setState(() => _selectedBranchId = v),
+            ),
+          ),
+        ),
+        if (_selectedBranchId != null)
+          InkWell(
+            onTap: () => setState(() => _selectedBranchId = null),
+            child: const Padding(
+                padding: EdgeInsets.all(3),
+                child: Icon(Icons.close, size: 13, color: Color(0xFF9CA3AF))),
+          ),
+      ]),
     );
   }
 
@@ -1712,7 +1783,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12)))),
                     ],
-                    rows: _requests.asMap().entries.map((entry) {
+                    rows: _filteredRequests.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final req = entry.value;
                       final status = req['status'] ?? 0;
@@ -1844,9 +1915,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   Widget _buildMobileCardList(int startIndex) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: _requests.length,
+      itemCount: _filteredRequests.length,
       itemBuilder: (_, index) {
-        final req = _requests[index];
+        final req = _filteredRequests[index];
         final status = _parseStatus(req['status']);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),

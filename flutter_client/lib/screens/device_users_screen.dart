@@ -177,6 +177,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   List<DeviceUser> _deviceUsers = [];
   List<Device> _devices = [];
   List<Employee> _employees = [];
+  List<Map<String, dynamic>> _branches = [];
   bool _isLoading = true;
   bool _isExporting = false;
   String? _selectedDeviceId;
@@ -202,9 +203,18 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       final devicesData = await _apiService.getDevices(storeOnly: true);
       _devices = devicesData.map((e) => Device.fromJson(e)).toList();
 
-      // Load employees for mapping
-      final employeesData = await _apiService.getEmployees(pageSize: 500);
-      _employees = employeesData.map((e) => Employee.fromJson(e)).toList();
+      // Load employees and branches in parallel
+      final results = await Future.wait([
+        _apiService.getEmployees(pageSize: 500),
+        _apiService.getBranchesForSelect(),
+      ]);
+      _employees =
+          (results[0] as List).map((e) => Employee.fromJson(e)).toList();
+      final brResult = results[1] as Map<String, dynamic>;
+      final brData = brResult['data'];
+      _branches = brData is List
+          ? brData.map((b) => Map<String, dynamic>.from(b as Map)).toList()
+          : [];
 
       // Load device users
       await _loadDeviceUsers();
@@ -683,6 +693,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           u.pin.toLowerCase().contains(query) ||
           (u.cardNumber?.toLowerCase().contains(query) ?? false);
     }).toList();
+  }
+
+  /// Trả về tên chi nhánh của một DeviceUser (thông qua employee liên kết)
+  String _getBranchNameForUser(DeviceUser user) {
+    if (user.employeeId == null) return '';
+    final emp = _employees.firstWhere(
+      (e) => e.id == user.employeeId,
+      orElse: () =>
+          Employee(id: '', employeeCode: '', firstName: '', lastName: ''),
+    );
+    return emp.branchName ?? '';
   }
 
   void _showError(String message) {
@@ -1517,78 +1538,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 fontSize: 13,
                                                 color: Color(0xFF71717A))))),
                               ],
-                              rows: displayedUsers.asMap().entries.map((entry) {
-                                final user = entry.value;
-                                final avatarUrl = _getEmployeeAvatarUrl(user);
-                                final avatarFullUrl = avatarUrl != null
-                                    ? _apiService.getFileUrl(avatarUrl)
-                                    : null;
-                                return DataRow(
-                                  onSelectChanged: (_) =>
-                                      _showUserActionsDialog(user),
-                                  cells: [
-                                    DataCell(Center(
-                                      child: CircleAvatar(
-                                        radius: 18,
-                                        backgroundImage: avatarFullUrl != null
-                                            ? NetworkImage(avatarFullUrl)
-                                            : null,
-                                        onBackgroundImageError:
-                                            avatarFullUrl != null
-                                                ? (_, __) {}
-                                                : null,
-                                        backgroundColor: Colors.grey[200],
-                                        child: avatarFullUrl == null
-                                            ? Text(
-                                                user.name.isNotEmpty
-                                                    ? user.name[0].toUpperCase()
-                                                    : '?',
-                                                style: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              )
-                                            : null,
-                                      ),
-                                    )),
-                                    DataCell(Center(child: Text(user.pin))),
-                                    DataCell(Center(
-                                        child: _buildPrivilegeChip(
-                                            user.privilege))),
-                                    DataCell(Center(
-                                        child: Text(user.deviceName ?? '-'))),
-                                    DataCell(Center(child: Text(user.name))),
-                                    DataCell(Center(
-                                      child: user.employeeName != null
-                                          ? Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.link,
-                                                    size: 14,
-                                                    color: Colors.green),
-                                                const SizedBox(width: 4),
-                                                Text(_getFullEmployeeName(user),
-                                                    style: const TextStyle(
-                                                        color: Colors.green)),
-                                              ],
-                                            )
-                                          : const Text('-',
-                                              style: TextStyle(
-                                                  color: Colors.grey)),
-                                    )),
-                                    DataCell(Center(
-                                        child: Text(user.password ?? '-'))),
-                                    DataCell(Center(
-                                        child: Text(user.cardNumber ?? '-'))),
-                                    DataCell(Center(
-                                        child: Text('${user.fingerprintCount}',
-                                            style: TextStyle(
-                                                color: user.fingerprintCount > 0
-                                                    ? const Color(0xFFEA580C)
-                                                    : Colors.grey)))),
-                                  ],
-                                );
-                              }).toList(),
+                              rows: _buildDesktopRows(displayedUsers),
                             ),
                           ),
                         ),
@@ -1607,140 +1557,322 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   Widget _buildMobileUserList(List<DeviceUser> users) {
+    if (_branches.isEmpty) {
+      return _buildMobileUserListRaw(users);
+    }
+    // Group by branch
+    final Map<String, List<DeviceUser>> groupMap = {};
+    for (final u in users) {
+      final brName = _getBranchNameForUser(u);
+      final key = brName.isEmpty ? '__none__' : brName;
+      groupMap.putIfAbsent(key, () => []).add(u);
+    }
+    final List<String> branchOrder =
+        _branches.map((b) => b['name']?.toString() ?? '').toList();
+    final List<String> keys = [
+      ...branchOrder.where((n) => groupMap.containsKey(n)),
+      ...groupMap.keys
+          .where((k) => !branchOrder.contains(k) && k != '__none__'),
+      if (groupMap.containsKey('__none__')) '__none__',
+    ];
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      children: [
+        for (final key in keys) ...[
+          _buildBranchGroupHeader(key == '__none__' ? 'Chưa có chi nhánh' : key,
+              groupMap[key]!.length),
+          for (final user in groupMap[key]!) _buildMobileUserCard(user),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMobileUserListRaw(List<DeviceUser> users) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shrinkWrap: true,
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: users.length,
-      itemBuilder: (_, index) {
-        final user = users[index];
-        final avatarUrl = _getEmployeeAvatarUrl(user);
-        final avatarFullUrl =
-            avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+      itemBuilder: (_, index) => _buildMobileUserCard(users[index]),
+    );
+  }
+
+  Widget _buildMobileUserCard(DeviceUser user) {
+    final avatarUrl = _getEmployeeAvatarUrl(user);
+    final avatarFullUrl =
+        avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE4E4E7)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _showUserActionsDialog(user),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: avatarFullUrl != null
-                        ? NetworkImage(avatarFullUrl)
-                        : null,
-                    onBackgroundImageError:
-                        avatarFullUrl != null ? (_, __) {} : null,
-                    backgroundColor: Colors.grey[200],
-                    child: avatarFullUrl == null
-                        ? Text(
-                            user.name.isNotEmpty
-                                ? user.name[0].toUpperCase()
-                                : '?',
+          ],
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _showUserActionsDialog(user),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundImage:
+                    avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
+                onBackgroundImageError:
+                    avatarFullUrl != null ? (_, __) {} : null,
+                backgroundColor: Colors.grey[200],
+                child: avatarFullUrl == null
+                    ? Text(
+                        user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14))
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          user.name.isNotEmpty ? user.name : 'User ${user.pin}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(
+                          [
+                            user.pin,
+                            user.deviceName ?? '',
+                            user.employeeName ?? 'Chưa liên kết'
+                          ].where((s) => s.isNotEmpty).join(' · '),
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 3),
+                      Row(children: [
+                        Icon(Icons.lock_outline,
+                            size: 12,
+                            color: user.password != null &&
+                                    user.password!.isNotEmpty
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD4D4D8)),
+                        const SizedBox(width: 2),
+                        Text('MK',
                             style: TextStyle(
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14))
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                              user.name.isNotEmpty
-                                  ? user.name
-                                  : 'User ${user.pin}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 14),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 2),
-                          Text(
-                              [
-                                user.pin,
-                                user.deviceName ?? '',
-                                user.employeeName ??
-                                    'Ch\u01b0a li\u00ean k\u1ebft'
-                              ].where((s) => s.isNotEmpty).join(' \u00b7 '),
-                              style: const TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 3),
-                          Row(children: [
-                            Icon(Icons.lock_outline,
-                                size: 12,
+                                fontSize: 10,
                                 color: user.password != null &&
                                         user.password!.isNotEmpty
                                     ? const Color(0xFF16A34A)
-                                    : const Color(0xFFD4D4D8)),
-                            const SizedBox(width: 2),
-                            Text('MK',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: user.password != null &&
-                                            user.password!.isNotEmpty
-                                        ? const Color(0xFF16A34A)
-                                        : const Color(0xFFA1A1AA))),
-                            const SizedBox(width: 8),
-                            Icon(Icons.credit_card,
-                                size: 12,
+                                    : const Color(0xFFA1A1AA))),
+                        const SizedBox(width: 8),
+                        Icon(Icons.credit_card,
+                            size: 12,
+                            color: user.cardNumber != null &&
+                                    user.cardNumber!.isNotEmpty
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFFD4D4D8)),
+                        const SizedBox(width: 2),
+                        Text('Thẻ',
+                            style: TextStyle(
+                                fontSize: 10,
                                 color: user.cardNumber != null &&
                                         user.cardNumber!.isNotEmpty
                                     ? const Color(0xFF2563EB)
-                                    : const Color(0xFFD4D4D8)),
-                            const SizedBox(width: 2),
-                            Text('Thẻ',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: user.cardNumber != null &&
-                                            user.cardNumber!.isNotEmpty
-                                        ? const Color(0xFF2563EB)
-                                        : const Color(0xFFA1A1AA))),
-                            const SizedBox(width: 8),
-                            Icon(Icons.fingerprint,
-                                size: 12,
+                                    : const Color(0xFFA1A1AA))),
+                        const SizedBox(width: 8),
+                        Icon(Icons.fingerprint,
+                            size: 12,
+                            color: user.fingerprintCount > 0
+                                ? const Color(0xFFEA580C)
+                                : const Color(0xFFD4D4D8)),
+                        const SizedBox(width: 2),
+                        Text('${user.fingerprintCount} vân tay',
+                            style: TextStyle(
+                                fontSize: 10,
                                 color: user.fingerprintCount > 0
                                     ? const Color(0xFFEA580C)
-                                    : const Color(0xFFD4D4D8)),
-                            const SizedBox(width: 2),
-                            Text('${user.fingerprintCount} vân tay',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: user.fingerprintCount > 0
-                                        ? const Color(0xFFEA580C)
-                                        : const Color(0xFFA1A1AA))),
-                          ]),
-                        ]),
-                  ),
-                  _buildPrivilegeChip(user.privilege),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFFA1A1AA)),
-                ]),
+                                    : const Color(0xFFA1A1AA))),
+                      ]),
+                    ]),
               ),
+              _buildPrivilegeChip(user.privilege),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: Color(0xFFA1A1AA)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBranchGroupHeader(String branchName, int count) {
+    final primary = Theme.of(context).primaryColor;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_outlined, size: 15, color: primary),
+                const SizedBox(width: 6),
+                Text(
+                  branchName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          Expanded(
+              child: Divider(
+                  color: primary.withValues(alpha: 0.25), thickness: 1)),
+        ],
+      ),
     );
+  }
+
+  List<DataRow> _buildDesktopRows(List<DeviceUser> users) {
+    const int colCount = 9;
+    if (_branches.isEmpty) return _buildUserDataRows(users);
+
+    final Map<String, List<DeviceUser>> groupMap = {};
+    for (final u in users) {
+      final brName = _getBranchNameForUser(u);
+      final key = brName.isEmpty ? '__none__' : brName;
+      groupMap.putIfAbsent(key, () => []).add(u);
+    }
+    final List<String> branchOrder =
+        _branches.map((b) => b['name']?.toString() ?? '').toList();
+    final List<String> keys = [
+      ...branchOrder.where((n) => groupMap.containsKey(n)),
+      ...groupMap.keys
+          .where((k) => !branchOrder.contains(k) && k != '__none__'),
+      if (groupMap.containsKey('__none__')) '__none__',
+    ];
+
+    final primary = Theme.of(context).primaryColor;
+    final List<DataRow> rows = [];
+    for (final key in keys) {
+      final group = groupMap[key] ?? [];
+      final label = key == '__none__' ? 'Chưa có chi nhánh' : key;
+      rows.add(DataRow(
+        color: WidgetStateProperty.all(primary.withValues(alpha: 0.07)),
+        cells: [
+          DataCell(Row(children: [
+            Icon(Icons.account_tree_outlined, size: 14, color: primary),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                  color: primary, borderRadius: BorderRadius.circular(9)),
+              child: Text('${group.length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ])),
+          ...List.generate(colCount - 1, (_) => const DataCell(SizedBox())),
+        ],
+      ));
+      rows.addAll(_buildUserDataRows(group));
+    }
+    return rows;
+  }
+
+  List<DataRow> _buildUserDataRows(List<DeviceUser> users) {
+    return users.map((user) {
+      final avatarUrl = _getEmployeeAvatarUrl(user);
+      final avatarFullUrl =
+          avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
+      return DataRow(
+        onSelectChanged: (_) => _showUserActionsDialog(user),
+        cells: [
+          DataCell(Center(
+            child: CircleAvatar(
+              radius: 18,
+              backgroundImage:
+                  avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
+              onBackgroundImageError: avatarFullUrl != null ? (_, __) {} : null,
+              backgroundColor: Colors.grey[200],
+              child: avatarFullUrl == null
+                  ? Text(
+                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                          color: Colors.grey[600], fontWeight: FontWeight.bold))
+                  : null,
+            ),
+          )),
+          DataCell(Center(child: Text(user.pin))),
+          DataCell(Center(child: _buildPrivilegeChip(user.privilege))),
+          DataCell(Center(child: Text(user.deviceName ?? '-'))),
+          DataCell(Center(child: Text(user.name))),
+          DataCell(Center(
+            child: user.employeeName != null
+                ? Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.link, size: 14, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text(_getFullEmployeeName(user),
+                        style: const TextStyle(color: Colors.green)),
+                  ])
+                : const Text('-', style: TextStyle(color: Colors.grey)),
+          )),
+          DataCell(Center(child: Text(user.password ?? '-'))),
+          DataCell(Center(child: Text(user.cardNumber ?? '-'))),
+          DataCell(Center(
+              child: Text('${user.fingerprintCount}',
+                  style: TextStyle(
+                      color: user.fingerprintCount > 0
+                          ? const Color(0xFFEA580C)
+                          : Colors.grey)))),
+        ],
+      );
+    }).toList();
   }
 
   Widget _buildPagination(int totalPages, int totalItems) {

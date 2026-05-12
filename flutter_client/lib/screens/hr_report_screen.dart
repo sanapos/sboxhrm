@@ -33,6 +33,8 @@ class _HrReportScreenState extends State<HrReportScreen>
   String? _selectedDepartment;
   String? _selectedStatus;
   String? _selectedGender;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Sorting
   String _sortColumn = 'joinDate';
@@ -66,6 +68,9 @@ class _HrReportScreenState extends State<HrReportScreen>
         if (_selectedStatus == 'Inactive' && e.isActive) {
           return false;
         }
+      }
+      if (_selectedBranchId != null && e.branchId != _selectedBranchId) {
+        return false;
       }
       return true;
     }).toList();
@@ -244,6 +249,17 @@ class _HrReportScreenState extends State<HrReportScreen>
       } catch (_) {
         // Departments are optional, don't block employee data
       }
+      try {
+        final branchResult = await _apiService.getBranchesForSelect();
+        final branchData = branchResult['data'];
+        if (branchData is List && mounted) {
+          setState(() {
+            _branches = branchData
+                .map((b) => Map<String, dynamic>.from(b as Map))
+                .toList();
+          });
+        }
+      } catch (_) {}
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
@@ -475,14 +491,40 @@ class _HrReportScreenState extends State<HrReportScreen>
               onChanged: (v) => setState(() => _selectedStatus = v),
             ),
           ),
+          if (_branches.isNotEmpty)
+            SizedBox(
+              width: 200,
+              child: DropdownButtonFormField<String>(
+                key: ValueKey('branch_$_selectedBranchId'),
+                initialValue: _selectedBranchId,
+                decoration: const InputDecoration(
+                    labelText: 'Chi nhánh',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                items: [
+                  const DropdownMenuItem<String>(
+                      value: null, child: Text('Tất cả chi nhánh')),
+                  ..._branches.map((b) => DropdownMenuItem<String>(
+                        value: b['id']?.toString(),
+                        child: Text(b['name']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged: (v) => setState(() => _selectedBranchId = v),
+              ),
+            ),
           if (_selectedDepartment != null ||
               _selectedGender != null ||
-              _selectedStatus != null)
+              _selectedStatus != null ||
+              _selectedBranchId != null)
             TextButton.icon(
               onPressed: () => setState(() {
                 _selectedDepartment = null;
                 _selectedGender = null;
                 _selectedStatus = null;
+                _selectedBranchId = null;
               }),
               icon: const Icon(Icons.clear, size: 16),
               label: Text(_l10n.clearFilters),

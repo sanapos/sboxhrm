@@ -1,11 +1,10 @@
 ﻿import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import '../../utils/file_saver.dart' as file_saver;
+import '../../utils/web_canvas.dart' as web_canvas;
 
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,6 +41,7 @@ class PayrollSummaryTab extends StatefulWidget {
   final List<Device> devices;
   final DateTime fromDate;
   final DateTime toDate;
+  final String? branchId;
 
   const PayrollSummaryTab({
     super.key,
@@ -49,6 +49,7 @@ class PayrollSummaryTab extends StatefulWidget {
     required this.devices,
     required this.fromDate,
     required this.toDate,
+    this.branchId,
   });
 
   @override
@@ -120,6 +121,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     _fromDate = widget.fromDate;
     _toDate = widget.toDate;
     _loadPayrollData();
+  }
+
+  @override
+  void didUpdateWidget(PayrollSummaryTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.branchId != widget.branchId) {
+      _cachedPayrollData = null;
+      if (mounted) setState(() {});
+    }
   }
 
   @override
@@ -1451,6 +1461,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   List<Map<String, dynamic>> _buildPayrollData() {
     if (_cachedPayrollData != null) return _cachedPayrollData!;
 
+    // Filter employees by branch if specified
+    final employees = widget.branchId == null
+        ? _employees
+        : _employees.where((e) => e.branchId == widget.branchId).toList();
+    final branchCodes = widget.branchId == null
+        ? null
+        : employees.map((e) => e.employeeCode).toSet();
+
     // Group attendance by resolved employee code
     final attendances =
         _periodAttendances.isNotEmpty ? _periodAttendances : widget.attendances;
@@ -1458,11 +1476,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     for (final att in attendances) {
       final code = _resolveAttEmployeeCode(att);
       if (code == '-') continue;
+      if (branchCodes != null && !branchCodes.contains(code)) continue;
       grouped.putIfAbsent(code, () => []).add(att);
     }
 
     // Also add employees with salary profiles but no attendance
-    for (final emp in _employees) {
+    for (final emp in employees) {
       if (!grouped.containsKey(emp.employeeCode)) {
         grouped[emp.employeeCode] = [];
       }
@@ -1774,13 +1793,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       wb.delete('Sheet1');
       final bytes = wb.encode();
       if (bytes != null) {
-        await file_saver.saveFileBytes(
+        final fn =
+            'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+        await file_saver.saveAndOpenFileBytes(
             bytes,
-            'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
+            fn,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
-            title: 'Thành công',
-            message: 'Đã xuất Excel (${data.length} nhân viên)');
+            title: 'Xuất Excel',
+            message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
       }
     } catch (e) {
       appNotification.showError(
@@ -1815,25 +1836,190 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   Future<void> exportToPng() async {
     try {
-      final boundary = _tableKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể chụp bảng');
+      final data = _buildPayrollData();
+      if (data.isEmpty) {
+        appNotification.showError(title: 'Lỗi', message: 'Không có dữ liệu để xuất');
         return;
       }
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
-      final bytes = byteData.buffer.asUint8List();
-      await file_saver.saveAndOpenFileBytes(
-          bytes,
-          'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png',
-          'image/png');
+
+      final visibleCols = _columns.where((c) => c.visible).toList();
+      final headers = visibleCols.map((c) => c.label).toList();
+
+      // Build rows
+      final rows = <List<String>>[];
+      for (int i = 0; i < data.length; i++) {
+        final row = data[i];
+        final cells = <String>[];
+        for (final col in visibleCols) {
+          final v = row[col.key];
+          if (v == null) {
+            cells.add('-');
+          } else if (col.key == 'stt') {
+            cells.add('${i + 1}');
+          } else if (v is double || v is int) {
+            final n = (v as num).toDouble();
+            if (col.key.contains('alary') || col.key.contains('salary') ||
+                col.key.contains('Salary') || col.key.contains('allowance') ||
+                col.key.contains('deduction') || col.key.contains('bonus') ||
+                col.key.contains('Amount') || col.key.contains('insurance') ||
+                col.key.contains('advance') || col.key.contains('penalty') ||
+                col.key.contains('meal') || col.key.contains('debt')) {
+              cells.add(n == 0 ? '-' : _currencyFmt.format(n.round()));
+            } else if (col.key.contains('Minutes') || col.key.contains('minutes')) {
+              cells.add(n == 0 ? '-' : '${n.toInt()}P');
+            } else if (n == n.roundToDouble()) {
+              cells.add(n == 0 ? '0' : '${n.toInt()}');
+            } else {
+              cells.add(n.toStringAsFixed(2));
+            }
+          } else {
+            cells.add(v.toString().isEmpty ? '-' : v.toString());
+          }
+        }
+        rows.add(cells);
+      }
+
+      // Summary row
+      final summaryRow = List<String>.filled(headers.length, '');
+      summaryRow[0] = 'TỔNG';
+      for (int c = 0; c < visibleCols.length; c++) {
+        final key = visibleCols[c].key;
+        if (['stt', 'code', 'name', 'department', 'position', 'salaryType'].contains(key)) continue;
+        final total = data.fold<double>(0, (s, r) => s + ((r[key] as num?) ?? 0).toDouble());
+        if (total != 0) {
+          if (key.contains('alary') || key.contains('allowance') || key.contains('deduction') ||
+              key.contains('bonus') || key.contains('insurance') || key.contains('advance') ||
+              key.contains('penalty') || key.contains('meal') || key.contains('debt')) {
+            summaryRow[c] = _currencyFmt.format(total.round());
+          } else if (key.contains('Minutes') || key.contains('minutes')) {
+            summaryRow[c] = '${total.toInt()}P';
+          } else {
+            summaryRow[c] = total == total.roundToDouble()
+                ? '${total.toInt()}'
+                : total.toStringAsFixed(2);
+          }
+        }
+      }
+      rows.add(summaryRow);
+
+      const double cellPadding = 10;
+      const double fontSize = 12;
+      const double headerFontSize = 13;
+      const double rowHeight = 30;
+      const double headerHeight = 40;
+      const double titleHeight = 50;
+
+      final colWidths = <double>[];
+      for (int c = 0; c < headers.length; c++) {
+        double maxW = headers[c].length * 8.5 + cellPadding * 2;
+        for (final row in rows) {
+          if (c < row.length) {
+            final w = row[c].length * 7.5 + cellPadding * 2;
+            if (w > maxW) maxW = w;
+          }
+        }
+        if (c == 2) maxW = maxW.clamp(120.0, 200.0); // Name column
+        colWidths.add(maxW.clamp(55.0, 200.0));
+      }
+
+      final totalWidth = colWidths.fold(0.0, (sum, w) => sum + w) + 2;
+      final totalHeight = titleHeight + headerHeight + rows.length * rowHeight + 2;
+
+      void drawCanvas(dynamic ctx) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 16px Arial, sans-serif';
+        final period =
+            'Tổng hợp lương: ${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}';
+        ctx.fillText(period, 10, 32);
+
+        // Header row
+        double x = 1;
+        const headerY = titleHeight;
+        ctx.fillStyle = '#1E3A5F';
+        ctx.fillRect(1, headerY, totalWidth - 2, headerHeight);
+
+        for (int c = 0; c < headers.length; c++) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold ${headerFontSize}px Arial, sans-serif';
+          ctx.fillText(headers[c], x + cellPadding, headerY + headerHeight / 2 + 5);
+          ctx.strokeStyle = '#2d5a8e';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x + colWidths[c], headerY);
+          ctx.lineTo(x + colWidths[c], totalHeight);
+          ctx.stroke();
+          x += colWidths[c];
+        }
+
+        // Data rows
+        for (int r = 0; r < rows.length; r++) {
+          final rowY = titleHeight + headerHeight + r * rowHeight;
+          final isLast = r == rows.length - 1;
+          if (isLast) {
+            ctx.fillStyle = '#EBF5FF';
+            ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
+          } else if (r % 2 == 1) {
+            ctx.fillStyle = '#F8FAFC';
+            ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
+          }
+          ctx.strokeStyle = '#E2E8F0';
+          ctx.beginPath();
+          ctx.moveTo(1, rowY + rowHeight);
+          ctx.lineTo(totalWidth - 1, rowY + rowHeight);
+          ctx.stroke();
+
+          x = 1;
+          for (int c = 0; c < rows[r].length && c < colWidths.length; c++) {
+            final cellText = rows[r][c];
+            if (isLast) {
+              ctx.fillStyle = '#1E40AF';
+              ctx.font = 'bold ${fontSize}px Arial, sans-serif';
+            } else {
+              ctx.fillStyle = '#334155';
+              ctx.font = '${fontSize}px Arial, sans-serif';
+            }
+            ctx.fillText(cellText, x + cellPadding, rowY + rowHeight / 2 + 4);
+            x += colWidths[c];
+          }
+        }
+
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
+      }
+
+      final fileName =
+          'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
+
+      final dataUrl = web_canvas.renderToPngDataUrl(
+        width: totalWidth.toInt(),
+        height: totalHeight.toInt(),
+        draw: drawCanvas,
+      );
+
+      if (dataUrl != null) {
+        await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
+      } else {
+        final pngBytes = await web_canvas.renderToPngBytes(
+          width: totalWidth.toInt(),
+          height: totalHeight.toInt(),
+          draw: drawCanvas,
+        );
+        if (pngBytes != null) {
+          await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+        } else {
+          appNotification.showError(title: 'Lỗi', message: 'Không thể xuất PNG');
+          return;
+        }
+      }
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã xuất file PNG');
+          title: 'Thành công',
+          message: 'Đã lưu PNG vào Ảnh/SBOX HRM: $fileName');
     } catch (e) {
-      appNotification.showError(
-          title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+      appNotification.showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
     }
   }
 

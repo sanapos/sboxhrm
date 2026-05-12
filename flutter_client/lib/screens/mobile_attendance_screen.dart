@@ -371,7 +371,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Future<void> _autoSubmitAttendance() async {
     if (_isAutoSubmitting) return;
+    // Set flag immediately to block concurrent taps before any async work
+    setState(() => _isAutoSubmitting = true);
 
+    try {
+      await _autoSubmitAttendanceImpl();
+    } finally {
+      if (mounted) setState(() => _isAutoSubmitting = false);
+    }
+  }
+
+  Future<void> _autoSubmitAttendanceImpl() async {
     // Pre-check device status
     if (!_isDeviceRegistered) {
       _showError(
@@ -392,7 +402,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     // Fix: refresh GPS and WiFi BSSID right before we proceed (and before
     // opening the face camera, so the user does not waste a face scan).
     // ---------------------------------------------------------------------
-    setState(() => _isAutoSubmitting = true);
     try {
       await Future.wait<void>([
         _getCurrentLocation(),
@@ -402,7 +411,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       // individual helpers already log; continue to condition check below
     }
     if (!mounted) return;
-    setState(() => _isAutoSubmitting = false);
 
     // A fresh face scan must always be performed at tap time so a stale
     // verification from earlier on this screen cannot be replayed after
@@ -508,8 +516,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       }
     }
 
-    setState(() => _isAutoSubmitting = true);
-
     try {
       final punchType = _getNextPunchType();
       final response = await _apiService.submitMobileAttendance(
@@ -565,8 +571,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       }
     } catch (e) {
       _showError('Lỗi: $e');
-    } finally {
-      if (mounted) setState(() => _isAutoSubmitting = false);
     }
   }
 

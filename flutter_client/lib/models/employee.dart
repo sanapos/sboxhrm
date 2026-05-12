@@ -57,6 +57,7 @@ class Employee {
   final String? managerName;
 
   // Chi nhánh
+  final String? branchId;
   final String? branchName;
 
   // Application User ID (Identity)
@@ -101,6 +102,7 @@ class Employee {
     this.idCardBackUrl,
     this.managerId,
     this.managerName,
+    this.branchId,
     this.branchName,
     this.applicationUserId,
   });
@@ -183,6 +185,7 @@ class Employee {
         managerId: json['directManagerEmployeeId']?.toString() ??
             json['managerId']?.toString(),
         managerName: json['directManagerName'] ?? json['managerName'],
+        branchId: json['branchId']?.toString(),
         branchName: json['branchName'],
         applicationUserId: json['applicationUserId']?.toString(),
       );

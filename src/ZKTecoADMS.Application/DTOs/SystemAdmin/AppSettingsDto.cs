@@ -73,5 +73,18 @@ public record PublicAppSettingsResponse(
 
     // Legal
     string? TermsOfService,
-    string? PrivacyPolicy
+    string? PrivacyPolicy,
+
+    // Landing videos
+    string? LandingVideoIntro,
+    string? LandingVideoGuide,
+
+    // Landing content
+    string? LandingHeroTitle,
+    string? LandingHeroSubtext,
+    string? LandingFeaturesJson,
+    string? LandingPricingJson,
+    string? LandingGuideJson,
+    string? LandingProducts,
+    string? LandingDownloadsJson
 );

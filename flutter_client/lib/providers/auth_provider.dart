@@ -336,6 +336,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    // Clear global callback to prevent stale reference after provider is destroyed
+    if (ApiService.onUnauthorized == _handleSessionExpired) {
+      ApiService.onUnauthorized = null;
+    }
+    GlobalLocationReporter.instance.stop();
+    super.dispose();
+  }
+
   Future<bool> adminLogin(String email, String password) async {
     return login('', email, password);
   }

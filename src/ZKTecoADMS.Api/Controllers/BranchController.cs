@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
@@ -17,6 +18,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class BranchController(
     ZKTecoDbContext dbContext,
+    IDataScopeService dataScopeService,
     ILogger<BranchController> logger)
     : AuthenticatedControllerBase
 {
@@ -33,6 +35,12 @@ public class BranchController(
         [FromQuery] bool? isActive)
     {
         var storeId = CurrentStoreId;
+
+        // Phân quyền: Admin thấy tất cả; Manager/Manager chi nhánh chỉ thấy CN quản lý
+        List<Guid>? allowedBranchIds = null;
+        if (!IsAdmin && storeId.HasValue)
+            allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
+
         var query = dbContext.Branches
             .Include(b => b.Manager)
             .Include(b => b.ParentBranch)
@@ -40,6 +48,9 @@ public class BranchController(
 
         if (storeId.HasValue)
             query = query.Where(b => b.StoreId == storeId.Value);
+
+        if (allowedBranchIds != null)
+            query = query.Where(b => allowedBranchIds.Contains(b.Id));
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(b =>
@@ -95,10 +106,17 @@ public class BranchController(
     public async Task<ActionResult<AppResponse<List<BranchTreeNodeDto>>>> GetBranchTree()
     {
         var storeId = CurrentStoreId;
+
+        // Phân quyền: Admin thấy tất cả, Manager chỉ thấy sub-tree của CN mình
+        List<Guid>? allowedBranchIds = null;
+        if (!IsAdmin && storeId.HasValue)
+            allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
+
         var branches = await dbContext.Branches
             .Include(b => b.Manager)
             .Where(b => b.Deleted == null)
             .Where(b => !storeId.HasValue || b.StoreId == storeId.Value)
+            .Where(b => allowedBranchIds == null || allowedBranchIds.Contains(b.Id))
             .OrderBy(b => b.SortOrder).ThenBy(b => b.Name)
             .ToListAsync();
 
@@ -392,9 +410,215 @@ public class BranchController(
     public async Task<ActionResult<AppResponse<List<BranchSelectDto>>>> GetBranchesForSelect()
     {
         var storeId = CurrentStoreId;
+
+        List<Guid>? allowedBranchIds = null;
+        if (!IsAdmin && storeId.HasValue)
+            allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
+
         var branches = await dbContext.Branches
             .Where(b => b.Deleted == null && b.IsActive)
             .Where(b => !storeId.HasValue || b.StoreId == storeId.Value)
+            .Where(b => allowedBranchIds == null || allowedBranchIds.Contains(b.Id))
+            .OrderBy(b => b.SortOrder).ThenBy(b => b.Name)
+            .Select(b => new BranchSelectDto
+            {
+                Id = b.Id,
+                Code = b.Code,
+                Name = b.Name,
+                IsHeadquarter = b.IsHeadquarter,
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<List<BranchSelectDto>>.Success(branches));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHÂN QUYỀN CHI NHÁNH (BranchPermission)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Lấy danh sách phân quyền của 1 chi nhánh
+    /// </summary>
+    [HttpGet("{branchId}/permissions")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<List<BranchPermissionDto>>>> GetBranchPermissions(Guid branchId)
+    {
+        var perms = await dbContext.BranchPermissions
+            .Include(p => p.User)
+            .Where(p => p.BranchId == branchId && p.IsActive)
+            .Select(p => new BranchPermissionDto
+            {
+                Id = p.Id,
+                UserId = p.UserId,
+                UserName = p.User != null ? p.User.FullName ?? p.User.UserName ?? "" : "",
+                UserEmail = p.User != null ? p.User.Email ?? "" : "",
+                BranchId = p.BranchId,
+                IncludeChildren = p.IncludeChildren,
+                CanView = p.CanView,
+                CanCreate = p.CanCreate,
+                CanEdit = p.CanEdit,
+                CanDelete = p.CanDelete,
+                IsActive = p.IsActive,
+                GrantedBy = p.GrantedBy,
+                Note = p.Note,
+                CreatedAt = p.CreatedAt,
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<List<BranchPermissionDto>>.Success(perms));
+    }
+
+    /// <summary>
+    /// Thêm phân quyền cho user ở chi nhánh
+    /// </summary>
+    [HttpPost("{branchId}/permissions")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<BranchPermissionDto>>> CreateBranchPermission(
+        Guid branchId, [FromBody] CreateBranchPermissionRequest request)
+    {
+        var storeId = CurrentStoreId;
+
+        var branch = await dbContext.Branches
+            .FirstOrDefaultAsync(b => b.Id == branchId && b.Deleted == null);
+        if (branch == null)
+            return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy chi nhánh"));
+
+        var targetUser = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == request.UserId);
+        if (targetUser == null)
+            return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy user"));
+
+        // Upsert: nếu đã có thì update, không thì tạo mới
+        var existing = await dbContext.BranchPermissions
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.UserId == request.UserId && p.BranchId == branchId);
+
+        if (existing != null)
+        {
+            existing.IncludeChildren = request.IncludeChildren;
+            existing.CanView = request.CanView;
+            existing.CanCreate = request.CanCreate;
+            existing.CanEdit = request.CanEdit;
+            existing.CanDelete = request.CanDelete;
+            existing.IsActive = true;
+            existing.Note = request.Note;
+            existing.GrantedBy = CurrentUserId.ToString();
+        }
+        else
+        {
+            existing = new BranchPermission
+            {
+                Id = Guid.NewGuid(),
+                UserId = request.UserId,
+                BranchId = branchId,
+                StoreId = storeId,
+                IncludeChildren = request.IncludeChildren,
+                CanView = request.CanView,
+                CanCreate = request.CanCreate,
+                CanEdit = request.CanEdit,
+                CanDelete = request.CanDelete,
+                IsActive = true,
+                Note = request.Note,
+                GrantedBy = CurrentUserId.ToString(),
+            };
+            dbContext.BranchPermissions.Add(existing);
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        var result = new BranchPermissionDto
+        {
+            Id = existing.Id,
+            UserId = existing.UserId,
+            UserName = targetUser.FullName ?? targetUser.UserName ?? "",
+            UserEmail = targetUser.Email ?? "",
+            BranchId = existing.BranchId,
+            IncludeChildren = existing.IncludeChildren,
+            CanView = existing.CanView,
+            CanCreate = existing.CanCreate,
+            CanEdit = existing.CanEdit,
+            CanDelete = existing.CanDelete,
+            IsActive = existing.IsActive,
+            GrantedBy = existing.GrantedBy,
+            Note = existing.Note,
+            CreatedAt = existing.CreatedAt,
+        };
+        return Ok(AppResponse<BranchPermissionDto>.Success(result));
+    }
+
+    /// <summary>
+    /// Cập nhật phân quyền chi nhánh
+    /// </summary>
+    [HttpPut("permissions/{permId}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> UpdateBranchPermission(
+        Guid permId, [FromBody] UpdateBranchPermissionRequest request)
+    {
+        var perm = await dbContext.BranchPermissions
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == permId);
+        if (perm == null)
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
+
+        perm.IncludeChildren = request.IncludeChildren;
+        perm.CanView = request.CanView;
+        perm.CanCreate = request.CanCreate;
+        perm.CanEdit = request.CanEdit;
+        perm.CanDelete = request.CanDelete;
+        perm.IsActive = request.IsActive;
+        perm.Note = request.Note;
+        await dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>
+    /// Xóa phân quyền chi nhánh
+    /// </summary>
+    [HttpDelete("permissions/{permId}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteBranchPermission(Guid permId)
+    {
+        var perm = await dbContext.BranchPermissions
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == permId);
+        if (perm == null)
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
+
+        dbContext.BranchPermissions.Remove(perm);
+        await dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>
+    /// Lấy danh sách chi nhánh mà user hiện tại quản lý (dùng cho UI)
+    /// </summary>
+    [HttpGet("my-branches")]
+    public async Task<ActionResult<AppResponse<List<BranchSelectDto>>>> GetMyBranches()
+    {
+        var storeId = CurrentStoreId;
+        if (!storeId.HasValue)
+            return Ok(AppResponse<List<BranchSelectDto>>.Success([]));
+
+        List<Guid> managedIds;
+        if (IsAdmin)
+        {
+            managedIds = await dbContext.Branches
+                .Where(b => b.StoreId == storeId.Value && b.Deleted == null && b.IsActive)
+                .Select(b => b.Id)
+                .ToListAsync();
+        }
+        else
+        {
+            managedIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
+        }
+
+        if (managedIds.Count == 0)
+            return Ok(AppResponse<List<BranchSelectDto>>.Success([]));
+
+        var branches = await dbContext.Branches
+            .Where(b => managedIds.Contains(b.Id) && b.Deleted == null)
             .OrderBy(b => b.SortOrder).ThenBy(b => b.Name)
             .Select(b => new BranchSelectDto
             {
@@ -557,4 +781,44 @@ public class BranchSelectDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public bool IsHeadquarter { get; set; }
+}
+
+public class BranchPermissionDto
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public string UserEmail { get; set; } = string.Empty;
+    public Guid? BranchId { get; set; }
+    public bool IncludeChildren { get; set; }
+    public bool CanView { get; set; }
+    public bool CanCreate { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
+    public bool IsActive { get; set; }
+    public string? GrantedBy { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class CreateBranchPermissionRequest
+{
+    public Guid UserId { get; set; }
+    public bool IncludeChildren { get; set; } = true;
+    public bool CanView { get; set; } = true;
+    public bool CanCreate { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
+    public string? Note { get; set; }
+}
+
+public class UpdateBranchPermissionRequest
+{
+    public bool IncludeChildren { get; set; } = true;
+    public bool CanView { get; set; } = true;
+    public bool CanCreate { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Note { get; set; }
 }

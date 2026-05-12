@@ -95,6 +95,7 @@ public class UpdateEmployeeHandler(
         employee.ApplicationUserId = request.ApplicationUserId;
         if (request.ManagerId.HasValue)
             employee.ManagerId = request.ManagerId.Value;
+        employee.BranchId = request.BranchId;
         employee.UpdatedAt = DateTime.UtcNow;
 
         await employeeRepository.UpdateAsync(employee, cancellationToken);

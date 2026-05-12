@@ -267,19 +267,19 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
       case 'delete':
         final ok = await showDialog<bool>(
                 context: context,
-                builder: (_) => AlertDialog(
+                builder: (dlgCtx) => AlertDialog(
                       title: const Text('Xoá thông báo?'),
                       content: const Text(
                           'Hành động không thể hoàn tác. Bạn có chắc?'),
                       actions: [
                         TextButton(
-                            onPressed: () => Navigator.pop(context, false),
+                            onPressed: () => Navigator.pop(dlgCtx, false),
                             child: const Text('Huỷ')),
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white),
-                            onPressed: () => Navigator.pop(context, true),
+                            onPressed: () => Navigator.pop(dlgCtx, true),
                             child: const Text('Xoá')),
                       ],
                     )) ??
@@ -592,64 +592,60 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
               const Divider(height: 24),
               const Text('Đối tượng nhận',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              RadioListTile<String>(
-                  dense: true,
-                  value: 'all',
-                  groupValue: _audienceMode,
-                  title: const Text('Tất cả người dùng'),
-                  onChanged: (v) {
-                    setState(() => _audienceMode = v!);
-                    _previewAudience();
-                  }),
-              RadioListTile<String>(
-                  dense: true,
-                  value: 'role',
-                  groupValue: _audienceMode,
-                  title: const Text('Theo vai trò'),
-                  onChanged: (v) {
-                    setState(() => _audienceMode = v!);
-                    _previewAudience();
-                  }),
-              if (_audienceMode == 'role')
-                Wrap(
-                  spacing: 6,
+              RadioGroup<String>(
+                groupValue: _audienceMode,
+                onChanged: (v) {
+                  setState(() {
+                    _audienceMode = v!;
+                    if (v == 'license') _licenseStatus ??= 'expiring_soon';
+                  });
+                  _previewAudience();
+                },
+                child: Column(
                   children: [
-                    'SuperAdmin',
-                    'Admin',
-                    'Manager',
-                    'Employee',
-                    'User',
-                    'Agent',
-                  ].map((r) {
-                    final sel = _selectedRoles.contains(r);
-                    return FilterChip(
-                      label: Text(r),
-                      selected: sel,
-                      onSelected: (v) {
-                        setState(() {
-                          if (v) {
-                            _selectedRoles.add(r);
-                          } else {
-                            _selectedRoles.remove(r);
-                          }
-                        });
-                        _previewAudience();
-                      },
-                    );
-                  }).toList(),
+                    const RadioListTile<String>(
+                        dense: true,
+                        value: 'all',
+                        title: Text('Tất cả người dùng')),
+                    const RadioListTile<String>(
+                        dense: true,
+                        value: 'role',
+                        title: Text('Theo vai trò')),
+                    if (_audienceMode == 'role')
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          'SuperAdmin',
+                          'Admin',
+                          'Manager',
+                          'Employee',
+                          'User',
+                          'Agent',
+                        ].map((r) {
+                          final sel = _selectedRoles.contains(r);
+                          return FilterChip(
+                            label: Text(r),
+                            selected: sel,
+                            onSelected: (v) {
+                              setState(() {
+                                if (v) {
+                                  _selectedRoles.add(r);
+                                } else {
+                                  _selectedRoles.remove(r);
+                                }
+                              });
+                              _previewAudience();
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    const RadioListTile<String>(
+                        dense: true,
+                        value: 'license',
+                        title: Text('Theo trạng thái license')),
+                  ],
                 ),
-              RadioListTile<String>(
-                  dense: true,
-                  value: 'license',
-                  groupValue: _audienceMode,
-                  title: const Text('Theo trạng thái license'),
-                  onChanged: (v) {
-                    setState(() {
-                      _audienceMode = v!;
-                      _licenseStatus ??= 'expiring_soon';
-                    });
-                    _previewAudience();
-                  }),
+              ),
               if (_audienceMode == 'license')
                 DropdownButtonFormField<String>(
                   initialValue: _licenseStatus ?? 'expiring_soon',

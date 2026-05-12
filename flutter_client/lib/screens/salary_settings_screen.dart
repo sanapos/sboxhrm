@@ -27,6 +27,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   List<Map<String, dynamic>> _shifts = [];
   List<Map<String, dynamic>> _allowances = [];
   Map<String, dynamic> _insuranceSettings = {};
+  List<Map<String, dynamic>> _branches = [];
   bool _isLoading = true;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -34,6 +35,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   String _filterSalaryType = 'all';
   String _filterInsurance = 'all';
   String _filterAttendance = 'all';
+  String? _filterBranchId;
   bool _showMobileFilters = false;
 
   @override
@@ -58,12 +60,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         _apiService.getShifts(),
         _apiService.getAllowanceSettings(),
         _apiService.getInsuranceSettings(),
+        _apiService.getBranchesForSelect(),
       ]);
       final employees = results[0] as List;
       final profiles = results[1] as List;
       final shifts = results[2] as List;
       final allowances = results[3] as List;
       final insuranceSettings = results[4] as Map<String, dynamic>?;
+      final brResult = results[5] as Map<String, dynamic>;
+      final brData = brResult['data'];
+      final branches = brData is List
+          ? brData.map((b) => Map<String, dynamic>.from(b as Map)).toList()
+          : <Map<String, dynamic>>[];
 
       // Load all employee salary profiles in parallel
       final profileFutures = employees.map((emp) {
@@ -91,6 +99,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           'department': employee['department'],
           'position': employee['position'],
           'photoUrl': employee['photoUrl'],
+          'branchId': employee['branchId']?.toString() ?? '',
           // Salary profile data
           'salaryProfile': empSalaryProfile,
           'benefitId': empSalaryProfile?['benefitId'],
@@ -119,6 +128,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         _allowances =
             allowances.map((a) => Map<String, dynamic>.from(a)).toList();
         _insuranceSettings = insuranceSettings ?? {};
+        _branches = branches;
       });
     } catch (e) {
       debugPrint('Error loading data: $e');
@@ -129,6 +139,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   List<Map<String, dynamic>> get _filteredEmployees {
     var list = _employeeSalaries;
+
+    // Apply branch filter
+    if (_filterBranchId != null) {
+      list = list
+          .where((emp) => emp['branchId']?.toString() == _filterBranchId)
+          .toList();
+    }
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
@@ -524,7 +541,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         _filterType != 'all' ||
         _filterSalaryType != 'all' ||
         _filterInsurance != 'all' ||
-        _filterAttendance != 'all';
+        _filterAttendance != 'all' ||
+        _filterBranchId != null;
 
     final searchBox = SizedBox(
       height: 40,
@@ -579,6 +597,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 _filterSalaryType = 'all';
                 _filterInsurance = 'all';
                 _filterAttendance = 'all';
+                _filterBranchId = null;
               }),
               borderRadius: BorderRadius.circular(8),
               child: Container(
@@ -656,6 +675,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       child: isMobile
           ? Column(
               children: [
+                if (_branches.isNotEmpty) ...[
+                  _buildBranchDropdown(),
+                  const SizedBox(height: 8),
+                ],
                 searchBox,
                 const SizedBox(height: 8),
                 Row(
@@ -677,6 +700,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             )
           : Column(
               children: [
+                if (_branches.isNotEmpty) ...[
+                  _buildBranchDropdown(),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   children: [
                     Expanded(flex: 2, child: searchBox),
@@ -700,6 +727,54 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildBranchDropdown() {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.account_tree_outlined,
+            size: 16, color: Color(0xFF6B7280)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String?>(
+              value: _filterBranchId,
+              isExpanded: true,
+              isDense: true,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+              icon: const Icon(Icons.keyboard_arrow_down,
+                  size: 18, color: Color(0xFF9CA3AF)),
+              items: [
+                const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Tất cả chi nhánh',
+                        style: TextStyle(fontSize: 13))),
+                ..._branches.map((b) => DropdownMenuItem<String?>(
+                    value: b['id']?.toString(),
+                    child: Text(b['name']?.toString() ?? '',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13)))),
+              ],
+              onChanged: (v) => setState(() => _filterBranchId = v),
+            ),
+          ),
+        ),
+        if (_filterBranchId != null)
+          InkWell(
+            onTap: () => setState(() => _filterBranchId = null),
+            child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close, size: 14, color: Color(0xFF9CA3AF))),
+          ),
+      ]),
     );
   }
 
@@ -742,10 +817,97 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     ? 2
                     : 1;
 
+        final employees = _filteredEmployees;
+
+        // ── Grouped mode ─────────────────────────────────────
+        if (_branches.isNotEmpty) {
+          final Map<String, List<Map<String, dynamic>>> groupMap = {};
+          for (final emp in employees) {
+            final key = (emp['branchId']?.toString() ?? '').isNotEmpty
+                ? emp['branchId'].toString()
+                : '__none__';
+            groupMap.putIfAbsent(key, () => []).add(emp);
+          }
+          final branchOrder =
+              _branches.map((b) => b['id']?.toString() ?? '').toList();
+          final sortedKeys = groupMap.keys.toList()
+            ..sort((a, b) {
+              if (a == '__none__') return 1;
+              if (b == '__none__') return -1;
+              final ai = branchOrder.indexOf(a);
+              final bi = branchOrder.indexOf(b);
+              if (ai == -1 && bi == -1) return a.compareTo(b);
+              if (ai == -1) return 1;
+              if (bi == -1) return -1;
+              return ai.compareTo(bi);
+            });
+
+          String resolveName(String key) {
+            if (key == '__none__') return 'Chưa có chi nhánh';
+            return _branches
+                    .firstWhere((b) => b['id']?.toString() == key,
+                        orElse: () => {'name': key})['name']
+                    ?.toString() ??
+                key;
+          }
+
+          Widget cardSlot(Map<String, dynamic> emp) {
+            if (crossAxisCount == 1) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10, left: 12, right: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildEmpDeckItem(emp),
+                ),
+              );
+            }
+            final cardWidth =
+                (constraints.maxWidth - (crossAxisCount - 1) * 16) /
+                    crossAxisCount;
+            return SizedBox(
+              width: cardWidth,
+              child: _buildEmployeeCard(emp),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: sortedKeys.map((key) {
+              final emps = groupMap[key]!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBranchGroupHeader(resolveName(key), emps.length),
+                  crossAxisCount == 1
+                      ? Column(children: emps.map(cardSlot).toList())
+                      : Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: emps.map(cardSlot).toList(),
+                        ),
+                  const SizedBox(height: 16),
+                ],
+              );
+            }).toList(),
+          );
+        }
+
+        // ── Flat mode (no branches) ───────────────────────────
         if (crossAxisCount == 1) {
           return Column(
             children: List.generate(
-                _filteredEmployees.length,
+                employees.length,
                 (i) => Padding(
                       padding: const EdgeInsets.only(
                           bottom: 10, left: 12, right: 12),
@@ -762,7 +924,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             ),
                           ],
                         ),
-                        child: _buildEmpDeckItem(_filteredEmployees[i]),
+                        child: _buildEmpDeckItem(employees[i]),
                       ),
                     )),
           );
@@ -771,7 +933,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return Wrap(
           spacing: 16,
           runSpacing: 16,
-          children: _filteredEmployees.map((employee) {
+          children: employees.map((employee) {
             final cardWidth =
                 (constraints.maxWidth - (crossAxisCount - 1) * 16) /
                     crossAxisCount;
@@ -782,6 +944,60 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           }).toList(),
         );
       },
+    );
+  }
+
+  Widget _buildBranchGroupHeader(String name, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color:
+                      Theme.of(context).primaryColor.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_outlined,
+                    size: 14, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  name,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).primaryColor),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('$count',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Divider(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                  thickness: 1)),
+        ],
+      ),
     );
   }
 

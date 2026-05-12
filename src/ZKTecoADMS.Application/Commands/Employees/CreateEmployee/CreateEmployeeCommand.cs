@@ -53,4 +53,5 @@ public class CreateEmployeeCommand : IRequest<AppResponse<Guid>>
     public Guid? DeviceId { get; set; }
     public Guid? ApplicationUserId { get; set; }
     public Guid ManagerId {get;set;}
+    public Guid? BranchId { get; set; }
 }

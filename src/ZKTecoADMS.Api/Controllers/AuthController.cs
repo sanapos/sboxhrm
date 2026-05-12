@@ -12,14 +12,16 @@ using ZKTecoADMS.Application.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userManager) : ControllerBase
+public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userManager, ZKTecoDbContext _dbContext) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -49,6 +51,28 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     {
         var command = new RegisterCommand(registerRequest);  
         return Ok(await _bus.Send(command, cancellationToken));
+    }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<AppResponse<object>>> PublicServicePackages(CancellationToken cancellationToken = default)
+    {
+        var packages = await _dbContext.ServicePackages
+            .AsNoTracking()
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Name)
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.Description,
+                p.DefaultDurationDays,
+                p.MaxUsers,
+                p.MaxDevices
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(AppResponse<object>.Success(packages));
     }
 
     [HttpPost]

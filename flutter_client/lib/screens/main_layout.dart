@@ -234,6 +234,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   StreamSubscription? _attendanceSubscription;
   StreamSubscription? _deviceStatusSubscription;
   StreamSubscription? _communicationSubscription;
+  bool _isConnectingSignalR = false;
 
   // Popup queue: show one popup at a time to prevent overlap
   final List<Widget Function(VoidCallback onDismiss)> _popupQueue = [];
@@ -376,6 +377,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   Future<void> _connectSignalR() async {
+    if (_isConnectingSignalR) return; // Prevent concurrent calls
+    _isConnectingSignalR = true;
     try {
       // Cancel existing subscriptions to avoid duplicates on reconnect
       await _notificationSubscription?.cancel();
@@ -418,6 +421,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           .listen(_handleCommunicationEvent);
     } catch (e) {
       debugPrint('Error connecting SignalR in MainLayout: $e');
+    } finally {
+      _isConnectingSignalR = false;
     }
   }
 
@@ -533,15 +538,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   ///      (the backlog is processed immediately on resume; after 15 s any new
   ///      notification is genuinely live and must not be suppressed).
   bool _isFcmDuplicate(String? createdAtStr) {
-    if (createdAtStr == null || _lastBackgroundedAt == null || _lastForegroundedAt == null) {
+    if (createdAtStr == null ||
+        _lastBackgroundedAt == null ||
+        _lastForegroundedAt == null) {
       return false;
     }
     final notifTs = DateTime.tryParse(createdAtStr)?.toLocal();
     if (notifTs == null) return false;
     // Allow 3-second slack for server/device clock skew.
-    final backgroundedAt = _lastBackgroundedAt!.subtract(const Duration(seconds: 3));
+    final backgroundedAt =
+        _lastBackgroundedAt!.subtract(const Duration(seconds: 3));
     final suppressUntil = _lastForegroundedAt!.add(const Duration(seconds: 15));
-    return notifTs.isAfter(backgroundedAt) && DateTime.now().isBefore(suppressUntil);
+    return notifTs.isAfter(backgroundedAt) &&
+        DateTime.now().isBefore(suppressUntil);
   }
 
   void _handleNewNotification(Map<String, dynamic> data) {
@@ -655,9 +664,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final isMobile = mounted && MediaQuery.of(context).size.width < 600;
       if (isMobile) {
         // Suppress if FCM already showed this notification while app was backgrounded.
-        final createdAtStr = data['createdAt'] as String? ?? data['timestamp'] as String?;
+        final createdAtStr =
+            data['createdAt'] as String? ?? data['timestamp'] as String?;
         if (_isFcmDuplicate(createdAtStr)) {
-          debugPrint('🔔 Suppressed background duplicate (communication): $title');
+          debugPrint(
+              '🔔 Suppressed background duplicate (communication): $title');
           return;
         }
         _systemNotification.showGeneral(

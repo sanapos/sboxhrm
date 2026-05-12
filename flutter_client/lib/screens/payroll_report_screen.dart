@@ -42,6 +42,8 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
   String _searchText = '';
   final _searchCtrl = TextEditingController();
   bool _showMobileFilters = false;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Sorting (Payslips tab)
   final String _sortColumn = 'netSalary';
@@ -137,6 +139,14 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
           _yearPayslips = yearPayslips;
         });
       }
+      try {
+        final br = await _apiService.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
+      } catch (_) {}
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
@@ -169,8 +179,20 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
     return '';
   }
 
+  Set<String> get _branchEmpIds {
+    if (_selectedBranchId == null) return {};
+    return _employees
+        .where((e) => e.branchId == _selectedBranchId)
+        .map((e) => e.id)
+        .toSet();
+  }
+
   List<Map<String, dynamic>> get _filteredPayslips {
     return _payslips.where((p) {
+      if (_selectedBranchId != null) {
+        final empId = p['employeeUserId']?.toString();
+        if (!_branchEmpIds.contains(empId)) return false;
+      }
       if (_selectedDepartment != null) {
         final empId = p['employeeUserId']?.toString();
         if (_deptOf(empId) != _selectedDepartment) return false;
@@ -190,6 +212,9 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
 
   List<Map<String, dynamic>> get _filteredSalaryData {
     return _employeeSalaryData.where((e) {
+      if (_selectedBranchId != null) {
+        if (!_branchEmpIds.contains(e['employeeId']?.toString())) return false;
+      }
       if (_selectedDepartment != null &&
           e['department'] != _selectedDepartment) {
         return false;
@@ -424,6 +449,30 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
           ),
           SizedBox(
             width: 200,
+            child: DropdownButtonFormField<String?>(
+              key: ValueKey('branch_$_selectedBranchId'),
+              initialValue: _selectedBranchId,
+              isDense: true,
+              decoration: const InputDecoration(
+                labelText: 'Chi nhánh',
+                border: OutlineInputBorder(),
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                    value: null, child: Text('Tất cả chi nhánh')),
+                ..._branches.map((b) => DropdownMenuItem<String?>(
+                    value: b['id']?.toString(),
+                    child: Text(b['name']?.toString() ?? '',
+                        overflow: TextOverflow.ellipsis))),
+              ],
+              onChanged: (v) => setState(() => _selectedBranchId = v),
+            ),
+          ),
+          SizedBox(
+            width: 200,
             child: DropdownButtonFormField<String>(
               initialValue: _selectedDepartment,
               isDense: true,
@@ -482,12 +531,14 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
             ),
           ),
           if (_selectedDepartment != null ||
+              _selectedBranchId != null ||
               _selectedStatus != null ||
               _searchText.isNotEmpty)
             TextButton.icon(
               onPressed: () {
                 setState(() {
                   _selectedDepartment = null;
+                  _selectedBranchId = null;
                   _selectedStatus = null;
                   _searchText = '';
                   _searchCtrl.clear();
@@ -979,6 +1030,10 @@ class _PayrollReportScreenState extends State<PayrollReportScreen>
               'count': 0,
             });
     for (final p in _yearPayslips) {
+      if (_selectedBranchId != null) {
+        final empId = p['employeeUserId']?.toString();
+        if (!_branchEmpIds.contains(empId)) continue;
+      }
       if (_selectedDepartment != null) {
         if (_deptOf(p['employeeUserId']?.toString()) != _selectedDepartment) {
           continue;

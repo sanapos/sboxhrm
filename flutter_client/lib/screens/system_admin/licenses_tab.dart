@@ -731,7 +731,12 @@ class LicensesTabState extends State<LicensesTab> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      daysCtrl.dispose();
+      usersCtrl.dispose();
+      devicesCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 
   void _showBatchCreateDialog() {
@@ -852,7 +857,12 @@ class LicensesTabState extends State<LicensesTab> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      countCtrl.dispose();
+      daysCtrl.dispose();
+      usersCtrl.dispose();
+      devicesCtrl.dispose();
+    });
   }
 
   void _showBatchAssignAgentDialog() {

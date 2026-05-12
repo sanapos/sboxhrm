@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
@@ -26,6 +26,42 @@ class _MobileAttendanceApprovalScreenState
   List<MobileAttendanceRecord> _rejectedRecords = [];
   int _currentPage = 1;
   final int _pageSize = 20;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
+
+  List<MobileAttendanceRecord> get _filteredPendingRecords {
+    if (_selectedBranchId == null) return _pendingRecords;
+    final ids = _employeesList
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+    return _pendingRecords
+        .where((r) => ids.contains(r.odooEmployeeId))
+        .toList();
+  }
+
+  List<MobileAttendanceRecord> get _filteredApprovedRecords {
+    if (_selectedBranchId == null) return _approvedRecords;
+    final ids = _employeesList
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+    return _approvedRecords
+        .where((r) => ids.contains(r.odooEmployeeId))
+        .toList();
+  }
+
+  List<MobileAttendanceRecord> get _filteredRejectedRecords {
+    if (_selectedBranchId == null) return _rejectedRecords;
+    final ids = _employeesList
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+    return _rejectedRecords
+        .where((r) => ids.contains(r.odooEmployeeId))
+        .toList();
+  }
 
   // Summary tab state
   DateTime _summaryFrom = DateTime.now().subtract(const Duration(days: 6));
@@ -39,6 +75,25 @@ class _MobileAttendanceApprovalScreenState
       if (!_tabController.indexIsChanging) setState(() => _currentPage = 1);
     });
     _loadData();
+    _loadBranchData();
+  }
+
+  Future<void> _loadBranchData() async {
+    try {
+      final emps = await _apiService.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -128,7 +183,7 @@ class _MobileAttendanceApprovalScreenState
                             const Icon(Icons.pending_actions, size: 18),
                             const SizedBox(width: 6),
                             const Text('Chờ duyệt'),
-                            if (_pendingRecords.isNotEmpty) ...[
+                            if (_filteredPendingRecords.isNotEmpty) ...[
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -138,7 +193,7 @@ class _MobileAttendanceApprovalScreenState
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  '${_pendingRecords.length}',
+                                  '${_filteredPendingRecords.length}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -211,7 +266,7 @@ class _MobileAttendanceApprovalScreenState
   }
 
   Widget _buildPendingTab() {
-    if (_pendingRecords.isEmpty) {
+    if (_filteredPendingRecords.isEmpty) {
       return _buildEmptyState(
         icon: Icons.check_circle_outline,
         title: 'Không có yêu cầu chờ duyệt',
@@ -219,13 +274,13 @@ class _MobileAttendanceApprovalScreenState
       );
     }
 
-    final totalCount = _pendingRecords.length;
+    final totalCount = _filteredPendingRecords.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
     final page = _currentPage.clamp(1, totalPages);
     final startIndex = (page - 1) * _pageSize;
     final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedRecords =
-        _pendingRecords.sublist(startIndex.clamp(0, totalCount), endIndex);
+    final paginatedRecords = _filteredPendingRecords.sublist(
+        startIndex.clamp(0, totalCount), endIndex);
 
     return Column(
       children: [
@@ -312,7 +367,7 @@ class _MobileAttendanceApprovalScreenState
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
-            '${_pendingRecords.length} yêu cầu chờ duyệt',
+            '${_filteredPendingRecords.length} yêu cầu chờ duyệt',
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: Color(0xFF18181B),
@@ -518,7 +573,7 @@ class _MobileAttendanceApprovalScreenState
   }
 
   Widget _buildApprovedTab() {
-    if (_approvedRecords.isEmpty) {
+    if (_filteredApprovedRecords.isEmpty) {
       return _buildEmptyState(
         icon: Icons.check_circle,
         title: 'Chưa có chấm công được duyệt',
@@ -526,13 +581,13 @@ class _MobileAttendanceApprovalScreenState
       );
     }
 
-    final totalCount = _approvedRecords.length;
+    final totalCount = _filteredApprovedRecords.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
     final page = _currentPage.clamp(1, totalPages);
     final startIndex = (page - 1) * _pageSize;
     final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedRecords =
-        _approvedRecords.sublist(startIndex.clamp(0, totalCount), endIndex);
+    final paginatedRecords = _filteredApprovedRecords.sublist(
+        startIndex.clamp(0, totalCount), endIndex);
 
     return Column(
       children: [
@@ -597,7 +652,7 @@ class _MobileAttendanceApprovalScreenState
   }
 
   Widget _buildRejectedTab() {
-    if (_rejectedRecords.isEmpty) {
+    if (_filteredRejectedRecords.isEmpty) {
       return _buildEmptyState(
         icon: Icons.cancel,
         title: 'Chưa có chấm công bị từ chối',
@@ -605,13 +660,13 @@ class _MobileAttendanceApprovalScreenState
       );
     }
 
-    final totalCount = _rejectedRecords.length;
+    final totalCount = _filteredRejectedRecords.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
     final page = _currentPage.clamp(1, totalPages);
     final startIndex = (page - 1) * _pageSize;
     final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedRecords =
-        _rejectedRecords.sublist(startIndex.clamp(0, totalCount), endIndex);
+    final paginatedRecords = _filteredRejectedRecords.sublist(
+        startIndex.clamp(0, totalCount), endIndex);
 
     return Column(
       children: [
@@ -1131,7 +1186,7 @@ class _MobileAttendanceApprovalScreenState
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (ctx) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1146,38 +1201,39 @@ class _MobileAttendanceApprovalScreenState
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Bộ lọc',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF18181B),
-              ),
-            ),
+            const Text('Lọc chi nhánh',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF18181B))),
             const SizedBox(height: 16),
-            const Text('Chức năng lọc đang phát triển...'),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child:
-                    const Text('Đóng', style: TextStyle(color: Colors.white)),
+            if (_branches.isEmpty)
+              const Text('Không có chi nhánh')
+            else ...[
+              ListTile(
+                title: const Text('Tất cả chi nhánh'),
+                leading: const Icon(Icons.all_inclusive),
+                selected: _selectedBranchId == null,
+                onTap: () {
+                  setState(() => _selectedBranchId = null);
+                  Navigator.pop(ctx);
+                },
               ),
-            ),
+              ..._branches.map((b) => ListTile(
+                    title: Text(b['name']?.toString() ?? ''),
+                    leading: const Icon(Icons.account_tree_outlined),
+                    selected: _selectedBranchId == b['id']?.toString(),
+                    onTap: () {
+                      setState(() => _selectedBranchId = b['id']?.toString());
+                      Navigator.pop(ctx);
+                    },
+                  )),
+            ],
             const SizedBox(height: 10),
           ],
         ),

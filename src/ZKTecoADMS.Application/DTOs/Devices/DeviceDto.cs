@@ -19,4 +19,5 @@ public class DeviceDto
     // Store info
     public Guid? StoreId { get; set; }
     public string? StoreName { get; set; }
+
 }

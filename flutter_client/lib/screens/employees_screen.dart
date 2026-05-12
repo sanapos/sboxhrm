@@ -51,6 +51,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
   String _filterDepartment = 'Tất cả';
   String _filterStatus = 'Tất cả';
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  final bool _groupByBranch = true;
 
   // Mobile UI state
   bool _showMobileFilters = false;
@@ -386,6 +389,19 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     _loadEmployees();
   }
 
+  Future<void> _loadBranches() async {
+    try {
+      final result = await _apiService.getBranchesForSelect();
+      final data = result['data'];
+      if (data is List && mounted) {
+        setState(() {
+          _branches =
+              data.map((b) => Map<String, dynamic>.from(b as Map)).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadDepartments() async {
     final deptResponse =
         await _apiService.getDepartments(pageSize: 100, isActive: true);
@@ -425,6 +441,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         }
       } else {
         await _loadDepartments();
+        await _loadBranches();
         final data = await _apiService.getEmployees(pageSize: 200);
         if (mounted) {
           setState(() {
@@ -479,7 +496,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       final matchesStatus =
           _filterStatus == 'Tất cả' || emp.workStatusDisplay == _filterStatus;
 
-      return matchesSearch && matchesDepartment && matchesStatus;
+      final matchesBranch =
+          _filterBranchId == null || emp.branchId == _filterBranchId;
+
+      return matchesSearch &&
+          matchesDepartment &&
+          matchesStatus &&
+          matchesBranch;
     }).toList();
     _currentPage = 1;
   }
@@ -803,7 +826,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   color: Colors.white),
                               if (_searchQuery.isNotEmpty ||
                                   _filterDepartment != 'Tất cả' ||
-                                  _filterStatus != 'Tất cả')
+                                  _filterStatus != 'Tất cả' ||
+                                  _filterBranchId != null)
                                 Positioned(
                                     right: 0,
                                     top: 0,
@@ -1650,6 +1674,58 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     ),
                   ],
                 ),
+                if (_branches.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _filterBranchId,
+                        isExpanded: true,
+                        isDense: true,
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                        style: TextStyle(
+                            fontSize: 13,
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Row(children: [
+                              Icon(Icons.account_tree_outlined,
+                                  size: 14, color: Colors.grey[500]),
+                              const SizedBox(width: 6),
+                              const Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
+                            ]),
+                          ),
+                          ..._branches.map((b) => DropdownMenuItem<String?>(
+                                value: b['id']?.toString(),
+                                child: Row(children: [
+                                  Icon(Icons.account_tree_outlined,
+                                      size: 14, color: Colors.grey[500]),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: Text(b['name']?.toString() ?? '',
+                                          overflow: TextOverflow.ellipsis)),
+                                ]),
+                              )),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _filterBranchId = value;
+                            _applyFilters();
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Container(
                   padding:
@@ -1666,7 +1742,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           color: Theme.of(context).primaryColor, size: 16),
                       const SizedBox(width: 6),
                       Text(
-                        '${_filteredEmployees.length} nhân viên',
+                        '${_filteredEmployees.length} nh\u00e2n vi\u00ean',
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontSize: 12,
@@ -1843,7 +1919,64 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     ),
                   ),
                 ),
+                if (_branches.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _filterBranchId,
+                          isExpanded: true,
+                          isDense: true,
+                          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.color),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Row(children: [
+                                Icon(Icons.account_tree_outlined,
+                                    size: 14, color: Colors.grey[500]),
+                                const SizedBox(width: 6),
+                                const Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
+                              ]),
+                            ),
+                            ..._branches.map((b) => DropdownMenuItem<String?>(
+                                  value: b['id']?.toString(),
+                                  child: Row(children: [
+                                    Icon(Icons.account_tree_outlined,
+                                        size: 14, color: Colors.grey[500]),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                        child: Text(b['name']?.toString() ?? '',
+                                            overflow: TextOverflow.ellipsis)),
+                                  ]),
+                                )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _filterBranchId = value;
+                              _applyFilters();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
+
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1891,6 +2024,83 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Widget _buildEmployeesList() {
     final isMobile = Responsive.isMobile(context);
+
+    // ── Grouped mode ─────────────────────────────────────────────
+    if (_groupByBranch && _branches.isNotEmpty) {
+      // Build ordered map: branchId -> (branchName, [employees])
+      final Map<String, List<Employee>> groupMap = {};
+      for (final e in _filteredEmployees) {
+        final key = e.branchId ?? '__none__';
+        groupMap.putIfAbsent(key, () => []).add(e);
+      }
+      // Sort groups: named branches first (sorted by name), unnamed last
+      final branchOrder =
+          _branches.map((b) => b['id']?.toString() ?? '').toList();
+      final sortedKeys = groupMap.keys.toList()
+        ..sort((a, b) {
+          if (a == '__none__') return 1;
+          if (b == '__none__') return -1;
+          final ai = branchOrder.indexOf(a);
+          final bi = branchOrder.indexOf(b);
+          if (ai == -1 && bi == -1) return a.compareTo(b);
+          if (ai == -1) return 1;
+          if (bi == -1) return -1;
+          return ai.compareTo(bi);
+        });
+
+      String branchName(String key) {
+        if (key == '__none__') return 'Ch\u01b0a c\u00f3 chi nh\u00e1nh';
+        return _branches
+                .firstWhere((b) => b['id']?.toString() == key,
+                    orElse: () => {'name': key})['name']
+                ?.toString() ??
+            key;
+      }
+
+      // Build flat item list: header + cards
+      final items = <_GroupItem>[];
+      for (final key in sortedKeys) {
+        final emps = groupMap[key]!;
+        items.add(_GroupItem.header(branchName(key), emps.length));
+        for (final emp in emps) {
+          items.add(_GroupItem.employee(emp));
+        }
+      }
+
+      return RefreshIndicator(
+        onRefresh: _loadEmployees,
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            if (item.isHeader) {
+              return _buildBranchGroupHeader(
+                  item.headerName!, item.headerCount!);
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2))
+                  ],
+                ),
+                child: _buildEmployeeCard(item.employee!),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Normal (flat) mode ────────────────────────────────────────
     final totalCount = _filteredEmployees.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
     final startIndex = (_currentPage - 1) * _pageSize;
@@ -2037,6 +2247,60 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildBranchGroupHeader(String name, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color:
+                      Theme.of(context).primaryColor.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_outlined,
+                    size: 14, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  name,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).primaryColor),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('$count',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Divider(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                  thickness: 1)),
+        ],
+      ),
     );
   }
 
@@ -2286,6 +2550,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     DateTime? selectedContractEndDate = employee?.contractEndDate;
     String? selectedManagerId = employee?.managerId;
     String? selectedManagerName = employee?.managerName;
+    String? selectedBranchId = employee?.branchId;
 
     // Photo URLs
     String? photoUrl = employee?.avatarUrl;
@@ -3008,7 +3273,32 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
+                if (_branches.isNotEmpty) ...[
+                  // Branch dropdown
+                  DropdownButtonFormField<String?>(
+                    key: ValueKey('branch_edit_$selectedBranchId'),
+                    initialValue: selectedBranchId,
+                    decoration: const InputDecoration(
+                      labelText: 'Chi nhánh',
+                      prefixIcon: Icon(Icons.account_tree_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Không thuộc chi nhánh nào')),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(b['name']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => selectedBranchId = v),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 if (isMobileForm) ...[
+                  // Join date
                   InkWell(
                     onTap: () async {
                       final date = await showDatePicker(
@@ -3463,6 +3753,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               'idCardFrontUrl': cccdFrontUrl,
               'idCardBackUrl': cccdBackUrl,
               'directManagerEmployeeId': selectedManagerId,
+              'branchId': selectedBranchId,
             };
 
             try {
@@ -3967,6 +4258,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         _buildDetailSection('Thông tin công việc', [
           _buildDetailItem(Icons.business, 'Phòng ban',
               employee.department ?? 'Chưa cập nhật'),
+          if (employee.branchName != null)
+            _buildDetailItem(
+                Icons.account_tree_outlined, 'Chi nhánh', employee.branchName!),
           _buildDetailItem(
               Icons.work, 'Chức vụ', employee.position ?? 'Chưa cập nhật'),
           _buildDetailItem(
@@ -4533,4 +4827,24 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
       ),
     );
   }
+}
+
+// Helper for grouped list items
+class _GroupItem {
+  final bool isHeader;
+  final String? headerName;
+  final int? headerCount;
+  final Employee? employee;
+
+  const _GroupItem._(
+      {required this.isHeader,
+      this.headerName,
+      this.headerCount,
+      this.employee});
+
+  factory _GroupItem.header(String name, int count) =>
+      _GroupItem._(isHeader: true, headerName: name, headerCount: count);
+
+  factory _GroupItem.employee(Employee emp) =>
+      _GroupItem._(isHeader: false, employee: emp);
 }

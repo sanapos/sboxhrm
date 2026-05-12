@@ -634,6 +634,12 @@ class StoresTabState extends State<StoresTab> {
                     onTap: () => _editStoreName(store),
                   ),
                   _actionButton(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Đổi gói',
+                    color: const Color(0xFF0891B2),
+                    onTap: () => _showAssignPackage(store),
+                  ),
+                  _actionButton(
                     icon: Icons.info_outline,
                     label: 'Chi tiết',
                     color: AdminHelpers.info,
@@ -1264,6 +1270,122 @@ class StoresTabState extends State<StoresTab> {
     }
   }
 
+  // ═══════════════════════ ĐỔI GÓI DỊCH VỤ ═══════════════════════
+  Future<void> _showAssignPackage(Map<String, dynamic> store) async {
+    final storeId = store['id']?.toString() ?? '';
+    final name = store['name'] ?? 'N/A';
+    final currentPackageId = store['servicePackageId']?.toString();
+
+    // Load danh sách gói dịch vụ
+    final res = await _apiService.getServicePackages();
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      AdminHelpers.showError(context, res['message'] ?? 'Không tải được danh sách gói');
+      return;
+    }
+    final packages = (res['data'] as List<dynamic>? ?? []);
+    if (packages.isEmpty) {
+      AdminHelpers.showError(context, 'Chưa có gói dịch vụ nào. Vui lòng tạo gói trước.');
+      return;
+    }
+
+    String? selectedId = currentPackageId;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Color(0xFF0891B2), size: 22),
+            SizedBox(width: 8),
+            Text('Đổi gói dịch vụ', style: TextStyle(fontSize: 18)),
+          ]),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cửa hàng: $name',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                if (store['servicePackageName'] != null) ...
+                  [const SizedBox(height: 4),
+                  Text('Gói hiện tại: ${store['servicePackageName']}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13))],
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Chọn gói dịch vụ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  items: packages.map((p) {
+                    final pid = p['id']?.toString() ?? '';
+                    final pname = p['name']?.toString() ?? pid;
+                    final maxU = p['maxUsers'];
+                    final maxD = p['maxDevices'];
+                    final dur = p['defaultDurationDays'];
+                    return DropdownMenuItem<String>(
+                      value: pid,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(pname, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(
+                            'Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) => setDlgState(() => selectedId = v),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '⚠ Nếu store đang hết hạn, sẽ được gia hạn theo số ngày mặc định của gói mới.',
+                  style: TextStyle(fontSize: 12, color: Colors.orange),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy')),
+            ElevatedButton.icon(
+              onPressed: selectedId == null ? null : () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Xác nhận'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0891B2)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || selectedId == null || !mounted) return;
+
+    final result = await _apiService.assignPackageToStore(storeId, selectedId!);
+    if (!mounted) return;
+    if (result['isSuccess'] == true) {
+      final pkgName = packages
+          .firstWhere((p) => p['id']?.toString() == selectedId,
+              orElse: () => {})
+          ['name']
+          ?.toString() ?? selectedId;
+      AdminHelpers.showSuccess(
+          context, 'Đã đổi gói "$pkgName" cho cửa hàng "$name"');
+      loadData();
+    } else {
+      AdminHelpers.showApiError(context, result);
+    }
+  }
+
   // ═══════════════════════ KÍCH HOẠT KEY (NHIỀU KEY) ═══════════════════════
   Future<void> _showActivateKey(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
@@ -1473,121 +1595,6 @@ class StoresTabState extends State<StoresTab> {
     }
   }
 
-  // ═══════════════════════ ASSIGN SERVICE PACKAGE ═══════════════════════
-  // ignore: unused_element
-  Future<void> _showAssignPackage(Map<String, dynamic> store) async {
-    final storeId = store['id']?.toString() ?? '';
-    final name = store['name'] ?? 'N/A';
-
-    // Load packages
-    final res = await _apiService.getServicePackages();
-    if (!mounted) return;
-    if (res['isSuccess'] != true) {
-      AdminHelpers.showApiError(context, res);
-      return;
-    }
-
-    final packages = AdminHelpers.extractList(res['data']);
-    if (packages.isEmpty) {
-      AdminHelpers.showError(context, 'Chưa có gói dịch vụ nào');
-      return;
-    }
-
-    String? selectedId = store['servicePackageId']?.toString();
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: Row(children: [
-            const Icon(Icons.inventory,
-                color: AdminHelpers.info, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text('Gán gói DV — $name',
-                    style: const TextStyle(fontSize: 17))),
-          ]),
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: packages.map((pkg) {
-                final pkgId = pkg['id']?.toString() ?? '';
-                final isSelected = selectedId == pkgId;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isSelected
-                          ? AdminHelpers.primary
-                          : Colors.grey.shade300,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    color: isSelected
-                        ? AdminHelpers.primary.withValues(alpha: 0.05)
-                        : null,
-                  ),
-                  child: ListTile(
-                    onTap: () => setDlgState(() => selectedId = pkgId),
-                    leading: Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: isSelected
-                          ? AdminHelpers.primary
-                          : Colors.grey,
-                    ),
-                    title: Text(pkg['name'] ?? '',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        '${pkg['defaultDurationDays'] ?? 0} ngày · '
-                        'Max ${pkg['maxUsers'] ?? 0} users · '
-                        'Max ${pkg['maxDevices'] ?? 0} devices',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey[600])),
-                    trailing: (pkg['isActive'] == true)
-                        ? const Icon(Icons.check_circle,
-                            color: AdminHelpers.success, size: 18)
-                        : const Icon(Icons.cancel,
-                            color: Colors.grey, size: 18),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
-            ElevatedButton.icon(
-              onPressed: selectedId != null
-                  ? () => Navigator.pop(ctx, selectedId)
-                  : null,
-              icon: const Icon(Icons.check, size: 16),
-              label: const Text('Gán gói'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AdminHelpers.primary),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
-    final assignRes =
-        await _apiService.assignPackageToStore(storeId, result);
-    if (!mounted) return;
-    if (assignRes['isSuccess'] == true) {
-      AdminHelpers.showSuccess(
-          context, 'Đã gán gói dịch vụ cho "$name"');
-      loadData();
-    } else {
-      AdminHelpers.showApiError(context, assignRes);
-    }
-  }
 }
 
 // ═══════════════════════ STORE USERS DIALOG ═══════════════════════

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/branch.dart';
 import '../services/api_service.dart';
@@ -14,7 +14,8 @@ class BranchManagementScreen extends StatefulWidget {
   State<BranchManagementScreen> createState() => _BranchManagementScreenState();
 }
 
-class _BranchManagementScreenState extends State<BranchManagementScreen> with SingleTickerProviderStateMixin {
+class _BranchManagementScreenState extends State<BranchManagementScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _api = ApiService();
 
@@ -23,6 +24,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
   List<BranchTreeNode> _branchTree = [];
   BranchStats? _stats;
   List<BranchSelect> _branchSelect = [];
+  String? _selectedBranchIdForPerm;
 
   bool _loading = false;
   int _currentTab = 0;
@@ -69,6 +71,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         case 2:
           await _loadStats();
           break;
+        case 3:
+          if (_isManager) {
+            await _loadBranchSelect();
+            if (_selectedBranchIdForPerm == null && _branchSelect.isNotEmpty) {
+              _selectedBranchIdForPerm = _branchSelect.first.id;
+            }
+            if (_selectedBranchIdForPerm != null) {
+              await _loadPermissions(_selectedBranchIdForPerm!);
+            }
+          }
+          break;
       }
     } catch (e) {
       debugPrint('Error loading tab $tab: $e');
@@ -77,7 +90,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
   }
 
   Future<void> _loadBranches() async {
-    final resp = await _api.getBranches(search: _searchQuery.isNotEmpty ? _searchQuery : null, isActive: _filterActive);
+    final resp = await _api.getBranches(
+        search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        isActive: _filterActive);
     if (resp['isSuccess'] == true && resp['data'] != null) {
       _branches = (resp['data'] as List)
           .map((b) => Branch.fromJson(b as Map<String, dynamic>))
@@ -117,11 +132,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Quản lý Chi nhánh', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
+        automaticallyImplyLeading: false,
+        title: const Text('Quản lý Chi nhánh',
+            style: TextStyle(
+                color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -157,9 +173,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
           _buildListHeader(),
           Expanded(
             child: _branches.isEmpty
-                ? _buildEmptyState('Chưa có chi nhánh nào', 'Hãy tạo chi nhánh đầu tiên cho hệ thống.')
+                ? _buildEmptyState('Chưa có chi nhánh nào',
+                    'Hãy tạo chi nhánh đầu tiên cho hệ thống.')
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _branches.length,
                     itemBuilder: (context, index) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -202,8 +220,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quản lý Chi nhánh', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('${_branches.length} chi nhánh', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                    Text('Quản lý Chi nhánh',
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('${_branches.length} chi nhánh',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.grey)),
                   ],
                 ),
               ),
@@ -218,8 +240,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   icon: Stack(
                     children: [
                       Icon(
-                        _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                        color: _showMobileFilters ? Colors.orange : Colors.grey[600],
+                        _showMobileFilters
+                            ? Icons.filter_alt
+                            : Icons.filter_alt_outlined,
+                        color: _showMobileFilters
+                            ? Colors.orange
+                            : Colors.grey[600],
                       ),
                       if (_searchQuery.isNotEmpty || _filterActive != null)
                         Positioned(
@@ -228,58 +254,62 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                           child: Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                            decoration: const BoxDecoration(
+                                color: Colors.orange, shape: BoxShape.circle),
                           ),
                         ),
                     ],
                   ),
-                  onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                  onPressed: () =>
+                      setState(() => _showMobileFilters = !_showMobileFilters),
                 ),
             ],
           ),
           if (!Responsive.isMobile(context) || _showMobileFilters) ...[
-          const SizedBox(height: 8),
-          // Search & filter
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Tìm kiếm chi nhánh...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      isDense: true,
+            const SizedBox(height: 8),
+            // Search & filter
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Tìm kiếm chi nhánh...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        _searchQuery = value;
+                        _loadTabData(0);
+                      },
                     ),
-                    onChanged: (value) {
-                      _searchQuery = value;
-                      _loadTabData(0);
-                    },
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FilterChip(
-                label: const Text('Đang hoạt động'),
-                selected: _filterActive == true,
-                onSelected: (v) {
-                  setState(() => _filterActive = v ? true : null);
-                  _loadTabData(0);
-                },
-              ),
-              const SizedBox(width: 4),
-              FilterChip(
-                label: const Text('Ngừng HĐ'),
-                selected: _filterActive == false,
-                onSelected: (v) {
-                  setState(() => _filterActive = v ? false : null);
-                  _loadTabData(0);
-                },
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Đang hoạt động'),
+                  selected: _filterActive == true,
+                  onSelected: (v) {
+                    setState(() => _filterActive = v ? true : null);
+                    _loadTabData(0);
+                  },
+                ),
+                const SizedBox(width: 4),
+                FilterChip(
+                  label: const Text('Ngừng HĐ'),
+                  selected: _filterActive == false,
+                  onSelected: (v) {
+                    setState(() => _filterActive = v ? false : null);
+                    _loadTabData(0);
+                  },
+                ),
+              ],
+            ),
           ], // end _showMobileFilters
         ],
       ),
@@ -288,7 +318,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
 
   Widget _buildBranchDeckItem(Branch branch) {
     final isActive = branch.isActive;
-    final color = branch.isHeadquarter ? Colors.amber.shade700 : (isActive ? Colors.blue : Colors.grey);
+    final color = branch.isHeadquarter
+        ? Colors.amber.shade700
+        : (isActive ? Colors.blue : Colors.grey);
 
     return InkWell(
       onTap: () => _showBranchDetail(branch),
@@ -297,16 +329,24 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         child: Row(
           children: [
             Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: Icon(branch.isHeadquarter ? Icons.domain : Icons.business, color: color, size: 18),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Icon(branch.isHeadquarter ? Icons.domain : Icons.business,
+                  color: color, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(branch.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(branch.name,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
                     [
@@ -316,7 +356,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                       if (branch.fullAddress.isNotEmpty) branch.fullAddress,
                     ].join(' · '),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -327,27 +368,47 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18),
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Sửa')])),
+                  const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(children: [
+                        Icon(Icons.edit, size: 16),
+                        SizedBox(width: 8),
+                        Text('Sửa')
+                      ])),
                   PopupMenuItem(
                     value: 'toggle',
                     child: Row(children: [
-                      Icon(isActive ? Icons.block : Icons.check_circle, size: 16),
+                      Icon(isActive ? Icons.block : Icons.check_circle,
+                          size: 16),
                       const SizedBox(width: 8),
                       Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
                     ]),
                   ),
-                  const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xóa', style: TextStyle(color: Colors.red))])),
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children: [
+                        Icon(Icons.delete, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Xóa', style: TextStyle(color: Colors.red))
+                      ])),
                 ],
                 onSelected: (action) {
                   switch (action) {
-                    case 'edit': _showBranchDialog(branch: branch); break;
-                    case 'toggle': _toggleBranchActive(branch); break;
-                    case 'delete': _confirmDeleteBranch(branch); break;
+                    case 'edit':
+                      _showBranchDialog(branch: branch);
+                      break;
+                    case 'toggle':
+                      _toggleBranchActive(branch);
+                      break;
+                    case 'delete':
+                      _confirmDeleteBranch(branch);
+                      break;
                   }
                 },
               )
             else
-              const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: Color(0xFF71717A)),
           ],
         ),
       ),
@@ -370,7 +431,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
           children: [
             Icon(Icons.star, size: 12, color: Colors.amber.shade700),
             const SizedBox(width: 4),
-            Text('Trụ sở chính', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber.shade700)),
+            Text('Trụ sở chính',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.amber.shade700)),
           ],
         ),
       );
@@ -380,11 +445,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
       decoration: BoxDecoration(
         color: isActive ? Colors.green.shade50 : Colors.red.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isActive ? Colors.green.shade300 : Colors.red.shade300),
+        border: Border.all(
+            color: isActive ? Colors.green.shade300 : Colors.red.shade300),
       ),
       child: Text(
         isActive ? 'Hoạt động' : 'Ngừng HĐ',
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? Colors.green.shade700 : Colors.red.shade700),
+        style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isActive ? Colors.green.shade700 : Colors.red.shade700),
       ),
     );
   }
@@ -405,9 +474,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             // Header
             Row(
               children: [
-                Icon(Icons.account_tree, color: Theme.of(context).colorScheme.primary),
+                Icon(Icons.account_tree,
+                    color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('Cây Chi nhánh', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Cây Chi nhánh',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () {
@@ -433,7 +507,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             ),
             const SizedBox(height: 12),
             if (_branchTree.isEmpty)
-              _buildEmptyState('Chưa có dữ liệu cây chi nhánh', 'Hãy thêm các chi nhánh để hiển thị cây.')
+              _buildEmptyState('Chưa có dữ liệu cây chi nhánh',
+                  'Hãy thêm các chi nhánh để hiển thị cây.')
             else
               ..._branchTree.map((node) => _buildTreeNode(node, 0)),
           ],
@@ -451,7 +526,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
 
   Widget _buildTreeNode(BranchTreeNode node, int depth) {
     final hasChildren = node.children.isNotEmpty;
-    final color = node.isHeadquarter ? Colors.amber.shade700 : (node.isActive ? Colors.blue : Colors.grey);
+    final color = node.isHeadquarter
+        ? Colors.amber.shade700
+        : (node.isActive ? Colors.blue : Colors.grey);
 
     return Padding(
       padding: EdgeInsets.only(left: depth * 24.0),
@@ -463,11 +540,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             elevation: depth == 0 ? 3 : 1,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: color.withValues(alpha: 0.4), width: depth == 0 ? 2 : 1),
+              side: BorderSide(
+                  color: color.withValues(alpha: 0.4),
+                  width: depth == 0 ? 2 : 1),
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: hasChildren ? () => setState(() => node.isExpanded = !node.isExpanded) : null,
+              onTap: hasChildren
+                  ? () => setState(() => node.isExpanded = !node.isExpanded)
+                  : null,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -475,7 +556,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     // Expand icon
                     if (hasChildren)
                       Icon(
-                        node.isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                        node.isExpanded
+                            ? Icons.keyboard_arrow_down
+                            : Icons.keyboard_arrow_right,
                         color: color,
                         size: 24,
                       )
@@ -505,16 +588,26 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                           Row(
                             children: [
                               Expanded(
-                                child: Text(node.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                child: Text(node.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14)),
                               ),
-                              Text(node.code, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                              Text(node.code,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w600)),
                             ],
                           ),
                           if (node.address != null || node.city != null) ...[
                             const SizedBox(height: 2),
                             Text(
-                              [node.address, node.city].where((e) => e != null && e.isNotEmpty).join(', '),
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              [node.address, node.city]
+                                  .where((e) => e != null && e.isNotEmpty)
+                                  .join(', '),
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -529,15 +622,22 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                         message: node.managerName!,
                         child: CircleAvatar(
                           radius: 16,
-                          backgroundImage: node.managerPhoto != null ? NetworkImage(node.managerPhoto!) : null,
-                          onBackgroundImageError: node.managerPhoto != null ? (_, __) {} : null,
-                          child: node.managerPhoto == null ? Text(node.managerName![0].toUpperCase(), style: const TextStyle(fontSize: 12)) : null,
+                          backgroundImage: node.managerPhoto != null
+                              ? NetworkImage(node.managerPhoto!)
+                              : null,
+                          onBackgroundImageError:
+                              node.managerPhoto != null ? (_, __) {} : null,
+                          child: node.managerPhoto == null
+                              ? Text(node.managerName![0].toUpperCase(),
+                                  style: const TextStyle(fontSize: 12))
+                              : null,
                         ),
                       ),
                     const SizedBox(width: 8),
                     // Employee count
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -545,9 +645,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.people, size: 14, color: Colors.blue.shade700),
+                          Icon(Icons.people,
+                              size: 14, color: Colors.blue.shade700),
                           const SizedBox(width: 4),
-                          Text('${node.employeeCount}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade700)),
+                          Text('${node.employeeCount}',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade700)),
                         ],
                       ),
                     ),
@@ -556,12 +661,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.red.shade50,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text('Ngừng', style: TextStyle(fontSize: 10, color: Colors.red.shade700)),
+                          child: Text('Ngừng',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.red.shade700)),
                         ),
                       ),
                   ],
@@ -583,7 +691,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
 
   Widget _buildStatsTab() {
     if (_stats == null) {
-      return _buildEmptyState('Chưa có dữ liệu thống kê', 'Hãy thêm chi nhánh để xem thống kê.');
+      return _buildEmptyState(
+          'Chưa có dữ liệu thống kê', 'Hãy thêm chi nhánh để xem thống kê.');
     }
     final s = _stats!;
     final theme = Theme.of(context);
@@ -596,41 +705,60 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tổng quan Chi nhánh', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Tổng quan Chi nhánh',
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             // Stats cards
             Wrap(
               spacing: 16,
               runSpacing: 16,
               children: [
-                _buildStatCardLarge('Tổng chi nhánh', s.totalBranches, Icons.business, Colors.blue),
-                _buildStatCardLarge('Đang hoạt động', s.activeBranches, Icons.check_circle, Colors.green),
-                _buildStatCardLarge('Ngừng hoạt động', s.inactiveBranches, Icons.block, Colors.red),
-                _buildStatCardLarge('Trụ sở chính', s.headquarterCount, Icons.domain, Colors.amber.shade700),
-                _buildStatCardLarge('Tổng nhân viên', s.totalEmployees, Icons.people, Colors.purple),
+                _buildStatCardLarge('Tổng chi nhánh', s.totalBranches,
+                    Icons.business, Colors.blue),
+                _buildStatCardLarge('Đang hoạt động', s.activeBranches,
+                    Icons.check_circle, Colors.green),
+                _buildStatCardLarge('Ngừng hoạt động', s.inactiveBranches,
+                    Icons.block, Colors.red),
+                _buildStatCardLarge('Trụ sở chính', s.headquarterCount,
+                    Icons.domain, Colors.amber.shade700),
+                _buildStatCardLarge('Tổng nhân viên', s.totalEmployees,
+                    Icons.people, Colors.purple),
               ],
             ),
             const SizedBox(height: 24),
             // Ratio chart
             if (s.totalBranches > 0) ...[
-              Text('Tỷ lệ hoạt động', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('Tỷ lệ hoạt động',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               _buildRatioBar(s),
               const SizedBox(height: 24),
             ],
             // Average
             if (s.totalBranches > 0 && s.activeBranches > 0) ...[
-              Text('Thông tin thêm', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('Thông tin thêm',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _buildInfoRow('Trung bình NV/CN', (s.totalEmployees / s.activeBranches).toStringAsFixed(1), Icons.analytics),
+                      _buildInfoRow(
+                          'Trung bình NV/CN',
+                          (s.totalEmployees / s.activeBranches)
+                              .toStringAsFixed(1),
+                          Icons.analytics),
                       const Divider(),
-                      _buildInfoRow('Tỷ lệ hoạt động', '${(s.activeBranches / s.totalBranches * 100).toStringAsFixed(1)}%', Icons.pie_chart),
+                      _buildInfoRow(
+                          'Tỷ lệ hoạt động',
+                          '${(s.activeBranches / s.totalBranches * 100).toStringAsFixed(1)}%',
+                          Icons.pie_chart),
                     ],
                   ),
                 ),
@@ -642,7 +770,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
     );
   }
 
-  Widget _buildStatCardLarge(String label, int value, IconData icon, Color color) {
+  Widget _buildStatCardLarge(
+      String label, int value, IconData icon, Color color) {
     return Container(
       width: 180,
       padding: const EdgeInsets.all(16),
@@ -663,16 +792,21 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 12),
-          Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+          Text('$value',
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 13, color: color.withValues(alpha: 0.8))),
+          Text(label,
+              style:
+                  TextStyle(fontSize: 13, color: color.withValues(alpha: 0.8))),
         ],
       ),
     );
   }
 
   Widget _buildRatioBar(BranchStats s) {
-    final activeRatio = s.totalBranches > 0 ? s.activeBranches / s.totalBranches : 0.0;
+    final activeRatio =
+        s.totalBranches > 0 ? s.activeBranches / s.totalBranches : 0.0;
     return Column(
       children: [
         ClipRRect(
@@ -687,7 +821,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     color: Colors.green,
                     alignment: Alignment.center,
                     child: s.activeBranches > 0
-                        ? Text('${s.activeBranches}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))
+                        ? Text('${s.activeBranches}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold))
                         : null,
                   ),
                 ),
@@ -697,7 +835,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     child: Container(
                       color: Colors.red.shade400,
                       alignment: Alignment.center,
-                      child: Text('${s.inactiveBranches}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text('${s.inactiveBranches}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
               ],
@@ -707,9 +849,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         const SizedBox(height: 8),
         Row(
           children: [
-            _legendDot(Colors.green, 'Hoạt động (${(activeRatio * 100).toStringAsFixed(0)}%)'),
+            _legendDot(Colors.green,
+                'Hoạt động (${(activeRatio * 100).toStringAsFixed(0)}%)'),
             const SizedBox(width: 16),
-            _legendDot(Colors.red.shade400, 'Ngừng HĐ (${((1 - activeRatio) * 100).toStringAsFixed(0)}%)'),
+            _legendDot(Colors.red.shade400,
+                'Ngừng HĐ (${((1 - activeRatio) * 100).toStringAsFixed(0)}%)'),
           ],
         ),
       ],
@@ -720,7 +864,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],
@@ -736,10 +883,20 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(fontSize: 14)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // TAB 4: PHÂN QUYỀN CHI NHÁNH
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> _loadPermissions(String branchId) async {
+    await _api.getBranchPermissions(branchId);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -765,12 +922,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: (branch.isHeadquarter ? Colors.amber : Colors.blue).withValues(alpha: 0.1),
+                      color: (branch.isHeadquarter ? Colors.amber : Colors.blue)
+                          .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       branch.isHeadquarter ? Icons.domain : Icons.business,
-                      color: branch.isHeadquarter ? Colors.amber.shade700 : Colors.blue,
+                      color: branch.isHeadquarter
+                          ? Colors.amber.shade700
+                          : Colors.blue,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -778,8 +938,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(branch.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                        Text(branch.code, style: TextStyle(color: Colors.grey.shade600)),
+                        Text(branch.name,
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(branch.code,
+                            style: TextStyle(color: Colors.grey.shade600)),
                       ],
                     ),
                   ),
@@ -788,20 +951,35 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
               ),
               const Divider(height: 32),
               // Details
-              if (branch.description != null && branch.description!.isNotEmpty) ...[
+              if (branch.description != null &&
+                  branch.description!.isNotEmpty) ...[
                 Text(branch.description!, style: const TextStyle(fontSize: 14)),
                 const SizedBox(height: 12),
               ],
-              _detailRow(Icons.location_on, 'Địa chỉ', branch.fullAddress.isNotEmpty ? branch.fullAddress : '(Chưa cập nhật)'),
-              if (branch.phone != null) _detailRow(Icons.phone, 'Điện thoại', branch.phone!),
-              if (branch.email != null) _detailRow(Icons.email, 'Email', branch.email!),
-              if (branch.taxCode != null) _detailRow(Icons.receipt, 'MST', branch.taxCode!),
-              if (branch.managerName != null) _detailRow(Icons.person, 'Quản lý', branch.managerName!),
-              if (branch.parentBranchName != null) _detailRow(Icons.account_tree, 'Chi nhánh cha', branch.parentBranchName!),
+              _detailRow(
+                  Icons.location_on,
+                  'Địa chỉ',
+                  branch.fullAddress.isNotEmpty
+                      ? branch.fullAddress
+                      : '(Chưa cập nhật)'),
+              if (branch.phone != null)
+                _detailRow(Icons.phone, 'Điện thoại', branch.phone!),
+              if (branch.email != null)
+                _detailRow(Icons.email, 'Email', branch.email!),
+              if (branch.taxCode != null)
+                _detailRow(Icons.receipt, 'MST', branch.taxCode!),
+              if (branch.managerName != null)
+                _detailRow(Icons.person, 'Quản lý', branch.managerName!),
+              if (branch.parentBranchName != null)
+                _detailRow(Icons.account_tree, 'Chi nhánh cha',
+                    branch.parentBranchName!),
               _detailRow(Icons.people, 'Nhân viên', '${branch.employeeCount}'),
               if (branch.openTime != null || branch.closeTime != null)
-                _detailRow(Icons.access_time, 'Giờ làm việc', '${branch.openTime ?? '--'} - ${branch.closeTime ?? '--'}'),
-              if (branch.maxEmployees != null) _detailRow(Icons.group_add, 'Sức chứa', '${branch.maxEmployees}'),
+                _detailRow(Icons.access_time, 'Giờ làm việc',
+                    '${branch.openTime ?? '--'} - ${branch.closeTime ?? '--'}'),
+              if (branch.maxEmployees != null)
+                _detailRow(
+                    Icons.group_add, 'Sức chứa', '${branch.maxEmployees}'),
             ],
           ),
         );
@@ -823,7 +1001,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                       Navigator.pop(ctx);
                       _toggleBranchActive(branch);
                     },
-                    icon: Icon(branch.isActive ? Icons.block : Icons.check_circle, size: 16),
+                    icon: Icon(
+                        branch.isActive ? Icons.block : Icons.check_circle,
+                        size: 16),
                     label: Text(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
                   ),
                 ],
@@ -838,18 +1018,22 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
               child: Scaffold(
                 appBar: AppBar(
                   title: Text(branch.name),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx)),
                 ),
                 body: detailContent,
                 bottomNavigationBar: actionButtons != null
-                    ? Padding(padding: const EdgeInsets.all(16), child: actionButtons)
+                    ? Padding(
+                        padding: const EdgeInsets.all(16), child: actionButtons)
                     : null,
               ),
             ),
           );
         }
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
@@ -866,12 +1050,19 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: (branch.isHeadquarter ? Colors.amber : Colors.blue).withValues(alpha: 0.1),
+                            color: (branch.isHeadquarter
+                                    ? Colors.amber
+                                    : Colors.blue)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            branch.isHeadquarter ? Icons.domain : Icons.business,
-                            color: branch.isHeadquarter ? Colors.amber.shade700 : Colors.blue,
+                            branch.isHeadquarter
+                                ? Icons.domain
+                                : Icons.business,
+                            color: branch.isHeadquarter
+                                ? Colors.amber.shade700
+                                : Colors.blue,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -879,31 +1070,55 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(branch.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                              Text(branch.code, style: TextStyle(color: Colors.grey.shade600)),
+                              Text(branch.name,
+                                  style: theme.textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold)),
+                              Text(branch.code,
+                                  style:
+                                      TextStyle(color: Colors.grey.shade600)),
                             ],
                           ),
                         ),
-                        _buildStatusBadge(branch.isActive, branch.isHeadquarter),
+                        _buildStatusBadge(
+                            branch.isActive, branch.isHeadquarter),
                         const SizedBox(width: 8),
-                        IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                        IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close)),
                       ],
                     ),
                     const Divider(height: 32),
-                    if (branch.description != null && branch.description!.isNotEmpty) ...[
-                      Text(branch.description!, style: const TextStyle(fontSize: 14)),
+                    if (branch.description != null &&
+                        branch.description!.isNotEmpty) ...[
+                      Text(branch.description!,
+                          style: const TextStyle(fontSize: 14)),
                       const SizedBox(height: 12),
                     ],
-                    _detailRow(Icons.location_on, 'Địa chỉ', branch.fullAddress.isNotEmpty ? branch.fullAddress : '(Chưa cập nhật)'),
-                    if (branch.phone != null) _detailRow(Icons.phone, 'Điện thoại', branch.phone!),
-                    if (branch.email != null) _detailRow(Icons.email, 'Email', branch.email!),
-                    if (branch.taxCode != null) _detailRow(Icons.receipt, 'MST', branch.taxCode!),
-                    if (branch.managerName != null) _detailRow(Icons.person, 'Quản lý', branch.managerName!),
-                    if (branch.parentBranchName != null) _detailRow(Icons.account_tree, 'Chi nhánh cha', branch.parentBranchName!),
-                    _detailRow(Icons.people, 'Nhân viên', '${branch.employeeCount}'),
+                    _detailRow(
+                        Icons.location_on,
+                        'Địa chỉ',
+                        branch.fullAddress.isNotEmpty
+                            ? branch.fullAddress
+                            : '(Chưa cập nhật)'),
+                    if (branch.phone != null)
+                      _detailRow(Icons.phone, 'Điện thoại', branch.phone!),
+                    if (branch.email != null)
+                      _detailRow(Icons.email, 'Email', branch.email!),
+                    if (branch.taxCode != null)
+                      _detailRow(Icons.receipt, 'MST', branch.taxCode!),
+                    if (branch.managerName != null)
+                      _detailRow(Icons.person, 'Quản lý', branch.managerName!),
+                    if (branch.parentBranchName != null)
+                      _detailRow(Icons.account_tree, 'Chi nhánh cha',
+                          branch.parentBranchName!),
+                    _detailRow(
+                        Icons.people, 'Nhân viên', '${branch.employeeCount}'),
                     if (branch.openTime != null || branch.closeTime != null)
-                      _detailRow(Icons.access_time, 'Giờ làm việc', '${branch.openTime ?? '--'} - ${branch.closeTime ?? '--'}'),
-                    if (branch.maxEmployees != null) _detailRow(Icons.group_add, 'Sức chứa', '${branch.maxEmployees}'),
+                      _detailRow(Icons.access_time, 'Giờ làm việc',
+                          '${branch.openTime ?? '--'} - ${branch.closeTime ?? '--'}'),
+                    if (branch.maxEmployees != null)
+                      _detailRow(Icons.group_add, 'Sức chứa',
+                          '${branch.maxEmployees}'),
                     const SizedBox(height: 16),
                     if (_isManager)
                       Row(
@@ -923,8 +1138,13 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                               Navigator.pop(ctx);
                               _toggleBranchActive(branch);
                             },
-                            icon: Icon(branch.isActive ? Icons.block : Icons.check_circle, size: 16),
-                            label: Text(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
+                            icon: Icon(
+                                branch.isActive
+                                    ? Icons.block
+                                    : Icons.check_circle,
+                                size: 16),
+                            label: Text(
+                                branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
                           ),
                         ],
                       ),
@@ -946,8 +1166,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         children: [
           Icon(icon, size: 18, color: Colors.grey.shade600),
           const SizedBox(width: 8),
-          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade600))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          SizedBox(
+              width: 100,
+              child: Text(label,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -974,8 +1200,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
     final taxCodeCtrl = TextEditingController(text: branch?.taxCode ?? '');
     final openTimeCtrl = TextEditingController(text: branch?.openTime ?? '');
     final closeTimeCtrl = TextEditingController(text: branch?.closeTime ?? '');
-    final maxEmpCtrl = TextEditingController(text: branch?.maxEmployees?.toString() ?? '');
-    final sortOrderCtrl = TextEditingController(text: branch?.sortOrder.toString() ?? '0');
+    final maxEmpCtrl =
+        TextEditingController(text: branch?.maxEmployees?.toString() ?? '');
+    final sortOrderCtrl =
+        TextEditingController(text: branch?.sortOrder.toString() ?? '0');
     bool isHeadquarter = branch?.isHeadquarter ?? false;
     String? parentBranchId = branch?.parentBranchId;
     bool saving = false;
@@ -1003,8 +1231,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                         flex: 1,
                         child: TextFormField(
                           controller: codeCtrl,
-                          decoration: _inputDecoration('Mã chi nhánh *', Icons.tag),
-                          validator: (v) => v == null || v.isEmpty ? 'Bắt buộc' : null,
+                          decoration:
+                              _inputDecoration('Mã chi nhánh *', Icons.tag),
+                          validator: (v) =>
+                              v == null || v.isEmpty ? 'Bắt buộc' : null,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1012,8 +1242,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                         flex: 2,
                         child: TextFormField(
                           controller: nameCtrl,
-                          decoration: _inputDecoration('Tên chi nhánh *', Icons.business),
-                          validator: (v) => v == null || v.isEmpty ? 'Bắt buộc' : null,
+                          decoration: _inputDecoration(
+                              'Tên chi nhánh *', Icons.business),
+                          validator: (v) =>
+                              v == null || v.isEmpty ? 'Bắt buộc' : null,
                         ),
                       ),
                     ],
@@ -1031,7 +1263,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                       Expanded(
                         child: TextFormField(
                           controller: phoneCtrl,
-                          decoration: _inputDecoration('Số điện thoại', Icons.phone),
+                          decoration:
+                              _inputDecoration('Số điện thoại', Icons.phone),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1044,7 +1277,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Địa chỉ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                  Text('Địa chỉ',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700)),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: addressCtrl,
@@ -1053,25 +1289,43 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: TextFormField(controller: cityCtrl, decoration: _inputDecoration('Tỉnh/Thành phố', Icons.location_city))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: cityCtrl,
+                              decoration: _inputDecoration(
+                                  'Tỉnh/Thành phố', Icons.location_city))),
                       const SizedBox(width: 12),
-                      Expanded(child: TextFormField(controller: districtCtrl, decoration: _inputDecoration('Quận/Huyện', Icons.map))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: districtCtrl,
+                              decoration:
+                                  _inputDecoration('Quận/Huyện', Icons.map))),
                       const SizedBox(width: 12),
-                      Expanded(child: TextFormField(controller: wardCtrl, decoration: _inputDecoration('Phường/Xã', Icons.place))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: wardCtrl,
+                              decoration:
+                                  _inputDecoration('Phường/Xã', Icons.place))),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Cấu hình', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                  Text('Cấu hình',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700)),
                   const SizedBox(height: 8),
                   // Parent branch
                   DropdownButtonFormField<String>(
                     initialValue: parentBranchId,
-                    decoration: _inputDecoration('Chi nhánh cha', Icons.account_tree),
+                    decoration:
+                        _inputDecoration('Chi nhánh cha', Icons.account_tree),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('-- Không có --')),
-                      ..._branchSelect
-                          .where((b) => b.id != branch?.id)
-                          .map((b) => DropdownMenuItem(value: b.id, child: Text('${b.code} - ${b.name}'))),
+                      const DropdownMenuItem(
+                          value: null, child: Text('-- Không có --')),
+                      ..._branchSelect.where((b) => b.id != branch?.id).map(
+                          (b) => DropdownMenuItem(
+                              value: b.id,
+                              child: Text('${b.code} - ${b.name}'))),
                     ],
                     onChanged: (v) => setDialogState(() => parentBranchId = v),
                   ),
@@ -1079,7 +1333,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   // Headquarters toggle
                   SwitchListTile(
                     title: const Text('Trụ sở chính'),
-                    subtitle: const Text('Đánh dấu đây là trụ sở chính của công ty'),
+                    subtitle:
+                        const Text('Đánh dấu đây là trụ sở chính của công ty'),
                     value: isHeadquarter,
                     onChanged: (v) => setDialogState(() => isHeadquarter = v),
                     contentPadding: EdgeInsets.zero,
@@ -1088,20 +1343,42 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   // Tax code & sort order
                   Row(
                     children: [
-                      Expanded(child: TextFormField(controller: taxCodeCtrl, decoration: _inputDecoration('Mã số thuế', Icons.receipt))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: taxCodeCtrl,
+                              decoration: _inputDecoration(
+                                  'Mã số thuế', Icons.receipt))),
                       const SizedBox(width: 12),
-                      Expanded(child: TextFormField(controller: sortOrderCtrl, decoration: _inputDecoration('Thứ tự', Icons.sort), keyboardType: TextInputType.number)),
+                      Expanded(
+                          child: TextFormField(
+                              controller: sortOrderCtrl,
+                              decoration:
+                                  _inputDecoration('Thứ tự', Icons.sort),
+                              keyboardType: TextInputType.number)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   // Working hours & capacity
                   Row(
                     children: [
-                      Expanded(child: TextFormField(controller: openTimeCtrl, decoration: _inputDecoration('Giờ mở cửa', Icons.access_time))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: openTimeCtrl,
+                              decoration: _inputDecoration(
+                                  'Giờ mở cửa', Icons.access_time))),
                       const SizedBox(width: 12),
-                      Expanded(child: TextFormField(controller: closeTimeCtrl, decoration: _inputDecoration('Giờ đóng cửa', Icons.access_time_filled))),
+                      Expanded(
+                          child: TextFormField(
+                              controller: closeTimeCtrl,
+                              decoration: _inputDecoration(
+                                  'Giờ đóng cửa', Icons.access_time_filled))),
                       const SizedBox(width: 12),
-                      Expanded(child: TextFormField(controller: maxEmpCtrl, decoration: _inputDecoration('Sức chứa NV', Icons.group_add), keyboardType: TextInputType.number)),
+                      Expanded(
+                          child: TextFormField(
+                              controller: maxEmpCtrl,
+                              decoration: _inputDecoration(
+                                  'Sức chứa NV', Icons.group_add),
+                              keyboardType: TextInputType.number)),
                     ],
                   ),
                 ],
@@ -1117,17 +1394,39 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   final data = {
                     'code': codeCtrl.text.trim(),
                     'name': nameCtrl.text.trim(),
-                    'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
-                    'phone': phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
-                    'email': emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-                    'address': addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
-                    'city': cityCtrl.text.trim().isEmpty ? null : cityCtrl.text.trim(),
-                    'district': districtCtrl.text.trim().isEmpty ? null : districtCtrl.text.trim(),
-                    'ward': wardCtrl.text.trim().isEmpty ? null : wardCtrl.text.trim(),
-                    'taxCode': taxCodeCtrl.text.trim().isEmpty ? null : taxCodeCtrl.text.trim(),
-                    'openTime': openTimeCtrl.text.trim().isEmpty ? null : openTimeCtrl.text.trim(),
-                    'closeTime': closeTimeCtrl.text.trim().isEmpty ? null : closeTimeCtrl.text.trim(),
-                    'maxEmployees': maxEmpCtrl.text.trim().isEmpty ? null : int.tryParse(maxEmpCtrl.text.trim()),
+                    'description': descCtrl.text.trim().isEmpty
+                        ? null
+                        : descCtrl.text.trim(),
+                    'phone': phoneCtrl.text.trim().isEmpty
+                        ? null
+                        : phoneCtrl.text.trim(),
+                    'email': emailCtrl.text.trim().isEmpty
+                        ? null
+                        : emailCtrl.text.trim(),
+                    'address': addressCtrl.text.trim().isEmpty
+                        ? null
+                        : addressCtrl.text.trim(),
+                    'city': cityCtrl.text.trim().isEmpty
+                        ? null
+                        : cityCtrl.text.trim(),
+                    'district': districtCtrl.text.trim().isEmpty
+                        ? null
+                        : districtCtrl.text.trim(),
+                    'ward': wardCtrl.text.trim().isEmpty
+                        ? null
+                        : wardCtrl.text.trim(),
+                    'taxCode': taxCodeCtrl.text.trim().isEmpty
+                        ? null
+                        : taxCodeCtrl.text.trim(),
+                    'openTime': openTimeCtrl.text.trim().isEmpty
+                        ? null
+                        : openTimeCtrl.text.trim(),
+                    'closeTime': closeTimeCtrl.text.trim().isEmpty
+                        ? null
+                        : closeTimeCtrl.text.trim(),
+                    'maxEmployees': maxEmpCtrl.text.trim().isEmpty
+                        ? null
+                        : int.tryParse(maxEmpCtrl.text.trim()),
                     'sortOrder': int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
                     'parentBranchId': parentBranchId,
                     'isHeadquarter': isHeadquarter,
@@ -1143,7 +1442,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     if (ctx.mounted) Navigator.pop(ctx);
                     appNotification.showSuccess(
                       title: isEdit ? 'Cập nhật thành công' : 'Tạo thành công',
-                      message: isEdit ? 'Chi nhánh đã được cập nhật.' : 'Chi nhánh mới đã được tạo.',
+                      message: isEdit
+                          ? 'Chi nhánh đã được cập nhật.'
+                          : 'Chi nhánh mới đã được tạo.',
                     );
                     _loadTabData(_currentTab);
                   } else {
@@ -1153,8 +1454,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     );
                   }
                 };
-          final saveIcon = saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(isEdit ? Icons.save : Icons.add, size: 18);
-          final saveLabel = Text(saving ? 'Đang lưu...' : (isEdit ? 'Lưu' : 'Tạo mới'));
+          final saveIcon = saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(isEdit ? Icons.save : Icons.add, size: 18);
+          final saveLabel =
+              Text(saving ? 'Đang lưu...' : (isEdit ? 'Lưu' : 'Tạo mới'));
           if (isMobileBranch) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
@@ -1163,8 +1470,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: saving ? null : () => Navigator.pop(ctx)),
+                    title:
+                        Text(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: saving ? null : () => Navigator.pop(ctx)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
@@ -1190,7 +1500,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
               child: Column(
@@ -1201,18 +1512,23 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                     ),
                     child: Row(
                       children: [
-                        Icon(isEdit ? Icons.edit : Icons.add_business, color: Colors.blue),
+                        Icon(isEdit ? Icons.edit : Icons.add_business,
+                            color: Colors.blue),
                         const SizedBox(width: 12),
                         Text(
                           isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
-                        IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                        IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close)),
                       ],
                     ),
                   ),
@@ -1222,7 +1538,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                      border:
+                          Border(top: BorderSide(color: Colors.grey.shade200)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1268,11 +1585,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
     if (resp['isSuccess'] == true) {
       appNotification.showSuccess(
         title: 'Thành công',
-        message: branch.isActive ? 'Đã ngừng hoạt động chi nhánh.' : 'Đã kích hoạt chi nhánh.',
+        message: branch.isActive
+            ? 'Đã ngừng hoạt động chi nhánh.'
+            : 'Đã kích hoạt chi nhánh.',
       );
       _loadTabData(_currentTab);
     } else {
-      appNotification.showError(title: 'Lỗi', message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
+      appNotification.showError(
+          title: 'Lỗi',
+          message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
     }
   }
 
@@ -1288,19 +1609,25 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
             const Text('Xác nhận xóa'),
           ],
         ),
-        content: Text('Bạn có chắc muốn xóa chi nhánh "${branch.name}" (${branch.code})?\n\nHành động này không thể hoàn tác.'),
+        content: Text(
+            'Bạn có chắc muốn xóa chi nhánh "${branch.name}" (${branch.code})?\n\nHành động này không thể hoàn tác.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
               final resp = await _api.deleteBranch(branch.id);
               if (resp['isSuccess'] == true) {
-                appNotification.showSuccess(title: 'Đã xóa', message: 'Chi nhánh "${branch.name}" đã được xóa.');
+                appNotification.showSuccess(
+                    title: 'Đã xóa',
+                    message: 'Chi nhánh "${branch.name}" đã được xóa.');
                 _loadTabData(_currentTab);
               } else {
-                appNotification.showError(title: 'Lỗi', message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
+                appNotification.showError(
+                    title: 'Lỗi',
+                    message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
               }
             },
             child: const Text('Xóa'),
@@ -1321,9 +1648,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> with Si
         children: [
           Icon(Icons.business_outlined, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
-          Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade600)),
           const SizedBox(height: 8),
-          Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade500), textAlign: TextAlign.center),
+          Text(subtitle,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              textAlign: TextAlign.center),
           if (_isManager) ...[
             const SizedBox(height: 16),
             FilledButton.icon(

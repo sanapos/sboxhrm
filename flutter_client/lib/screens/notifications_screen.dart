@@ -74,6 +74,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _connectSignalR() async {
     try {
+      // Cancel previous subscriptions before creating new ones
+      await _notificationSubscription?.cancel();
+      await _notificationReadSubscription?.cancel();
+
       if (!_signalRService.isConnected) {
         await _signalRService.connect();
       }

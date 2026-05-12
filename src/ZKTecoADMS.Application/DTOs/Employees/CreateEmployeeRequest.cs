@@ -45,5 +45,5 @@ public class CreateEmployeeRequest
     public DateTime? ProbationEndDate { get; set; }
     public EmployeeWorkStatus WorkStatus { get; set; }
     public Guid? DirectManagerEmployeeId { get; set; }
-
+    public Guid? BranchId { get; set; }
 }

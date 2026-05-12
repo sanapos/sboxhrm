@@ -25,5 +25,6 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .WithMany(s => s.Devices)
             .HasForeignKey(d => d.StoreId)
             .OnDelete(DeleteBehavior.SetNull);
+
     }
 }

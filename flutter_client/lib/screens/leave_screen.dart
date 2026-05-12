@@ -32,7 +32,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   List<dynamic> _shifts = [];
   List<dynamic> _employees = [];
 
-  bool _isLoading = true;
+  bool _isLoading = false;
   bool _isManager = false;
   bool _initialized = false;
   String? _currentUserId;
@@ -43,6 +43,8 @@ class _LeaveScreenState extends State<LeaveScreen>
   String? _filterEmployeeId;
   String _filterTimePreset = 'all';
   DateTimeRange? _filterDateRange;
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
   int _currentPage = 1;
 
   // Sorting
@@ -105,6 +107,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   }
 
   Future<void> _loadData() async {
+    if (_isLoading) return; // Prevent concurrent loads
     setState(() => _isLoading = true);
     try {
       try {
@@ -118,6 +121,14 @@ class _LeaveScreenState extends State<LeaveScreen>
       } catch (e) {
         _employees = [];
       }
+      try {
+        final br = await _apiService.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
+      } catch (_) {}
       try {
         final myResult = await _apiService.getMyLeaves();
         if (myResult['isSuccess'] == true && myResult['data'] != null) {
@@ -286,6 +297,17 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   List<dynamic> _applyFilters(List<dynamic> leaves) {
     return leaves.where((leave) {
+      if (_filterBranchId != null) {
+        final empId = leave['employeeId']?.toString();
+        final emp = _employees.firstWhere(
+          (e) => e['id']?.toString() == empId,
+          orElse: () => <String, dynamic>{},
+        );
+        if ((emp as Map).isEmpty ||
+            emp['branchId']?.toString() != _filterBranchId) {
+          return false;
+        }
+      }
       if (_filterLeaveType != null &&
           _normalizeLeaveType(leave['type']) != _filterLeaveType) {
         return false;
@@ -752,8 +774,28 @@ class _LeaveScreenState extends State<LeaveScreen>
     final hasFilters = _filterLeaveType != null ||
         _filterStatus != null ||
         (_filterEmployeeId != null && _filterEmployeeId!.isNotEmpty) ||
-        _filterDateRange != null;
+        _filterDateRange != null ||
+        _filterBranchId != null;
     final isMobile = Responsive.isMobile(context);
+
+    final branchDropdown = _branches.isNotEmpty
+        ? _buildFilterDropdown<String?>(
+            value: _filterBranchId,
+            width: isMobile ? 130 : 150,
+            icon: Icons.account_tree_outlined,
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(_l10n.all)),
+              ..._branches.map((b) => DropdownMenuItem<String?>(
+                  value: b['id']?.toString(),
+                  child: Text(b['name']?.toString() ?? '',
+                      overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (v) => setState(() {
+              _filterBranchId = v;
+              _currentPage = 1;
+            }),
+          )
+        : const SizedBox.shrink();
 
     final typeDropdown = _buildFilterDropdown<int?>(
       value: _filterLeaveType,
@@ -841,6 +883,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 _filterEmployeeId = null;
                 _filterTimePreset = 'all';
                 _filterDateRange = null;
+                _filterBranchId = null;
                 _currentPage = 1;
               }),
               borderRadius: BorderRadius.circular(8),
@@ -881,10 +924,12 @@ class _LeaveScreenState extends State<LeaveScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [typeDropdown, statusDropdown, timeDropdown]),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              typeDropdown,
+              statusDropdown,
+              timeDropdown,
+              branchDropdown
+            ]),
             if (_isManager || hasFilters) ...[
               const SizedBox(height: 8),
               Row(
@@ -1032,6 +1077,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           typeDropdown,
           statusDropdown,
           timeDropdown,
+          branchDropdown,
           if (_isManager)
             SizedBox(
               width: 200,

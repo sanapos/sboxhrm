@@ -78,6 +78,19 @@ public static class AppSettingKeys
     public const string ContactUrl = "contact_url";
     public const string SupportUrl = "support_url";
 
+    // Landing page videos
+    public const string LandingVideoIntro = "landing_video_intro";
+    public const string LandingVideoGuide = "landing_video_guide";
+
+    // Landing page content (editable by SuperAdmin)
+    public const string LandingHeroTitle = "landing_hero_title";
+    public const string LandingHeroSubtext = "landing_hero_subtext";
+    public const string LandingFeaturesJson = "landing_features_json";
+    public const string LandingPricingJson = "landing_pricing_json";
+    public const string LandingGuideJson = "landing_guide_json";
+    public const string LandingProducts = "landing_products";
+    public const string LandingDownloadsJson = "landing_downloads_json";
+
     // Legal
     public const string TermsOfService = "terms_of_service";
     public const string PrivacyPolicy = "privacy_policy";

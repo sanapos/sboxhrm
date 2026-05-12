@@ -299,6 +299,43 @@ public class ZKTecoDbInitializer(
                 ");
 
                 await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""ConsultationRequests"" (
+                        ""Id"" UUID NOT NULL PRIMARY KEY,
+                        ""Name"" VARCHAR(150) NOT NULL,
+                        ""Phone"" VARCHAR(30) NOT NULL,
+                        ""NormalizedPhone"" VARCHAR(30) NOT NULL DEFAULT '',
+                        ""Company"" VARCHAR(200),
+                        ""Province"" VARCHAR(120),
+                        ""InterestedPlan"" VARCHAR(100),
+                        ""Status"" VARCHAR(30) NOT NULL DEFAULT 'New',
+                        ""Source"" VARCHAR(50) NOT NULL DEFAULT 'LandingPage',
+                        ""Notes"" VARCHAR(1000),
+                        ""AdminNote"" VARCHAR(1000),
+                        ""ClientIp"" VARCHAR(100),
+                        ""UserAgent"" VARCHAR(500),
+                        ""StoreId"" UUID,
+                        ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+                        ""LastModified"" TIMESTAMP WITHOUT TIME ZONE,
+                        ""LastModifiedBy"" TEXT,
+                        ""Deleted"" TIMESTAMP WITHOUT TIME ZONE,
+                        ""DeletedBy"" TEXT,
+                        ""CreatedAt"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" TIMESTAMP WITHOUT TIME ZONE,
+                        ""UpdatedBy"" TEXT,
+                        ""CreatedBy"" TEXT
+                    );
+                    ALTER TABLE ""ConsultationRequests"" ADD COLUMN IF NOT EXISTS ""NormalizedPhone"" VARCHAR(30) NOT NULL DEFAULT '';
+                    ALTER TABLE ""ConsultationRequests"" ADD COLUMN IF NOT EXISTS ""Province"" VARCHAR(120);
+                    ALTER TABLE ""ConsultationRequests"" ADD COLUMN IF NOT EXISTS ""AdminNote"" VARCHAR(1000);
+                    ALTER TABLE ""ConsultationRequests"" ADD COLUMN IF NOT EXISTS ""ClientIp"" VARCHAR(100);
+                    ALTER TABLE ""ConsultationRequests"" ADD COLUMN IF NOT EXISTS ""UserAgent"" VARCHAR(500);
+                    CREATE INDEX IF NOT EXISTS ""IX_ConsultationRequests_CreatedAt"" ON ""ConsultationRequests"" (""CreatedAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_ConsultationRequests_Status"" ON ""ConsultationRequests"" (""Status"");
+                    CREATE INDEX IF NOT EXISTS ""IX_ConsultationRequests_Phone"" ON ""ConsultationRequests"" (""Phone"");
+                    CREATE INDEX IF NOT EXISTS ""IX_ConsultationRequests_NormalizedPhone"" ON ""ConsultationRequests"" (""NormalizedPhone"");
+                ");
+
+                await context.Database.ExecuteSqlRawAsync(@"
                     DO $$ BEGIN
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Notifications') THEN
                             ALTER TABLE ""Notifications"" ADD COLUMN IF NOT EXISTS ""CategoryCode"" VARCHAR(50);
@@ -826,6 +863,13 @@ public class ZKTecoDbInitializer(
             ("Settings", "Cài đặt", "Cài đặt hệ thống", 42),
             ("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", 44),
             ("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", 45),
+            // ══════════ BÁO CÁO (bổ sung) ══════════
+            ("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", 50),
+            ("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", 51),
+            ("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", 52),
+            ("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", 53),
+            // ══════════ CÀI ĐẶT (bổ sung) ══════════
+            ("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", 54),
         };
 
         var existingModules = await context.Permissions.ToListAsync();

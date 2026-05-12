@@ -17,6 +17,7 @@ public class RegisterCommandHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Store> storeRepository,
     IRepository<Agent> agentRepository,
+    IRepository<ServicePackage> servicePackageRepository,
     IEmailService emailService,
     IOptions<EmailSettings> emailSettings,
     ISystemNotificationService notificationService,
@@ -65,6 +66,18 @@ public class RegisterCommandHandler(
             agentId = agent.Id;
         }
 
+        ServicePackage? selectedPackage = null;
+        if (request.ServicePackageId.HasValue)
+        {
+            selectedPackage = await servicePackageRepository.GetSingleAsync(
+                p => p.Id == request.ServicePackageId.Value && p.IsActive,
+                cancellationToken: cancellationToken);
+            if (selectedPackage == null)
+            {
+                return AppResponse<string>.Error("Gói dịch vụ được chọn không tồn tại hoặc đã ngừng hoạt động.");
+            }
+        }
+
         // 1. Tạo Store trước (chưa có OwnerId)
         var store = new Store
         {
@@ -74,7 +87,12 @@ public class RegisterCommandHandler(
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             OwnerId = null, // Chưa có owner, sẽ cập nhật sau
-            AgentId = agentId
+            AgentId = agentId,
+            ServicePackageId = selectedPackage?.Id,
+            TrialDays = selectedPackage?.DefaultDurationDays ?? 14,
+            MaxUsers = selectedPackage?.MaxUsers ?? 10,
+            MaxDevices = selectedPackage?.MaxDevices ?? 2,
+            TrialStartDate = DateTime.UtcNow
         };
         await storeRepository.AddAsync(store, cancellationToken);
         

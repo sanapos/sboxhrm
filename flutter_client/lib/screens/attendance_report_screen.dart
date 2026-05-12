@@ -37,6 +37,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   // Search & department filter
   String _searchText = '';
   String? _departmentFilter;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
   // Sorting
   String _sortColumn = 'default';
@@ -50,6 +53,25 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     super.initState();
     _loadTrends();
     _loadReport();
+    _loadEmployeesAndBranches();
+  }
+
+  Future<void> _loadEmployeesAndBranches() async {
+    try {
+      final emps = await _apiService.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -320,8 +342,20 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   List<dynamic> get _filteredItems {
     final raw = (_reportData?['items'] as List?) ?? [];
+    Set<String>? branchCodes;
+    if (_selectedBranchId != null) {
+      branchCodes = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['employeeCode']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet();
+    }
     final items = raw.where((item) {
       final m = item as Map<String, dynamic>;
+      if (branchCodes != null &&
+          !branchCodes.contains(m['employeeCode']?.toString())) {
+        return false;
+      }
       if (_departmentFilter != null &&
           (m['departmentName'] ?? '') != _departmentFilter) {
         return false;
@@ -851,17 +885,46 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 onChanged: (v) => setState(() => _departmentFilter = v),
               ),
             ),
-          if (_searchText.isNotEmpty || _departmentFilter != null)
+          if (_branches.isNotEmpty)
+            SizedBox(
+              width: 200,
+              child: DropdownButtonFormField<String?>(
+                key: ValueKey('branch_$_selectedBranchId'),
+                initialValue: _selectedBranchId,
+                isDense: true,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Chi nh\u00e1nh',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('T\u1ea5t c\u1ea3')),
+                  ..._branches.map((b) => DropdownMenuItem<String?>(
+                      value: b['id']?.toString(),
+                      child: Text(b['name']?.toString() ?? '',
+                          overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: (v) => setState(() => _selectedBranchId = v),
+              ),
+            ),
+          if (_searchText.isNotEmpty ||
+              _departmentFilter != null ||
+              _selectedBranchId != null)
             TextButton.icon(
               onPressed: () {
                 setState(() {
                   _searchText = '';
                   _departmentFilter = null;
+                  _selectedBranchId = null;
                   _searchCtrl.clear();
                 });
               },
               icon: const Icon(Icons.clear, size: 16),
-              label: const Text('Xoá lọc'),
+              label: const Text('Xo\u00e0 l\u1ecdc'),
             ),
         ],
       ),

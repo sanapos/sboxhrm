@@ -23,12 +23,46 @@ class _PayrollScreenState extends State<PayrollScreen> {
   List<Attendance> _attendances = [];
   List<Device> _devices = [];
   bool _isLoading = true;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadEmployeesAndBranches();
     ScreenRefreshNotifier.payroll.addListener(_onExternalRefresh);
+  }
+
+  Future<void> _loadEmployeesAndBranches() async {
+    try {
+      final emps = await _apiService.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
+  }
+
+  List<Attendance> get _filteredAttendances {
+    if (_selectedBranchId == null) return _attendances;
+    final branchCodes = _employeesList
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['employeeCode']?.toString() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    return _attendances
+        .where((a) => branchCodes.contains(a.employeeId))
+        .toList();
   }
 
   void _onExternalRefresh() {
@@ -98,7 +132,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
         children: [
           // ═══ Gradient Header ═══
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, isMobile ? 12 : 18),
+            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
+                isMobile ? 14 : 24, isMobile ? 12 : 18),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -122,7 +157,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.payments, color: Colors.white, size: isMobile ? 18 : 24),
+                  child: Icon(Icons.payments,
+                      color: Colors.white, size: isMobile ? 18 : 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -130,10 +166,15 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Tổng hợp lương',
-                        style: TextStyle(color: Colors.white, fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 16 : 20,
+                              fontWeight: FontWeight.bold)),
                       if (!isMobile)
                         Text('Bảng lương chi tiết nhân viên',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 13)),
                     ],
                   ),
                 ),
@@ -141,32 +182,65 @@ class _PayrollScreenState extends State<PayrollScreen> {
                   PopupMenuButton<String>(
                     icon: Container(
                       padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert, size: 18, color: Colors.white),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.more_vert,
+                          size: 18, color: Colors.white),
                     ),
                     onSelected: (v) {
-                      if (v == 'excel') _payrollTabKey.currentState?.exportToExcel();
-                      if (v == 'png') _payrollTabKey.currentState?.exportToPng();
-                      if (v == 'cols') _payrollTabKey.currentState?.showColumnSelectorDialog();
+                      if (v == 'excel') {
+                        _payrollTabKey.currentState?.exportToExcel();
+                      }
+                      if (v == 'png') {
+                        _payrollTabKey.currentState?.exportToPng();
+                      }
+                      if (v == 'cols') {
+                        _payrollTabKey.currentState?.showColumnSelectorDialog();
+                      }
                     },
                     itemBuilder: (_) => [
-                      if (Provider.of<PermissionProvider>(context, listen: false).canExport('Payroll'))
-                      const PopupMenuItem(value: 'excel', child: Row(children: [Icon(Icons.table_chart_outlined, size: 18), SizedBox(width: 10), Text('Xuất Excel')])),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canExport('Payroll'))
-                      const PopupMenuItem(value: 'png', child: Row(children: [Icon(Icons.image_outlined, size: 18), SizedBox(width: 10), Text('Xuất PNG')])),
-                      const PopupMenuItem(value: 'cols', child: Row(children: [Icon(Icons.view_column_outlined, size: 18), SizedBox(width: 10), Text('Chọn cột')])),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canExport('Payroll'))
+                        const PopupMenuItem(
+                            value: 'excel',
+                            child: Row(children: [
+                              Icon(Icons.table_chart_outlined, size: 18),
+                              SizedBox(width: 10),
+                              Text('Xuất Excel')
+                            ])),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canExport('Payroll'))
+                        const PopupMenuItem(
+                            value: 'png',
+                            child: Row(children: [
+                              Icon(Icons.image_outlined, size: 18),
+                              SizedBox(width: 10),
+                              Text('Xuất PNG')
+                            ])),
+                      const PopupMenuItem(
+                          value: 'cols',
+                          child: Row(children: [
+                            Icon(Icons.view_column_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Chọn cột')
+                          ])),
                     ],
                   )
                 else ...[
-                  if (Provider.of<PermissionProvider>(context, listen: false).canExport('Payroll')) ...[
-                  _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel', () {
-                    _payrollTabKey.currentState?.exportToExcel();
-                  }),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionBtn(Icons.image_outlined, 'PNG', () {
-                    _payrollTabKey.currentState?.exportToPng();
-                  }),
-                  const SizedBox(width: 8),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canExport('Payroll')) ...[
+                    _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel',
+                        () {
+                      _payrollTabKey.currentState?.exportToExcel();
+                    }),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionBtn(Icons.image_outlined, 'PNG', () {
+                      _payrollTabKey.currentState?.exportToPng();
+                    }),
+                    const SizedBox(width: 8),
                   ],
                   _buildHeaderActionBtn(Icons.view_column_outlined, 'Cột', () {
                     _payrollTabKey.currentState?.showColumnSelectorDialog();
@@ -176,23 +250,83 @@ class _PayrollScreenState extends State<PayrollScreen> {
             ),
           ),
           // ═══ Content ═══
+          if (_branches.isNotEmpty)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_tree_outlined,
+                        size: 16, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          key: const ValueKey('branch_\$_selectedBranchId'),
+                          value: _selectedBranchId,
+                          isExpanded: true,
+                          isDense: true,
+                          style: const TextStyle(
+                              fontSize: 13, color: Color(0xFF111827)),
+                          icon: const Icon(Icons.keyboard_arrow_down,
+                              size: 18, color: Color(0xFF9CA3AF)),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                    style: TextStyle(fontSize: 13))),
+                            ..._branches.map((b) => DropdownMenuItem<String?>(
+                                value: b['id']?.toString(),
+                                child: Text(b['name']?.toString() ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13)))),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _selectedBranchId = v),
+                        ),
+                      ),
+                    ),
+                    if (_selectedBranchId != null)
+                      InkWell(
+                        onTap: () => setState(() => _selectedBranchId = null),
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close,
+                              size: 14, color: Color(0xFF9CA3AF)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           Expanded(
             child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : PayrollSummaryTab(
-                  key: _payrollTabKey,
-                  attendances: _attendances,
-                  devices: _devices,
-                  fromDate: DateTime(now.year, now.month, 1),
-                  toDate: now,
-                ),
+                ? const Center(child: CircularProgressIndicator())
+                : PayrollSummaryTab(
+                    key: _payrollTabKey,
+                    attendances: _filteredAttendances,
+                    devices: _devices,
+                    fromDate: DateTime(now.year, now.month, 1),
+                    toDate: now,
+                    branchId: _selectedBranchId,
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String label, VoidCallback onTap) {
     return Material(
       color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(10),
@@ -206,7 +340,11 @@ class _PayrollScreenState extends State<PayrollScreen> {
             children: [
               Icon(icon, color: Colors.white, size: 16),
               const SizedBox(width: 6),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
             ],
           ),
         ),

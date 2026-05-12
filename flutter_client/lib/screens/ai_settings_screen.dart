@@ -230,17 +230,6 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     );
   }
 
-  Widget _buildStatusDot(bool active) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active ? const Color(0xFF16A34A) : const Color(0xFFD4D4D8),
-      ),
-    );
-  }
-
   Widget _buildProviderTab({
     required String provider,
     required String name,

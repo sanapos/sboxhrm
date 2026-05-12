@@ -100,7 +100,6 @@ class SignalRService {
   // Drops duplicate NewNotification events delivered within [_dedupWindow].
   final Map<String, DateTime> _recentNotificationIds = <String, DateTime>{};
   static const Duration _dedupWindow = Duration(minutes: 2);
-  static const int _dedupMaxEntries = 500;
 
   /// Stream of new attendance notifications
   Stream<Attendance> get onNewAttendance => _attendanceController.stream;
@@ -314,11 +313,9 @@ class SignalRService {
       final id = rawId?.toString();
       if (id != null && id.isNotEmpty) {
         final now = DateTime.now();
-        // Evict expired entries lazily.
-        if (_recentNotificationIds.length > _dedupMaxEntries) {
-          _recentNotificationIds
-              .removeWhere((_, t) => now.difference(t) > _dedupWindow);
-        }
+        // Always evict expired entries to keep memory bounded regardless of volume.
+        _recentNotificationIds
+            .removeWhere((_, t) => now.difference(t) > _dedupWindow);
         final last = _recentNotificationIds[id];
         if (last != null && now.difference(last) < _dedupWindow) {
           debugPrint('📡 Dropping duplicate notification id=$id');
@@ -469,7 +466,8 @@ class SignalRService {
     _connectionStateController.close();
     _communicationController.close();
     _notificationReadController.close();
-    disconnect();
+    // Fire-and-forget but suppress any errors during teardown
+    disconnect().catchError((_) {});
   }
 }
 

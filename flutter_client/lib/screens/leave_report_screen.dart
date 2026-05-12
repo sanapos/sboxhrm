@@ -29,19 +29,56 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   bool _loading = false;
   List<Map<String, dynamic>> _leaves = [];
   String _empSearch = '';
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
-  List<Map<String, dynamic>> get _filtered => _empSearch.isEmpty
-      ? _leaves
-      : _leaves
-          .where((l) => (l['employeeName']?.toString() ?? '')
+  List<Map<String, dynamic>> get _filtered {
+    Set<String>? branchIds;
+    if (_selectedBranchId != null) {
+      branchIds = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    }
+    return _leaves.where((l) {
+      if (branchIds != null && !branchIds.contains(l['employeeId']?.toString())) {
+        return false;
+      }
+      if (_empSearch.isNotEmpty &&
+          !(l['employeeName']?.toString() ?? '')
               .toLowerCase()
-              .contains(_empSearch.toLowerCase()))
-          .toList();
+              .contains(_empSearch.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadBranches();
+  }
+
+  Future<void> _loadBranches() async {
+    try {
+      final emps = await _api.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _api.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -84,7 +121,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   Future<void> _exportExcel() async {
-    if (_leaves.isEmpty) {
+    final data = _filtered;
+    if (data.isEmpty) {
       NotificationOverlayManager()
           .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
       return;
@@ -104,8 +142,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         'Trạng thái',
         'Người duyệt'
       ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < _leaves.length; i++) {
-        final l = _leaves[i];
+      for (int i = 0; i < data.length; i++) {
+        final l = data[i];
         final startDate = l['startDate'] != null
             ? DateTime.tryParse(l['startDate'].toString())
             : null;
@@ -137,7 +175,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
         }
       }
     } catch (e) {
@@ -216,7 +254,10 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         initialDate: _from,
         firstDate: DateTime(2020),
         lastDate: _to);
-    if (d != null) setState(() => _from = d);
+    if (d != null) {
+      setState(() => _from = d);
+      _load();
+    }
   }
 
   Future<void> _pickTo() async {
@@ -225,7 +266,10 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         initialDate: _to,
         firstDate: _from,
         lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (d != null) setState(() => _to = d);
+    if (d != null) {
+      setState(() => _to = d);
+      _load();
+    }
   }
 
   @override
@@ -259,39 +303,78 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   Widget _buildFilters() {
+    final hasActiveFilters = _statusFilter != null ||
+        _selectedBranchId != null ||
+        _empSearch.isNotEmpty;
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Column(children: [
-        Row(children: [
-          Expanded(child: _DateBtn('Từ ngày', _from, _pickFrom)),
-          const SizedBox(width: 8),
-          Expanded(child: _DateBtn('Đến ngày', _to, _pickTo)),
-        ]),
-        const SizedBox(height: 6),
-        Row(children: [
-          Expanded(child: _StatusDrop()),
-          const SizedBox(width: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _dateBtn('T\u1eeb ng\u00e0y', _from, _pickFrom),
+          _dateBtn('\u0110\u1ebfn ng\u00e0y', _to, _pickTo),
+          _statusDrop(),
           SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.search, size: 16),
-              label: const Text('Tìm', style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _lTheme,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                minimumSize: const Size(0, 40),
+              width: 200,
+              child: _buildEmpSearch('T\u00ecm nh\u00e2n vi\u00ean...')),
+          if (_branches.isNotEmpty)
+            SizedBox(
+              width: 170,
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    key: const ValueKey('branch_\$_selectedBranchId'),
+                    value: _selectedBranchId,
+                    isExpanded: true,
+                    hint: const Text('Chi nh\u00e1nh',
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+                    icon: const Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: Color(0xFF9CA3AF)),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('T\u1ea5t c\u1ea3 CN')),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                ),
               ),
-              onPressed: _load,
             ),
-          ),
-        ]),
-        const SizedBox(height: 6),
-        _buildEmpSearch('Lọc theo tên nhân viên...'),
-      ]),
+          if (hasActiveFilters)
+            SizedBox(
+              height: 40,
+              child: TextButton.icon(
+                icon: const Icon(Icons.filter_alt_off, size: 15),
+                label: const Text('X\u00f3a l\u1ecdc',
+                    style: TextStyle(fontSize: 12)),
+                onPressed: () => setState(() {
+                  _statusFilter = null;
+                  _selectedBranchId = null;
+                  _empSearch = '';
+                }),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.shade400,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -377,7 +460,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     );
   }
 
-  Widget _DateBtn(String label, DateTime val, VoidCallback onTap) {
+  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -410,7 +493,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     );
   }
 
-  Widget _StatusDrop() {
+  Widget _statusDrop() {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -433,7 +516,10 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             DropdownMenuItem(value: 2, child: Text('Từ chối')),
             DropdownMenuItem(value: 3, child: Text('Đã hủy')),
           ],
-          onChanged: (v) => setState(() => _statusFilter = v),
+          onChanged: (v) {
+            setState(() => _statusFilter = v);
+            _load();
+          },
         ),
       ),
     );
@@ -460,20 +546,20 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _SumCard('Tổng đơn', f.length.toString(), Icons.description_outlined,
+          _sumCard('Tổng đơn', f.length.toString(), Icons.description_outlined,
               Colors.blueGrey),
-          _SumCard('Chờ duyệt', pending.toString(), Icons.hourglass_empty,
+          _sumCard('Chờ duyệt', pending.toString(), Icons.hourglass_empty,
               Colors.orange),
-          _SumCard('Đã duyệt', approved.toString(), Icons.check_circle_outline,
+          _sumCard('Đã duyệt', approved.toString(), Icons.check_circle_outline,
               const Color(0xFF16A34A)),
-          _SumCard('Tổng ngày nghỉ', '${totalDays.toInt()} ngày',
+          _sumCard('Tổng ngày nghỉ', '${totalDays.toInt()} ngày',
               Icons.event_busy, _lTheme),
         ],
       ),
     );
   }
 
-  Widget _SumCard(String title, String value, IconData icon, Color color) {
+  Widget _sumCard(String title, String value, IconData icon, Color color) {
     return Container(
       width: 148,
       margin: const EdgeInsets.only(right: 8),

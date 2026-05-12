@@ -1,4 +1,4 @@
-import 'package:excel/excel.dart' as excel_lib;
+﻿import 'package:excel/excel.dart' as excel_lib;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -40,6 +40,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   DateTime? _toDate;
   String _searchQuery = '';
   Employee? _selectedEmployee;
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Sorting
   String _sortColumn = 'requestDate';
@@ -107,6 +109,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _employees = employees.map((e) => Employee.fromJson(e)).toList();
         });
       }
+      try {
+        final br = await _apiService.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('Error loading employees: $e');
     }
@@ -241,6 +251,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   // ==================== FILTERED DATA ====================
   List<AdvanceRequest> get _filteredRequests {
     var list = _allRequests;
+    if (_selectedBranchId != null) {
+      final branchCodes = _employees
+          .where((e) => e.branchId == _selectedBranchId)
+          .map((e) => e.employeeCode)
+          .toSet();
+      list = list.where((r) => branchCodes.contains(r.employeeCode)).toList();
+    }
     if (_selectedEmployee != null) {
       list = list
           .where((r) => r.employeeCode == _selectedEmployee!.employeeCode)
@@ -1791,7 +1808,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           if (_selectedStatus != null ||
                               _selectedTimePreset != 'all' ||
                               _searchQuery.isNotEmpty ||
-                              _selectedEmployee != null)
+                              _selectedEmployee != null ||
+                              _selectedBranchId != null)
                             Positioned(
                                 right: 0,
                                 top: 0,
@@ -2138,6 +2156,26 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       ),
     );
 
+    final branchDropdown = _branches.isNotEmpty
+        ? _buildDropdown<String?>(
+            value: _selectedBranchId,
+            width: isMobile ? 140 : 160,
+            icon: Icons.account_tree_outlined,
+            items: [
+              const DropdownMenuItem<String?>(
+                  value: null, child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh')),
+              ..._branches.map((b) => DropdownMenuItem<String?>(
+                  value: b['id']?.toString(),
+                  child: Text(b['name']?.toString() ?? '',
+                      overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (v) => setState(() {
+              _selectedBranchId = v;
+              _currentPage = 1;
+            }),
+          )
+        : const SizedBox.shrink();
+
     final countChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -2180,7 +2218,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: [timePreset, statusDropdown]),
+                children: [timePreset, statusDropdown, branchDropdown]),
             const SizedBox(height: 8),
             searchField,
             const SizedBox(height: 8),
@@ -2219,6 +2257,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             const SizedBox(width: 8),
           ],
           statusDropdown,
+          const SizedBox(width: 8),
+          branchDropdown,
           const SizedBox(width: 8),
           _buildEmployeeChip(),
           const SizedBox(width: 8),

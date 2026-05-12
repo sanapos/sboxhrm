@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -31,19 +31,52 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   // ignore: unused_field
   Map<String, dynamic> _stats = {};
   String _empSearch = '';
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
-  List<Map<String, dynamic>> get _filtered => _empSearch.isEmpty
-      ? _tickets
-      : _tickets
-          .where((t) => (t['employeeName']?.toString() ?? '')
-              .toLowerCase()
-              .contains(_empSearch.toLowerCase()))
+  List<Map<String, dynamic>> get _filtered {
+    var result = _tickets;
+    if (_selectedBranchId != null) {
+      final ids = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['id']?.toString() ?? '')
+          .toSet();
+      result = result
+          .where((t) => ids.contains(t['employeeUserId']?.toString()))
           .toList();
+    }
+    if (_empSearch.isEmpty) return result;
+    return result
+        .where((t) => (t['employeeName']?.toString() ?? '')
+            .toLowerCase()
+            .contains(_empSearch.toLowerCase()))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadBranches();
+  }
+
+  Future<void> _loadBranches() async {
+    try {
+      final emps = await _api.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _api.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -105,7 +138,8 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   }
 
   Future<void> _exportExcel() async {
-    if (_tickets.isEmpty) {
+    final data = _filtered;
+    if (data.isEmpty) {
       NotificationOverlayManager()
           .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
       return;
@@ -124,8 +158,8 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         'Trạng thái',
         'Ghi chú'
       ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < _tickets.length; i++) {
-        final t = _tickets[i];
+      for (int i = 0; i < data.length; i++) {
+        final t = data[i];
         final date =
             t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
         sh.appendRow([
@@ -149,7 +183,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
         }
       }
     } catch (e) {
@@ -273,13 +307,13 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(children: [
         Row(children: [
-          Expanded(child: _DateBtn('Từ ngày', _from, _pickFrom)),
+          Expanded(child: _dateBtn('Từ ngày', _from, _pickFrom)),
           const SizedBox(width: 8),
-          Expanded(child: _DateBtn('Đến ngày', _to, _pickTo)),
+          Expanded(child: _dateBtn('Đến ngày', _to, _pickTo)),
         ]),
         const SizedBox(height: 6),
         Row(children: [
-          Expanded(child: _StatusDrop()),
+          Expanded(child: _statusDrop()),
           const SizedBox(width: 8),
           SizedBox(
             height: 40,
@@ -298,6 +332,56 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             ),
           ),
         ]),
+        if (_branches.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.account_tree_outlined,
+                  size: 16, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _selectedBranchId,
+                    isExpanded: true,
+                    isDense: true,
+                    style:
+                        const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                    icon: const Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: Color(0xFF9CA3AF)),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Tất cả chi nhánh',
+                              style: TextStyle(fontSize: 13))),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13)))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                ),
+              ),
+              if (_selectedBranchId != null)
+                InkWell(
+                  onTap: () => setState(() => _selectedBranchId = null),
+                  child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 14, color: Color(0xFF9CA3AF))),
+                ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 6),
         _buildEmpSearch('Lọc theo tên nhân viên...'),
       ]),
@@ -386,7 +470,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     );
   }
 
-  Widget _DateBtn(String label, DateTime val, VoidCallback onTap) {
+  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -420,7 +504,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     );
   }
 
-  Widget _StatusDrop() {
+  Widget _statusDrop() {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -466,19 +550,19 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _SumCard('Tổng phiếu', total.toString(), Icons.receipt_long, _pTheme),
-          _SumCard('Đã duyệt', approved.toString(), Icons.check_circle_outline,
+          _sumCard('Tổng phiếu', total.toString(), Icons.receipt_long, _pTheme),
+          _sumCard('Đã duyệt', approved.toString(), Icons.check_circle_outline,
               const Color(0xFF16A34A)),
-          _SumCard('Tổng tiền phạt', '${_fmtMoney.format(totalAmt)}đ',
+          _sumCard('Tổng tiền phạt', '${_fmtMoney.format(totalAmt)}đ',
               Icons.money_off_outlined, Colors.orange),
-          _SumCard('Tiền đã duyệt', '${_fmtMoney.format(approvedAmt)}đ',
+          _sumCard('Tiền đã duyệt', '${_fmtMoney.format(approvedAmt)}đ',
               Icons.payments_outlined, Colors.red),
         ],
       ),
     );
   }
 
-  Widget _SumCard(String title, String value, IconData icon, Color color) {
+  Widget _sumCard(String title, String value, IconData icon, Color color) {
     return Container(
       width: 148,
       margin: const EdgeInsets.only(right: 8),

@@ -539,7 +539,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         context, 'Xóa file backup', 'Bạn có chắc muốn xóa "$fileName"?');
     if (confirm == true) {
       await _apiService.deleteBackupFile(fileName);
-      loadData();
+      if (mounted) loadData();
     }
   }
 

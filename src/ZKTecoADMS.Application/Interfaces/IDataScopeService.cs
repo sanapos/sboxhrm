@@ -1,8 +1,8 @@
 namespace ZKTecoADMS.Application.Interfaces;
 
 /// <summary>
-/// Service phân quyền dữ liệu theo phòng ban.
-/// Xác định user quản lý phòng ban nào, nhân viên nào.
+/// Service phân quyền dữ liệu theo phòng ban và chi nhánh.
+/// Xác định user quản lý phòng ban nào, chi nhánh nào, nhân viên nào.
 /// </summary>
 public interface IDataScopeService
 {
@@ -10,6 +10,12 @@ public interface IDataScopeService
     /// Lấy danh sách DepartmentId mà user quản lý (bao gồm PB con nếu IncludeChildren)
     /// </summary>
     Task<List<Guid>> GetManagedDepartmentIdsAsync(Guid userId, Guid storeId);
+
+    /// <summary>
+    /// Lấy danh sách BranchId mà user quản lý
+    /// (là Branch.ManagerId hoặc được phân quyền qua BranchPermission)
+    /// </summary>
+    Task<List<Guid>> GetManagedBranchIdsAsync(Guid userId, Guid storeId);
 
     /// <summary>
     /// Lấy danh sách EmployeeId thuộc phạm vi quản lý của user

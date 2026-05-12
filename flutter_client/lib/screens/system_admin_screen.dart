@@ -17,6 +17,8 @@ import 'system_admin/announcements_tab.dart';
 import 'system_admin/maintenance_tab.dart';
 import 'system_admin/marketing_tab.dart';
 import 'system_admin/content_pages_tab.dart';
+import 'system_admin/consultation_requests_tab.dart';
+import 'system_admin/landing_content_tab.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   const SystemAdminScreen({super.key});
@@ -45,11 +47,13 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _maintenanceKey = GlobalKey<MaintenanceTabState>();
   final _marketingKey = GlobalKey<MarketingTabState>();
   final _contentPagesKey = GlobalKey<ContentPagesTabState>();
+  final _consultationRequestsKey = GlobalKey<ConsultationRequestsTabState>();
+  final _landingContentKey = GlobalKey<LandingContentTabState>();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 15, vsync: this);
+    _tabController = TabController(length: 17, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {}); // Rebuild header badges when tab changes
@@ -103,6 +107,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 MaintenanceTab(key: _maintenanceKey),
                 MarketingTab(key: _marketingKey),
                 ContentPagesTab(key: _contentPagesKey),
+                ConsultationRequestsTab(key: _consultationRequestsKey),
+                LandingContentTab(key: _landingContentKey),
               ],
             ),
           ),
@@ -123,11 +129,11 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final promoCount = _keyPromotionsKey.currentState?.promotions.length ?? 0;
     final announcementCount =
         _announcementsKey.currentState?.announcements.length ?? 0;
-    final maintenanceCount =
-        _maintenanceKey.currentState?.windows.length ?? 0;
-    final marketingCount =
-        (_marketingKey.currentState?.templates.length ?? 0) +
-            (_marketingKey.currentState?.campaigns.length ?? 0);
+    final maintenanceCount = _maintenanceKey.currentState?.windows.length ?? 0;
+    final marketingCount = (_marketingKey.currentState?.templates.length ?? 0) +
+        (_marketingKey.currentState?.campaigns.length ?? 0);
+    final consultationCount =
+        _consultationRequestsKey.currentState?.items.length ?? 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -240,6 +246,12 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               const Tab(
                   icon: Icon(Icons.description_outlined, size: 18),
                   text: 'Nội dung & Phản hồi'),
+              Tab(
+                  icon: const Icon(Icons.support_agent_rounded, size: 18),
+                  text: 'Lead tư vấn ($consultationCount)'),
+              const Tab(
+                  icon: Icon(Icons.web_rounded, size: 18),
+                  text: 'Landing Page'),
             ],
           ),
         ],
@@ -280,7 +292,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Đăng xuất?'),
-        content: const Text('Bạn có chắc muốn đăng xuất khỏi khu vực quản trị?'),
+        content:
+            const Text('Bạn có chắc muốn đăng xuất khỏi khu vực quản trị?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -289,7 +302,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

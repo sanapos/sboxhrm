@@ -106,7 +106,7 @@ public class AttendancesController(
             }
 
             // Manager chỉ được xem NV thuộc phạm vi quản lý
-            if (IsManager && !IsEmployee && storeId.HasValue)
+            if (IsManager && storeId.HasValue)
             {
                 var subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, storeId.Value);
                 var unauthorizedIds = request.EmployeeIds.Except(subordinateIds).ToList();
@@ -160,6 +160,16 @@ public class AttendancesController(
             if (employee == null)
             {
                 return Ok(AppResponse<object>.Fail("Employee not found"));
+            }
+
+            // Validate manager can only create attendance for subordinates
+            if (!IsAdmin && IsManager && GetCurrentStoreId().HasValue)
+            {
+                var subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, GetCurrentStoreId()!.Value);
+                if (!subordinateIds.Contains(employeeId))
+                {
+                    return Ok(AppResponse<object>.Fail("Bạn không có quyền tạo chấm công cho nhân viên này"));
+                }
             }
 
             // Look up DeviceUser on this device for proper UID (PIN from device)

@@ -25,6 +25,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   String _searchQuery = '';
   Shift? _selectedShift;
   bool _showMobileFilters = false;
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // Pagination
   int _shiftPage = 1;
@@ -72,6 +74,15 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           _selectedShift = idx >= 0 ? _shifts[idx] : null;
         }
       });
+      // Load branches after employees
+      try {
+        final br = await _apiService.getBranchesForSelect();
+        final bd = br['data'];
+        if (bd is List && mounted) {
+          setState(() => _branches =
+              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('Error loading shift data: $e');
       if (mounted) {
@@ -289,7 +300,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () => setState(() => _searchQuery = ''))
+                            onPressed: () => setState(() { _searchQuery = ''; _shiftPage = 1; }))
                         : null,
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -303,7 +314,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     fillColor: _bgColor,
                   ),
                   style: const TextStyle(fontSize: 13),
-                  onChanged: (v) => setState(() => _searchQuery = v),
+                  onChanged: (v) => setState(() { _searchQuery = v; _shiftPage = 1; }),
                 ),
               ] else ...[
                 Row(
@@ -342,7 +353,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 18),
                                   onPressed: () =>
-                                      setState(() => _searchQuery = ''))
+                                      setState(() { _searchQuery = ''; _shiftPage = 1; }))
                               : null,
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -359,7 +370,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           fillColor: _bgColor,
                         ),
                         style: const TextStyle(fontSize: 13),
-                        onChanged: (v) => setState(() => _searchQuery = v),
+                        onChanged: (v) => setState(() { _searchQuery = v; _shiftPage = 1; }),
                       ),
                     ),
                   ],
@@ -2647,139 +2658,203 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 const SizedBox(height: 4),
                 Text('Bỏ trống = áp dụng cho tất cả nhân viên',
                     style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: () {
-                    setDialogState(() {
-                      if (selectedEmployeeIds.length == _employees.length) {
-                        selectedEmployeeIds.clear();
-                      } else {
-                        selectedEmployeeIds =
-                            _employees.map((e) => e.id).toList();
-                      }
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                if (_branches.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                        color: _bgColor,
-                        borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            topRight: Radius.circular(8)),
-                        border: Border.all(color: _borderColor)),
-                    child: Row(
-                      children: [
-                        Icon(
-                          selectedEmployeeIds.length == _employees.length
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 20,
-                          color: _primaryColor,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                            'Chọn tất cả (${selectedEmployeeIds.length}/${_employees.length})',
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: _textDark)),
-                      ],
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _borderColor),
                     ),
-                  ),
-                ),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: _borderColor),
-                    borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(8),
-                        bottomRight: Radius.circular(8)),
-                  ),
-                  child: _employees.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Center(
-                              child: Text('Chưa có nhân viên',
-                                  style: TextStyle(
-                                      color: _textMuted, fontSize: 13))))
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: _employees.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 24, color: _borderColor),
-                          itemBuilder: (_, i) {
-                            final emp = _employees[i];
-                            final isChecked =
-                                selectedEmployeeIds.contains(emp.id);
-                            return InkWell(
-                              onTap: () {
-                                setDialogState(() {
-                                  if (isChecked) {
-                                    selectedEmployeeIds.remove(emp.id);
-                                  } else {
-                                    selectedEmployeeIds.add(emp.id);
-                                  }
-                                });
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                        isChecked
-                                            ? Icons.check_box
-                                            : Icons.check_box_outline_blank,
-                                        size: 20,
-                                        color: isChecked
-                                            ? _primaryColor
-                                            : Colors.grey[400]),
-                                    const SizedBox(width: 10),
-                                    CircleAvatar(
-                                      radius: 14,
-                                      backgroundColor:
-                                          _badgeColors[i % _badgeColors.length]
-                                              .withValues(alpha: 0.15),
-                                      child: Text(
-                                          emp.fullName.isNotEmpty
-                                              ? emp.fullName[0]
-                                              : '?',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: _badgeColors[
-                                                  i % _badgeColors.length])),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(emp.fullName,
-                                              style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: _textDark)),
-                                          Text(
-                                              '${emp.department ?? ''} • ${emp.position ?? ''}',
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: _textMuted)),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(emp.employeeCode,
-                                        style: const TextStyle(
-                                            fontSize: 11, color: _textMuted)),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                    child: Row(children: [
+                      const Icon(Icons.account_tree_outlined,
+                          size: 15, color: Color(0xFF6B7280)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _filterBranchId,
+                            isExpanded: true,
+                            isDense: true,
+                            style:
+                                const TextStyle(fontSize: 12, color: _textDark),
+                            icon: const Icon(Icons.keyboard_arrow_down,
+                                size: 16, color: Color(0xFF9CA3AF)),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                      style: TextStyle(fontSize: 12))),
+                              ..._branches.map((b) => DropdownMenuItem<String?>(
+                                  value: b['id']?.toString(),
+                                  child: Text(b['name']?.toString() ?? '',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12)))),
+                            ],
+                            onChanged: (v) =>
+                                setDialogState(() => _filterBranchId = v),
+                          ),
                         ),
-                ),
+                      ),
+                      if (_filterBranchId != null)
+                        InkWell(
+                          onTap: () =>
+                              setDialogState(() => _filterBranchId = null),
+                          child: const Padding(
+                              padding: EdgeInsets.all(3),
+                              child: Icon(Icons.close,
+                                  size: 13, color: Color(0xFF9CA3AF))),
+                        ),
+                    ]),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Builder(builder: (ctx) {
+                  final displayEmps = _filterBranchId == null
+                      ? _employees
+                      : _employees
+                          .where((e) => e.branchId == _filterBranchId)
+                          .toList();
+                  return Column(mainAxisSize: MainAxisSize.min, children: [
+                    InkWell(
+                      onTap: () {
+                        setDialogState(() {
+                          if (selectedEmployeeIds.length ==
+                              displayEmps.length) {
+                            selectedEmployeeIds.clear();
+                          } else {
+                            selectedEmployeeIds =
+                                displayEmps.map((e) => e.id).toList();
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                            color: _bgColor,
+                            borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                topRight: Radius.circular(8)),
+                            border: Border.all(color: _borderColor)),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedEmployeeIds.length == displayEmps.length
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank,
+                              size: 20,
+                              color: _primaryColor,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                                'Chọn tất cả (${selectedEmployeeIds.length}/${displayEmps.length})',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: _textDark)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: _borderColor),
+                        borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(8),
+                            bottomRight: Radius.circular(8)),
+                      ),
+                      child: displayEmps.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Center(
+                                  child: Text('Chưa có nhân viên',
+                                      style: TextStyle(
+                                          color: _textMuted, fontSize: 13))))
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: displayEmps.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                  height: 24, color: _borderColor),
+                              itemBuilder: (_, i) {
+                                final emp = displayEmps[i];
+                                final isChecked =
+                                    selectedEmployeeIds.contains(emp.id);
+                                return InkWell(
+                                  onTap: () {
+                                    setDialogState(() {
+                                      if (isChecked) {
+                                        selectedEmployeeIds.remove(emp.id);
+                                      } else {
+                                        selectedEmployeeIds.add(emp.id);
+                                      }
+                                    });
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                            isChecked
+                                                ? Icons.check_box
+                                                : Icons.check_box_outline_blank,
+                                            size: 20,
+                                            color: isChecked
+                                                ? _primaryColor
+                                                : Colors.grey[400]),
+                                        const SizedBox(width: 10),
+                                        CircleAvatar(
+                                          radius: 14,
+                                          backgroundColor: _badgeColors[
+                                                  i % _badgeColors.length]
+                                              .withValues(alpha: 0.15),
+                                          child: Text(
+                                              emp.fullName.isNotEmpty
+                                                  ? emp.fullName[0]
+                                                  : '?',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _badgeColors[i %
+                                                      _badgeColors.length])),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(emp.fullName,
+                                                  style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: _textDark)),
+                                              Text(
+                                                  '${emp.department ?? ''} • ${emp.position ?? ''}',
+                                                  style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: _textMuted)),
+                                            ],
+                                          ),
+                                        ),
+                                        Text(emp.employeeCode,
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: _textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ]); // end Column
+                }), // end Builder
               ],
             ),
           );

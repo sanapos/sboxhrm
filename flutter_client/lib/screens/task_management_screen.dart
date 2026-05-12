@@ -56,6 +56,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   String? _assigneeFilter;
   DateTime? _fromDate, _toDate;
   bool _isMyTasks = false;
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
 
   // ---------- selection ----------
   final Set<String> _sel = {};
@@ -116,9 +118,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     } else {
       final r = await _api.getEmployees(pageSize: 500);
       if (mounted) {
-        setState(() => _employees = r.map((e) => Employee.fromJson(e)).toList());
+        setState(
+            () => _employees = r.map((e) => Employee.fromJson(e)).toList());
       }
     }
+    try {
+      final br = await _api.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadTasks() async {
@@ -168,8 +179,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Future<void> _loadStats() async {
-    final r = await _api.getTaskStatistics(
-        fromDate: _fromDate, toDate: _toDate);
+    final r =
+        await _api.getTaskStatistics(fromDate: _fromDate, toDate: _toDate);
     if (r['isSuccess'] == true && r['data'] != null && mounted) {
       setState(() => _stats = TaskStatistics.fromJson(r['data']));
     }
@@ -239,13 +250,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       ),
       floatingActionButton: showMobileDetail
           ? null
-          : Provider.of<PermissionProvider>(context, listen: false).canCreate('Task') ? FloatingActionButton.extended(
-              onPressed: _showCreateDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Tạo công việc'),
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
-            ) : null,
+          : Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Task')
+              ? FloatingActionButton.extended(
+                  onPressed: _showCreateDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tạo công việc'),
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  foregroundColor: Colors.white,
+                )
+              : null,
     );
   }
 
@@ -264,140 +278,178 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           LayoutBuilder(builder: (context, headerConstraints) {
             final isNarrow = headerConstraints.maxWidth < 600;
             return Padding(
-            padding: EdgeInsets.fromLTRB(isNarrow ? 12 : 20, isNarrow ? 8 : 16, isNarrow ? 8 : 20, 4),
-            child: Row(
-              children: [
-                if (!isNarrow) ...[
-                const Icon(Icons.task_alt,
-                    color: Color(0xFF1E3A5F), size: 28),
-                const SizedBox(width: 10),
-                const Text('Quản lý Công việc',
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF18181B))),
-                ],
-                if (isNarrow)
-                const Text('Công việc',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF18181B))),
-                const Spacer(),
-                if (_selectMode && _sel.isNotEmpty) ...[
-                  Text('${_sel.length} đã chọn',
-                      style: const TextStyle(
-                          color: Color(0xFF1E3A5F),
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  if (isNarrow) ...[
-                    IconButton(
-                      icon: const Icon(Icons.check_circle, size: 20),
-                      color: Colors.green,
-                      tooltip: 'Hoàn thành',
-                      onPressed: () => _batchStatus(WorkTaskStatus.completed),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person_add, size: 20),
-                      color: Colors.blue,
-                      tooltip: 'Giao việc',
-                      onPressed: _showBatchAssign,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, size: 20),
-                      color: Colors.red,
-                      tooltip: 'Xóa',
-                      onPressed: _confirmBatchDelete,
-                    ),
-                  ] else ...[
-                  _buildBatchBtn('Hoàn thành', Icons.check_circle,
-                      Colors.green, () => _batchStatus(WorkTaskStatus.completed)),
-                  const SizedBox(width: 4),
-                  _buildBatchBtn(
-                      'Giao việc', Icons.person_add, Colors.blue, _showBatchAssign),
-                  const SizedBox(width: 4),
-                  _buildBatchBtn(
-                      'Xóa', Icons.delete, Colors.red, _confirmBatchDelete),
+              padding: EdgeInsets.fromLTRB(
+                  isNarrow ? 12 : 20, isNarrow ? 8 : 16, isNarrow ? 8 : 20, 4),
+              child: Row(
+                children: [
+                  if (!isNarrow) ...[
+                    const Icon(Icons.task_alt,
+                        color: Color(0xFF1E3A5F), size: 28),
+                    const SizedBox(width: 10),
+                    const Text('Quản lý Công việc',
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF18181B))),
                   ],
-                  const SizedBox(width: 8),
-                ],
-                if (isNarrow)
-                  InkWell(
-                    onTap: () {
-                      setState(() { _isMyTasks = !_isMyTasks; _page = 1; });
-                      _loadTasks();
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _isMyTasks ? const Color(0xFF1E3A5F) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
+                  if (isNarrow)
+                    const Text('Công việc',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF18181B))),
+                  const Spacer(),
+                  if (_selectMode && _sel.isNotEmpty) ...[
+                    Text('${_sel.length} đã chọn',
+                        style: const TextStyle(
+                            color: Color(0xFF1E3A5F),
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    if (isNarrow) ...[
+                      IconButton(
+                        icon: const Icon(Icons.check_circle, size: 20),
+                        color: Colors.green,
+                        tooltip: 'Hoàn thành',
+                        onPressed: () => _batchStatus(WorkTaskStatus.completed),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.person, size: 14, color: _isMyTasks ? Colors.white : const Color(0xFF1E3A5F)),
-                        const SizedBox(width: 4),
-                        Text('Của tôi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _isMyTasks ? Colors.white : const Color(0xFF1E3A5F))),
-                      ]),
+                      IconButton(
+                        icon: const Icon(Icons.person_add, size: 20),
+                        color: Colors.blue,
+                        tooltip: 'Giao việc',
+                        onPressed: _showBatchAssign,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, size: 20),
+                        color: Colors.red,
+                        tooltip: 'Xóa',
+                        onPressed: _confirmBatchDelete,
+                      ),
+                    ] else ...[
+                      _buildBatchBtn(
+                          'Hoàn thành',
+                          Icons.check_circle,
+                          Colors.green,
+                          () => _batchStatus(WorkTaskStatus.completed)),
+                      const SizedBox(width: 4),
+                      _buildBatchBtn('Giao việc', Icons.person_add, Colors.blue,
+                          _showBatchAssign),
+                      const SizedBox(width: 4),
+                      _buildBatchBtn(
+                          'Xóa', Icons.delete, Colors.red, _confirmBatchDelete),
+                    ],
+                    const SizedBox(width: 8),
+                  ],
+                  if (isNarrow)
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isMyTasks = !_isMyTasks;
+                          _page = 1;
+                        });
+                        _loadTasks();
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _isMyTasks
+                              ? const Color(0xFF1E3A5F)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.person,
+                              size: 14,
+                              color: _isMyTasks
+                                  ? Colors.white
+                                  : const Color(0xFF1E3A5F)),
+                          const SizedBox(width: 4),
+                          Text('Của tôi',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isMyTasks
+                                      ? Colors.white
+                                      : const Color(0xFF1E3A5F))),
+                        ]),
+                      ),
                     ),
-                  ),
-                if (isNarrow) const SizedBox(width: 4),
-                if (isNarrow)
+                  if (isNarrow) const SizedBox(width: 4),
+                  if (isNarrow)
+                    IconButton(
+                      icon: Stack(
+                        children: [
+                          Icon(
+                              _showMobileFilters
+                                  ? Icons.filter_alt
+                                  : Icons.filter_alt_outlined,
+                              color: const Color(0xFF1E3A5F)),
+                          if (_search?.isNotEmpty == true ||
+                              _statusFilter != null ||
+                              _priorityFilter != null ||
+                              _typeFilter != null ||
+                              _assigneeFilter != null)
+                            Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                        color: Colors.orangeAccent,
+                                        shape: BoxShape.circle))),
+                        ],
+                      ),
+                      tooltip: 'Bộ lọc',
+                      onPressed: () => setState(
+                          () => _showMobileFilters = !_showMobileFilters),
+                    ),
                   IconButton(
-                    icon: Stack(
-                      children: [
-                        Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: const Color(0xFF1E3A5F)),
-                        if (_search?.isNotEmpty == true || _statusFilter != null || _priorityFilter != null || _typeFilter != null || _assigneeFilter != null)
-                          Positioned(right: 0, top: 0, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
-                      ],
-                    ),
-                    tooltip: 'Bộ lọc',
-                    onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
+                    icon: Icon(_selectMode ? Icons.close : Icons.checklist,
+                        color:
+                            _selectMode ? Colors.red : const Color(0xFF71717A)),
+                    tooltip: _selectMode ? 'Thoát chọn' : 'Chọn nhiều',
+                    onPressed: () => setState(() {
+                      _selectMode = !_selectMode;
+                      if (!_selectMode) _sel.clear();
+                    }),
                   ),
-                IconButton(
-                  icon: Icon(
-                      _selectMode ? Icons.close : Icons.checklist,
-                      color: _selectMode
-                          ? Colors.red
-                          : const Color(0xFF71717A)),
-                  tooltip: _selectMode ? 'Thoát chọn' : 'Chọn nhiều',
-                  onPressed: () => setState(() {
-                    _selectMode = !_selectMode;
-                    if (!_selectMode) _sel.clear();
-                  }),
-                ),
-              ],
-            ),
-          );
+                ],
+              ),
+            );
           }),
           LayoutBuilder(builder: (context, tabConstraints) {
             final tabNarrow = tabConstraints.maxWidth < 600;
             return TabBar(
-            controller: _tabCtrl,
-            indicatorColor: const Color(0xFF1E3A5F),
-            labelColor: const Color(0xFF1E3A5F),
-            unselectedLabelColor: const Color(0xFFA1A1AA),
-            labelPadding: tabNarrow ? const EdgeInsets.symmetric(horizontal: 4) : null,
-            labelStyle: TextStyle(fontSize: tabNarrow ? 12 : 14, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: TextStyle(fontSize: tabNarrow ? 12 : 14),
-            tabs: [
-              Tab(
-                height: tabNarrow ? 36 : null,
-                icon: tabNarrow ? null : const Icon(Icons.view_list_rounded),
-                text: 'Danh sách',
-              ),
-              Tab(
-                height: tabNarrow ? 36 : null,
-                icon: tabNarrow ? null : const Icon(Icons.view_kanban_rounded),
-                text: 'Kanban',
-              ),
-              Tab(
-                height: tabNarrow ? 36 : null,
-                icon: tabNarrow ? null : const Icon(Icons.analytics_rounded),
-                text: 'Tổng kết',
-              ),
-            ],
-          );
+              controller: _tabCtrl,
+              indicatorColor: const Color(0xFF1E3A5F),
+              labelColor: const Color(0xFF1E3A5F),
+              unselectedLabelColor: const Color(0xFFA1A1AA),
+              labelPadding:
+                  tabNarrow ? const EdgeInsets.symmetric(horizontal: 4) : null,
+              labelStyle: TextStyle(
+                  fontSize: tabNarrow ? 12 : 14, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: TextStyle(fontSize: tabNarrow ? 12 : 14),
+              tabs: [
+                Tab(
+                  height: tabNarrow ? 36 : null,
+                  icon: tabNarrow ? null : const Icon(Icons.view_list_rounded),
+                  text: 'Danh sách',
+                ),
+                Tab(
+                  height: tabNarrow ? 36 : null,
+                  icon:
+                      tabNarrow ? null : const Icon(Icons.view_kanban_rounded),
+                  text: 'Kanban',
+                ),
+                Tab(
+                  height: tabNarrow ? 36 : null,
+                  icon: tabNarrow ? null : const Icon(Icons.analytics_rounded),
+                  text: 'Tổng kết',
+                ),
+              ],
+            );
           }),
         ],
       ),
@@ -422,96 +474,163 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     // Calculate summary counts for mobile quick stats
     final myTasks = _tasks;
     final overdueCount = myTasks.where((t) => t.isOverdue).length;
-    final inProgressCount = myTasks.where((t) => t.status == WorkTaskStatus.inProgress).length;
-    final todoCount = myTasks.where((t) => t.status == WorkTaskStatus.todo).length;
-    final completedCount = myTasks.where((t) => t.status == WorkTaskStatus.completed).length;
+    final inProgressCount =
+        myTasks.where((t) => t.status == WorkTaskStatus.inProgress).length;
+    final todoCount =
+        myTasks.where((t) => t.status == WorkTaskStatus.todo).length;
+    final completedCount =
+        myTasks.where((t) => t.status == WorkTaskStatus.completed).length;
 
     return Column(
       children: [
         if (!isMobile || _showMobileFilters) _buildFilters(),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async { await _loadTasks(); await _loadStats(); },
+            onRefresh: () async {
+              await _loadTasks();
+              await _loadStats();
+            },
             child: _tasks.isEmpty
                 ? ListView(children: [
                     const SizedBox(height: 80),
-                    Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Center(
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
                       Container(
                         padding: const EdgeInsets.all(20),
-                        decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
-                        child: Icon(Icons.task_alt, size: 48, color: Colors.grey[400]),
+                        decoration: const BoxDecoration(
+                            color: Color(0xFFF1F5F9), shape: BoxShape.circle),
+                        child: Icon(Icons.task_alt,
+                            size: 48, color: Colors.grey[400]),
                       ),
                       const SizedBox(height: 16),
-                      Text('Chưa có công việc nào', style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w500)),
+                      Text('Chưa có công việc nào',
+                          style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500)),
                       const SizedBox(height: 4),
-                      Text('Nhấn nút + để tạo công việc mới', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                      Text('Nhấn nút + để tạo công việc mới',
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 13)),
                     ])),
                   ])
                 : isMobile
-                  ? ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
-                      itemCount: _tasks.length + 1, // +1 for summary header
-                      itemBuilder: (_, i) {
-                        if (i == 0) {
-                          // ── Quick stats summary ──
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8, bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(children: [
-                                    _taskStatChip(Icons.pending_actions, '$todoCount', 'Chờ làm', const Color(0xFFA1A1AA), () { setState(() { _statusFilter = WorkTaskStatus.todo; _page = 1; }); _loadTasks(); }),
-                                    const SizedBox(width: 6),
-                                    _taskStatChip(Icons.play_circle_filled, '$inProgressCount', 'Đang làm', const Color(0xFF1E3A5F), () { setState(() { _statusFilter = WorkTaskStatus.inProgress; _page = 1; }); _loadTasks(); }),
-                                    const SizedBox(width: 6),
-                                    _taskStatChip(Icons.check_circle, '$completedCount', 'Xong', const Color(0xFF22C55E), () { setState(() { _statusFilter = WorkTaskStatus.completed; _page = 1; }); _loadTasks(); }),
-                                    if (overdueCount > 0) ...[
+                    ? ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+                        itemCount: _tasks.length + 1, // +1 for summary header
+                        itemBuilder: (_, i) {
+                          if (i == 0) {
+                            // ── Quick stats summary ──
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8, bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(children: [
+                                      _taskStatChip(
+                                          Icons.pending_actions,
+                                          '$todoCount',
+                                          'Chờ làm',
+                                          const Color(0xFFA1A1AA), () {
+                                        setState(() {
+                                          _statusFilter = WorkTaskStatus.todo;
+                                          _page = 1;
+                                        });
+                                        _loadTasks();
+                                      }),
                                       const SizedBox(width: 6),
-                                      _taskStatChip(Icons.warning_amber, '$overdueCount', 'Trễ hạn', const Color(0xFFEF4444), () {}),
-                                    ],
-                                  ]),
-                                ),
-                                if (_total > 0) Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text('$_total công việc${_isMyTasks ? ' của tôi' : ''}', style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
-                                ),
-                              ],
+                                      _taskStatChip(
+                                          Icons.play_circle_filled,
+                                          '$inProgressCount',
+                                          'Đang làm',
+                                          const Color(0xFF1E3A5F), () {
+                                        setState(() {
+                                          _statusFilter =
+                                              WorkTaskStatus.inProgress;
+                                          _page = 1;
+                                        });
+                                        _loadTasks();
+                                      }),
+                                      const SizedBox(width: 6),
+                                      _taskStatChip(
+                                          Icons.check_circle,
+                                          '$completedCount',
+                                          'Xong',
+                                          const Color(0xFF22C55E), () {
+                                        setState(() {
+                                          _statusFilter =
+                                              WorkTaskStatus.completed;
+                                          _page = 1;
+                                        });
+                                        _loadTasks();
+                                      }),
+                                      if (overdueCount > 0) ...[
+                                        const SizedBox(width: 6),
+                                        _taskStatChip(
+                                            Icons.warning_amber,
+                                            '$overdueCount',
+                                            'Trễ hạn',
+                                            const Color(0xFFEF4444),
+                                            () {}),
+                                      ],
+                                    ]),
+                                  ),
+                                  if (_total > 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                          '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFFA1A1AA))),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }
+                          final task = _tasks[i - 1];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: task.isOverdue
+                                        ? const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.3)
+                                        : const Color(0xFFE4E4E7)),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2)),
+                                ],
+                              ),
+                              child: _buildTaskDeckItem(task),
                             ),
                           );
-                        }
-                        final task = _tasks[i - 1];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: task.isOverdue ? const Color(0xFFEF4444).withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
-                              ],
-                            ),
-                            child: _buildTaskDeckItem(task),
-                          ),
-                        );
-                      },
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _tasks.length + 1,
-                      itemBuilder: (_, i) => i == _tasks.length
-                          ? _buildPagination()
-                          : _buildTaskCard(_tasks[i]),
-                    ),
+                        },
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _tasks.length + 1,
+                        itemBuilder: (_, i) => i == _tasks.length
+                            ? _buildPagination()
+                            : _buildTaskCard(_tasks[i]),
+                      ),
           ),
         ),
       ],
     );
   }
 
-  Widget _taskStatChip(IconData icon, String value, String label, Color color, VoidCallback onTap) {
+  Widget _taskStatChip(IconData icon, String value, String label, Color color,
+      VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -525,9 +644,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8))),
+          Text(label,
+              style:
+                  TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8))),
         ]),
       ),
     );
@@ -550,12 +673,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     prefixIcon: const Icon(Icons.search, size: 20),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: Color(0xFFE4E4E7))),
+                        borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                     enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: Color(0xFFE4E4E7))),
+                        borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     filled: true,
@@ -589,7 +710,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   label: Text('Của tôi',
                       style: TextStyle(
                           fontSize: 12,
-                          color: _isMyTasks ? Colors.white : const Color(0xFF1E3A5F))),
+                          color: _isMyTasks
+                              ? Colors.white
+                              : const Color(0xFF1E3A5F))),
                   selected: _isMyTasks,
                   onSelected: (_) {
                     setState(() {
@@ -600,7 +723,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   },
                   avatar: Icon(Icons.person,
                       size: 16,
-                      color: _isMyTasks ? Colors.white : const Color(0xFF1E3A5F)),
+                      color:
+                          _isMyTasks ? Colors.white : const Color(0xFF1E3A5F)),
                   backgroundColor: const Color(0xFFE0F2FE),
                   selectedColor: const Color(0xFF1E3A5F),
                   checkmarkColor: Colors.white,
@@ -638,11 +762,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         : 'Người thực hiện',
                     _assigneeFilter != null,
                     _showAssigneeFilter),
-                const SizedBox(width: 8),
-                if (_statusFilter != null ||
-                    _priorityFilter != null ||
+                const SizedBox(width: 6),
+                if (_branches.isNotEmpty) _branchChipFilter(),
+                if (_priorityFilter != null ||
                     _typeFilter != null ||
                     _assigneeFilter != null ||
+                    _filterBranchId != null ||
                     _fromDate != null ||
                     _isMyTasks)
                   TextButton.icon(
@@ -675,8 +800,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           firstDate: DateTime(2020),
           lastDate: DateTime(2030),
           initialDateRange: _fromDate != null
-              ? DateTimeRange(
-                  start: _fromDate!, end: _toDate ?? DateTime.now())
+              ? DateTimeRange(start: _fromDate!, end: _toDate ?? DateTime.now())
               : null,
         );
         if (range != null) {
@@ -761,6 +885,56 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         },
       );
 
+  Widget _branchChipFilter() {
+    final selected = _filterBranchId != null;
+    final branchName = selected
+        ? _branches
+                .firstWhere((b) => b['id']?.toString() == _filterBranchId,
+                    orElse: () => {})['name']
+                ?.toString() ??
+            'Chi nhánh'
+        : 'Chi nhánh';
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        context: context,
+        builder: (_) => ListView(shrinkWrap: true, children: [
+          ListTile(
+            title: const Text('Tất cả chi nhánh'),
+            leading: const Icon(Icons.all_inclusive),
+            onTap: () {
+              setState(() => _filterBranchId = null);
+              Navigator.pop(context);
+            },
+          ),
+          ..._branches.map((b) => ListTile(
+                title: Text(b['name']?.toString() ?? ''),
+                leading: const Icon(Icons.account_tree_outlined),
+                selected: _filterBranchId == b['id']?.toString(),
+                onTap: () {
+                  setState(() => _filterBranchId = b['id']?.toString());
+                  Navigator.pop(context);
+                },
+              )),
+        ]),
+      ),
+      child: Chip(
+        avatar: Icon(Icons.account_tree_outlined,
+            size: 16, color: selected ? Colors.white : const Color(0xFF71717A)),
+        label: Text(branchName,
+            style: TextStyle(
+                fontSize: 12,
+                color: selected ? Colors.white : const Color(0xFF71717A))),
+        backgroundColor:
+            selected ? const Color(0xFF1E3A5F) : const Color(0xFFF1F5F9),
+        deleteIcon: selected
+            ? const Icon(Icons.close, size: 14, color: Colors.white)
+            : null,
+        onDeleted:
+            selected ? () => setState(() => _filterBranchId = null) : null,
+      ),
+    );
+  }
+
   void _showAssigneeFilter() {
     showModalBottomSheet(
         context: context,
@@ -775,21 +949,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       Navigator.pop(context);
                       _loadTasks();
                     }),
-                ..._employees.map((e) => ListTile(
-                      title: Text(e.fullName),
-                      subtitle: Text(e.employeeCode),
-                      leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF1E3A5F),
-                          child: Text(
-                              e.firstName.isNotEmpty ? e.firstName[0] : '?',
-                              style: const TextStyle(color: Colors.white))),
-                      selected: _assigneeFilter == e.id,
-                      onTap: () {
-                        setState(() => _assigneeFilter = e.id);
-                        Navigator.pop(context);
-                        _loadTasks();
-                      },
-                    )),
+                ...(_filterBranchId != null
+                        ? _employees.where((e) => e.branchId == _filterBranchId)
+                        : _employees.cast<Employee>())
+                    .map((e) => ListTile(
+                          title: Text(e.fullName),
+                          subtitle: Text(e.employeeCode),
+                          leading: CircleAvatar(
+                              backgroundColor: const Color(0xFF1E3A5F),
+                              child: Text(
+                                  e.firstName.isNotEmpty ? e.firstName[0] : '?',
+                                  style: const TextStyle(color: Colors.white))),
+                          selected: _assigneeFilter == e.id,
+                          onTap: () {
+                            setState(() => _assigneeFilter = e.id);
+                            Navigator.pop(context);
+                            _loadTasks();
+                          },
+                        )),
               ],
             ));
   }
@@ -839,6 +1016,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       _fromDate = null;
       _toDate = null;
       _isMyTasks = false;
+      _filterBranchId = null;
     });
     _loadTasks();
   }
@@ -852,13 +1030,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       borderRadius: BorderRadius.circular(12),
       onTap: () {
         if (_selectMode) {
-          setState(() { isSel ? _sel.remove(t.id) : _sel.add(t.id); });
+          setState(() {
+            isSel ? _sel.remove(t.id) : _sel.add(t.id);
+          });
         } else {
           _loadDetail(t.id);
         }
       },
       onLongPress: () {
-        if (!_selectMode) setState(() { _selectMode = true; _sel.add(t.id); });
+        if (!_selectMode) {
+          setState(() {
+            _selectMode = true;
+            _sel.add(t.id);
+          });
+        }
       },
       child: Column(
         children: [
@@ -867,7 +1052,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             height: 3,
             decoration: BoxDecoration(
               color: _priorityColor(t.priority),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
           ),
           Padding(
@@ -881,8 +1067,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: SizedBox(
-                        width: 20, height: 20,
-                        child: Checkbox(value: isSel, onChanged: (v) => setState(() { v == true ? _sel.add(t.id) : _sel.remove(t.id); }), visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                        width: 20,
+                        height: 20,
+                        child: Checkbox(
+                            value: isSel,
+                            onChanged: (v) => setState(() {
+                                  v == true
+                                      ? _sel.add(t.id)
+                                      : _sel.remove(t.id);
+                                }),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap),
                       ),
                     ),
                   Container(
@@ -891,10 +1087,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       color: _taskTypeColor(t.taskType).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Icon(_taskTypeIcon(t.taskType), color: _taskTypeColor(t.taskType), size: 14),
+                    child: Icon(_taskTypeIcon(t.taskType),
+                        color: _taskTypeColor(t.taskType), size: 14),
                   ),
                   const SizedBox(width: 8),
-                  Text(t.taskCode, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7))),
+                  Text(t.taskCode,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              const Color(0xFF1E3A5F).withValues(alpha: 0.7))),
                   const Spacer(),
                   _statusBadge(t.status),
                   const SizedBox(width: 6),
@@ -902,13 +1104,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 ]),
                 const SizedBox(height: 8),
                 // ── Row 2: Title ──
-                Text(t.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(t.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Color(0xFF18181B)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
                 if (t.description != null && t.description!.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Text(t.description!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
+                  Text(t.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Color(0xFFA1A1AA), fontSize: 12)),
                 ],
                 // ── Row 3: Progress bar (if any) ──
-                if (t.progress > 0 || t.status == WorkTaskStatus.inProgress) ...[
+                if (t.progress > 0 ||
+                    t.status == WorkTaskStatus.inProgress) ...[
                   const SizedBox(height: 8),
                   Row(children: [
                     Expanded(
@@ -918,12 +1131,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           value: t.progress / 100,
                           minHeight: 5,
                           backgroundColor: const Color(0xFFE4E4E7),
-                          valueColor: AlwaysStoppedAnimation(_progressColor(t.progress)),
+                          valueColor: AlwaysStoppedAnimation(
+                              _progressColor(t.progress)),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('${t.progress}%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _progressColor(t.progress))),
+                    Text('${t.progress}%',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _progressColor(t.progress))),
                   ]),
                 ],
                 const SizedBox(height: 8),
@@ -933,60 +1151,98 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     CircleAvatar(
                       radius: 11,
                       backgroundColor: const Color(0xFF1E3A5F),
-                      child: Text(t.assigneeName![0], style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600)),
+                      child: Text(t.assigneeName![0],
+                          style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 5),
                     Flexible(
-                      child: Text(t.assigneeName!, style: const TextStyle(color: Color(0xFF71717A), fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Text(t.assigneeName!,
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
                   ],
                   if (deadlineInfo != null) ...[
-                    Icon(deadlineInfo['icon'] as IconData, size: 13, color: deadlineInfo['color'] as Color),
+                    Icon(deadlineInfo['icon'] as IconData,
+                        size: 13, color: deadlineInfo['color'] as Color),
                     const SizedBox(width: 3),
-                    Text(deadlineInfo['text'] as String, style: TextStyle(fontSize: 10, color: deadlineInfo['color'] as Color, fontWeight: FontWeight.w600)),
+                    Text(deadlineInfo['text'] as String,
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: deadlineInfo['color'] as Color,
+                            fontWeight: FontWeight.w600)),
                   ],
                   const Spacer(),
                   // Quick action counters
                   if (t.hasSubTasks) ...[
-                    const Icon(Icons.checklist, size: 12, color: Color(0xFFA1A1AA)),
+                    const Icon(Icons.checklist,
+                        size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 2),
-                    Text('${t.completedSubTaskCount}/${t.subTaskCount}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                    Text('${t.completedSubTaskCount}/${t.subTaskCount}',
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 6),
                   ],
                   if (t.hasComments) ...[
-                    const Icon(Icons.chat_bubble_outline, size: 12, color: Color(0xFFA1A1AA)),
+                    const Icon(Icons.chat_bubble_outline,
+                        size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 2),
-                    Text('${t.commentCount}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                    Text('${t.commentCount}',
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 6),
                   ],
                   if (t.estimatedHours != null) ...[
-                    const Icon(Icons.access_time, size: 12, color: Color(0xFFA1A1AA)),
+                    const Icon(Icons.access_time,
+                        size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 2),
-                    Text('${t.actualHours ?? 0}/${t.estimatedHours}h', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                    Text('${t.actualHours ?? 0}/${t.estimatedHours}h',
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFFA1A1AA))),
                   ],
                 ]),
                 // ── Row 5: Quick action buttons (for non-completed tasks) ──
-                if (t.status != WorkTaskStatus.completed && t.status != WorkTaskStatus.cancelled) ...[
+                if (t.status != WorkTaskStatus.completed &&
+                    t.status != WorkTaskStatus.cancelled) ...[
                   const SizedBox(height: 8),
                   const Divider(height: 1),
                   const SizedBox(height: 6),
                   Row(children: [
                     if (t.status == WorkTaskStatus.todo)
-                      _quickActionBtn('Bắt đầu', Icons.play_arrow_rounded, const Color(0xFF1E3A5F),
+                      _quickActionBtn(
+                          'Bắt đầu',
+                          Icons.play_arrow_rounded,
+                          const Color(0xFF1E3A5F),
                           () => _updateStatus(t.id, WorkTaskStatus.inProgress)),
                     if (t.status == WorkTaskStatus.inProgress) ...[
-                      _quickActionBtn('Tiến độ', Icons.trending_up, const Color(0xFF1E3A5F),
+                      _quickActionBtn(
+                          'Tiến độ',
+                          Icons.trending_up,
+                          const Color(0xFF1E3A5F),
                           () => _updateProgress(t.id, t.progress)),
                       const SizedBox(width: 6),
-                      _quickActionBtn('Hoàn thành', Icons.check_circle_outline, const Color(0xFF22C55E),
+                      _quickActionBtn(
+                          'Hoàn thành',
+                          Icons.check_circle_outline,
+                          const Color(0xFF22C55E),
                           () => _updateStatus(t.id, WorkTaskStatus.completed)),
                     ],
                     if (t.status == WorkTaskStatus.inReview)
-                      _quickActionBtn('Duyệt xong', Icons.verified, const Color(0xFF22C55E),
+                      _quickActionBtn(
+                          'Duyệt xong',
+                          Icons.verified,
+                          const Color(0xFF22C55E),
                           () => _updateStatus(t.id, WorkTaskStatus.completed)),
                     if (t.status == WorkTaskStatus.onHold)
-                      _quickActionBtn('Tiếp tục', Icons.play_arrow_rounded, const Color(0xFF1E3A5F),
+                      _quickActionBtn(
+                          'Tiếp tục',
+                          Icons.play_arrow_rounded,
+                          const Color(0xFF1E3A5F),
                           () => _updateStatus(t.id, WorkTaskStatus.inProgress)),
                     const Spacer(),
                     InkWell(
@@ -994,7 +1250,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       borderRadius: BorderRadius.circular(8),
                       child: const Padding(
                         padding: EdgeInsets.all(4),
-                        child: Icon(Icons.more_horiz, size: 18, color: Color(0xFFA1A1AA)),
+                        child: Icon(Icons.more_horiz,
+                            size: 18, color: Color(0xFFA1A1AA)),
                       ),
                     ),
                   ]),
@@ -1007,7 +1264,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  Widget _quickActionBtn(String label, IconData icon, Color color, VoidCallback onTap) {
+  Widget _quickActionBtn(
+      String label, IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1021,38 +1279,60 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
         ]),
       ),
     );
   }
 
   void _showTaskQuickMenu(WorkTask t) {
-    final canEdit = Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
-    final canDelete = Provider.of<PermissionProvider>(context, listen: false).canDelete('Task');
+    final canEdit =
+        Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
+    final canDelete = Provider.of<PermissionProvider>(context, listen: false)
+        .canDelete('Task');
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             margin: const EdgeInsets.only(top: 8),
-            width: 40, height: 4,
-            decoration: BoxDecoration(color: const Color(0xFFE4E4E7), borderRadius: BorderRadius.circular(2)),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+                color: const Color(0xFFE4E4E7),
+                borderRadius: BorderRadius.circular(2)),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: _taskTypeColor(t.taskType).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Icon(_taskTypeIcon(t.taskType), color: _taskTypeColor(t.taskType), size: 20),
+                decoration: BoxDecoration(
+                    color: _taskTypeColor(t.taskType).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Icon(_taskTypeIcon(t.taskType),
+                    color: _taskTypeColor(t.taskType), size: 20),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t.taskCode, style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
-                Text(t.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(t.taskCode,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF1E3A5F),
+                            fontWeight: FontWeight.w600)),
+                    Text(t.title,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ])),
               _statusBadge(t.status),
             ]),
           ),
@@ -1061,20 +1341,29 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             leading: const Icon(Icons.visibility, color: Color(0xFF1E3A5F)),
             title: const Text('Xem chi tiết'),
             dense: true,
-            onTap: () { Navigator.pop(ctx); _loadDetail(t.id); },
+            onTap: () {
+              Navigator.pop(ctx);
+              _loadDetail(t.id);
+            },
           ),
           if (canEdit)
             ListTile(
               leading: const Icon(Icons.edit, color: Color(0xFF1E3A5F)),
               title: const Text('Chỉnh sửa'),
               dense: true,
-              onTap: () { Navigator.pop(ctx); _showEditDialog(t); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditDialog(t);
+              },
             ),
           ListTile(
             leading: const Icon(Icons.trending_up, color: Color(0xFF1E3A5F)),
             title: const Text('Cập nhật tiến độ'),
             dense: true,
-            onTap: () { Navigator.pop(ctx); _updateProgress(t.id, t.progress); },
+            onTap: () {
+              Navigator.pop(ctx);
+              _updateProgress(t.id, t.progress);
+            },
           ),
           ListTile(
             leading: const Icon(Icons.swap_horiz, color: Color(0xFF1E3A5F)),
@@ -1086,23 +1375,35 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             },
           ),
           ListTile(
-            leading: const Icon(Icons.notifications_active, color: Color(0xFFF59E0B)),
+            leading: const Icon(Icons.notifications_active,
+                color: Color(0xFFF59E0B)),
             title: const Text('Đốc thúc'),
             dense: true,
-            onTap: () { Navigator.pop(ctx); _showReminderDialog(t); },
+            onTap: () {
+              Navigator.pop(ctx);
+              _showReminderDialog(t);
+            },
           ),
           ListTile(
             leading: const Icon(Icons.star_rate, color: Color(0xFFF59E0B)),
             title: const Text('Đánh giá'),
             dense: true,
-            onTap: () { Navigator.pop(ctx); _showEvaluationDialog(t); },
+            onTap: () {
+              Navigator.pop(ctx);
+              _showEvaluationDialog(t);
+            },
           ),
           if (canDelete)
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
-              title: const Text('Xóa', style: TextStyle(color: Color(0xFFEF4444))),
+              leading:
+                  const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+              title:
+                  const Text('Xóa', style: TextStyle(color: Color(0xFFEF4444))),
               dense: true,
-              onTap: () { Navigator.pop(ctx); _confirmDeleteTask(t); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDeleteTask(t);
+              },
             ),
           const SizedBox(height: 8),
         ]),
@@ -1113,23 +1414,39 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   void _showStatusChangeSheet(WorkTask t) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             margin: const EdgeInsets.only(top: 8),
-            width: 40, height: 4,
-            decoration: BoxDecoration(color: const Color(0xFFE4E4E7), borderRadius: BorderRadius.circular(2)),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+                color: const Color(0xFFE4E4E7),
+                borderRadius: BorderRadius.circular(2)),
           ),
-          const Padding(padding: EdgeInsets.all(16), child: Text('Đổi trạng thái', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          ...WorkTaskStatus.values.where((s) => s != WorkTaskStatus.cancelled).map((s) => ListTile(
-            leading: Icon(_statusIcon(s), color: _statusColor(s)),
-            title: Text(getTaskStatusLabel(s)),
-            selected: t.status == s,
-            selectedTileColor: _statusColor(s).withValues(alpha: 0.08),
-            trailing: t.status == s ? const Icon(Icons.check, color: Color(0xFF1E3A5F)) : null,
-            onTap: t.status == s ? null : () { Navigator.pop(ctx); _updateStatus(t.id, s); },
-          )),
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Đổi trạng thái',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          ...WorkTaskStatus.values
+              .where((s) => s != WorkTaskStatus.cancelled)
+              .map((s) => ListTile(
+                    leading: Icon(_statusIcon(s), color: _statusColor(s)),
+                    title: Text(getTaskStatusLabel(s)),
+                    selected: t.status == s,
+                    selectedTileColor: _statusColor(s).withValues(alpha: 0.08),
+                    trailing: t.status == s
+                        ? const Icon(Icons.check, color: Color(0xFF1E3A5F))
+                        : null,
+                    onTap: t.status == s
+                        ? null
+                        : () {
+                            Navigator.pop(ctx);
+                            _updateStatus(t.id, s);
+                          },
+                  )),
           const SizedBox(height: 8),
         ]),
       ),
@@ -1137,8 +1454,15 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Map<String, dynamic>? _getDeadlineInfo(WorkTask t) {
-    if (t.status == WorkTaskStatus.completed || t.status == WorkTaskStatus.cancelled) {
-      if (t.completedDate != null) return {'icon': Icons.check_circle, 'color': const Color(0xFF22C55E), 'text': 'Xong ${DateFormat('dd/MM').format(t.completedDate!)}'};
+    if (t.status == WorkTaskStatus.completed ||
+        t.status == WorkTaskStatus.cancelled) {
+      if (t.completedDate != null) {
+        return {
+          'icon': Icons.check_circle,
+          'color': const Color(0xFF22C55E),
+          'text': 'Xong ${DateFormat('dd/MM').format(t.completedDate!)}'
+        };
+      }
       return null;
     }
     if (t.dueDate == null) return null;
@@ -1146,14 +1470,46 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final diff = t.dueDate!.difference(now);
     if (diff.isNegative) {
       final days = diff.inDays.abs();
-      if (days == 0) return {'icon': Icons.warning_amber, 'color': const Color(0xFFEF4444), 'text': 'Trễ hôm nay'};
-      return {'icon': Icons.error_outline, 'color': const Color(0xFFEF4444), 'text': 'Trễ $days ngày'};
+      if (days == 0) {
+        return {
+          'icon': Icons.warning_amber,
+          'color': const Color(0xFFEF4444),
+          'text': 'Trễ hôm nay'
+        };
+      }
+      return {
+        'icon': Icons.error_outline,
+        'color': const Color(0xFFEF4444),
+        'text': 'Trễ $days ngày'
+      };
     } else {
       final days = diff.inDays;
-      if (days == 0) return {'icon': Icons.schedule, 'color': const Color(0xFFF59E0B), 'text': 'Hết hạn hôm nay'};
-      if (days == 1) return {'icon': Icons.schedule, 'color': const Color(0xFFF59E0B), 'text': 'Còn 1 ngày'};
-      if (days <= 3) return {'icon': Icons.schedule, 'color': const Color(0xFFF59E0B), 'text': 'Còn $days ngày'};
-      return {'icon': Icons.event, 'color': const Color(0xFFA1A1AA), 'text': DateFormat('dd/MM').format(t.dueDate!)};
+      if (days == 0) {
+        return {
+          'icon': Icons.schedule,
+          'color': const Color(0xFFF59E0B),
+          'text': 'Hết hạn hôm nay'
+        };
+      }
+      if (days == 1) {
+        return {
+          'icon': Icons.schedule,
+          'color': const Color(0xFFF59E0B),
+          'text': 'Còn 1 ngày'
+        };
+      }
+      if (days <= 3) {
+        return {
+          'icon': Icons.schedule,
+          'color': const Color(0xFFF59E0B),
+          'text': 'Còn $days ngày'
+        };
+      }
+      return {
+        'icon': Icons.event,
+        'color': const Color(0xFFA1A1AA),
+        'text': DateFormat('dd/MM').format(t.dueDate!)
+      };
     }
   }
 
@@ -1168,9 +1524,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-            color: isActive
-                ? const Color(0xFF1E3A5F)
-                : const Color(0xFFE4E4E7),
+            color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFFE4E4E7),
             width: isActive ? 1.5 : 0.5),
       ),
       child: InkWell(
@@ -1196,8 +1550,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border(
-                left:
-                    BorderSide(color: _priorityColor(t.priority), width: 4)),
+                left: BorderSide(color: _priorityColor(t.priority), width: 4)),
           ),
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -1209,16 +1562,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     Checkbox(
                         value: isSel,
                         onChanged: (v) => setState(() {
-                              v == true
-                                  ? _sel.add(t.id)
-                                  : _sel.remove(t.id);
+                              v == true ? _sel.add(t.id) : _sel.remove(t.id);
                             }),
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize:
                             MaterialTapTargetSize.shrinkWrap),
                   Icon(_taskTypeIcon(t.taskType),
-                      size: 15,
-                      color: _taskTypeColor(t.taskType)),
+                      size: 15, color: _taskTypeColor(t.taskType)),
                   const SizedBox(width: 5),
                   Text(t.taskCode,
                       style: const TextStyle(
@@ -1255,8 +1605,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         value: t.progress / 100,
                         minHeight: 6,
                         backgroundColor: const Color(0xFFE4E4E7),
-                        valueColor: AlwaysStoppedAnimation(
-                            _progressColor(t.progress))),
+                        valueColor:
+                            AlwaysStoppedAnimation(_progressColor(t.progress))),
                   )),
                   const SizedBox(width: 8),
                   Text('${t.progress}%',
@@ -1285,9 +1635,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   if (t.dueDate != null) ...[
                     Icon(Icons.event,
                         size: 13,
-                        color: t.isOverdue
-                            ? Colors.red
-                            : const Color(0xFFA1A1AA)),
+                        color:
+                            t.isOverdue ? Colors.red : const Color(0xFFA1A1AA)),
                     const SizedBox(width: 3),
                     Text(DateFormat('dd/MM/yyyy').format(t.dueDate!),
                         style: TextStyle(
@@ -1353,8 +1702,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8)),
-          child: Text('Hiển thị ${(_page - 1) * _pageSize + 1}-${(_page * _pageSize).clamp(0, _total)} / $_total',
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+          child: Text(
+              'Hiển thị ${(_page - 1) * _pageSize + 1}-${(_page * _pageSize).clamp(0, _total)} / $_total',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
         ),
         IconButton(
             icon: const Icon(Icons.chevron_right),
@@ -1378,7 +1729,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       if (constraints.maxWidth < 600) {
         return ListView(
           padding: const EdgeInsets.all(12),
-          children: _kanban!.columns.map((c) => _buildKanbanColMobile(c)).toList(),
+          children:
+              _kanban!.columns.map((c) => _buildKanbanColMobile(c)).toList(),
         );
       }
       return SingleChildScrollView(
@@ -1386,8 +1738,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         padding: const EdgeInsets.all(12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children:
-              _kanban!.columns.map((c) => _buildKanbanCol(c)).toList(),
+          children: _kanban!.columns.map((c) => _buildKanbanCol(c)).toList(),
         ),
       );
     });
@@ -1407,25 +1758,38 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _statusColor(col.status).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              border: Border(bottom: BorderSide(color: _statusColor(col.status), width: 2)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              border: Border(
+                  bottom:
+                      BorderSide(color: _statusColor(col.status), width: 2)),
             ),
             child: Row(children: [
-              Icon(_statusIcon(col.status), color: _statusColor(col.status), size: 20),
+              Icon(_statusIcon(col.status),
+                  color: _statusColor(col.status), size: 20),
               const SizedBox(width: 8),
-              Text(getTaskStatusLabel(col.status), style: TextStyle(fontWeight: FontWeight.bold, color: _statusColor(col.status))),
+              Text(getTaskStatusLabel(col.status),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _statusColor(col.status))),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: _statusColor(col.status), borderRadius: BorderRadius.circular(10)),
-                child: Text('${col.taskCount}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                decoration: BoxDecoration(
+                    color: _statusColor(col.status),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text('${col.taskCount}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
               ),
             ]),
           ),
           ...col.tasks.map((t) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: _buildKanbanCard(t),
-          )),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: _buildKanbanCard(t),
+              )),
         ],
       ),
     );
@@ -1444,8 +1808,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
               border: Border(
-                  bottom: BorderSide(
-                      color: _statusColor(col.status), width: 2)),
+                  bottom:
+                      BorderSide(color: _statusColor(col.status), width: 2)),
             ),
             child: Row(children: [
               Icon(_statusIcon(col.status),
@@ -1457,8 +1821,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       color: _statusColor(col.status))),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                     color: _statusColor(col.status),
                     borderRadius: BorderRadius.circular(10)),
@@ -1472,18 +1835,15 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ),
           Expanded(
             child: DragTarget<WorkTask>(
-              onWillAcceptWithDetails: (d) =>
-                  d.data.status != col.status,
-              onAcceptWithDetails: (d) =>
-                  _updateStatus(d.data.id, col.status),
+              onWillAcceptWithDetails: (d) => d.data.status != col.status,
+              onAcceptWithDetails: (d) => _updateStatus(d.data.id, col.status),
               builder: (ctx, candidate, _) => Container(
                 decoration: BoxDecoration(
                   color: candidate.isNotEmpty
-                      ? _statusColor(col.status)
-                          .withValues(alpha: 0.05)
+                      ? _statusColor(col.status).withValues(alpha: 0.05)
                       : const Color(0xFFFAFAFA),
-                  borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(bottom: Radius.circular(12)),
                 ),
                 child: ListView.builder(
                   padding: const EdgeInsets.all(8),
@@ -1495,12 +1855,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       feedback: Material(
                           elevation: 8,
                           borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                              width: 280,
-                              child: _buildKanbanCard(t))),
-                      childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: _buildKanbanCard(t)),
+                          child:
+                              SizedBox(width: 280, child: _buildKanbanCard(t))),
+                      childWhenDragging:
+                          Opacity(opacity: 0.3, child: _buildKanbanCard(t)),
                       child: _buildKanbanCard(t),
                     );
                   },
@@ -1522,54 +1880,53 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         onTap: () => _loadDetail(t.id),
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Text(t.taskCode,
-                      style: const TextStyle(
-                          color: Color(0xFF1E3A5F),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500)),
-                  const Spacer(),
-                  _priorityBadge(t.priority),
-                ]),
-                const SizedBox(height: 4),
-                Text(t.title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-                if (t.progress > 0) ...[
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                          value: t.progress / 100,
-                          minHeight: 4,
-                          backgroundColor: const Color(0xFFE4E4E7),
-                          valueColor: AlwaysStoppedAnimation(
-                              _progressColor(t.progress)))),
-                ],
-                const SizedBox(height: 6),
-                Row(children: [
-                  if (t.assigneeName != null)
-                    CircleAvatar(
-                        radius: 10,
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        child: Text(t.assigneeName![0],
-                            style: const TextStyle(
-                                fontSize: 9, color: Colors.white))),
-                  const Spacer(),
-                  if (t.dueDate != null)
-                    Text(DateFormat('dd/MM').format(t.dueDate!),
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: t.isOverdue
-                                ? Colors.red
-                                : const Color(0xFFA1A1AA))),
-                ]),
-              ]),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(t.taskCode,
+                  style: const TextStyle(
+                      color: Color(0xFF1E3A5F),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500)),
+              const Spacer(),
+              _priorityBadge(t.priority),
+            ]),
+            const SizedBox(height: 4),
+            Text(t.title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            if (t.progress > 0) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                      value: t.progress / 100,
+                      minHeight: 4,
+                      backgroundColor: const Color(0xFFE4E4E7),
+                      valueColor:
+                          AlwaysStoppedAnimation(_progressColor(t.progress)))),
+            ],
+            const SizedBox(height: 6),
+            Row(children: [
+              if (t.assigneeName != null)
+                CircleAvatar(
+                    radius: 10,
+                    backgroundColor: const Color(0xFF1E3A5F),
+                    child: Text(t.assigneeName![0],
+                        style:
+                            const TextStyle(fontSize: 9, color: Colors.white))),
+              const Spacer(),
+              if (t.dueDate != null)
+                Text(DateFormat('dd/MM').format(t.dueDate!),
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: t.isOverdue
+                            ? Colors.red
+                            : const Color(0xFFA1A1AA))),
+            ]),
+          ]),
         ),
       ),
     );
@@ -1585,18 +1942,25 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final isMobile = MediaQuery.of(context).size.width < 600;
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 10 : 16),
-      child:
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // --- Summary Cards (compact on mobile) ---
         Row(
           children: [
-            Expanded(child: _statCard('Tổng', s.totalTasks, Icons.assignment, const Color(0xFF1E3A5F))),
+            Expanded(
+                child: _statCard('Tổng', s.totalTasks, Icons.assignment,
+                    const Color(0xFF1E3A5F))),
             const SizedBox(width: 6),
-            Expanded(child: _statCard('Xong', s.completedCount, Icons.check_circle, const Color(0xFF1E3A5F))),
+            Expanded(
+                child: _statCard('Xong', s.completedCount, Icons.check_circle,
+                    const Color(0xFF1E3A5F))),
             const SizedBox(width: 6),
-            Expanded(child: _statCard('Đang làm', s.inProgressCount, Icons.pending_actions, const Color(0xFFF59E0B))),
+            Expanded(
+                child: _statCard('Đang làm', s.inProgressCount,
+                    Icons.pending_actions, const Color(0xFFF59E0B))),
             const SizedBox(width: 6),
-            Expanded(child: _statCard('Quá hạn', s.overdueCount, Icons.warning_amber, const Color(0xFFEF4444))),
+            Expanded(
+                child: _statCard('Quá hạn', s.overdueCount, Icons.warning_amber,
+                    const Color(0xFFEF4444))),
           ],
         ),
         const SizedBox(height: 12),
@@ -1629,8 +1993,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         // --- Theo trạng thái ---
         _sectionCard('Phân bổ theo trạng thái', Icons.donut_large,
             child: Column(children: [
-              _statBar(
-                  'Chờ làm', s.todoCount, s.totalTasks, const Color(0xFFA1A1AA)),
+              _statBar('Chờ làm', s.todoCount, s.totalTasks,
+                  const Color(0xFFA1A1AA)),
               _statBar('Đang làm', s.inProgressCount, s.totalTasks,
                   const Color(0xFF1E3A5F)),
               _statBar('Đang xem xét', s.inReviewCount, s.totalTasks,
@@ -1658,8 +2022,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             CircleAvatar(
                                 radius: 18,
                                 backgroundColor: const Color(0xFF1E3A5F),
-                                child: Text(
-                                    a.employeeName?[0] ?? '?',
+                                child: Text(a.employeeName?[0] ?? '?',
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600))),
@@ -1681,13 +2044,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     _miniStat('Xong', a.completedTasks,
                                         const Color(0xFF1E3A5F)),
                                     const SizedBox(width: 6),
-                                    _miniStat('Đang làm',
-                                        a.inProgressTasks,
+                                    _miniStat('Đang làm', a.inProgressTasks,
                                         const Color(0xFFF59E0B)),
                                     if (a.overdueTasks > 0) ...[
                                       const SizedBox(width: 6),
-                                      _miniStat('Quá hạn',
-                                          a.overdueTasks,
+                                      _miniStat('Quá hạn', a.overdueTasks,
                                           const Color(0xFFEF4444))
                                     ],
                                   ]),
@@ -1696,28 +2057,23 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             SizedBox(
                               width: 48,
                               height: 48,
-                              child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      value: a.totalTasks > 0
-                                          ? a.completedTasks /
-                                              a.totalTasks
-                                          : 0,
-                                      strokeWidth: 4,
-                                      backgroundColor:
-                                          const Color(0xFFE4E4E7),
-                                      valueColor:
-                                          const AlwaysStoppedAnimation(
-                                              Color(0xFF1E3A5F)),
-                                    ),
-                                    Text(
-                                        '${a.totalTasks > 0 ? (a.completedTasks / a.totalTasks * 100).round() : 0}%',
-                                        style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight:
-                                                FontWeight.bold)),
-                                  ]),
+                              child:
+                                  Stack(alignment: Alignment.center, children: [
+                                CircularProgressIndicator(
+                                  value: a.totalTasks > 0
+                                      ? a.completedTasks / a.totalTasks
+                                      : 0,
+                                  strokeWidth: 4,
+                                  backgroundColor: const Color(0xFFE4E4E7),
+                                  valueColor: const AlwaysStoppedAnimation(
+                                      Color(0xFF1E3A5F)),
+                                ),
+                                Text(
+                                    '${a.totalTasks > 0 ? (a.completedTasks / a.totalTasks * 100).round() : 0}%',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold)),
+                              ]),
                             ),
                           ]),
                         ))
@@ -1733,7 +2089,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: c.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))
+            BoxShadow(
+                color: c.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
           ]),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Column(children: [
@@ -1746,18 +2105,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         ),
         const SizedBox(height: 4),
         Text('$value',
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: c)),
+            style:
+                TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: c)),
         Text(title,
-            style: const TextStyle(
-                color: Color(0xFFA1A1AA), fontSize: 10),
-            maxLines: 1, overflow: TextOverflow.ellipsis),
+            style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
       ]),
     );
   }
 
-  Widget _sectionCard(String title, IconData icon,
-      {required Widget child}) {
+  Widget _sectionCard(String title, IconData icon, {required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -1767,21 +2125,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           boxShadow: const [
             BoxShadow(color: Color(0x08000000), blurRadius: 8)
           ]),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(icon, size: 18, color: const Color(0xFF1E3A5F)),
-              const SizedBox(width: 6),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF18181B)))
-            ]),
-            const SizedBox(height: 10),
-            child,
-          ]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 18, color: const Color(0xFF1E3A5F)),
+          const SizedBox(width: 6),
+          Text(title,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF18181B)))
+        ]),
+        const SizedBox(height: 10),
+        child,
+      ]),
     );
   }
 
@@ -1793,8 +2149,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         SizedBox(
             width: 100,
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF71717A)))),
+                style:
+                    const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
         Expanded(
             child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
@@ -1807,8 +2163,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         SizedBox(
             width: 50,
             child: Text('$count (${(pct * 100).round()}%)',
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF71717A)))),
+                style:
+                    const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
       ]),
     );
   }
@@ -1820,8 +2176,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           color: c.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4)),
       child: Text('$label: $value',
-          style: TextStyle(
-              fontSize: 10, color: c, fontWeight: FontWeight.w500)),
+          style:
+              TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.w500)),
     );
   }
 
@@ -1834,8 +2190,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final t = _detailTask!;
     final isMobile = Responsive.isMobile(context);
     final deadlineInfo = _getDeadlineInfo(t);
-    final canEdit = Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
-    final canDelete = Provider.of<PermissionProvider>(context, listen: false).canDelete('Task');
+    final canEdit =
+        Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
+    final canDelete = Provider.of<PermissionProvider>(context, listen: false)
+        .canDelete('Task');
 
     return Container(
       color: Colors.white,
@@ -1844,7 +2202,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           // ── Detail Header with gradient ──
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)]),
+              gradient: LinearGradient(
+                  colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)]),
             ),
             child: SafeArea(
               bottom: false,
@@ -1856,27 +2215,55 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     child: Row(children: [
                       if (isMobile)
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                          icon: const Icon(Icons.arrow_back,
+                              color: Colors.white, size: 22),
                           onPressed: () => setState(() => _detailTask = null),
                         )
                       else
                         const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                        child: Text(t.taskCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text(t.taskCode,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13)),
                       ),
                       const SizedBox(width: 8),
                       _statusBadgeLight(t.status),
                       const Spacer(),
                       if (canEdit)
-                        IconButton(icon: const Icon(Icons.edit, size: 20, color: Colors.white70), tooltip: 'Chỉnh sửa', onPressed: () => _showEditDialog(t)),
-                      IconButton(icon: const Icon(Icons.notifications_active, size: 20, color: Color(0xFFF59E0B)), tooltip: 'Đốc thúc', onPressed: () => _showReminderDialog(t)),
-                      IconButton(icon: const Icon(Icons.star_rate, size: 20, color: Color(0xFFF59E0B)), tooltip: 'Đánh giá', onPressed: () => _showEvaluationDialog(t)),
+                        IconButton(
+                            icon: const Icon(Icons.edit,
+                                size: 20, color: Colors.white70),
+                            tooltip: 'Chỉnh sửa',
+                            onPressed: () => _showEditDialog(t)),
+                      IconButton(
+                          icon: const Icon(Icons.notifications_active,
+                              size: 20, color: Color(0xFFF59E0B)),
+                          tooltip: 'Đốc thúc',
+                          onPressed: () => _showReminderDialog(t)),
+                      IconButton(
+                          icon: const Icon(Icons.star_rate,
+                              size: 20, color: Color(0xFFF59E0B)),
+                          tooltip: 'Đánh giá',
+                          onPressed: () => _showEvaluationDialog(t)),
                       if (canDelete)
-                        IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFFF8A80)), tooltip: 'Xóa', onPressed: () => _confirmDeleteTask(t)),
+                        IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                size: 20, color: Color(0xFFFF8A80)),
+                            tooltip: 'Xóa',
+                            onPressed: () => _confirmDeleteTask(t)),
                       if (!isMobile)
-                        IconButton(icon: const Icon(Icons.close, size: 20, color: Colors.white70), onPressed: () => setState(() => _detailTask = null)),
+                        IconButton(
+                            icon: const Icon(Icons.close,
+                                size: 20, color: Colors.white70),
+                            onPressed: () =>
+                                setState(() => _detailTask = null)),
                     ]),
                   ),
                   // Title + deadline
@@ -1885,19 +2272,40 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text(t.title,
+                            style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 6),
                         Row(children: [
                           if (t.assigneeName != null) ...[
-                            CircleAvatar(radius: 11, backgroundColor: Colors.white.withValues(alpha: 0.2), child: Text(t.assigneeName![0], style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600))),
+                            CircleAvatar(
+                                radius: 11,
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.2),
+                                child: Text(t.assigneeName![0],
+                                    style: const TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600))),
                             const SizedBox(width: 6),
-                            Text(t.assigneeName!, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            Text(t.assigneeName!,
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12)),
                             const SizedBox(width: 12),
                           ],
                           if (deadlineInfo != null) ...[
-                            Icon(deadlineInfo['icon'] as IconData, size: 14, color: Colors.white70),
+                            Icon(deadlineInfo['icon'] as IconData,
+                                size: 14, color: Colors.white70),
                             const SizedBox(width: 4),
-                            Text(deadlineInfo['text'] as String, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+                            Text(deadlineInfo['text'] as String,
+                                style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500)),
                           ],
                         ]),
                       ],
@@ -1921,11 +2329,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         .map((s) {
                       final active = t.status == s;
                       return ChoiceChip(
-                        label: Text(getTaskStatusLabel(s), style: TextStyle(fontSize: 11, color: active ? Colors.white : _statusColor(s))),
+                        label: Text(getTaskStatusLabel(s),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    active ? Colors.white : _statusColor(s))),
                         selected: active,
                         selectedColor: _statusColor(s),
-                        backgroundColor: _statusColor(s).withValues(alpha: 0.08),
-                        onSelected: active ? null : (_) => _updateStatus(t.id, s),
+                        backgroundColor:
+                            _statusColor(s).withValues(alpha: 0.08),
+                        onSelected:
+                            active ? null : (_) => _updateStatus(t.id, s),
                         visualDensity: VisualDensity.compact,
                       );
                     }).toList()),
@@ -1941,11 +2355,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        const Icon(Icons.trending_up, size: 16, color: Color(0xFF1E3A5F)),
+                        const Icon(Icons.trending_up,
+                            size: 16, color: Color(0xFF1E3A5F)),
                         const SizedBox(width: 6),
-                        const Text('Tiến độ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const Text('Tiến độ',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         const Spacer(),
-                        Text('${t.progress}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _progressColor(t.progress))),
+                        Text('${t.progress}%',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: _progressColor(t.progress))),
                       ]),
                       const SizedBox(height: 4),
                       SliderTheme(
@@ -1953,23 +2374,42 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           activeTrackColor: _progressColor(t.progress),
                           thumbColor: _progressColor(t.progress),
                           inactiveTrackColor: const Color(0xFFE4E4E7),
-                          overlayColor: _progressColor(t.progress).withValues(alpha: 0.1),
+                          overlayColor:
+                              _progressColor(t.progress).withValues(alpha: 0.1),
                         ),
                         child: Slider(
                           value: t.progress.toDouble(),
-                          min: 0, max: 100, divisions: 20,
+                          min: 0,
+                          max: 100,
+                          divisions: 20,
                           label: '${t.progress}%',
                           onChanged: (v) => setState(() {
                             _detailTask = WorkTask(
-                              id: t.id, taskCode: t.taskCode, title: t.title, description: t.description,
-                              taskType: t.taskType, priority: t.priority, status: t.status, progress: v.toInt(),
-                              storeId: t.storeId, assignedById: t.assignedById, createdAt: t.createdAt,
-                              assigneeName: t.assigneeName, assignedByName: t.assignedByName,
-                              dueDate: t.dueDate, startDate: t.startDate, completedDate: t.completedDate,
-                              estimatedHours: t.estimatedHours, actualHours: t.actualHours,
-                              assigneeId: t.assigneeId, comments: t.comments, subTasks: t.subTasks,
-                              subTaskCount: t.subTaskCount, completedSubTaskCount: t.completedSubTaskCount,
-                              commentCount: t.commentCount, attachmentCount: t.attachmentCount,
+                              id: t.id,
+                              taskCode: t.taskCode,
+                              title: t.title,
+                              description: t.description,
+                              taskType: t.taskType,
+                              priority: t.priority,
+                              status: t.status,
+                              progress: v.toInt(),
+                              storeId: t.storeId,
+                              assignedById: t.assignedById,
+                              createdAt: t.createdAt,
+                              assigneeName: t.assigneeName,
+                              assignedByName: t.assignedByName,
+                              dueDate: t.dueDate,
+                              startDate: t.startDate,
+                              completedDate: t.completedDate,
+                              estimatedHours: t.estimatedHours,
+                              actualHours: t.actualHours,
+                              assigneeId: t.assigneeId,
+                              comments: t.comments,
+                              subTasks: t.subTasks,
+                              subTaskCount: t.subTaskCount,
+                              completedSubTaskCount: t.completedSubTaskCount,
+                              commentCount: t.commentCount,
+                              attachmentCount: t.attachmentCount,
                             );
                           }),
                           onChangeEnd: (v) => _updateProgress(t.id, v.toInt()),
@@ -1980,10 +2420,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         child: OutlinedButton.icon(
                           onPressed: () => _updateProgress(t.id, t.progress),
                           icon: const Icon(Icons.upload, size: 14),
-                          label: const Text('Cập nhật tiến độ (ghi chú & hình ảnh)', style: TextStyle(fontSize: 11)),
+                          label: const Text(
+                              'Cập nhật tiến độ (ghi chú & hình ảnh)',
+                              style: TextStyle(fontSize: 11)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF1E3A5F),
-                            side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                            side: const BorderSide(
+                                color: Color(0xFF1E3A5F), width: 0.5),
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             visualDensity: VisualDensity.compact,
                           ),
@@ -1997,68 +2440,125 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 if (t.description != null && t.description!.isNotEmpty) ...[
                   _detailLabel('Mô tả'),
                   const SizedBox(height: 4),
-                  Text(t.description!, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                  Text(t.description!,
+                      style: const TextStyle(
+                          color: Color(0xFF71717A), fontSize: 13)),
                   const SizedBox(height: 12),
                 ],
                 // ── Chi tiết thông tin ──
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: const Color(0xFFFAFAFA), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Column(children: [
-                    _detailRow(Icons.person, 'Người giao', t.assignedByName ?? 'N/A'),
-                    _detailRow(Icons.person_outline, 'Người thực hiện', t.assigneeName ?? 'Chưa giao'),
-                    _detailRow(Icons.flag, 'Độ ưu tiên', getPriorityLabel(t.priority), color: _priorityColor(t.priority)),
-                    _detailRow(Icons.category, 'Loại', getTaskTypeLabel(t.taskType)),
-                    if (t.startDate != null) _detailRow(Icons.play_arrow, 'Bắt đầu', DateFormat('dd/MM/yyyy HH:mm').format(t.startDate!)),
-                    if (t.dueDate != null) _detailRow(Icons.event, 'Hết hạn', DateFormat('dd/MM/yyyy HH:mm').format(t.dueDate!), color: t.isOverdue ? Colors.red : null),
-                    if (t.completedDate != null) _detailRow(Icons.check_circle, 'Hoàn thành', DateFormat('dd/MM/yyyy HH:mm').format(t.completedDate!), color: const Color(0xFF22C55E)),
-                    if (t.estimatedHours != null) _detailRow(Icons.schedule, 'Giờ ước tính', '${t.estimatedHours}h'),
-                    if (t.actualHours != null) _detailRow(Icons.timer, 'Giờ thực tế', '${t.actualHours}h'),
+                    _detailRow(
+                        Icons.person, 'Người giao', t.assignedByName ?? 'N/A'),
+                    _detailRow(Icons.person_outline, 'Người thực hiện',
+                        t.assigneeName ?? 'Chưa giao'),
+                    _detailRow(
+                        Icons.flag, 'Độ ưu tiên', getPriorityLabel(t.priority),
+                        color: _priorityColor(t.priority)),
+                    _detailRow(
+                        Icons.category, 'Loại', getTaskTypeLabel(t.taskType)),
+                    if (t.startDate != null)
+                      _detailRow(Icons.play_arrow, 'Bắt đầu',
+                          DateFormat('dd/MM/yyyy HH:mm').format(t.startDate!)),
+                    if (t.dueDate != null)
+                      _detailRow(Icons.event, 'Hết hạn',
+                          DateFormat('dd/MM/yyyy HH:mm').format(t.dueDate!),
+                          color: t.isOverdue ? Colors.red : null),
+                    if (t.completedDate != null)
+                      _detailRow(
+                          Icons.check_circle,
+                          'Hoàn thành',
+                          DateFormat('dd/MM/yyyy HH:mm')
+                              .format(t.completedDate!),
+                          color: const Color(0xFF22C55E)),
+                    if (t.estimatedHours != null)
+                      _detailRow(Icons.schedule, 'Giờ ước tính',
+                          '${t.estimatedHours}h'),
+                    if (t.actualHours != null)
+                      _detailRow(
+                          Icons.timer, 'Giờ thực tế', '${t.actualHours}h'),
                   ]),
                 ),
                 const SizedBox(height: 16),
                 // ── Công việc con (Sub-tasks) ──
                 if (t.subTasks != null && t.subTasks!.isNotEmpty) ...[
-                  _detailLabel('Công việc con (${t.completedSubTaskCount}/${t.subTaskCount})'),
+                  _detailLabel(
+                      'Công việc con (${t.completedSubTaskCount}/${t.subTaskCount})'),
                   const SizedBox(height: 6),
                   ...t.subTasks!.map((st) => Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA), borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE4E4E7), width: 0.5)),
-                    child: ListTile(
-                      dense: true, visualDensity: VisualDensity.compact,
-                      leading: Icon(
-                        st.status == WorkTaskStatus.completed ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-                        size: 18, color: st.status == WorkTaskStatus.completed ? const Color(0xFF22C55E) : const Color(0xFFA1A1AA)),
-                      title: Text(st.title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                        decoration: st.status == WorkTaskStatus.completed ? TextDecoration.lineThrough : null,
-                        color: st.status == WorkTaskStatus.completed ? const Color(0xFFA1A1AA) : const Color(0xFF18181B))),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        if (st.assigneeName != null) Text(st.assigneeName!, style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
-                        const SizedBox(width: 4),
-                        _priorityBadge(st.priority),
-                      ]),
-                      onTap: () => _loadDetail(st.id),
-                    ),
-                  )),
+                        margin: const EdgeInsets.only(bottom: 4),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFFAFAFA),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: const Color(0xFFE4E4E7), width: 0.5)),
+                        child: ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          leading: Icon(
+                              st.status == WorkTaskStatus.completed
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked,
+                              size: 18,
+                              color: st.status == WorkTaskStatus.completed
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFA1A1AA)),
+                          title: Text(st.title,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  decoration:
+                                      st.status == WorkTaskStatus.completed
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                  color: st.status == WorkTaskStatus.completed
+                                      ? const Color(0xFFA1A1AA)
+                                      : const Color(0xFF18181B))),
+                          trailing:
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                            if (st.assigneeName != null)
+                              Text(st.assigneeName!,
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Color(0xFFA1A1AA))),
+                            const SizedBox(width: 4),
+                            _priorityBadge(st.priority),
+                          ]),
+                          onTap: () => _loadDetail(st.id),
+                        ),
+                      )),
                   const SizedBox(height: 16),
                 ] else if (t.hasSubTasks) ...[
-                  _detailLabel('Công việc con (${t.completedSubTaskCount}/${t.subTaskCount})'),
+                  _detailLabel(
+                      'Công việc con (${t.completedSubTaskCount}/${t.subTaskCount})'),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(8)),
                     child: Row(children: [
-                      Expanded(child: ClipRRect(
+                      Expanded(
+                          child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: t.subTaskCount > 0 ? t.completedSubTaskCount / t.subTaskCount : 0,
-                          minHeight: 6, backgroundColor: const Color(0xFFE4E4E7),
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFF1E3A5F))),
+                            value: t.subTaskCount > 0
+                                ? t.completedSubTaskCount / t.subTaskCount
+                                : 0,
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFE4E4E7),
+                            valueColor: const AlwaysStoppedAnimation(
+                                Color(0xFF1E3A5F))),
                       )),
                       const SizedBox(width: 8),
-                      Text('${t.completedSubTaskCount}/${t.subTaskCount}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                      Text('${t.completedSubTaskCount}/${t.subTaskCount}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E3A5F))),
                     ]),
                   ),
                   const SizedBox(height: 16),
@@ -2067,13 +2567,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 if (t.tagList.isNotEmpty) ...[
                   _detailLabel('Nhãn'),
                   const SizedBox(height: 6),
-                  Wrap(spacing: 4, runSpacing: 4, children: t.tagList.map((tag) => Chip(
-                    label: Text(tag, style: const TextStyle(fontSize: 10)),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: const Color(0xFFE0F2FE), side: BorderSide.none,
-                  )).toList()),
+                  Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: t.tagList
+                          .map((tag) => Chip(
+                                label: Text(tag,
+                                    style: const TextStyle(fontSize: 10)),
+                                labelPadding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: const Color(0xFFE0F2FE),
+                                side: BorderSide.none,
+                              ))
+                          .toList()),
                   const SizedBox(height: 16),
                 ],
                 // ── Đánh giá (Evaluation Display) ──
@@ -2085,28 +2594,44 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 _detailLabel('Bình luận'),
                 const SizedBox(height: 6),
                 Row(children: [
-                  Expanded(child: TextField(
+                  Expanded(
+                      child: TextField(
                     controller: _commentCtrl,
                     decoration: InputDecoration(
                       hintText: 'Thêm bình luận...',
                       hintStyle: const TextStyle(fontSize: 13),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      filled: true, fillColor: const Color(0xFFFAFAFA),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7))),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
                     ),
-                    maxLines: 2, style: const TextStyle(fontSize: 13),
+                    maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
                   )),
                   const SizedBox(width: 6),
                   IconButton.filled(
                     onPressed: _addComment,
                     icon: const Icon(Icons.send, size: 18),
-                    style: IconButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                    style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3A5F)),
                   ),
                 ]),
                 const SizedBox(height: 8),
                 if (_comments.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(12), child: Text('Chưa có bình luận', style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))))
+                  const Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text('Chưa có bình luận',
+                              style: TextStyle(
+                                  color: Color(0xFFA1A1AA), fontSize: 13))))
                 else
                   ..._comments.map((c) => _buildCommentCard(c)),
                 const SizedBox(height: 16),
@@ -2116,13 +2641,28 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   title: _detailLabel('Lịch sử thay đổi'),
                   initiallyExpanded: false,
                   children: _history.isEmpty
-                      ? [const Padding(padding: EdgeInsets.all(8), child: Text('Chưa có lịch sử', style: TextStyle(color: Color(0xFFA1A1AA))))]
-                      : _history.take(20).map((h) => ListTile(
-                            dense: true, visualDensity: VisualDensity.compact,
-                            leading: Icon(_historyIcon(h.changeType), size: 16, color: const Color(0xFF1E3A5F)),
-                            title: Text(h.description ?? h.changeType, style: const TextStyle(fontSize: 12)),
-                            subtitle: Text('${h.userName ?? ''} \u2022 ${DateFormat('dd/MM HH:mm').format(h.createdAt)}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
-                          )).toList(),
+                      ? [
+                          const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Text('Chưa có lịch sử',
+                                  style: TextStyle(color: Color(0xFFA1A1AA))))
+                        ]
+                      : _history
+                          .take(20)
+                          .map((h) => ListTile(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
+                                leading: Icon(_historyIcon(h.changeType),
+                                    size: 16, color: const Color(0xFF1E3A5F)),
+                                title: Text(h.description ?? h.changeType,
+                                    style: const TextStyle(fontSize: 12)),
+                                subtitle: Text(
+                                    '${h.userName ?? ''} \u2022 ${DateFormat('dd/MM HH:mm').format(h.createdAt)}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFFA1A1AA))),
+                              ))
+                          .toList(),
                 ),
               ],
             ),
@@ -2135,7 +2675,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   // ── Evaluation Section in Detail Panel ──
   Widget _buildEvaluationSection(WorkTask t) {
     // Show evaluation if task has any
-    if (t.status != WorkTaskStatus.completed && t.status != WorkTaskStatus.inReview) {
+    if (t.status != WorkTaskStatus.completed &&
+        t.status != WorkTaskStatus.inReview) {
       return const SizedBox.shrink();
     }
     return Column(
@@ -2146,9 +2687,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           const Spacer(),
           TextButton.icon(
             onPressed: () => _showEvaluationDialog(t),
-            icon: const Icon(Icons.star_rate, size: 14, color: Color(0xFFF59E0B)),
-            label: const Text('Đánh giá', style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 28)),
+            icon:
+                const Icon(Icons.star_rate, size: 14, color: Color(0xFFF59E0B)),
+            label: const Text('Đánh giá',
+                style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
+            style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 28)),
           ),
         ]),
         const SizedBox(height: 6),
@@ -2157,12 +2702,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           decoration: BoxDecoration(
             color: const Color(0xFFFFFBEB),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+            border: Border.all(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
           ),
           child: const Row(children: [
             Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
             SizedBox(width: 8),
-            Expanded(child: Text('Nhấn "Đánh giá" để chấm điểm chất lượng, tiến độ và tổng thể (1-5 sao)', style: TextStyle(fontSize: 12, color: Color(0xFF92400E)))),
+            Expanded(
+                child: Text(
+                    'Nhấn "Đánh giá" để chấm điểm chất lượng, tiến độ và tổng thể (1-5 sao)',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF92400E)))),
           ]),
         ),
         const SizedBox(height: 16),
@@ -2172,7 +2721,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   // ── Báo cáo tiến độ - hiển thị các lần cập nhật tiến độ ──
   Widget _buildProgressReports() {
-    final progressComments = _comments.where((c) => c.isProgressUpdate).toList();
+    final progressComments =
+        _comments.where((c) => c.isProgressUpdate).toList();
     if (progressComments.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -2183,7 +2733,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           const SizedBox(width: 6),
           _detailLabel('Báo cáo tiến độ'),
           const Spacer(),
-          Text('${progressComments.length} lần cập nhật', style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+          Text('${progressComments.length} lần cập nhật',
+              style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
         ]),
         const SizedBox(height: 8),
         ...progressComments.map((c) {
@@ -2195,7 +2746,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             decoration: BoxDecoration(
               color: const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
+              border: Border.all(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2207,7 +2759,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     backgroundColor: const Color(0xFF22C55E),
                     child: Text(
                       (c.userName ?? '?')[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -2215,27 +2770,36 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(c.userName ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                        Text(c.userName ?? 'Unknown',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 12)),
                         Text(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt),
-                            style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                            style: const TextStyle(
+                                fontSize: 10, color: Color(0xFFA1A1AA))),
                       ],
                     ),
                   ),
                   if (c.progressSnapshot != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: _progressColor(c.progressSnapshot!),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text('${c.progressSnapshot}%',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
                     ),
                 ]),
                 // Content
                 if (c.content.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(c.content, style: const TextStyle(fontSize: 13, color: Color(0xFF18181B))),
+                  Text(c.content,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF18181B))),
                 ],
                 // Images
                 if (images.isNotEmpty) ...[
@@ -2251,11 +2815,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            images[i], width: 100, height: 100, fit: BoxFit.cover,
+                            images[i],
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
-                              width: 100, height: 100,
+                              width: 100,
+                              height: 100,
                               color: const Color(0xFFE4E4E7),
-                              child: const Icon(Icons.broken_image, size: 32, color: Color(0xFFA1A1AA)),
+                              child: const Icon(Icons.broken_image,
+                                  size: 32, color: Color(0xFFA1A1AA)),
                             ),
                           ),
                         ),
@@ -2267,22 +2836,27 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 if (links.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   ...links.map((url) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: InkWell(
-                      onTap: () => _launchUrl(url),
-                      child: Row(children: [
-                        const Icon(Icons.link, size: 14, color: Color(0xFF1E3A5F)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            url,
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A5F), decoration: TextDecoration.underline),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                          ),
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: InkWell(
+                          onTap: () => _launchUrl(url),
+                          child: Row(children: [
+                            const Icon(Icons.link,
+                                size: 14, color: Color(0xFF1E3A5F)),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                url,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF1E3A5F),
+                                    decoration: TextDecoration.underline),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ]),
                         ),
-                      ]),
-                    ),
-                  )),
+                      )),
                 ],
               ],
             ),
@@ -2293,30 +2867,30 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _statusBadgeLight(WorkTaskStatus s) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(getTaskStatusLabel(s), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(getTaskStatusLabel(s),
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w600)),
+      );
 
   Widget _detailLabel(String text) => Text(text,
       style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          color: Color(0xFF18181B)));
+          fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF18181B)));
 
-  Widget _detailRow(IconData icon, String label, String value,
-      {Color? color}) {
+  Widget _detailRow(IconData icon, String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(children: [
         Icon(icon, size: 16, color: color ?? const Color(0xFFA1A1AA)),
         const SizedBox(width: 8),
         Text('$label: ',
-            style: const TextStyle(
-                color: Color(0xFFA1A1AA), fontSize: 12)),
+            style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
         Expanded(
             child: Text(value,
                 style: TextStyle(
@@ -2338,114 +2912,136 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       decoration: BoxDecoration(
           color: isProgress ? const Color(0xFFF0FDF4) : const Color(0xFFFAFAFA),
           borderRadius: BorderRadius.circular(8),
-          border: isProgress ? Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)) : null),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              CircleAvatar(
-                  radius: 12,
-                  backgroundColor: isProgress ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F),
-                  child: Icon(
-                    isProgress ? Icons.trending_up : Icons.person,
-                    size: 12,
-                    color: Colors.white,
-                  )),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c.userName ?? 'Unknown',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12)),
-                    if (isProgress && c.progressSnapshot != null)
-                      Text('Cập nhật tiến độ: ${c.progressSnapshot}%',
-                          style: const TextStyle(fontSize: 10, color: Color(0xFF22C55E), fontWeight: FontWeight.w500)),
-                  ],
-                ),
+          border: isProgress
+              ? Border.all(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.3))
+              : null),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          CircleAvatar(
+              radius: 12,
+              backgroundColor: isProgress
+                  ? const Color(0xFF22C55E)
+                  : const Color(0xFF1E3A5F),
+              child: Icon(
+                isProgress ? Icons.trending_up : Icons.person,
+                size: 12,
+                color: Colors.white,
+              )),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c.userName ?? 'Unknown',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 12)),
+                if (isProgress && c.progressSnapshot != null)
+                  Text('Cập nhật tiến độ: ${c.progressSnapshot}%',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF22C55E),
+                          fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          if (isProgress && c.progressSnapshot != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E),
+                borderRadius: BorderRadius.circular(10),
               ),
-              if (isProgress && c.progressSnapshot != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF22C55E),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text('${c.progressSnapshot}%',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-              const SizedBox(width: 6),
-              Text(
-                  DateFormat('dd/MM HH:mm').format(c.createdAt),
+              child: Text('${c.progressSnapshot}%',
                   style: const TextStyle(
-                      color: Color(0xFFA1A1AA), fontSize: 10)),
-            ]),
-            const SizedBox(height: 6),
-            Text(c.content,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF334155))),
-            // Images
-            if (images.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: images.map((url) => InkWell(
-                  onTap: () => _showImageDialog(url),
-                  child: Container(
-                    width: 80,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(5),
-                      child: Image.network(url, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(Icons.broken_image, size: 20, color: Color(0xFFA1A1AA)),
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold)),
+            ),
+          const SizedBox(width: 6),
+          Text(DateFormat('dd/MM HH:mm').format(c.createdAt),
+              style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10)),
+        ]),
+        const SizedBox(height: 6),
+        Text(c.content,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
+        // Images
+        if (images.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: images
+                .map((url) => InkWell(
+                      onTap: () => _showImageDialog(url),
+                      child: Container(
+                        width: 80,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
                         ),
-                      ),
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ],
-            // Links
-            if (links.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: links.map((url) => InkWell(
-                  onTap: () => _launchUrl(url),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.link, size: 12, color: Color(0xFF1E3A5F)),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            url.length > 40 ? '${url.substring(0, 40)}...' : url,
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), decoration: TextDecoration.underline),
-                            overflow: TextOverflow.ellipsis,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(5),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image,
+                                  size: 20, color: Color(0xFFA1A1AA)),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ],
-          ]),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
+        // Links
+        if (links.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: links
+                .map((url) => InkWell(
+                      onTap: () => _launchUrl(url),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: const Color(0xFF1E3A5F)
+                                  .withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.link,
+                                size: 12, color: Color(0xFF1E3A5F)),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                url.length > 40
+                                    ? '${url.substring(0, 40)}...'
+                                    : url,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF1E3A5F),
+                                    decoration: TextDecoration.underline),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
+      ]),
     );
   }
 
@@ -2457,7 +3053,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể mở link: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Không thể mở link: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -2473,14 +3071,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             AppBar(
               title: const Text('Hình ảnh', style: TextStyle(fontSize: 14)),
               automaticallyImplyLeading: false,
-              actions: [IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close))],
+              actions: [
+                IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close))
+              ],
             ),
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
-              child: Image.network(url, fit: BoxFit.contain,
+              constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const Padding(
                   padding: EdgeInsets.all(40),
-                  child: Icon(Icons.broken_image, size: 60, color: Color(0xFFA1A1AA)),
+                  child: Icon(Icons.broken_image,
+                      size: 60, color: Color(0xFFA1A1AA)),
                 ),
               ),
             ),
@@ -2505,7 +3111,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final isMobile = Responsive.isMobile(context);
 
     void calcHours(StateSetter ss) {
-      if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!)) {
+      if (startDate != null &&
+          dueDate != null &&
+          dueDate!.isAfter(startDate!)) {
         final diff = dueDate!.difference(startDate!);
         final hours = (diff.inMinutes / 60.0);
         ss(() => hoursCtrl.text = hours.toStringAsFixed(1));
@@ -2514,200 +3122,207 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
     showDialog(
         context: context,
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, ss) {
+        builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
               final formContent = SingleChildScrollView(
-                  padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                            _dialogField(
-                                titleCtrl, 'Tiêu đề *', Icons.title),
-                            const SizedBox(height: 12),
-                            _dialogField(descCtrl, 'Mô tả',
-                                Icons.description,
-                                maxLines: 3),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(
-                                  child:
-                                      DropdownButtonFormField<TaskType>(
-                                initialValue: type,
-                                decoration: _dropDecor('Loại'),
-                                items: TaskType.values
-                                    .map((t) => DropdownMenuItem(
-                                        value: t,
-                                        child: Text(
-                                            getTaskTypeLabel(t),
-                                            style: const TextStyle(
-                                                fontSize: 13))))
-                                    .toList(),
-                                onChanged: (v) =>
-                                    ss(() => type = v!),
-                              )),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: DropdownButtonFormField<
-                                      TaskPriority>(
-                                initialValue: priority,
-                                decoration: _dropDecor('Ưu tiên'),
-                                items: TaskPriority.values
-                                    .map((p) => DropdownMenuItem(
-                                        value: p,
-                                        child: Row(children: [
-                                          Icon(Icons.flag,
-                                              size: 14,
-                                              color:
-                                                  _priorityColor(p)),
-                                          const SizedBox(width: 4),
-                                          Text(getPriorityLabel(p),
-                                              style: const TextStyle(
-                                                  fontSize: 13))
-                                        ])))
-                                    .toList(),
-                                onChanged: (v) =>
-                                    ss(() => priority = v!),
-                              )),
-                            ]),
-                            const SizedBox(height: 12),
-                            // Multi-assignee picker
-                            InputDecorator(
-                              decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (selectedAssigneeIds.isNotEmpty && _employees.isNotEmpty)
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: selectedAssigneeIds.map((id) {
-                                        final emp = _employees.cast<dynamic>().where((e) => e.id == id).firstOrNull;
-                                        final name = emp?.fullName ?? id;
-                                        return Chip(
-                                          label: Text(name, style: const TextStyle(fontSize: 12)),
-                                          deleteIcon: const Icon(Icons.close, size: 14),
-                                          onDeleted: () => ss(() => selectedAssigneeIds.remove(id)),
-                                          backgroundColor: const Color(0xFFEFF6FF),
-                                          side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
-                                          labelPadding: const EdgeInsets.only(left: 4),
-                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                        );
-                                      }).toList(),
-                                    ),
-                                  const SizedBox(height: 4),
-                                  InkWell(
-                                    onTap: () async {
-                                      if (_employees.isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Đang tải danh sách nhân viên, vui lòng thử lại...')),
-                                        );
-                                        return;
-                                      }
-                                      final picked = await Navigator.of(context).push<List<String>>(
-                                        MaterialPageRoute(
-                                          fullscreenDialog: true,
-                                          builder: (_) => _MultiAssigneePickerPage(
-                                            employees: _employees,
-                                            selected: List.from(selectedAssigneeIds),
-                                          ),
-                                        ),
-                                      );
-                                      if (picked != null) ss(() => selectedAssigneeIds = picked);
-                                    },
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.person_add, size: 16, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          selectedAssigneeIds.isEmpty ? 'Chọn người thực hiện...' : 'Thêm người...',
-                                          style: TextStyle(fontSize: 13, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  padding:
+                      isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    _dialogField(titleCtrl, 'Tiêu đề *', Icons.title),
+                    const SizedBox(height: 12),
+                    _dialogField(descCtrl, 'Mô tả', Icons.description,
+                        maxLines: 3),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: DropdownButtonFormField<TaskType>(
+                        initialValue: type,
+                        decoration: _dropDecor('Loại'),
+                        items: TaskType.values
+                            .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(getTaskTypeLabel(t),
+                                    style: const TextStyle(fontSize: 13))))
+                            .toList(),
+                        onChanged: (v) => ss(() => type = v!),
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: DropdownButtonFormField<TaskPriority>(
+                        initialValue: priority,
+                        decoration: _dropDecor('Ưu tiên'),
+                        items: TaskPriority.values
+                            .map((p) => DropdownMenuItem(
+                                value: p,
+                                child: Row(children: [
+                                  Icon(Icons.flag,
+                                      size: 14, color: _priorityColor(p)),
+                                  const SizedBox(width: 4),
+                                  Text(getPriorityLabel(p),
+                                      style: const TextStyle(fontSize: 13))
+                                ])))
+                            .toList(),
+                        onChanged: (v) => ss(() => priority = v!),
+                      )),
+                    ]),
+                    const SizedBox(height: 12),
+                    // Multi-assignee picker
+                    InputDecorator(
+                      decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (selectedAssigneeIds.isNotEmpty &&
+                              _employees.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: selectedAssigneeIds.map((id) {
+                                final emp = _employees
+                                    .cast<dynamic>()
+                                    .where((e) => e.id == id)
+                                    .firstOrNull;
+                                final name = emp?.fullName ?? id;
+                                return Chip(
+                                  label: Text(name,
+                                      style: const TextStyle(fontSize: 12)),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () =>
+                                      ss(() => selectedAssigneeIds.remove(id)),
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  side: const BorderSide(
+                                      color: Color(0xFF1E3A5F), width: 0.5),
+                                  labelPadding: const EdgeInsets.only(left: 4),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                );
+                              }).toList(),
                             ),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(
-                                  child: _datePickerField(
-                                      'Bắt đầu (ngày giờ)',
-                                      startDate,
-                                      (d) {
-                                        ss(() => startDate = d);
-                                        calcHours(ss);
-                                      })),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: _datePickerField(
-                                      'Hết hạn (ngày giờ)',
-                                      dueDate,
-                                      (d) {
-                                        ss(() => dueDate = d);
-                                        calcHours(ss);
-                                      })),
-                            ]),
-                            if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
-                                      style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
-                                    ),
-                                  ],
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () async {
+                              if (_employees.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Đang tải danh sách nhân viên, vui lòng thử lại...')),
+                                );
+                                return;
+                              }
+                              final picked = await Navigator.of(context)
+                                  .push<List<String>>(
+                                MaterialPageRoute(
+                                  fullscreenDialog: true,
+                                  builder: (_) => _MultiAssigneePickerPage(
+                                    employees: _employees,
+                                    selected: List.from(selectedAssigneeIds),
+                                  ),
                                 ),
-                              ),
-                            const SizedBox(height: 12),
-                            _dialogField(hoursCtrl, 'Giờ ước tính',
-                                Icons.access_time,
-                                keyboardType:
-                                    TextInputType.number),
-                          ]));
+                              );
+                              if (picked != null) {
+                                ss(() => selectedAssigneeIds = picked);
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                Icon(Icons.person_add,
+                                    size: 16,
+                                    color: const Color(0xFF1E3A5F)
+                                        .withValues(alpha: 0.7)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedAssigneeIds.isEmpty
+                                      ? 'Chọn người thực hiện...'
+                                      : 'Thêm người...',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: const Color(0xFF1E3A5F)
+                                          .withValues(alpha: 0.7)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: _datePickerField(
+                              'Bắt đầu (ngày giờ)', startDate, (d) {
+                        ss(() => startDate = d);
+                        calcHours(ss);
+                      })),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _datePickerField('Hết hạn (ngày giờ)', dueDate,
+                              (d) {
+                        ss(() => dueDate = d);
+                        calcHours(ss);
+                      })),
+                    ]),
+                    if (startDate != null &&
+                        dueDate != null &&
+                        dueDate!.isAfter(startDate!))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time,
+                                size: 14, color: Color(0xFF1E3A5F)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1E3A5F),
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    _dialogField(hoursCtrl, 'Giờ ước tính', Icons.access_time,
+                        keyboardType: TextInputType.number),
+                  ]));
               final onSave = saving
                   ? null
                   : () async {
                       if (titleCtrl.text.trim().isEmpty) {
-                        _snack(ctx,
-                            'Vui lòng nhập tiêu đề', Colors.red);
+                        _snack(ctx, 'Vui lòng nhập tiêu đề', Colors.red);
                         return;
                       }
                       ss(() => saving = true);
                       final r = await _api.createTask(
                         title: titleCtrl.text.trim(),
-                        description:
-                            descCtrl.text.trim().isEmpty
-                                ? null
-                                : descCtrl.text.trim(),
+                        description: descCtrl.text.trim().isEmpty
+                            ? null
+                            : descCtrl.text.trim(),
                         taskType: type.index,
                         priority: priority.index,
-                        assigneeId: selectedAssigneeIds.isNotEmpty ? selectedAssigneeIds.first : null,
-                        assigneeIds: selectedAssigneeIds.length > 1 ? selectedAssigneeIds : null,
+                        assigneeId: selectedAssigneeIds.isNotEmpty
+                            ? selectedAssigneeIds.first
+                            : null,
+                        assigneeIds: selectedAssigneeIds.length > 1
+                            ? selectedAssigneeIds
+                            : null,
                         startDate: startDate,
                         dueDate: dueDate,
-                        estimatedHours: double.tryParse(
-                            hoursCtrl.text),
+                        estimatedHours: double.tryParse(hoursCtrl.text),
                       );
                       ss(() => saving = false);
                       if (!ctx.mounted) return;
                       if (r['isSuccess'] == true) {
                         Navigator.pop(ctx);
                         if (!mounted) return;
-                        _snack(
-                            context,
-                            'Tạo công việc thành công',
+                        _snack(context, 'Tạo công việc thành công',
                             const Color(0xFF1E3A5F));
                         _loadTasks();
                         _loadStats();
                       } else {
-                        _snack(ctx,
-                            r['message'] ?? 'Lỗi', Colors.red);
+                        _snack(ctx, r['message'] ?? 'Lỗi', Colors.red);
                       }
                     };
               final saveChild = saving
@@ -2715,18 +3330,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white))
+                          strokeWidth: 2, color: Colors.white))
                   : const Text('Tạo');
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: double.infinity, height: double.infinity,
+                    width: double.infinity,
+                    height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
                         title: const Text('Tạo công việc mới'),
-                        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                        leading: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
                       bottomNavigationBar: SafeArea(
@@ -2737,11 +3354,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF1E3A5F),
                               minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                             child: saving
-                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Tạo công việc', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
+                                : const Text('Tạo công việc',
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ),
@@ -2750,25 +3375,27 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 );
               }
               return AlertDialog(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  title: const Row(children: [
-                    Icon(Icons.add_task, color: Color(0xFF1E3A5F)),
-                    SizedBox(width: 8),
-                    Text('Tạo công việc mới',
-                        style: TextStyle(fontSize: 18)),
-                  ]),
-                  content: SizedBox(
-                      width: MediaQuery.of(ctx).size.width < 600 ? MediaQuery.of(ctx).size.width - 32 : 520,
-                      child: formContent),
-                  actions: [
-                    AppDialogActions(
-                      onConfirm: onSave,
-                      confirmLabel: saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
-                      isLoading: saveChild is! Text,
-                    ),
-                  ],
-                );
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                title: const Row(children: [
+                  Icon(Icons.add_task, color: Color(0xFF1E3A5F)),
+                  SizedBox(width: 8),
+                  Text('Tạo công việc mới', style: TextStyle(fontSize: 18)),
+                ]),
+                content: SizedBox(
+                    width: MediaQuery.of(ctx).size.width < 600
+                        ? MediaQuery.of(ctx).size.width - 32
+                        : 520,
+                    child: formContent),
+                actions: [
+                  AppDialogActions(
+                    onConfirm: onSave,
+                    confirmLabel:
+                        saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
+                    isLoading: saveChild is! Text,
+                  ),
+                ],
+              );
             })).then((_) {
       titleCtrl.dispose();
       descCtrl.dispose();
@@ -2779,12 +3406,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   // --- Chỉnh sửa công việc ---
   void _showEditDialog(WorkTask task) {
     final titleCtrl = TextEditingController(text: task.title);
-    final descCtrl =
-        TextEditingController(text: task.description ?? '');
-    final hoursCtrl = TextEditingController(
-        text: task.estimatedHours?.toString() ?? '');
-    final actualCtrl = TextEditingController(
-        text: task.actualHours?.toString() ?? '');
+    final descCtrl = TextEditingController(text: task.description ?? '');
+    final hoursCtrl =
+        TextEditingController(text: task.estimatedHours?.toString() ?? '');
+    final actualCtrl =
+        TextEditingController(text: task.actualHours?.toString() ?? '');
     var type = task.taskType;
     var priority = task.priority;
     // Build initial selectedAssigneeIds from assignees list or single assigneeId
@@ -2799,7 +3425,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final isMobile = Responsive.isMobile(context);
 
     void calcHours(StateSetter ss) {
-      if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!)) {
+      if (startDate != null &&
+          dueDate != null &&
+          dueDate!.isAfter(startDate!)) {
         final diff = dueDate!.difference(startDate!);
         final hours = (diff.inMinutes / 60.0);
         ss(() => hoursCtrl.text = hours.toStringAsFixed(1));
@@ -2808,193 +3436,188 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
     showDialog(
         context: context,
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, ss) {
+        builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
               final formContent = SingleChildScrollView(
-                  padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                            _dialogField(
-                                titleCtrl, 'Tiêu đề *', Icons.title),
-                            const SizedBox(height: 12),
-                            _dialogField(descCtrl, 'Mô tả',
-                                Icons.description,
-                                maxLines: 3),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(
-                                  child:
-                                      DropdownButtonFormField<TaskType>(
-                                          initialValue: type,
-                                          decoration:
-                                              _dropDecor('Loại'),
-                                          items: TaskType.values
-                                              .map((t) =>
-                                                  DropdownMenuItem(
-                                                      value: t,
-                                                      child: Text(
-                                                          getTaskTypeLabel(
-                                                              t),
-                                                          style: const TextStyle(
-                                                              fontSize:
-                                                                  13))))
-                                              .toList(),
-                                          onChanged: (v) =>
-                                              ss(() => type = v!))),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: DropdownButtonFormField<
-                                          TaskPriority>(
-                                      initialValue: priority,
-                                      decoration:
-                                          _dropDecor('Ưu tiên'),
-                                      items: TaskPriority.values
-                                          .map((p) => DropdownMenuItem(
-                                              value: p,
-                                              child: Row(children: [
-                                                Icon(Icons.flag,
-                                                    size: 14,
-                                                    color:
-                                                        _priorityColor(
-                                                            p)),
-                                                const SizedBox(
-                                                    width: 4),
-                                                Text(
-                                                    getPriorityLabel(
-                                                        p),
-                                                    style: const TextStyle(
-                                                        fontSize: 13))
-                                              ])))
-                                          .toList(),
-                                      onChanged: (v) => ss(
-                                          () => priority = v!))),
-                            ]),
-                            const SizedBox(height: 12),
-                            // Multi-assignee picker
-                            InputDecorator(
-                              decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (selectedAssigneeIds.isNotEmpty && _employees.isNotEmpty)
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: selectedAssigneeIds.map((id) {
-                                        final emp = _employees.cast<dynamic>().where((e) => e.id == id).firstOrNull;
-                                        final name = emp?.fullName ?? id;
-                                        return Chip(
-                                          label: Text(name, style: const TextStyle(fontSize: 12)),
-                                          deleteIcon: const Icon(Icons.close, size: 14),
-                                          onDeleted: () => ss(() => selectedAssigneeIds.remove(id)),
-                                          backgroundColor: const Color(0xFFEFF6FF),
-                                          side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
-                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                        );
-                                      }).toList(),
-                                    ),
-                                  const SizedBox(height: 4),
-                                  InkWell(
-                                    onTap: () async {
-                                      if (_employees.isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Đang tải danh sách nhân viên, vui lòng thử lại...')),
-                                        );
-                                        return;
-                                      }
-                                      final picked = await Navigator.of(context).push<List<String>>(
-                                        MaterialPageRoute(
-                                          fullscreenDialog: true,
-                                          builder: (_) => _MultiAssigneePickerPage(
-                                            employees: _employees,
-                                            selected: List.from(selectedAssigneeIds),
-                                          ),
-                                        ),
-                                      );
-                                      if (picked != null) ss(() => selectedAssigneeIds = picked);
-                                    },
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.person_add, size: 16, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          selectedAssigneeIds.isEmpty ? 'Chọn người thực hiện...' : 'Thêm người...',
-                                          style: TextStyle(fontSize: 13, color: const Color(0xFF1E3A5F).withValues(alpha: 0.7)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  padding:
+                      isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    _dialogField(titleCtrl, 'Tiêu đề *', Icons.title),
+                    const SizedBox(height: 12),
+                    _dialogField(descCtrl, 'Mô tả', Icons.description,
+                        maxLines: 3),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: DropdownButtonFormField<TaskType>(
+                              initialValue: type,
+                              decoration: _dropDecor('Loại'),
+                              items: TaskType.values
+                                  .map((t) => DropdownMenuItem(
+                                      value: t,
+                                      child: Text(getTaskTypeLabel(t),
+                                          style:
+                                              const TextStyle(fontSize: 13))))
+                                  .toList(),
+                              onChanged: (v) => ss(() => type = v!))),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: DropdownButtonFormField<TaskPriority>(
+                              initialValue: priority,
+                              decoration: _dropDecor('Ưu tiên'),
+                              items: TaskPriority.values
+                                  .map((p) => DropdownMenuItem(
+                                      value: p,
+                                      child: Row(children: [
+                                        Icon(Icons.flag,
+                                            size: 14, color: _priorityColor(p)),
+                                        const SizedBox(width: 4),
+                                        Text(getPriorityLabel(p),
+                                            style:
+                                                const TextStyle(fontSize: 13))
+                                      ])))
+                                  .toList(),
+                              onChanged: (v) => ss(() => priority = v!))),
+                    ]),
+                    const SizedBox(height: 12),
+                    // Multi-assignee picker
+                    InputDecorator(
+                      decoration: _dropDecor('Giao cho (Chọn nhiều người)'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (selectedAssigneeIds.isNotEmpty &&
+                              _employees.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: selectedAssigneeIds.map((id) {
+                                final emp = _employees
+                                    .cast<dynamic>()
+                                    .where((e) => e.id == id)
+                                    .firstOrNull;
+                                final name = emp?.fullName ?? id;
+                                return Chip(
+                                  label: Text(name,
+                                      style: const TextStyle(fontSize: 12)),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () =>
+                                      ss(() => selectedAssigneeIds.remove(id)),
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  side: const BorderSide(
+                                      color: Color(0xFF1E3A5F), width: 0.5),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                );
+                              }).toList(),
                             ),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(
-                                  child: _datePickerField(
-                                      'Bắt đầu (ngày giờ)',
-                                      startDate,
-                                      (d) {
-                                        ss(() => startDate = d);
-                                        calcHours(ss);
-                                      })),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: _datePickerField(
-                                      'Hết hạn (ngày giờ)',
-                                      dueDate,
-                                      (d) {
-                                        ss(() => dueDate = d);
-                                        calcHours(ss);
-                                      })),
-                            ]),
-                            if (startDate != null && dueDate != null && dueDate!.isAfter(startDate!))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.access_time, size: 14, color: Color(0xFF1E3A5F)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
-                                      style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
-                                    ),
-                                  ],
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () async {
+                              if (_employees.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Đang tải danh sách nhân viên, vui lòng thử lại...')),
+                                );
+                                return;
+                              }
+                              final picked = await Navigator.of(context)
+                                  .push<List<String>>(
+                                MaterialPageRoute(
+                                  fullscreenDialog: true,
+                                  builder: (_) => _MultiAssigneePickerPage(
+                                    employees: _employees,
+                                    selected: List.from(selectedAssigneeIds),
+                                  ),
                                 ),
-                              ),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(
-                                  child: _dialogField(
-                                      hoursCtrl,
-                                      'Giờ ước tính',
-                                      Icons.schedule,
-                                      keyboardType:
-                                          TextInputType.number)),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: _dialogField(
-                                      actualCtrl,
-                                      'Giờ thực tế',
-                                      Icons.timer,
-                                      keyboardType:
-                                          TextInputType.number)),
-                            ]),
-                          ]));
+                              );
+                              if (picked != null) {
+                                ss(() => selectedAssigneeIds = picked);
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                Icon(Icons.person_add,
+                                    size: 16,
+                                    color: const Color(0xFF1E3A5F)
+                                        .withValues(alpha: 0.7)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedAssigneeIds.isEmpty
+                                      ? 'Chọn người thực hiện...'
+                                      : 'Thêm người...',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: const Color(0xFF1E3A5F)
+                                          .withValues(alpha: 0.7)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: _datePickerField(
+                              'Bắt đầu (ngày giờ)', startDate, (d) {
+                        ss(() => startDate = d);
+                        calcHours(ss);
+                      })),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _datePickerField('Hết hạn (ngày giờ)', dueDate,
+                              (d) {
+                        ss(() => dueDate = d);
+                        calcHours(ss);
+                      })),
+                    ]),
+                    if (startDate != null &&
+                        dueDate != null &&
+                        dueDate!.isAfter(startDate!))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time,
+                                size: 14, color: Color(0xFF1E3A5F)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1E3A5F),
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: _dialogField(
+                              hoursCtrl, 'Giờ ước tính', Icons.schedule,
+                              keyboardType: TextInputType.number)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _dialogField(
+                              actualCtrl, 'Giờ thực tế', Icons.timer,
+                              keyboardType: TextInputType.number)),
+                    ]),
+                  ]));
               final onSave = saving
                   ? null
                   : () async {
                       if (titleCtrl.text.trim().isEmpty) {
-                        _snack(ctx,
-                            'Vui lòng nhập tiêu đề', Colors.red);
+                        _snack(ctx, 'Vui lòng nhập tiêu đề', Colors.red);
                         return;
                       }
                       ss(() => saving = true);
                       final data = <String, dynamic>{
                         'title': titleCtrl.text.trim(),
-                        'description':
-                            descCtrl.text.trim(),
+                        'description': descCtrl.text.trim(),
                         'taskType': type.index,
                         'priority': priority.index,
                         if (selectedAssigneeIds.isNotEmpty)
@@ -3002,35 +3625,26 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         if (selectedAssigneeIds.length > 1)
                           'assigneeIds': selectedAssigneeIds,
                         if (startDate != null)
-                          'startDate':
-                              startDate!.toIso8601String(),
+                          'startDate': startDate!.toIso8601String(),
                         if (dueDate != null)
-                          'dueDate':
-                              dueDate!.toIso8601String(),
+                          'dueDate': dueDate!.toIso8601String(),
                         if (hoursCtrl.text.isNotEmpty)
-                          'estimatedHours':
-                              double.tryParse(
-                                  hoursCtrl.text),
+                          'estimatedHours': double.tryParse(hoursCtrl.text),
                         if (actualCtrl.text.isNotEmpty)
-                          'actualHours':
-                              double.tryParse(
-                                  actualCtrl.text),
+                          'actualHours': double.tryParse(actualCtrl.text),
                       };
-                      final r = await _api.updateTask(
-                          task.id, data);
+                      final r = await _api.updateTask(task.id, data);
                       ss(() => saving = false);
                       if (!ctx.mounted) return;
                       if (r['isSuccess'] == true) {
                         Navigator.pop(ctx);
                         if (!mounted) return;
-                        _snack(context, 'Đã cập nhật',
-                            const Color(0xFF1E3A5F));
+                        _snack(context, 'Đã cập nhật', const Color(0xFF1E3A5F));
                         _loadDetail(task.id);
                         _loadTasks();
                         _loadStats();
                       } else {
-                        _snack(ctx,
-                            r['message'] ?? 'Lỗi', Colors.red);
+                        _snack(ctx, r['message'] ?? 'Lỗi', Colors.red);
                       }
                     };
               final saveChild = saving
@@ -3038,18 +3652,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white))
+                          strokeWidth: 2, color: Colors.white))
                   : const Text('Lưu');
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: double.infinity, height: double.infinity,
+                    width: double.infinity,
+                    height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
                         title: Text('Sửa: ${task.taskCode}'),
-                        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                        leading: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
                       bottomNavigationBar: SafeArea(
@@ -3060,11 +3676,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF1E3A5F),
                               minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                             child: saving
-                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Lưu thay đổi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
+                                : const Text('Lưu thay đổi',
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ),
@@ -3073,26 +3697,29 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 );
               }
               return AlertDialog(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  title: Row(children: [
-                    const Icon(Icons.edit, color: Color(0xFF1E3A5F)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: Text('Sửa: ${task.taskCode}',
-                            style: const TextStyle(fontSize: 16))),
-                  ]),
-                  content: SizedBox(
-                      width: MediaQuery.of(ctx).size.width < 600 ? MediaQuery.of(ctx).size.width - 32 : 520,
-                      child: formContent),
-                  actions: [
-                    AppDialogActions(
-                      onConfirm: onSave,
-                      confirmLabel: saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
-                      isLoading: saveChild is! Text,
-                    ),
-                  ],
-                );
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                title: Row(children: [
+                  const Icon(Icons.edit, color: Color(0xFF1E3A5F)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text('Sửa: ${task.taskCode}',
+                          style: const TextStyle(fontSize: 16))),
+                ]),
+                content: SizedBox(
+                    width: MediaQuery.of(ctx).size.width < 600
+                        ? MediaQuery.of(ctx).size.width - 32
+                        : 520,
+                    child: formContent),
+                actions: [
+                  AppDialogActions(
+                    onConfirm: onSave,
+                    confirmLabel:
+                        saveChild is Text ? saveChild.data ?? 'Lưu' : 'Lưu',
+                    isLoading: saveChild is! Text,
+                  ),
+                ],
+              );
             })).then((_) {
       titleCtrl.dispose();
       descCtrl.dispose();
@@ -3112,53 +3739,76 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
     showDialog(
         context: context,
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, ss) {
+        builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
               final formContent = SingleChildScrollView(
-                  padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Row(children: [
-                            const Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: Text('${task.taskCode} - ${task.title}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                    maxLines: 2, overflow: TextOverflow.ellipsis)),
-                          ]),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String?>(
-                          initialValue: recipientId,
-                          decoration: _dropDecor('Gửi đến'),
-                          items: _employees
-                              .map((e) => DropdownMenuItem(
-                                  value: e.id,
-                                  child: Text(e.fullName, style: const TextStyle(fontSize: 13))))
-                              .toList(),
-                          onChanged: (v) => ss(() => recipientId = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _dialogField(msgCtrl, 'Nội dung đốc thúc *', Icons.message, maxLines: 3),
-                        const SizedBox(height: 12),
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('Mức độ khẩn:', style: TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          _urgencyChip(ss, 'Bình thường', 0, urgency, const Color(0xFF1E3A5F), (v) => ss(() => urgency = v)),
-                          const SizedBox(width: 8),
-                          _urgencyChip(ss, 'Gấp', 1, urgency, const Color(0xFFF59E0B), (v) => ss(() => urgency = v)),
-                          const SizedBox(width: 8),
-                          _urgencyChip(ss, 'Rất gấp', 2, urgency, const Color(0xFFEF4444), (v) => ss(() => urgency = v)),
-                        ]),
-                      ]));
+                  padding:
+                      isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Row(children: [
+                        const Icon(Icons.info_outline,
+                            size: 16, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text('${task.taskCode} - ${task.title}',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w500),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis)),
+                      ]),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      initialValue: recipientId,
+                      decoration: _dropDecor('Gửi đến'),
+                      items: _employees
+                          .map((e) => DropdownMenuItem(
+                              value: e.id,
+                              child: Text(e.fullName,
+                                  style: const TextStyle(fontSize: 13))))
+                          .toList(),
+                      onChanged: (v) => ss(() => recipientId = v),
+                    ),
+                    const SizedBox(height: 12),
+                    _dialogField(msgCtrl, 'Nội dung đốc thúc *', Icons.message,
+                        maxLines: 3),
+                    const SizedBox(height: 12),
+                    const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('Mức độ khẩn:',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF71717A)))),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      _urgencyChip(
+                          ss,
+                          'Bình thường',
+                          0,
+                          urgency,
+                          const Color(0xFF1E3A5F),
+                          (v) => ss(() => urgency = v)),
+                      const SizedBox(width: 8),
+                      _urgencyChip(
+                          ss,
+                          'Gấp',
+                          1,
+                          urgency,
+                          const Color(0xFFF59E0B),
+                          (v) => ss(() => urgency = v)),
+                      const SizedBox(width: 8),
+                      _urgencyChip(
+                          ss,
+                          'Rất gấp',
+                          2,
+                          urgency,
+                          const Color(0xFFEF4444),
+                          (v) => ss(() => urgency = v)),
+                    ]),
+                  ]));
               final onSend = sending || recipientId == null
                   ? null
                   : () async {
@@ -3168,30 +3818,40 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       }
                       ss(() => sending = true);
                       final r = await _api.sendTaskReminder(task.id,
-                          sentToId: recipientId!, message: msgCtrl.text.trim(), urgencyLevel: urgency);
+                          sentToId: recipientId!,
+                          message: msgCtrl.text.trim(),
+                          urgencyLevel: urgency);
                       ss(() => sending = false);
                       if (!ctx.mounted) return;
                       if (r['isSuccess'] == true) {
                         Navigator.pop(ctx);
                         if (!mounted) return;
-                        _snack(context, 'Đã gửi đốc thúc', const Color(0xFFF59E0B));
+                        _snack(context, 'Đã gửi đốc thúc',
+                            const Color(0xFFF59E0B));
                         _loadDetail(task.id);
                       } else {
                         _snack(ctx, r['message'] ?? 'Lỗi', Colors.red);
                       }
                     };
               final sendIcon = sending
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.send, size: 16);
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: double.infinity, height: double.infinity,
+                    width: double.infinity,
+                    height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
                         title: const Text('Đốc thúc công việc'),
-                        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                        leading: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
                       bottomNavigationBar: SafeArea(
@@ -3200,13 +3860,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           child: FilledButton.icon(
                             onPressed: onSend,
                             icon: sending
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.send, size: 16),
-                            label: const Text('Gửi đốc thúc', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            label: const Text('Gửi đốc thúc',
+                                style: TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600)),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFFF59E0B),
                               minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ),
@@ -3216,14 +3883,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 );
               }
               return AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 title: const Row(children: [
                   Icon(Icons.notifications_active, color: Color(0xFFF59E0B)),
                   SizedBox(width: 8),
                   Text('Đốc thúc công việc', style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 600 ? MediaQuery.of(ctx).size.width - 32 : 420,
+                    width: MediaQuery.of(ctx).size.width < 600
+                        ? MediaQuery.of(ctx).size.width - 32
+                        : 420,
                     child: formContent),
                 actions: [
                   AppDialogActions(
@@ -3240,13 +3910,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     });
   }
 
-  Widget _urgencyChip(StateSetter ss, String label, int level,
-      int current, Color c, ValueChanged<int> onTap) {
+  Widget _urgencyChip(StateSetter ss, String label, int level, int current,
+      Color c, ValueChanged<int> onTap) {
     final active = current == level;
     return ChoiceChip(
       label: Text(label,
-          style: TextStyle(
-              fontSize: 11, color: active ? Colors.white : c)),
+          style: TextStyle(fontSize: 11, color: active ? Colors.white : c)),
       selected: active,
       selectedColor: c,
       backgroundColor: c.withValues(alpha: 0.1),
@@ -3265,35 +3934,40 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
     showDialog(
         context: context,
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, ss) {
+        builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
               final formContent = SingleChildScrollView(
-                  padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFF0F9FF),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Row(children: [
-                            const Icon(Icons.task_alt, size: 16, color: Color(0xFF1E3A5F)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: Text('${task.taskCode} - ${task.title}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                          ]),
-                        ),
-                        const SizedBox(height: 16),
-                        _starRow('Chất lượng công việc', quality, (v) => ss(() => quality = v)),
-                        const SizedBox(height: 8),
-                        _starRow('Tiến độ hoàn thành', timeliness, (v) => ss(() => timeliness = v)),
-                        const SizedBox(height: 8),
-                        _starRow('Đánh giá tổng thể', overall, (v) => ss(() => overall = v)),
-                        const SizedBox(height: 12),
-                        _dialogField(commentCtrl, 'Nhận xét', Icons.comment, maxLines: 3),
-                      ]));
+                  padding:
+                      isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Row(children: [
+                        const Icon(Icons.task_alt,
+                            size: 16, color: Color(0xFF1E3A5F)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text('${task.taskCode} - ${task.title}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500))),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                    _starRow('Chất lượng công việc', quality,
+                        (v) => ss(() => quality = v)),
+                    const SizedBox(height: 8),
+                    _starRow('Tiến độ hoàn thành', timeliness,
+                        (v) => ss(() => timeliness = v)),
+                    const SizedBox(height: 8),
+                    _starRow('Đánh giá tổng thể', overall,
+                        (v) => ss(() => overall = v)),
+                    const SizedBox(height: 12),
+                    _dialogField(commentCtrl, 'Nhận xét', Icons.comment,
+                        maxLines: 3),
+                  ]));
               final onSave = saving
                   ? null
                   : () async {
@@ -3302,7 +3976,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           qualityScore: quality,
                           timelinessScore: timeliness,
                           overallScore: overall,
-                          comment: commentCtrl.text.trim().isEmpty ? null : commentCtrl.text.trim());
+                          comment: commentCtrl.text.trim().isEmpty
+                              ? null
+                              : commentCtrl.text.trim());
                       ss(() => saving = false);
                       if (!ctx.mounted) return;
                       if (r['isSuccess'] == true) {
@@ -3315,17 +3991,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       }
                     };
               final saveIcon = saving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.check, size: 16);
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
                   child: SizedBox(
-                    width: double.infinity, height: double.infinity,
+                    width: double.infinity,
+                    height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
                         title: const Text('Đánh giá công việc'),
-                        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                        leading: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx)),
                       ),
                       body: formContent,
                       bottomNavigationBar: SafeArea(
@@ -3334,13 +4017,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           child: FilledButton.icon(
                             onPressed: onSave,
                             icon: saving
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.check, size: 16),
-                            label: const Text('Lưu đánh giá', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            label: const Text('Lưu đánh giá',
+                                style: TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600)),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF1E3A5F),
                               minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ),
@@ -3350,14 +4040,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 );
               }
               return AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 title: const Row(children: [
                   Icon(Icons.star_rate, color: Color(0xFFF59E0B)),
                   SizedBox(width: 8),
                   Text('Đánh giá công việc', style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 600 ? MediaQuery.of(ctx).size.width - 32 : 420,
+                    width: MediaQuery.of(ctx).size.width < 600
+                        ? MediaQuery.of(ctx).size.width - 32
+                        : 420,
                     child: formContent),
                 actions: [
                   AppDialogActions(
@@ -3373,22 +4066,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     });
   }
 
-  Widget _starRow(
-      String label, int value, ValueChanged<int> onChanged) {
+  Widget _starRow(String label, int value, ValueChanged<int> onChanged) {
     return Row(children: [
       SizedBox(
           width: 150,
           child: Text(label,
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFF71717A)))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
       const Spacer(),
       ...List.generate(
           5,
           (i) => GestureDetector(
                 onTap: () => onChanged(i + 1),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Icon(
                       i < value
                           ? Icons.star_rounded
@@ -3401,8 +4091,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   // --- Dialog helpers ---
-  Widget _dialogField(TextEditingController ctrl, String label,
-      IconData icon,
+  Widget _dialogField(TextEditingController ctrl, String label, IconData icon,
       {int maxLines = 1, TextInputType? keyboardType}) {
     return TextField(
       controller: ctrl,
@@ -3415,14 +4104,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         prefixIcon: Icon(icon, size: 18),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: Color(0xFFE4E4E7))),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: Color(0xFFE4E4E7))),
-        contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 10),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
       ),
@@ -3434,14 +4121,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         labelStyle: const TextStyle(fontSize: 13),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: Color(0xFFE4E4E7))),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: Color(0xFFE4E4E7))),
-        contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 10),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
       );
@@ -3462,8 +4147,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               initialTime: value != null
                   ? TimeOfDay(hour: value.hour, minute: value.minute)
                   : TimeOfDay.now());
-          final picked = DateTime(d.year, d.month, d.day,
-              t?.hour ?? 0, t?.minute ?? 0);
+          final picked =
+              DateTime(d.year, d.month, d.day, t?.hour ?? 0, t?.minute ?? 0);
           onPicked(picked);
         }
       },
@@ -3484,13 +4169,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   // ======================== ACTIONS ========================
 
-  Future<void> _updateStatus(
-      String taskId, WorkTaskStatus status) async {
+  Future<void> _updateStatus(String taskId, WorkTaskStatus status) async {
     final r = await _api.updateTaskStatus(taskId, status.index);
     if (!mounted) return;
     if (r['isSuccess'] == true) {
-      _snack(context, 'Đã cập nhật trạng thái',
-          const Color(0xFF1E3A5F));
+      _snack(context, 'Đã cập nhật trạng thái', const Color(0xFF1E3A5F));
       _loadTasks();
       _loadKanban();
       _loadStats();
@@ -3518,7 +4201,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       _loadTasks();
       _loadStats();
       if (_detailTask?.id == taskId) _loadDetail(taskId);
-      _snack(context, 'Đã cập nhật tiến độ ${result['progress']}%', const Color(0xFF1E3A5F));
+      _snack(context, 'Đã cập nhật tiến độ ${result['progress']}%',
+          const Color(0xFF1E3A5F));
     } else {
       _snack(context, r['message'] ?? 'Lỗi cập nhật tiến độ', Colors.red);
     }
@@ -3536,16 +4220,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (r['isSuccess'] == true) {
       _commentCtrl.clear();
       _loadDetail(_detailTask!.id);
-      _snack(context, 'Đã thêm bình luận',
-          const Color(0xFF1E3A5F));
+      _snack(context, 'Đã thêm bình luận', const Color(0xFF1E3A5F));
     } else {
       _snack(context, r['message'] ?? 'Lỗi', Colors.red);
     }
   }
 
   Future<void> _batchStatus(WorkTaskStatus status) async {
-    final r =
-        await _api.batchUpdateTaskStatus(_sel.toList(), status.index);
+    final r = await _api.batchUpdateTaskStatus(_sel.toList(), status.index);
     if (!mounted) return;
     if (r['isSuccess'] == true) {
       setState(() {
@@ -3571,8 +4253,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   subtitle: Text(e.employeeCode),
                   leading: CircleAvatar(
                       backgroundColor: const Color(0xFF1E3A5F),
-                      child: Text(
-                          e.firstName.isNotEmpty ? e.firstName[0] : '?',
+                      child: Text(e.firstName.isNotEmpty ? e.firstName[0] : '?',
                           style: const TextStyle(color: Colors.white))),
                   onTap: () async {
                     Navigator.pop(context);
@@ -3584,7 +4265,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           _selectMode = false;
                         });
                         _loadTasks();
-                        _snack(context, 'Đã giao việc', const Color(0xFF6366F1));
+                        _snack(
+                            context, 'Đã giao việc', const Color(0xFF6366F1));
                       }
                     }
                   },
@@ -3597,11 +4279,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             return Dialog(
               insetPadding: EdgeInsets.zero,
               child: SizedBox(
-                width: double.infinity, height: double.infinity,
+                width: double.infinity,
+                height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
                     title: const Text('Giao việc hàng loạt'),
-                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
                   ),
                   body: listContent,
                 ),
@@ -3609,10 +4294,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             );
           }
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('Giao việc hàng loạt'),
             content: SizedBox(
-                width: MediaQuery.of(ctx).size.width < 600 ? MediaQuery.of(ctx).size.width - 64 : 300,
+                width: MediaQuery.of(ctx).size.width < 600
+                    ? MediaQuery.of(ctx).size.width - 64
+                    : 300,
                 child: listContent),
             actions: [
               AppButton.cancel(onPressed: () => Navigator.pop(ctx)),
@@ -3634,8 +4322,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 AppDialogActions.delete(
                   onConfirm: () async {
                     Navigator.pop(ctx);
-                    final r =
-                        await _api.batchDeleteTasks(_sel.toList());
+                    final r = await _api.batchDeleteTasks(_sel.toList());
                     if (mounted && r['isSuccess'] == true) {
                       setState(() {
                         _sel.clear();
@@ -3643,8 +4330,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       });
                       _loadTasks();
                       _loadStats();
-                      _snack(context, 'Đã xóa',
-                          const Color(0xFF1E3A5F));
+                      _snack(context, 'Đã xóa', const Color(0xFF1E3A5F));
                     }
                   },
                 ),
@@ -3657,22 +4343,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (c == Colors.red || c == const Color(0xFFEF4444)) {
       NotificationOverlayManager().showError(title: 'Lỗi', message: msg);
     } else if (c == const Color(0xFFF59E0B)) {
-      NotificationOverlayManager().showWarning(title: 'Thông báo', message: msg);
+      NotificationOverlayManager()
+          .showWarning(title: 'Thông báo', message: msg);
     } else if (c == const Color(0xFF6366F1)) {
       NotificationOverlayManager().showInfo(title: 'Thông báo', message: msg);
     } else {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: msg);
+      NotificationOverlayManager()
+          .showSuccess(title: 'Thành công', message: msg);
     }
   }
 
   Widget _statusBadge(WorkTaskStatus s) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
             color: _statusColor(s).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _statusColor(s).withValues(alpha: 0.3))),
+            border: Border.all(color: _statusColor(s).withValues(alpha: 0.3))),
         child: Text(getTaskStatusLabel(s),
             style: TextStyle(
                 color: _statusColor(s),
@@ -3773,11 +4459,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       setState(() => _detailTask = null);
                       _loadTasks();
                       _loadStats();
-                      _snack(context, 'Đã xóa công việc',
-                          const Color(0xFF1E3A5F));
+                      _snack(
+                          context, 'Đã xóa công việc', const Color(0xFF1E3A5F));
                     } else if (mounted) {
-                      _snack(context, r['message'] ?? 'Lỗi xóa',
-                          Colors.red);
+                      _snack(context, r['message'] ?? 'Lỗi xóa', Colors.red);
                     }
                   },
                 ),
@@ -3801,9 +4486,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 class _MultiAssigneePickerPage extends StatefulWidget {
   final List<dynamic> employees;
   final List<String> selected;
-  const _MultiAssigneePickerPage({required this.employees, required this.selected});
+  const _MultiAssigneePickerPage(
+      {required this.employees, required this.selected});
   @override
-  State<_MultiAssigneePickerPage> createState() => _MultiAssigneePickerPageState();
+  State<_MultiAssigneePickerPage> createState() =>
+      _MultiAssigneePickerPageState();
 }
 
 class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
@@ -3832,8 +4519,10 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
             decoration: InputDecoration(
               hintText: 'Tìm nhân viên...',
               prefixIcon: const Icon(Icons.search, size: 18),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               isDense: true,
             ),
             style: const TextStyle(fontSize: 13),
@@ -3846,7 +4535,10 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
               spacing: 4,
               runSpacing: 4,
               children: _selected.map((id) {
-                final emp = widget.employees.cast<dynamic>().where((e) => e.id == id).firstOrNull;
+                final emp = widget.employees
+                    .cast<dynamic>()
+                    .where((e) => e.id == id)
+                    .firstOrNull;
                 final name = emp?.fullName ?? 'Unknown';
                 return Chip(
                   label: Text(name, style: const TextStyle(fontSize: 11)),
@@ -3878,13 +4570,17 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
                 },
                 title: Text(emp.fullName, style: const TextStyle(fontSize: 13)),
                 subtitle: emp.department != null
-                    ? Text(emp.department!, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))
+                    ? Text(emp.department!,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF64748B)))
                     : null,
                 secondary: CircleAvatar(
                   radius: 16,
                   backgroundColor: const Color(0xFF1E3A5F),
                   child: Text(
-                    emp.fullName.isNotEmpty ? emp.fullName[0].toUpperCase() : '?',
+                    emp.fullName.isNotEmpty
+                        ? emp.fullName[0].toUpperCase()
+                        : '?',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
@@ -3902,9 +4598,12 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
         title: Row(children: [
           const Text('Chọn người thực hiện', style: TextStyle(fontSize: 16)),
           const Spacer(),
-          Text('${_selected.length} đã chọn', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          Text('${_selected.length} đã chọn',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ]),
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context)),
       ),
       body: body,
       bottomNavigationBar: SafeArea(
@@ -3915,9 +4614,12 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF1E3A5F),
               minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text('Xác nhận (${_selected.length})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            child: Text('Xác nhận (${_selected.length})',
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ),
       ),
@@ -3965,7 +4667,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
         images = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1920);
       } catch (_) {
         // Fallback: pick single image from gallery
-        final single = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920);
+        final single = await picker.pickImage(
+            source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920);
         if (single != null) images = [single];
       }
       for (final img in images) {
@@ -3978,7 +4681,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi chọn ảnh: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Lỗi chọn ảnh: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -3987,7 +4691,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
   Future<void> _takePhoto() async {
     try {
       final picker = ImagePicker();
-      final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1920);
+      final photo = await picker.pickImage(
+          source: ImageSource.camera, imageQuality: 80, maxWidth: 1920);
       if (photo != null) {
         final bytes = await photo.readAsBytes();
         setState(() {
@@ -3998,7 +4703,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi chụp ảnh: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Lỗi chụp ảnh: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -4012,30 +4718,42 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
   }
 
   Future<void> _submit() async {
-    setState(() { _saving = true; _statusText = 'Đang xử lý...'; });
+    setState(() {
+      _saving = true;
+      _statusText = 'Đang xử lý...';
+    });
 
     // Upload images first
     final List<String> uploadedUrls = [];
     if (_pickedImages.isNotEmpty) {
       for (int i = 0; i < _pickedImages.length; i++) {
-        setState(() => _statusText = 'Đang tải ảnh ${i + 1}/${_pickedImages.length}...');
+        setState(() =>
+            _statusText = 'Đang tải ảnh ${i + 1}/${_pickedImages.length}...');
         try {
-          final r = await widget.api.uploadFile(_imageBytes[i], _pickedImages[i].name, folder: 'tasks');
+          final r = await widget.api.uploadFile(
+              _imageBytes[i], _pickedImages[i].name,
+              folder: 'tasks');
           if (r['isSuccess'] == true && r['data'] != null) {
             final d = r['data'];
-            final url = d is String ? d : (d['fileUrl'] ?? d['url'] ?? d['filePath']);
+            final url =
+                d is String ? d : (d['fileUrl'] ?? d['url'] ?? d['filePath']);
             if (url != null) uploadedUrls.add(url.toString());
           } else {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Lỗi tải ảnh ${i + 1}: ${r['message'] ?? 'Unknown'}'), backgroundColor: Colors.orange),
+                SnackBar(
+                    content: Text(
+                        'Lỗi tải ảnh ${i + 1}: ${r['message'] ?? 'Unknown'}'),
+                    backgroundColor: Colors.orange),
               );
             }
           }
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Lỗi tải ảnh ${i + 1}: $e'), backgroundColor: Colors.red),
+              SnackBar(
+                  content: Text('Lỗi tải ảnh ${i + 1}: $e'),
+                  backgroundColor: Colors.red),
             );
           }
         }
@@ -4043,7 +4761,11 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
     }
 
     // Build result data
-    final linkLines = _linkUrlsCtrl.text.trim().split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final linkLines = _linkUrlsCtrl.text
+        .trim()
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
     final data = <String, dynamic>{
       'progress': _sliderVal.toInt(),
       if (_notesCtrl.text.trim().isNotEmpty) 'notes': _notesCtrl.text.trim(),
@@ -4061,8 +4783,11 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-        title: const Text('Cập nhật tiến độ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context)),
+        title: const Text('Cập nhật tiến độ',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -4075,33 +4800,54 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8)
+                ],
               ),
               child: Column(
                 children: [
                   Row(children: [
-                    const Icon(Icons.trending_up, size: 20, color: Color(0xFF1E3A5F)),
+                    const Icon(Icons.trending_up,
+                        size: 20, color: Color(0xFF1E3A5F)),
                     const SizedBox(width: 8),
-                    const Text('Tiến độ: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    const Text('Tiến độ: ',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
                     Text('${_sliderVal.toInt()}%',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A5F))),
                   ]),
                   const SizedBox(height: 8),
                   Slider(
                     value: _sliderVal,
-                    min: 0, max: 100, divisions: 20,
+                    min: 0,
+                    max: 100,
+                    divisions: 20,
                     label: '${_sliderVal.toInt()}%',
                     activeColor: const Color(0xFF1E3A5F),
                     onChanged: (v) => setState(() => _sliderVal = v),
                   ),
                   Wrap(
                     spacing: 8,
-                    children: [0, 25, 50, 75, 100].map((v) => ActionChip(
-                      label: Text('$v%', style: const TextStyle(fontSize: 12)),
-                      backgroundColor: _sliderVal.toInt() == v ? const Color(0xFF1E3A5F) : null,
-                      labelStyle: TextStyle(color: _sliderVal.toInt() == v ? Colors.white : null),
-                      onPressed: () => setState(() => _sliderVal = v.toDouble()),
-                    )).toList(),
+                    children: [0, 25, 50, 75, 100]
+                        .map((v) => ActionChip(
+                              label: Text('$v%',
+                                  style: const TextStyle(fontSize: 12)),
+                              backgroundColor: _sliderVal.toInt() == v
+                                  ? const Color(0xFF1E3A5F)
+                                  : null,
+                              labelStyle: TextStyle(
+                                  color: _sliderVal.toInt() == v
+                                      ? Colors.white
+                                      : null),
+                              onPressed: () =>
+                                  setState(() => _sliderVal = v.toDouble()),
+                            ))
+                        .toList(),
                   ),
                 ],
               ),
@@ -4115,10 +4861,15 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
               decoration: InputDecoration(
                 labelText: 'Ghi chú tiến độ',
                 hintText: 'Mô tả công việc đã hoàn thành...',
-                prefixIcon: const Padding(padding: EdgeInsets.only(bottom: 50), child: Icon(Icons.notes, size: 20)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                filled: true, fillColor: Colors.white,
+                prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 50),
+                    child: Icon(Icons.notes, size: 20)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                filled: true,
+                fillColor: Colors.white,
               ),
             ),
             const SizedBox(height: 16),
@@ -4128,25 +4879,37 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8)
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    const Icon(Icons.photo_library, size: 18, color: Color(0xFF1E3A5F)),
+                    const Icon(Icons.photo_library,
+                        size: 18, color: Color(0xFF1E3A5F)),
                     const SizedBox(width: 8),
-                    const Text('Hình ảnh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                    const Text('Hình ảnh',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E3A5F))),
                     const Spacer(),
                     OutlinedButton.icon(
                       onPressed: _saving ? null : _pickImages,
                       icon: const Icon(Icons.photo_library, size: 16),
-                      label: const Text('Thư viện', style: TextStyle(fontSize: 12)),
+                      label: const Text('Thư viện',
+                          style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         minimumSize: const Size(0, 34),
                         foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                        side: const BorderSide(
+                            color: Color(0xFF1E3A5F), width: 0.5),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -4155,10 +4918,12 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                       icon: const Icon(Icons.camera_alt, size: 16),
                       label: const Text('Chụp', style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         minimumSize: const Size(0, 34),
                         foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F), width: 0.5),
+                        side: const BorderSide(
+                            color: Color(0xFF1E3A5F), width: 0.5),
                       ),
                     ),
                   ]),
@@ -4173,16 +4938,21 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.memory(entry.value, width: 80, height: 80, fit: BoxFit.cover),
+                              child: Image.memory(entry.value,
+                                  width: 80, height: 80, fit: BoxFit.cover),
                             ),
                             Positioned(
-                              top: -6, right: -6,
+                              top: -6,
+                              right: -6,
                               child: GestureDetector(
                                 onTap: () => _removeImage(entry.key),
                                 child: Container(
                                   padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                  decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle),
+                                  child: const Icon(Icons.close,
+                                      size: 14, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -4195,9 +4965,12 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Column(children: [
-                          Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey[300]),
+                          Icon(Icons.add_photo_alternate,
+                              size: 40, color: Colors.grey[300]),
                           const SizedBox(height: 4),
-                          Text('Chưa có hình ảnh', style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+                          Text('Chưa có hình ảnh',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[400])),
                         ]),
                       ),
                     ),
@@ -4214,9 +4987,12 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                 labelText: 'Link tài liệu (mỗi dòng 1 link)',
                 hintText: 'https://docs.google.com/...',
                 prefixIcon: const Icon(Icons.link, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                filled: true, fillColor: Colors.white,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                filled: true,
+                fillColor: Colors.white,
               ),
             ),
           ],
@@ -4232,9 +5008,14 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(children: [
-                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                    const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                     const SizedBox(width: 10),
-                    Text(_statusText, style: const TextStyle(fontSize: 13, color: Color(0xFF1E3A5F))),
+                    Text(_statusText,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF1E3A5F))),
                   ]),
                 ),
               Row(children: [
@@ -4243,7 +5024,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     onPressed: _saving ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('Hủy'),
                   ),
@@ -4254,13 +5036,18 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                   child: FilledButton.icon(
                     onPressed: _saving ? null : _submit,
                     icon: _saving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.check, size: 18),
                     label: Text(_saving ? 'Đang gửi...' : 'Cập nhật tiến độ'),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF1E3A5F),
                       minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),

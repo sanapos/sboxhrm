@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../screens/forgot_password_screen.dart';
 import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
 import '../screens/admin_login_screen.dart';
+import '../screens/landing_screen.dart';
 
 class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
@@ -25,7 +27,8 @@ class ZKTecoApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: themeProvider.lightTheme,
           darkTheme: themeProvider.darkTheme,
-          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          themeMode:
+              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -60,6 +63,8 @@ class ZKTecoApp extends StatelessWidget {
             '/register': (context) => const RegisterScreen(),
             '/forgot-password': (context) => const ForgotPasswordScreen(),
             '/admin': (context) => const _AdminRouteGuard(),
+            '/login-app': (context) => const LoginScreen(),
+            '/landing': (context) => const LandingScreen(),
           },
           onGenerateRoute: (settings) {
             if (settings.name == '/reset-password') {
@@ -77,7 +82,8 @@ class ZKTecoApp extends StatelessWidget {
             return null;
           },
           home: Selector<AuthProvider, ({bool isInit, bool isAuth})>(
-            selector: (_, auth) => (isInit: auth.isInitializing, isAuth: auth.isAuthenticated),
+            selector: (_, auth) =>
+                (isInit: auth.isInitializing, isAuth: auth.isAuthenticated),
             builder: (context, state, child) {
               if (state.isInit) {
                 return const Scaffold(
@@ -88,7 +94,7 @@ class ZKTecoApp extends StatelessWidget {
               }
               return state.isAuth
                   ? const MainLayout()
-                  : const LoginScreen();
+                  : (kIsWeb ? const LandingScreen() : const LoginScreen());
             },
           ),
         );

@@ -64,6 +64,12 @@ class AttendanceSummaryTab extends StatefulWidget {
   /// Nếu false, ẩn toàn bộ nút yêu cầu chỉnh công (allow_manual_correction = false)
   final bool allowCorrection;
 
+  /// Danh sách chi nhánh để nhóm hiển thị theo branch (optional)
+  final List<Map<String, dynamic>>? branches;
+
+  /// Danh sách nhân viên để lookup branchName từ employeeCode (optional)
+  final List<Map<String, dynamic>>? employeesList;
+
   const AttendanceSummaryTab({
     super.key,
     required this.attendances,
@@ -77,6 +83,8 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.salaryProfiles = const [],
     this.approvedLeaves = const [],
     this.allowCorrection = true,
+    this.branches,
+    this.employeesList,
   });
 
   @override
@@ -109,6 +117,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   Map<String, String> _employeeCodeToGuid = {};
   // Map employeeCode -> rateType (0=hourly,1=monthly,2=daily,3=shift)
   Map<String, int> _employeeCodeToRateType = {};
+
+  // Map employeeCode -> branchName (built from widget.employeesList)
+  Map<String, String> _codeTobranchName = {};
 
   // Cross-tab view scroll controllers (sync 3 tables)
   final ScrollController _ctAttScroll = ScrollController();
@@ -163,7 +174,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   @override
   void didUpdateWidget(covariant AttendanceSummaryTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.salaryProfiles != widget.salaryProfiles) {
+    if (oldWidget.salaryProfiles != widget.salaryProfiles ||
+        oldWidget.employeesList != widget.employeesList) {
       _buildLookupMaps();
     }
   }
@@ -175,6 +187,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     _employeeCodeToShiftsPerDay = {};
     _employeeCodeToGuid = {};
     _employeeCodeToRateType = {};
+    // Build branch lookup from employeesList
+    _codeTobranchName = {};
+    if (widget.employeesList != null) {
+      for (final emp in widget.employeesList!) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        if (code.isNotEmpty) {
+          _codeTobranchName[code] = emp['branchName']?.toString() ?? '';
+        }
+      }
+    }
     for (final profile in widget.salaryProfiles) {
       if (profile is! Map<String, dynamic>) continue;
       final shiftsPerDay = (profile['shiftsPerDay'] as num?)?.toInt() ?? 1;
@@ -490,11 +512,27 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         effectiveMultiplier: effectiveMultiplier,
         isHoliday: isHoliday,
         isRestDay: isRestDay,
+        branchName: _codeTobranchName[empCode] ?? '',
       ));
     });
 
     // Sort: default by employee name then date
     summaries.sort((a, b) {
+      // Sort by branch order first when branches are available
+      if (widget.branches != null && widget.branches!.isNotEmpty) {
+        int getBranchOrder(String branchName) {
+          for (int i = 0; i < widget.branches!.length; i++) {
+            if ((widget.branches![i]['name']?.toString() ?? '') == branchName) {
+              return i;
+            }
+          }
+          return widget.branches!.length; // no-branch goes to end
+        }
+
+        final aOrder = getBranchOrder(a.branchName);
+        final bOrder = getBranchOrder(b.branchName);
+        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+      }
       int cmp;
       if (_sortColumn == 'date') {
         cmp = a.date.compareTo(b.date);
@@ -795,13 +833,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           }
 
                           // Thêm cột cho các ca (động theo maxShifts)
-                          final shiftColors = [
-                            Colors.teal,
-                            Colors.indigo,
-                            Colors.purple,
-                            Colors.orange,
-                            Colors.brown
-                          ];
                           for (int i = 1; i <= maxShifts; i++) {
                             columns.add(DataColumn(
                                 label: Expanded(
@@ -902,200 +933,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                               dataRowMaxHeight: 46,
                                               dividerThickness: 0.5,
                                               columns: columns,
-                                              rows: pagedSummaries
-                                                  .asMap()
-                                                  .entries
-                                                  .map((entry) {
-                                                final index = entry.key;
-                                                final summary = entry.value;
-                                                final dayOfWeek =
-                                                    _getDayOfWeekVN(
-                                                        summary.date.weekday);
-
-                                                // Tạo cells động
-                                                final cells = <DataCell>[
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          '${startIndex + index + 1}',
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey)))),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          summary.employeeName,
-                                                          style: const TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500)))),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          summary.employeeCode,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                  DataCell(Center(
-                                                    child: Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: _getDayColor(
-                                                                summary.date
-                                                                    .weekday)
-                                                            .withValues(
-                                                                alpha: 0.1),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        dayOfWeek,
-                                                        style: TextStyle(
-                                                          color: _getDayColor(
-                                                              summary.date
-                                                                  .weekday),
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  )),
-                                                  DataCell(Center(
-                                                      child: Text(
-                                                          DateFormat(
-                                                                  'dd/MM/yyyy')
-                                                              .format(
-                                                                  summary.date),
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      12)))),
-                                                ];
-
-                                                // Thêm cells cho các lần chấm công
-                                                for (int i = 1;
-                                                    i <= maxPunches;
-                                                    i++) {
-                                                  final isIn = i % 2 ==
-                                                      1; // Lẻ = vào, chẵn = ra
-                                                  cells.add(DataCell(Center(
-                                                      child: _buildPunchTime(
-                                                    summary.getPunch(i),
-                                                    isIn: isIn,
-                                                    summary: summary,
-                                                    punchIndex: i,
-                                                  ))));
-                                                }
-
-                                                // Thêm cells cho các ca
-                                                for (int i = 1;
-                                                    i <= maxShifts;
-                                                    i++) {
-                                                  cells.add(DataCell(Center(
-                                                      child: _buildHoursBadge(
-                                                          summary
-                                                              .getShiftHours(i),
-                                                          shiftColors[
-                                                              i - 1]))));
-                                                }
-
-                                                // Cell tổng giờ
-                                                cells.add(DataCell(Center(
-                                                    child: _buildHoursBadge(
-                                                        summary.totalHours,
-                                                        Colors.green,
-                                                        isBold: true))));
-
-                                                // Cell số công
-                                                cells.add(DataCell(Center(
-                                                    child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: summary.isHoliday
-                                                        ? Colors.deepOrange
-                                                            .withValues(
-                                                                alpha: 0.12)
-                                                        : (summary.isRestDay &&
-                                                                summary
-                                                                        .effectiveMultiplier >
-                                                                    1
-                                                            ? Colors.purple
-                                                                .withValues(
-                                                                    alpha: 0.12)
-                                                            : (summary.workCount >
-                                                                    0
-                                                                ? Colors.blue
-                                                                    .withValues(
-                                                                        alpha:
-                                                                            0.10)
-                                                                : Colors
-                                                                    .transparent)),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
-                                                  ),
-                                                  child: Text(
-                                                    summary.workCount > 0
-                                                        ? (summary.effectiveMultiplier !=
-                                                                1.0
-                                                            ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
-                                                            : summary.workCount
-                                                                .toStringAsFixed(
-                                                                    2))
-                                                        : '-',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: summary.isHoliday
-                                                          ? Colors.deepOrange
-                                                          : (summary.isRestDay &&
-                                                                  summary.effectiveMultiplier >
-                                                                      1
-                                                              ? Colors.purple
-                                                              : (summary.workCount >
-                                                                      0
-                                                                  ? Colors.blue
-                                                                      .shade700
-                                                                  : Colors
-                                                                      .grey)),
-                                                    ),
-                                                  ),
-                                                ))));
-
-                                                // Cell giờ thập phân
-                                                cells.add(DataCell(Center(
-                                                    child: Text(
-                                                  _formatDecimalHours(
-                                                      summary.totalHours),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: summary.totalHours >
-                                                            0
-                                                        ? Colors.blue.shade700
-                                                        : Colors.grey,
-                                                  ),
-                                                ))));
-
-                                                return DataRow(
-                                                  cells: cells,
-                                                  onSelectChanged: (_) =>
-                                                      _showRowDetailDialog(
-                                                          summary,
-                                                          maxPunches,
-                                                          maxShifts),
-                                                );
-                                              }).toList(),
+                                              rows: _buildTableRows(
+                                                  pagedSummaries,
+                                                  summaries,
+                                                  maxPunches,
+                                                  maxShifts,
+                                                  startIndex),
                                             ),
                                           ),
                                         ),
@@ -1474,11 +1317,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         final range = _selectedDateRange;
         final fileName =
             'Tong_hop_cham_cong_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
-        await file_saver.saveFileBytes(bytes, fileName,
+        await file_saver.saveAndOpenFileBytes(bytes, fileName,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+              title: 'Xuất Excel',
+              message: 'Đã lưu vào Tải về/SBOX HRM: $fileName');
+        }
       }
     } catch (e) {
-      debugPrint('Error exporting Excel: $e');
+      if (mounted) {
+        NotificationOverlayManager()
+            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -1677,7 +1528,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
         if (mounted) {
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
         }
       } else {
         // Mobile fallback: use async renderer with same draw callback
@@ -1759,7 +1610,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           await file_saver.saveAndOpenFileBytes(
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
         } else if (mounted) {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
@@ -3055,6 +2906,219 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     );
   }
 
+  /// Build DataRows with optional branch-group headers
+  List<DataRow> _buildTableRows(
+    List<_DailySummary> pagedSummaries,
+    List<_DailySummary> allSummaries,
+    int maxPunches,
+    int maxShifts,
+    int startIndex,
+  ) {
+    final shiftColors = [
+      Colors.teal,
+      Colors.indigo,
+      Colors.purple,
+      Colors.orange,
+      Colors.brown
+    ];
+    final bool groupByBranch = widget.branches != null &&
+        widget.branches!.isNotEmpty &&
+        _codeTobranchName.isNotEmpty;
+    final primaryColor = Theme.of(context).primaryColor;
+    final List<DataRow> rows = [];
+    String? currentBranch;
+    int dataRowIndex = 0;
+
+    // Pre-compute branch employee counts
+    final Map<String, int> branchEmpCounts = {};
+    if (groupByBranch) {
+      for (final s in allSummaries) {
+        final lbl = s.branchName.isEmpty ? 'Chưa có chi nhánh' : s.branchName;
+        branchEmpCounts.putIfAbsent(lbl, () => 0);
+      }
+      for (final s in allSummaries) {
+        final lbl = s.branchName.isEmpty ? 'Chưa có chi nhánh' : s.branchName;
+        branchEmpCounts[lbl] = (branchEmpCounts[lbl] ?? 0);
+      }
+      // Count unique employees per branch
+      final Map<String, Set<String>> branchEmps = {};
+      for (final s in allSummaries) {
+        final lbl = s.branchName.isEmpty ? 'Chưa có chi nhánh' : s.branchName;
+        branchEmps.putIfAbsent(lbl, () => {}).add(s.employeeCode);
+      }
+      for (final e in branchEmps.entries) {
+        branchEmpCounts[e.key] = e.value.length;
+      }
+    }
+
+    for (final summary in pagedSummaries) {
+      // Branch header row (insert when branch changes)
+      if (groupByBranch) {
+        final branchLabel = summary.branchName.isEmpty
+            ? 'Chưa có chi nhánh'
+            : summary.branchName;
+        if (branchLabel != currentBranch) {
+          currentBranch = branchLabel;
+          final empCount = branchEmpCounts[branchLabel] ?? 0;
+          final totalCols = 8 + maxPunches + maxShifts;
+          rows.add(DataRow(
+            color:
+                WidgetStateProperty.all(primaryColor.withValues(alpha: 0.06)),
+            cells: [
+              DataCell(
+                Row(children: [
+                  Icon(Icons.account_tree_outlined,
+                      size: 14, color: primaryColor),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      branchLabel,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$empCount NV',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white),
+                    ),
+                  ),
+                ]),
+              ),
+              for (int i = 1; i < totalCols; i++) const DataCell(SizedBox()),
+            ],
+          ));
+        }
+      }
+
+      // Regular data row
+      final dayOfWeek = _getDayOfWeekVN(summary.date.weekday);
+      final cells = <DataCell>[
+        DataCell(Center(
+            child: Text('${startIndex + dataRowIndex + 1}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)))),
+        DataCell(Center(
+            child: Text(summary.employeeName,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500)))),
+        DataCell(Center(
+            child: Text(summary.employeeCode,
+                style: const TextStyle(fontSize: 12)))),
+        DataCell(Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: _getDayColor(summary.date.weekday).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              dayOfWeek,
+              style: TextStyle(
+                color: _getDayColor(summary.date.weekday),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        )),
+        DataCell(Center(
+            child: Text(DateFormat('dd/MM/yyyy').format(summary.date),
+                style: const TextStyle(fontSize: 12)))),
+      ];
+
+      // Punch time cells
+      for (int i = 1; i <= maxPunches; i++) {
+        final isIn = i % 2 == 1;
+        cells.add(DataCell(Center(
+            child: _buildPunchTime(
+          summary.getPunch(i),
+          isIn: isIn,
+          summary: summary,
+          punchIndex: i,
+        ))));
+      }
+
+      // Shift hour cells
+      for (int i = 1; i <= maxShifts; i++) {
+        cells.add(DataCell(Center(
+            child: _buildHoursBadge(
+                summary.getShiftHours(i), shiftColors[i - 1]))));
+      }
+
+      // Total hours cell
+      cells.add(DataCell(Center(
+          child: _buildHoursBadge(summary.totalHours, Colors.green,
+              isBold: true))));
+
+      // Work count cell
+      cells.add(DataCell(Center(
+          child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: summary.isHoliday
+              ? Colors.deepOrange.withValues(alpha: 0.12)
+              : (summary.isRestDay && summary.effectiveMultiplier > 1
+                  ? Colors.purple.withValues(alpha: 0.12)
+                  : (summary.workCount > 0
+                      ? Colors.blue.withValues(alpha: 0.10)
+                      : Colors.transparent)),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          summary.workCount > 0
+              ? (summary.effectiveMultiplier != 1.0
+                  ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
+                  : summary.workCount.toStringAsFixed(2))
+              : '-',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: summary.isHoliday
+                ? Colors.deepOrange
+                : (summary.isRestDay && summary.effectiveMultiplier > 1
+                    ? Colors.purple
+                    : (summary.workCount > 0
+                        ? Colors.blue.shade700
+                        : Colors.grey)),
+          ),
+        ),
+      ))));
+
+      // Decimal hours cell
+      cells.add(DataCell(Center(
+          child: Text(
+        _formatDecimalHours(summary.totalHours),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: summary.totalHours > 0 ? Colors.blue.shade700 : Colors.grey,
+        ),
+      ))));
+
+      rows.add(DataRow(
+        cells: cells,
+        onSelectChanged: (_) =>
+            _showRowDetailDialog(summary, maxPunches, maxShifts),
+      ));
+      dataRowIndex++;
+    }
+
+    return rows;
+  }
+
   // Filter bar
   Widget _buildFilters(DateTimeRange range) {
     final isMobile = MediaQuery.of(context).size.width < 768;
@@ -3971,6 +4035,7 @@ class _DailySummary {
   final double effectiveMultiplier; // 1.0 = bình thường, >1 = ngày lễ/nghỉ
   final bool isHoliday;
   final bool isRestDay;
+  final String branchName; // Tên chi nhánh (lookup từ employeesList)
 
   _DailySummary({
     required this.employeeId,
@@ -4009,6 +4074,7 @@ class _DailySummary {
     this.effectiveMultiplier = 1.0,
     this.isHoliday = false,
     this.isRestDay = false,
+    this.branchName = '',
   });
 
   // Lấy punch time theo index (1-10)

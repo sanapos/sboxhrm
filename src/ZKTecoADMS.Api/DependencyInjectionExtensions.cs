@@ -220,8 +220,18 @@ public static class DependencyInjectionExtensions
                         QueueLimit = 5,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
-            // Login brute-force protection: 5 attempts per minute per IP
+            // Login brute-force protection: 20 attempts per minute per IP
             options.AddPolicy("login", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+            // Public forms: keep anonymous lead capture usable but throttle bursts/spam
+            options.AddPolicy("public-form", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new FixedWindowRateLimiterOptions
@@ -280,18 +290,18 @@ public static class DependencyInjectionExtensions
         }
         
         // Log ALL incoming requests — to diagnose new-gen ZKTeco devices using different paths
+        // Logger resolved once at startup (not per-request) to avoid DI overhead
+        var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("RequestLogger");
         app.Use(async (context, next) =>
         {
             var path = context.Request.Path.Value;
-            var method = context.Request.Method;
-            var qs = context.Request.QueryString.Value;
-            var ip = context.Connection.RemoteIpAddress?.ToString();
             // Skip static files and health checks
             if (path != null && !path.StartsWith("/health") && !path.Contains('.'))
             {
-                var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
-                    .CreateLogger("RequestLogger");
-                logger.LogWarning("[ALL REQUEST] {Method} {Path}{QS} from {IP}", method, path, qs, ip);
+                var method = context.Request.Method;
+                var qs = context.Request.QueryString.Value;
+                var ip = context.Connection.RemoteIpAddress?.ToString();
+                requestLogger.LogWarning("[ALL REQUEST] {Method} {Path}{QS} from {IP}", method, path, qs, ip);
             }
             await next();
         });

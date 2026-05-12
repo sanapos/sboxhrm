@@ -4,12 +4,11 @@ using ZKTecoADMS.Application.Interfaces;
 namespace ZKTecoADMS.Infrastructure.Services;
 
 /// <summary>
-/// Resolve phạm vi dữ liệu theo phòng ban + cấp quản lý.
-/// Logic:
-/// 1. Tìm phòng ban user là Department.ManagerId
-/// 2. Tìm phòng ban user được phân quyền qua DepartmentPermission (CanView)
-/// 3. Dùng HierarchyPath resolve phòng ban con (nếu IncludeChildren)
-/// 4. Lấy tất cả Employee có DepartmentId thuộc danh sách hoặc ManagerId == userId (báo cáo trực tiếp)
+/// Resolve phạm vi dữ liệu theo phòng ban, chi nhánh + cấp quản lý.
+/// Logic phân quyền:
+/// 1. Phòng ban: Department.ManagerId + DepartmentPermission (CanView)
+/// 2. Chi nhánh: Branch.ManagerId (là EmployeeId) + BranchPermission (CanView)
+/// 3. Nhân viên: NV trong PB quản lý + NV trong CN quản lý + NV báo cáo trực tiếp
 /// </summary>
 public class DataScopeService(ZKTecoDbContext context) : IDataScopeService
 {
@@ -146,7 +145,101 @@ public class DataScopeService(ZKTecoDbContext context) : IDataScopeService
                 result.Add(id);
         }
 
+        // 3. NV thuộc chi nhánh quản lý
+        var managedBranchIds = await GetManagedBranchIdsAsync(userId, storeId);
+        if (managedBranchIds.Count > 0)
+        {
+            var branchEmployees = await context.Employees
+                .Where(e => e.StoreId == storeId && e.BranchId.HasValue &&
+                            managedBranchIds.Contains(e.BranchId.Value))
+                .Select(e => e.Id)
+                .ToListAsync();
+            foreach (var id in branchEmployees)
+                result.Add(id);
+        }
+
         return result.ToList();
+    }
+
+    public async Task<List<Guid>> GetManagedBranchIdsAsync(Guid userId, Guid storeId)
+    {
+        var result = new HashSet<Guid>();
+
+        // Tìm EmployeeId tương ứng (Branch.ManagerId là FK đến Employee)
+        var employeeId = await context.Employees
+            .Where(e => e.ApplicationUserId == userId && e.StoreId == storeId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
+
+        // 1. Chi nhánh mà user là manager (Branch.ManagerId == employeeId)
+        if (employeeId != Guid.Empty)
+        {
+            var managedBranches = await context.Branches
+                .Where(b => b.ManagerId == employeeId && b.StoreId == storeId && b.Deleted == null)
+                .Select(b => new { b.Id, b.ParentBranchId })
+                .ToListAsync();
+
+            foreach (var branch in managedBranches)
+            {
+                result.Add(branch.Id);
+                // Include all descendant branches (BFS)
+                await AddChildBranchIdsAsync(branch.Id, storeId, result);
+            }
+        }
+
+        // 2. Chi nhánh được phân quyền qua BranchPermission (CanView = true)
+        var branchPermissions = await context.BranchPermissions
+            .Where(bp => bp.UserId == userId &&
+                         (bp.StoreId == storeId || bp.StoreId == null) &&
+                         bp.IsActive && bp.CanView)
+            .Select(bp => new { bp.BranchId, bp.IncludeChildren })
+            .ToListAsync();
+
+        foreach (var perm in branchPermissions)
+        {
+            if (perm.BranchId == null)
+            {
+                // null = tất cả chi nhánh trong store
+                var allBranchIds = await context.Branches
+                    .Where(b => b.StoreId == storeId && b.Deleted == null)
+                    .Select(b => b.Id)
+                    .ToListAsync();
+                foreach (var id in allBranchIds) result.Add(id);
+                break;
+            }
+
+            result.Add(perm.BranchId.Value);
+
+            if (perm.IncludeChildren)
+                await AddChildBranchIdsAsync(perm.BranchId.Value, storeId, result);
+        }
+
+        return result.ToList();
+    }
+
+    /// <summary>BFS: thêm tất cả chi nhánh con (và cháu) vào result set.</summary>
+    private async Task AddChildBranchIdsAsync(Guid parentId, Guid storeId, HashSet<Guid> result)
+    {
+        var allPairs = await context.Branches
+            .Where(b => b.StoreId == storeId && b.Deleted == null && b.ParentBranchId != null)
+            .Select(b => new { b.Id, ParentId = b.ParentBranchId!.Value })
+            .ToListAsync();
+
+        var childrenByParent = allPairs
+            .GroupBy(p => p.ParentId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
+
+        var queue = new Queue<Guid>();
+        if (childrenByParent.TryGetValue(parentId, out var directChildren))
+            foreach (var c in directChildren) queue.Enqueue(c);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!result.Add(current)) continue;
+            if (childrenByParent.TryGetValue(current, out var children))
+                foreach (var c in children) queue.Enqueue(c);
+        }
     }
 
     public async Task<List<Guid>> GetSubordinateUserIdsAsync(Guid userId, Guid storeId)

@@ -39,6 +39,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   // Bộ lọc nhân viên (tìm kiếm)
   String _searchQuery = '';
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
   final TextEditingController _searchController = TextEditingController();
 
   // Bộ lọc loại
@@ -204,6 +206,16 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           _selectedIds.clear();
         });
       }
+      if (_branches.isEmpty) {
+        try {
+          final br = await _apiService.getBranchesForSelect();
+          final bd = br['data'];
+          if (bd is List && mounted) {
+            setState(() => _branches =
+                bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+          }
+        } catch (_) {}
+      }
     } catch (e) {
       debugPrint('Error loading data: $e');
       if (mounted) setState(() => _isLoading = false);
@@ -214,9 +226,19 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   // FILTERED DATA
   // ══════════════════════════════════════════════════
   List<Map<String, dynamic>> get _filteredTransactions {
-    if (_searchQuery.isEmpty) return _transactions;
+    var list = _transactions;
+    if (_selectedBranchId != null) {
+      final branchCodes = _employees
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['employeeCode']?.toString() ?? '')
+          .toSet();
+      list = list
+          .where((t) => branchCodes.contains(t['employeeCode']?.toString()))
+          .toList();
+    }
+    if (_searchQuery.isEmpty) return list;
     final q = _searchQuery.toLowerCase();
-    return _transactions.where((t) {
+    return list.where((t) {
       final name = (t['employeeName']?.toString() ?? '').toLowerCase();
       final code = (t['employeeCode']?.toString() ?? '').toLowerCase();
       return name.contains(q) || code.contains(q);
@@ -361,7 +383,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   bool _hasActiveFilters() {
     return _datePreset != 'thisMonth' ||
         _filterType != 'all' ||
-        _searchQuery.isNotEmpty;
+        _searchQuery.isNotEmpty ||
+        _selectedBranchId != null;
   }
 
   Widget _buildMobileFilterToggle() {
@@ -563,6 +586,31 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   const SizedBox(width: 8),
                   selectBtn
                 ]),
+                if (_branches.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String?>(
+                    key: ValueKey('branch_$_selectedBranchId'),
+                    initialValue: _selectedBranchId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Chi nhánh',
+                      isDense: true,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('Tất cả chi nhánh')),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                ],
               ],
             )
           : Row(
@@ -572,6 +620,34 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 typeDropdown,
                 const SizedBox(width: 12),
                 searchField,
+                if (_branches.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 180,
+                    child: DropdownButtonFormField<String?>(
+                      key: ValueKey('branch_$_selectedBranchId'),
+                      initialValue: _selectedBranchId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Chi nhánh',
+                        isDense: true,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('Tất cả chi nhánh')),
+                        ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(b['name']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _selectedBranchId = v),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 OutlinedButton.icon(
                   onPressed: () => setState(() {
@@ -2179,8 +2255,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white))
+                                        strokeWidth: 2, color: Colors.white))
                                 : Icon(isEdit ? Icons.save : Icons.add,
                                     size: 16),
                             label: Text(

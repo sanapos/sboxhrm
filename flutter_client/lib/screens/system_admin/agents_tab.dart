@@ -401,10 +401,12 @@ class AgentsTabState extends State<AgentsTab> {
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
+    bool saving = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
         title: const Text('Thêm đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
@@ -434,19 +436,24 @@ class AgentsTabState extends State<AgentsTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: saving ? null : () => Navigator.pop(ctx),
               child: const Text('Hủy')),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: saving ? null : () async {
               final pwd = passwordCtrl.text.trim();
+              if (nameCtrl.text.trim().isEmpty) {
+                AdminHelpers.showError(context, 'Vui lòng nhập tên đại lý');
+                return;
+              }
               if (pwd.isNotEmpty && emailCtrl.text.trim().isEmpty) {
-                AdminHelpers.showSuccess(context, 'Cần nhập email khi đặt mật khẩu');
+                AdminHelpers.showError(context, 'Cần nhập email khi đặt mật khẩu');
                 return;
               }
               if (pwd.isNotEmpty && pwd.length < 6) {
-                AdminHelpers.showSuccess(context, 'Mật khẩu tối thiểu 6 ký tự');
+                AdminHelpers.showError(context, 'Mật khẩu tối thiểu 6 ký tự');
                 return;
               }
+              setSt(() => saving = true);
               final res = await _apiService.createAgent(
                   name: nameCtrl.text,
                   code: codeCtrl.text,
@@ -473,9 +480,12 @@ class AgentsTabState extends State<AgentsTab> {
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.warning),
-            child: const Text('Tạo'),
+            child: saving
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Tạo'),
           ),
         ],
+      ),
       ),
     ).then((_) {
       nameCtrl.dispose();
@@ -488,7 +498,9 @@ class AgentsTabState extends State<AgentsTab> {
 
   void _showAgentRegistrationLink(String agentCode) {
     if (agentCode.isEmpty) return;
-    final link = 'https://sbox.sana.vn/register?agentCode=$agentCode';
+    // Derive web app base from API base URL (strip /api path if any)
+    final apiBase = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+    final link = '$apiBase/#/register?agentCode=$agentCode';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

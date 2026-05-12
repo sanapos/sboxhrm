@@ -24,7 +24,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    public async Task<IActionResult> GetEmployees([FromQuery] PaginationRequest request, [FromQuery] string? searchTerm, [FromQuery] string? employmentType, [FromQuery] string? workStatus)
+    public async Task<IActionResult> GetEmployees([FromQuery] PaginationRequest request, [FromQuery] string? searchTerm, [FromQuery] string? employmentType, [FromQuery] string? workStatus, [FromQuery] Guid? branchId)
     {
         // Admin xem tất cả, Manager/Employee xem theo phạm vi quản lý
         List<Guid>? subordinateIds = null;
@@ -39,7 +39,8 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
             EmploymentType = employmentType,
             WorkStatus = workStatus,
             ManagerId = CurrentUserId,
-            SubordinateEmployeeIds = subordinateIds
+            SubordinateEmployeeIds = subordinateIds,
+            BranchId = branchId
         };
         
         var result = await mediator.Send(query);

@@ -70,7 +70,20 @@ public class PublicSettingsController : ControllerBase
 
                 // Legal
                 settings.GetValueOrDefault(AppSettingKeys.TermsOfService),
-                settings.GetValueOrDefault(AppSettingKeys.PrivacyPolicy)
+                settings.GetValueOrDefault(AppSettingKeys.PrivacyPolicy),
+
+                // Landing videos
+                settings.GetValueOrDefault(AppSettingKeys.LandingVideoIntro),
+                settings.GetValueOrDefault(AppSettingKeys.LandingVideoGuide),
+
+                // Landing content
+                settings.GetValueOrDefault(AppSettingKeys.LandingHeroTitle),
+                settings.GetValueOrDefault(AppSettingKeys.LandingHeroSubtext),
+                settings.GetValueOrDefault(AppSettingKeys.LandingFeaturesJson),
+                settings.GetValueOrDefault(AppSettingKeys.LandingPricingJson),
+                settings.GetValueOrDefault(AppSettingKeys.LandingGuideJson),
+                settings.GetValueOrDefault(AppSettingKeys.LandingProducts),
+                settings.GetValueOrDefault(AppSettingKeys.LandingDownloadsJson)
             );
 
             return Ok(AppResponse<PublicAppSettingsResponse>.Success(response));

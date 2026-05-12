@@ -42,6 +42,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isRealtimeConnected = false;
   Timer? _refreshTimer;
   StreamSubscription<Attendance>? _attendanceSubscription;
+  final ScrollController _tableScrollController = ScrollController();
 
   // Danh sách yêu cầu chỉnh sửa chấm công (lưu ở state cha để chia sẻ giữa các tab)
   List<CorrectionRequestInternal> _pendingCorrectionRequests = [];
@@ -59,6 +60,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       'week'; // Preset: today, yesterday, week, lastWeek, month, lastMonth, custom
   int?
       _selectedVerifyType; // null = all, 0 = password, 1 = fingerprint, 2 = card, 15 = face
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
   // Sorting
   String _sortColumn = 'time';
@@ -79,12 +83,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     super.initState();
     _loadCorrectionRequestsFromStorage();
     _loadDevices();
+    _loadEmployeesAndBranches();
     _connectSignalR();
-    
+
     // Listen for external refresh triggers
     ScreenRefreshNotifier.attendance.addListener(_onExternalRefresh);
   }
-  
+
+  Future<void> _loadEmployeesAndBranches() async {
+    try {
+      final apiService = ApiService();
+      final emps = await apiService.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final apiService = ApiService();
+      final br = await apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
+  }
+
   void _onExternalRefresh() {
     if (mounted) {
       debugPrint('🔄 AttendanceScreen: External refresh triggered');
@@ -152,10 +177,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       platform_storage.storageSet(_pendingRequestsKey, pendingJson);
       platform_storage.storageSet(_processedRequestsKey, processedJson);
-      
+
       debugPrint('💾 Saved corrections to localStorage:');
-      debugPrint('   Pending: ${_pendingCorrectionRequests.length} items (${pendingJson.length} chars)');
-      debugPrint('   Processed: ${_processedCorrectionRequests.length} items (${processedJson.length} chars)');
+      debugPrint(
+          '   Pending: ${_pendingCorrectionRequests.length} items (${pendingJson.length} chars)');
+      debugPrint(
+          '   Processed: ${_processedCorrectionRequests.length} items (${processedJson.length} chars)');
     } catch (e) {
       debugPrint('❌ Error saving correction requests: $e');
     }
@@ -209,6 +236,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     _attendanceSubscription?.cancel();
+    _tableScrollController.dispose();
     ScreenRefreshNotifier.attendance.removeListener(_onExternalRefresh);
     super.dispose();
   }
@@ -216,6 +244,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   /// Connect to SignalR for real-time updates
   Future<void> _connectSignalR() async {
     try {
+      // Cancel previous subscription before creating a new one to prevent leaks
+      await _attendanceSubscription?.cancel();
+      _attendanceSubscription = null;
+
       // SignalR connection is managed by MainLayout with auth token
       // Here we only subscribe to the stream
       if (!_signalRService.isConnected) {
@@ -742,7 +774,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         if (offlineDevices.isNotEmpty) {
           appNotification.showError(
             title: 'Thiết bị offline',
-            message: 'Các thiết bị đang offline: ${offlineDevices.join(", ")}. Vui lòng kiểm tra kết nối mạng của máy chấm công.',
+            message:
+                'Các thiết bị đang offline: ${offlineDevices.join(", ")}. Vui lòng kiểm tra kết nối mạng của máy chấm công.',
           );
         } else if (successCount > 0) {
           appNotification.showSuccess(
@@ -804,7 +837,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ],
           ),
           content: SizedBox(
-            width: math.min(500, MediaQuery.of(context).size.width - 32).toDouble(),
+            width: math
+                .min(500, MediaQuery.of(context).size.width - 32)
+                .toDouble(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1206,7 +1241,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         children: [
           // Modern gradient header
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, isMobile ? 10 : 14),
+            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
+                isMobile ? 14 : 24, isMobile ? 10 : 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [primary, primary.withValues(alpha: 0.85)],
@@ -1235,13 +1271,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.access_time_filled, size: 18, color: Colors.white),
+                              child: const Icon(Icons.access_time_filled,
+                                  size: 18, color: Colors.white),
                             ),
                             const SizedBox(width: 10),
                             const Expanded(
                               child: Text(
                                 'Chấm công',
-                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                               ),
                             ),
                             _buildRealtimeIndicator(),
@@ -1255,16 +1295,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             Stack(
                               children: [
                                 _buildMobileHeaderIcon(
-                                  _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                                  () => setState(() => _showMobileFilters = !_showMobileFilters),
+                                  _showMobileFilters
+                                      ? Icons.filter_alt
+                                      : Icons.filter_alt_outlined,
+                                  () => setState(() =>
+                                      _showMobileFilters = !_showMobileFilters),
                                 ),
                                 if (_hasActiveFilters())
                                   Positioned(
                                     right: 4,
                                     top: 4,
                                     child: Container(
-                                      width: 8, height: 8,
-                                      decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.orangeAccent,
+                                          shape: BoxShape.circle),
                                     ),
                                   ),
                               ],
@@ -1278,22 +1324,58 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   color: Colors.white.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(Icons.more_vert, size: 18, color: Colors.white),
+                                child: const Icon(Icons.more_vert,
+                                    size: 18, color: Colors.white),
                               ),
                               onSelected: (v) {
                                 if (v == 'sync') _syncAttendancesFromDevice();
-                                if (v == 'manual') _showManualAttendanceDialog();
+                                if (v == 'manual') {
+                                  _showManualAttendanceDialog();
+                                }
                                 if (v == 'import') _importFromExcel();
                                 if (v == 'export') _exportToExcel();
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(value: 'sync', child: Row(children: [const Icon(Icons.sync, size: 18, color: Colors.blue), const SizedBox(width: 10), Text(_l10n.syncData)])),
-                                if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Attendance'))
-                                PopupMenuItem(value: 'manual', child: Row(children: [const Icon(Icons.add_circle_outline, size: 18), const SizedBox(width: 10), Text(_l10n.manualAttendance)])),
-                                if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Attendance'))
-                                PopupMenuItem(value: 'import', child: Row(children: [const Icon(Icons.upload_file, size: 18), const SizedBox(width: 10), Text(_l10n.importExcel)])),
-                                if (Provider.of<PermissionProvider>(context, listen: false).canExport('Attendance'))
-                                PopupMenuItem(value: 'export', child: Row(children: [const Icon(Icons.file_download_outlined, size: 18), const SizedBox(width: 10), Text(_l10n.exportExcel)])),
+                                PopupMenuItem(
+                                    value: 'sync',
+                                    child: Row(children: [
+                                      const Icon(Icons.sync,
+                                          size: 18, color: Colors.blue),
+                                      const SizedBox(width: 10),
+                                      Text(_l10n.syncData)
+                                    ])),
+                                if (Provider.of<PermissionProvider>(context,
+                                        listen: false)
+                                    .canCreate('Attendance'))
+                                  PopupMenuItem(
+                                      value: 'manual',
+                                      child: Row(children: [
+                                        const Icon(Icons.add_circle_outline,
+                                            size: 18),
+                                        const SizedBox(width: 10),
+                                        Text(_l10n.manualAttendance)
+                                      ])),
+                                if (Provider.of<PermissionProvider>(context,
+                                        listen: false)
+                                    .canCreate('Attendance'))
+                                  PopupMenuItem(
+                                      value: 'import',
+                                      child: Row(children: [
+                                        const Icon(Icons.upload_file, size: 18),
+                                        const SizedBox(width: 10),
+                                        Text(_l10n.importExcel)
+                                      ])),
+                                if (Provider.of<PermissionProvider>(context,
+                                        listen: false)
+                                    .canExport('Attendance'))
+                                  PopupMenuItem(
+                                      value: 'export',
+                                      child: Row(children: [
+                                        const Icon(Icons.file_download_outlined,
+                                            size: 18),
+                                        const SizedBox(width: 10),
+                                        Text(_l10n.exportExcel)
+                                      ])),
                               ],
                             ),
                           ],
@@ -1309,31 +1391,51 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   autofocus: true,
                                   decoration: InputDecoration(
                                     hintText: 'Tìm ID/Tên...',
-                                    hintStyle: const TextStyle(fontSize: 13, color: Colors.white70),
-                                    prefixIcon: const Icon(Icons.search, size: 18, color: Colors.white70),
+                                    hintStyle: const TextStyle(
+                                        fontSize: 13, color: Colors.white70),
+                                    prefixIcon: const Icon(Icons.search,
+                                        size: 18, color: Colors.white70),
                                     isDense: true,
                                     filled: true,
-                                    fillColor: Colors.white.withValues(alpha: 0.2),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white54, width: 1)),
+                                    fillColor:
+                                        Colors.white.withValues(alpha: 0.2),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: BorderSide.none),
+                                    enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: BorderSide.none),
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: const BorderSide(
+                                            color: Colors.white54, width: 1)),
                                   ),
-                                  style: const TextStyle(fontSize: 13, color: Colors.white),
-                                  onChanged: (v) => setState(() { _searchPin = v; _currentPage = 1; }),
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.white),
+                                  onChanged: (v) => setState(() {
+                                    _searchPin = v;
+                                    _currentPage = 1;
+                                  }),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             GestureDetector(
-                              onTap: () => setState(() { _showMobileSearch = false; _searchPin = ''; _currentPage = 1; }),
+                              onTap: () => setState(() {
+                                _showMobileSearch = false;
+                                _searchPin = '';
+                                _currentPage = 1;
+                              }),
                               child: Container(
                                 padding: const EdgeInsets.all(7),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(Icons.close, size: 18, color: Colors.white),
+                                child: const Icon(Icons.close,
+                                    size: 18, color: Colors.white),
                               ),
                             ),
                           ],
@@ -1349,7 +1451,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.access_time_filled, size: 22, color: Colors.white),
+                        child: const Icon(Icons.access_time_filled,
+                            size: 22, color: Colors.white),
                       ),
                       const SizedBox(width: 14),
                       Column(
@@ -1357,11 +1460,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         children: [
                           const Text(
                             'Chấm công',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
                           ),
                           Text(
                             'Quản lý dữ liệu chấm công thời gian thực',
-                            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.8)),
                           ),
                         ],
                       ),
@@ -1370,16 +1478,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       _buildRealtimeIndicator(),
                       const SizedBox(width: 12),
                       // Action buttons
-                      if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Attendance'))
-                      _buildHeaderActionBtn(Icons.add_circle_outline, 'Chấm công thủ công', _showManualAttendanceDialog),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Attendance'))
-                      const SizedBox(width: 8),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Attendance'))
-                      _buildHeaderActionBtn(Icons.upload_file, 'Import Excel', _importFromExcel),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canExport('Attendance'))
-                      const SizedBox(width: 8),
-                      if (Provider.of<PermissionProvider>(context, listen: false).canExport('Attendance'))
-                      _buildHeaderActionBtn(Icons.file_download_outlined, 'Xuất Excel', () => _exportToExcel()),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canCreate('Attendance'))
+                        _buildHeaderActionBtn(Icons.add_circle_outline,
+                            'Chấm công thủ công', _showManualAttendanceDialog),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canCreate('Attendance'))
+                        const SizedBox(width: 8),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canCreate('Attendance'))
+                        _buildHeaderActionBtn(Icons.upload_file, 'Import Excel',
+                            _importFromExcel),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canExport('Attendance'))
+                        const SizedBox(width: 8),
+                      if (Provider.of<PermissionProvider>(context,
+                              listen: false)
+                          .canExport('Attendance'))
+                        _buildHeaderActionBtn(Icons.file_download_outlined,
+                            'Xuất Excel', () => _exportToExcel()),
                     ],
                   ),
           ),
@@ -1408,12 +1529,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8, height: 8,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _isRealtimeConnected ? Colors.greenAccent : Colors.white54,
               boxShadow: _isRealtimeConnected
-                  ? [BoxShadow(color: Colors.greenAccent.withValues(alpha: 0.6), blurRadius: 6)]
+                  ? [
+                      BoxShadow(
+                          color: Colors.greenAccent.withValues(alpha: 0.6),
+                          blurRadius: 6)
+                    ]
                   : null,
             ),
           ),
@@ -1432,7 +1558,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget _buildHeaderActionBtn(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildHeaderActionBtn(
+      IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -1453,28 +1580,41 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget _buildDetailTab() {
     final isMobile = Responsive.isMobile(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
+      padding: EdgeInsets.fromLTRB(
+          isMobile ? 10 : 16, isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Stats cards
           if (isMobile) ...[
             InkWell(
-              onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
                     const Spacer(),
-                    Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
@@ -1509,8 +1649,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     : Column(
                         children: [
                           Expanded(child: _buildAttendanceTable()),
-                          if (!Responsive.isMobile(context))
-                            _buildPagination(),
+                          if (!Responsive.isMobile(context)) _buildPagination(),
                         ],
                       ),
           ),
@@ -1521,9 +1660,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildStatsRow() {
     final total = _filteredAttendances.length;
-    final fingerprint = _filteredAttendances.where((a) => a.verifyType == 1).length;
-    final face = _filteredAttendances.where((a) => a.verifyType == 15 || a.verifyType == 9).length;
-    final manual = _filteredAttendances.where((a) => a.verifyType == 100).length;
+    final fingerprint =
+        _filteredAttendances.where((a) => a.verifyType == 1).length;
+    final face = _filteredAttendances
+        .where((a) => a.verifyType == 15 || a.verifyType == 9)
+        .length;
+    final manual =
+        _filteredAttendances.where((a) => a.verifyType == 100).length;
     final card = _filteredAttendances.where((a) => a.verifyType == 2).length;
 
     final stats = [
@@ -1543,7 +1686,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -1568,8 +1712,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             child: Icon(icon, size: 16, color: color),
           ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -1588,22 +1737,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
+          borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(12)),
           border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('${startIndex + 1}-$endIndex / $totalItems', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text('${startIndex + 1}-$endIndex / $totalItems',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
             Row(
               children: [
-                _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+                _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                    () => setState(() => _currentPage--)),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(8)),
-                  child: Text('$_currentPage/$totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Text('$_currentPage/$totalPages',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                 ),
-                _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
+                _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages,
+                    () => setState(() => _currentPage++)),
               ],
             ),
           ],
@@ -1627,13 +1788,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           // Items info
           Text(
             'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500),
           ),
 
           // Page size selector
           Row(
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text('Hiển thị:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -1671,23 +1836,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           // Page navigation
           Row(
             children: [
-              _buildPageNavBtn(Icons.first_page, _currentPage > 1, () => setState(() => _currentPage = 1)),
-              _buildPageNavBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+              _buildPageNavBtn(Icons.first_page, _currentPage > 1,
+                  () => setState(() => _currentPage = 1)),
+              _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
+                  () => setState(() => _currentPage--)),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '$_currentPage / $totalPages',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white),
                 ),
               ),
               const SizedBox(width: 8),
-              _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages, () => setState(() => _currentPage++)),
-              _buildPageNavBtn(Icons.last_page, _currentPage < totalPages, () => setState(() => _currentPage = totalPages)),
+              _buildPageNavBtn(Icons.chevron_right, _currentPage < totalPages,
+                  () => setState(() => _currentPage++)),
+              _buildPageNavBtn(Icons.last_page, _currentPage < totalPages,
+                  () => setState(() => _currentPage = totalPages)),
             ],
           ),
         ],
@@ -1704,7 +1877,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 20, color: enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+          child: Icon(icon,
+              size: 20,
+              color:
+                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
         ),
       ),
     );
@@ -1780,7 +1956,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (picked != null && mounted) {
       setState(() {
         _fromDate = picked.start;
-        _toDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
+        _toDate = DateTime(
+            picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
       });
       _loadAttendances();
     }
@@ -1789,13 +1966,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   List<Attendance> get _filteredAttendances {
     var result = _attendances;
 
+    // Filter by branch
+    if (_selectedBranchId != null) {
+      final branchCodes = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['employeeCode']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      result = result.where((a) => branchCodes.contains(a.employeeId)).toList();
+    }
+
     // Filter by verify type
     if (_selectedVerifyType != null) {
       if (_selectedVerifyType == 15) {
         // Face recognition includes both mode 9 and 15
-        result = result.where((a) => a.verifyType == 15 || a.verifyType == 9).toList();
+        result = result
+            .where((a) => a.verifyType == 15 || a.verifyType == 9)
+            .toList();
       } else {
-        result = result.where((a) => a.verifyType == _selectedVerifyType).toList();
+        result =
+            result.where((a) => a.verifyType == _selectedVerifyType).toList();
       }
     }
 
@@ -1828,9 +2018,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   int? _getSortColumnIndex() {
     switch (_sortColumn) {
-      case 'time': return 1;
-      case 'name': return 6;
-      default: return null;
+      case 'time':
+        return 1;
+      case 'name':
+        return 6;
+      default:
+        return null;
     }
   }
 
@@ -1858,8 +2051,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   bool _hasActiveFilters() {
     return _selectedVerifyType != null ||
-        (_selectedDevices.isNotEmpty && _selectedDevices.length != _devices.length) ||
-        _selectedDatePreset != 'week';
+        (_selectedDevices.isNotEmpty &&
+            _selectedDevices.length != _devices.length) ||
+        _selectedDatePreset != 'week' ||
+        _selectedBranchId != null;
   }
 
   Widget _buildMobileFilterPanel() {
@@ -1882,12 +2077,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           // Row header
           Row(
             children: [
-              Icon(Icons.filter_alt, size: 16, color: Theme.of(context).primaryColor),
+              Icon(Icons.filter_alt,
+                  size: 16, color: Theme.of(context).primaryColor),
               const SizedBox(width: 6),
-              Text('Bộ lọc', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor)),
+              Text('Bộ lọc',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).primaryColor)),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -1895,11 +2096,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.analytics_outlined, size: 13, color: Theme.of(context).primaryColor),
+                    Icon(Icons.analytics_outlined,
+                        size: 13, color: Theme.of(context).primaryColor),
                     const SizedBox(width: 4),
                     Text(
                       '${_filteredAttendances.length} bản ghi',
-                      style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -1910,7 +2115,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           // Date preset
           Row(
             children: [
-              const Icon(Icons.calendar_today, size: 14, color: Color(0xFF71717A)),
+              const Icon(Icons.calendar_today,
+                  size: 14, color: Color(0xFF71717A)),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildDropdown<String>(
@@ -1918,14 +2124,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   icon: null,
                   items: const [
                     DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                    DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
+                    DropdownMenuItem(
+                        value: 'yesterday', child: Text('Hôm qua')),
                     DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                    DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
+                    DropdownMenuItem(
+                        value: 'lastWeek', child: Text('Tuần trước')),
                     DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-                    DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
-                    DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+                    DropdownMenuItem(
+                        value: 'lastMonth', child: Text('Tháng trước')),
+                    DropdownMenuItem(
+                        value: 'custom', child: Text('Tùy chọn...')),
                   ],
-                  onChanged: (v) { if (v != null) _applyDatePreset(v); },
+                  onChanged: (v) {
+                    if (v != null) _applyDatePreset(v);
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -1940,13 +2152,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildDropdown<String>(
-                  value: _selectedDevices.length == _devices.length || _selectedDevices.isEmpty ? 'all' : _selectedDevices.first,
+                  value: _selectedDevices.length == _devices.length ||
+                          _selectedDevices.isEmpty
+                      ? 'all'
+                      : _selectedDevices.first,
                   icon: null,
                   items: [
-                    const DropdownMenuItem(value: 'all', child: Text('Tất cả TB')),
-                    ..._devices.map((d) => DropdownMenuItem(value: d.id, child: Text(d.deviceName, overflow: TextOverflow.ellipsis))),
+                    const DropdownMenuItem(
+                        value: 'all', child: Text('Tất cả TB')),
+                    ..._devices.map((d) => DropdownMenuItem(
+                        value: d.id,
+                        child: Text(d.deviceName,
+                            overflow: TextOverflow.ellipsis))),
                   ],
-                  onChanged: (v) { setState(() { _selectedDevices = v == 'all' ? _devices.map((d) => d.id).toList() : [v!]; _currentPage = 1; }); _loadAttendances(); },
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedDevices = v == 'all'
+                          ? _devices.map((d) => d.id).toList()
+                          : [v!];
+                      _currentPage = 1;
+                    });
+                    _loadAttendances();
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -1961,9 +2188,41 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     DropdownMenuItem(value: 2, child: Text('Thẻ')),
                     DropdownMenuItem(value: 100, child: Text('Thủ công')),
                   ],
-                  onChanged: (v) => setState(() { _selectedVerifyType = v; _currentPage = 1; }),
+                  onChanged: (v) => setState(() {
+                    _selectedVerifyType = v;
+                    _currentPage = 1;
+                  }),
                 ),
               ),
+              if (_branches.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  key: ValueKey('branch_$_selectedBranchId'),
+                  initialValue: _selectedBranchId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Chi nh\u00e1nh',
+                    isDense: true,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh')),
+                    ..._branches.map((b) => DropdownMenuItem<String?>(
+                        value: b['id']?.toString(),
+                        child: Text(b['name']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis))),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _selectedBranchId = v;
+                    _currentPage = 1;
+                  }),
+                ),
+              ],
             ],
           ),
         ],
@@ -1982,11 +2241,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.analytics_outlined, size: 14, color: Theme.of(context).primaryColor),
+          Icon(Icons.analytics_outlined,
+              size: 14, color: Theme.of(context).primaryColor),
           const SizedBox(width: 6),
           Text(
             '${_filteredAttendances.length} bản ghi',
-            style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -2018,18 +2281,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         child: TextField(
                           decoration: InputDecoration(
                             hintText: 'Tìm ID/Tên...',
-                            hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                            prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+                            hintStyle: TextStyle(
+                                fontSize: 13, color: Colors.grey[400]),
+                            prefixIcon: Icon(Icons.search,
+                                size: 18, color: Colors.grey[400]),
                             isDense: true,
                             filled: true,
                             fillColor: const Color(0xFFFAFAFA),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFE4E4E7))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFE4E4E7))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(
+                                    color: Theme.of(context).primaryColor,
+                                    width: 1.5)),
                           ),
                           style: const TextStyle(fontSize: 13),
-                          onChanged: (v) => setState(() { _searchPin = v; _currentPage = 1; }),
+                          onChanged: (v) => setState(() {
+                            _searchPin = v;
+                            _currentPage = 1;
+                          }),
                         ),
                       ),
                     ),
@@ -2048,28 +2327,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         width: 110,
                         icon: Icons.calendar_today,
                         items: const [
-                          DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                          DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-                          DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                          DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-                          DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-                          DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
-                          DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+                          DropdownMenuItem(
+                              value: 'today', child: Text('Hôm nay')),
+                          DropdownMenuItem(
+                              value: 'yesterday', child: Text('Hôm qua')),
+                          DropdownMenuItem(
+                              value: 'week', child: Text('Tuần này')),
+                          DropdownMenuItem(
+                              value: 'lastWeek', child: Text('Tuần trước')),
+                          DropdownMenuItem(
+                              value: 'month', child: Text('Tháng này')),
+                          DropdownMenuItem(
+                              value: 'lastMonth', child: Text('Tháng trước')),
+                          DropdownMenuItem(
+                              value: 'custom', child: Text('Tùy chọn...')),
                         ],
-                        onChanged: (v) { if (v != null) _applyDatePreset(v); },
+                        onChanged: (v) {
+                          if (v != null) _applyDatePreset(v);
+                        },
                       ),
                       const SizedBox(width: 8),
                       _buildDateRangeSelector(),
                       const SizedBox(width: 8),
                       _buildDropdown<String>(
-                        value: _selectedDevices.length == _devices.length || _selectedDevices.isEmpty ? 'all' : _selectedDevices.first,
+                        value: _selectedDevices.length == _devices.length ||
+                                _selectedDevices.isEmpty
+                            ? 'all'
+                            : _selectedDevices.first,
                         width: 110,
                         icon: Icons.router,
                         items: [
-                          const DropdownMenuItem(value: 'all', child: Text('Tất cả TB')),
-                          ..._devices.map((d) => DropdownMenuItem(value: d.id, child: Text(d.deviceName, overflow: TextOverflow.ellipsis))),
+                          const DropdownMenuItem(
+                              value: 'all', child: Text('Tất cả TB')),
+                          ..._devices.map((d) => DropdownMenuItem(
+                              value: d.id,
+                              child: Text(d.deviceName,
+                                  overflow: TextOverflow.ellipsis))),
                         ],
-                        onChanged: (v) { setState(() { _selectedDevices = v == 'all' ? _devices.map((d) => d.id).toList() : [v!]; _currentPage = 1; }); _loadAttendances(); },
+                        onChanged: (v) {
+                          setState(() {
+                            _selectedDevices = v == 'all'
+                                ? _devices.map((d) => d.id).toList()
+                                : [v!];
+                            _currentPage = 1;
+                          });
+                          _loadAttendances();
+                        },
                       ),
                       const SizedBox(width: 8),
                       _buildDropdown<int?>(
@@ -2083,7 +2386,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           DropdownMenuItem(value: 2, child: Text('Thẻ')),
                           DropdownMenuItem(value: 100, child: Text('Thủ công')),
                         ],
-                        onChanged: (v) => setState(() { _selectedVerifyType = v; _currentPage = 1; }),
+                        onChanged: (v) => setState(() {
+                          _selectedVerifyType = v;
+                          _currentPage = 1;
+                        }),
                       ),
                     ],
                   ),
@@ -2101,12 +2407,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   icon: Icons.calendar_today,
                   items: const [
                     DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                    DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
+                    DropdownMenuItem(
+                        value: 'yesterday', child: Text('Hôm qua')),
                     DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                    DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
+                    DropdownMenuItem(
+                        value: 'lastWeek', child: Text('Tuần trước')),
                     DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-                    DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
-                    DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+                    DropdownMenuItem(
+                        value: 'lastMonth', child: Text('Tháng trước')),
+                    DropdownMenuItem(
+                        value: 'custom', child: Text('Tùy chọn...')),
                   ],
                   onChanged: (v) {
                     if (v != null) _applyDatePreset(v);
@@ -2121,16 +2431,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   width: 120,
                   icon: Icons.router,
                   items: [
-                    const DropdownMenuItem(value: 'all', child: Text('Tất cả TB')),
+                    const DropdownMenuItem(
+                        value: 'all', child: Text('Tất cả TB')),
                     ..._devices.map((d) => DropdownMenuItem(
                           value: d.id,
-                          child: Text(d.deviceName, overflow: TextOverflow.ellipsis),
+                          child: Text(d.deviceName,
+                              overflow: TextOverflow.ellipsis),
                         )),
                   ],
                   onChanged: (v) {
                     setState(() {
-                      _selectedDevices =
-                          v == 'all' ? _devices.map((d) => d.id).toList() : [v!];
+                      _selectedDevices = v == 'all'
+                          ? _devices.map((d) => d.id).toList()
+                          : [v!];
                       _currentPage = 1;
                     });
                     _loadAttendances();
@@ -2159,14 +2472,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Tìm ID/Tên...',
-                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      hintStyle:
+                          TextStyle(fontSize: 13, color: Colors.grey[400]),
                       prefixIcon:
                           Icon(Icons.search, size: 18, color: Colors.grey[400]),
                       isDense: true,
                       filled: true,
                       fillColor: const Color(0xFFFAFAFA),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -2177,7 +2491,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+                        borderSide: BorderSide(
+                            color: Theme.of(context).primaryColor, width: 1.5),
                       ),
                     ),
                     style: const TextStyle(fontSize: 13),
@@ -2187,6 +2502,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     }),
                   ),
                 ),
+                if (_branches.isNotEmpty)
+                  _buildDropdown<String?>(
+                    value: _selectedBranchId,
+                    width: 160,
+                    icon: Icons.account_tree_outlined,
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('T\u1ea5t c\u1ea3 CN')),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _selectedBranchId = v;
+                      _currentPage = 1;
+                    }),
+                  ),
                 countChip,
               ],
             ),
@@ -2213,7 +2546,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey[500]),
+          icon: Icon(Icons.keyboard_arrow_down,
+              size: 18, color: Colors.grey[500]),
           style: TextStyle(
               fontSize: 13,
               color: Theme.of(context).textTheme.bodyMedium?.color),
@@ -2224,7 +2558,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     child: Row(
                       children: [
                         if (icon != null) ...[
-                          Icon(icon, size: 15, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                          Icon(icon,
+                              size: 15,
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.7)),
                           const SizedBox(width: 8),
                         ],
                         Expanded(
@@ -2304,7 +2642,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final allFiltered = _filteredAttendances;
     final isMobile = Responsive.isMobile(context);
     final startIndex = isMobile ? 0 : (_currentPage - 1) * _itemsPerPage;
-    final endIndex = isMobile ? allFiltered.length : (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
+    final endIndex = isMobile
+        ? allFiltered.length
+        : (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
     final displayedAttendances = allFiltered.sublist(startIndex, endIndex);
 
     return LayoutBuilder(
@@ -2313,249 +2653,306 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           return _buildAttendanceMobileList(displayedAttendances, startIndex);
         }
 
-    final verticalScrollController = ScrollController();
+        final verticalScrollController = _tableScrollController;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        child: Scrollbar(
-          thumbVisibility: true,
-          controller: verticalScrollController,
-          child: SingleChildScrollView(
-            controller: verticalScrollController,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                    minWidth: MediaQuery.of(context).size.width - 250),
-                child: DataTable(
-              showCheckboxColumn: false,
-              headingRowColor: WidgetStateProperty.all(
-                const Color(0xFFFAFAFA),
-              ),
-              dataRowColor: WidgetStateProperty.resolveWith<Color?>(
-                (states) {
-                  if (states.contains(WidgetState.hovered)) {
-                    return Theme.of(context).primaryColor.withValues(alpha: 0.04);
-                  }
-                  return null;
-                },
-              ),
-              columnSpacing: 16,
-              horizontalMargin: 16,
-              headingRowHeight: 44,
-              dataRowMinHeight: 40,
-              dataRowMaxHeight: 46,
-              dividerThickness: 0.5,
-              sortColumnIndex: _getSortColumnIndex(),
-              sortAscending: _sortAscending,
-              columns: [
-                const DataColumn(
-                    label: Expanded(child: Text('STT', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                DataColumn(
-                    label: const Expanded(child: Text('Ngày', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)))),
-                    onSort: (_, asc) => _onSort('time', asc)),
-                const DataColumn(
-                    label: Expanded(child: Text('Giờ', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Thứ', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('UID', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Mã nhân viên', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                DataColumn(
-                    label: const Expanded(child: Text('Tên nhân viên', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)))),
-                    onSort: (_, asc) => _onSort('name', asc)),
-                const DataColumn(
-                    label: Expanded(child: Text('Tên trong máy', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Quyền hạn', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Thiết bị', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Kiểu xác thực', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-                const DataColumn(
-                    label: Expanded(child: Text('Ghi chú', textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A))))),
-              ],
-              rows: displayedAttendances.asMap().entries.map((entry) {
-                final index = startIndex + entry.key;
-                final att = entry.value;
-                final dateStr = DateFormat('dd/MM/yyyy').format(att.punchTime);
-                final timeStr = DateFormat('HH:mm:ss').format(att.punchTime);
-                final dayOfWeek = _getDayOfWeekVN(att.punchTime.weekday);
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+            child: Scrollbar(
+              thumbVisibility: true,
+              controller: verticalScrollController,
+              child: SingleChildScrollView(
+                controller: verticalScrollController,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                        minWidth: MediaQuery.of(context).size.width - 250),
+                    child: DataTable(
+                      showCheckboxColumn: false,
+                      headingRowColor: WidgetStateProperty.all(
+                        const Color(0xFFFAFAFA),
+                      ),
+                      dataRowColor: WidgetStateProperty.resolveWith<Color?>(
+                        (states) {
+                          if (states.contains(WidgetState.hovered)) {
+                            return Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.04);
+                          }
+                          return null;
+                        },
+                      ),
+                      columnSpacing: 16,
+                      horizontalMargin: 16,
+                      headingRowHeight: 44,
+                      dataRowMinHeight: 40,
+                      dataRowMaxHeight: 46,
+                      dividerThickness: 0.5,
+                      sortColumnIndex: _getSortColumnIndex(),
+                      sortAscending: _sortAscending,
+                      columns: [
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('STT',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        DataColumn(
+                            label: const Expanded(
+                                child: Text('Ngày',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A)))),
+                            onSort: (_, asc) => _onSort('time', asc)),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Giờ',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Thứ',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('UID',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Mã nhân viên',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        DataColumn(
+                            label: const Expanded(
+                                child: Text('Tên nhân viên',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A)))),
+                            onSort: (_, asc) => _onSort('name', asc)),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Tên trong máy',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Quyền hạn',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Thiết bị',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Kiểu xác thực',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                        const DataColumn(
+                            label: Expanded(
+                                child: Text('Ghi chú',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        color: Color(0xFF71717A))))),
+                      ],
+                      rows: displayedAttendances.asMap().entries.map((entry) {
+                        final index = startIndex + entry.key;
+                        final att = entry.value;
+                        final dateStr =
+                            DateFormat('dd/MM/yyyy').format(att.punchTime);
+                        final timeStr =
+                            DateFormat('HH:mm:ss').format(att.punchTime);
+                        final dayOfWeek =
+                            _getDayOfWeekVN(att.punchTime.weekday);
 
-                return DataRow(
-                  onSelectChanged: (_) =>
-                      _showAttendanceDetailDialog(att, index),
-                  cells: [
-                    // STT
-                    DataCell(Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey,
-                            fontSize: 12),
-                      ),
-                    )),
-                    DataCell(Center(
-                      child: Text(
-                        dateStr,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 12),
-                      ),
-                    )),
-                    DataCell(Center(
-                      child: Text(
-                        timeStr,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                    )),
-                    DataCell(Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getDayColor(att.punchTime.weekday)
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          dayOfWeek,
-                          style: TextStyle(
-                            color: _getDayColor(att.punchTime.weekday),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    )),
-                    // UID - ID từ máy chấm công gửi lên
-                    DataCell(Center(
-                      child: Text(
-                        att.enrollNumber ?? '-',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue,
-                            fontSize: 12),
-                      ),
-                    )),
-                    // Mã nhân viên - Liên kết từ bảng Nhân Sự
-                    DataCell(Center(
-                      child: Text(
-                        att.employeeId ?? '-',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 12),
-                      ),
-                    )),
-                    // Tên NV - Liên kết từ bảng Nhân Sự
-                    DataCell(Center(
-                      child: Text(
-                        att.employeeName ?? '-',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 12),
-                      ),
-                    )),
-                    // Tên trong máy - Tên không dấu hiển thị khi chấm công
-                    DataCell(Center(
-                      child: Text(
-                        att.deviceUserName ?? '-',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontStyle: FontStyle.italic,
-                            fontSize: 12),
-                      ),
-                    )),
-                    // Quyền hạn
-                    DataCell(Center(child: _buildPrivilegeBadge(att.privilege))),
-                    DataCell(Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.router,
-                              size: 12, color: Colors.grey),
-                          const SizedBox(width: 3),
-                          Text(att.deviceName ?? '-',
-                              style: const TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    )),
-                    DataCell(Center(child: _buildVerifyTypeBadge(att.verifyType))),
-                    // Ghi chú - hide correction ID marker
-                    DataCell(Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_extractCorrectionRequestId(att.note) != null)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: Icon(Icons.assignment, size: 14, color: Colors.orange[700]),
-                            ),
-                          Flexible(
-                            child: Text(
-                              _getDisplayNote(att.note),
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
-                  ],
-                );
-              }).toList(),
+                        return DataRow(
+                          onSelectChanged: (_) =>
+                              _showAttendanceDetailDialog(att, index),
+                          cells: [
+                            // STT
+                            DataCell(Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey,
+                                    fontSize: 12),
+                              ),
+                            )),
+                            DataCell(Center(
+                              child: Text(
+                                dateStr,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500, fontSize: 12),
+                              ),
+                            )),
+                            DataCell(Center(
+                              child: Text(
+                                timeStr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).primaryColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )),
+                            DataCell(Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _getDayColor(att.punchTime.weekday)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  dayOfWeek,
+                                  style: TextStyle(
+                                    color: _getDayColor(att.punchTime.weekday),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            )),
+                            // UID - ID từ máy chấm công gửi lên
+                            DataCell(Center(
+                              child: Text(
+                                att.enrollNumber ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue,
+                                    fontSize: 12),
+                              ),
+                            )),
+                            // Mã nhân viên - Liên kết từ bảng Nhân Sự
+                            DataCell(Center(
+                              child: Text(
+                                att.employeeId ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500, fontSize: 12),
+                              ),
+                            )),
+                            // Tên NV - Liên kết từ bảng Nhân Sự
+                            DataCell(Center(
+                              child: Text(
+                                att.employeeName ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500, fontSize: 12),
+                              ),
+                            )),
+                            // Tên trong máy - Tên không dấu hiển thị khi chấm công
+                            DataCell(Center(
+                              child: Text(
+                                att.deviceUserName ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 12),
+                              ),
+                            )),
+                            // Quyền hạn
+                            DataCell(Center(
+                                child: _buildPrivilegeBadge(att.privilege))),
+                            DataCell(Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.router,
+                                      size: 12, color: Colors.grey),
+                                  const SizedBox(width: 3),
+                                  Text(att.deviceName ?? '-',
+                                      style: const TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            )),
+                            DataCell(Center(
+                                child: _buildVerifyTypeBadge(att.verifyType))),
+                            // Ghi chú - hide correction ID marker
+                            DataCell(Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_extractCorrectionRequestId(att.note) !=
+                                      null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Icon(Icons.assignment,
+                                          size: 14, color: Colors.orange[700]),
+                                    ),
+                                  Flexible(
+                                    child: Text(
+                                      _getDisplayNote(att.note),
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        ),
-      ),
-      ),
-    );
+        );
       },
     );
   }
@@ -2582,7 +2979,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
 
     try {
-      final result = await _apiService.getAttendanceCorrectionById(correctionId);
+      final result =
+          await _apiService.getAttendanceCorrectionById(correctionId);
       if (!mounted) return;
       Navigator.of(context).pop(); // dismiss loading
 
@@ -2604,7 +3002,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             const SizedBox(width: 12),
             const Expanded(
-              child: Text('Yêu cầu chấm công', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: Text('Yêu cầu chấm công',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -2613,26 +3012,48 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDetailRow('Mã yêu cầu', correctionId.substring(0, 8), Icons.tag),
-            _buildDetailRow('Nhân viên', data['employeeName'] ?? '-', Icons.person),
-            _buildDetailRow('Mã NV', data['employeeCode'] ?? '-', Icons.numbers),
-            _buildDetailRow('Loại', actionMap[data['action']] ?? '-', Icons.category),
-            _buildDetailRow('Trạng thái', statusMap[data['status']] ?? '-', Icons.flag),
+            _buildDetailRow(
+                'Mã yêu cầu', correctionId.substring(0, 8), Icons.tag),
+            _buildDetailRow(
+                'Nhân viên', data['employeeName'] ?? '-', Icons.person),
+            _buildDetailRow(
+                'Mã NV', data['employeeCode'] ?? '-', Icons.numbers),
+            _buildDetailRow(
+                'Loại', actionMap[data['action']] ?? '-', Icons.category),
+            _buildDetailRow(
+                'Trạng thái', statusMap[data['status']] ?? '-', Icons.flag),
             if (data['newDate'] != null)
-              _buildDetailRow('Ngày mới', DateFormat('dd/MM/yyyy').format(DateTime.parse(data['newDate'])), Icons.calendar_today),
+              _buildDetailRow(
+                  'Ngày mới',
+                  DateFormat('dd/MM/yyyy')
+                      .format(DateTime.parse(data['newDate'])),
+                  Icons.calendar_today),
             if (data['newTime'] != null)
-              _buildDetailRow('Giờ mới', data['newTime'].toString().substring(0, 8), Icons.schedule),
+              _buildDetailRow('Giờ mới',
+                  data['newTime'].toString().substring(0, 8), Icons.schedule),
             if (data['oldDate'] != null)
-              _buildDetailRow('Ngày cũ', DateFormat('dd/MM/yyyy').format(DateTime.parse(data['oldDate'])), Icons.history),
+              _buildDetailRow(
+                  'Ngày cũ',
+                  DateFormat('dd/MM/yyyy')
+                      .format(DateTime.parse(data['oldDate'])),
+                  Icons.history),
             if (data['oldTime'] != null)
-              _buildDetailRow('Giờ cũ', data['oldTime'].toString().substring(0, 8), Icons.history),
+              _buildDetailRow('Giờ cũ',
+                  data['oldTime'].toString().substring(0, 8), Icons.history),
             _buildDetailRow('Lý do', data['reason'] ?? '-', Icons.comment),
             if (data['approvedByName'] != null)
-              _buildDetailRow('Người duyệt', data['approvedByName'], Icons.verified),
+              _buildDetailRow(
+                  'Người duyệt', data['approvedByName'], Icons.verified),
             if (data['approvedDate'] != null)
-              _buildDetailRow('Ngày duyệt', DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(data['approvedDate'])), Icons.check_circle),
-            if (data['approverNote'] != null && data['approverNote'].toString().isNotEmpty)
-              _buildDetailRow('Ghi chú duyệt', data['approverNote'], Icons.note),
+              _buildDetailRow(
+                  'Ngày duyệt',
+                  DateFormat('dd/MM/yyyy HH:mm')
+                      .format(DateTime.parse(data['approvedDate'])),
+                  Icons.check_circle),
+            if (data['approverNote'] != null &&
+                data['approverNote'].toString().isNotEmpty)
+              _buildDetailRow(
+                  'Ghi chú duyệt', data['approverNote'], Icons.note),
           ],
         );
 
@@ -2673,7 +3094,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             builder: (ctx) => AlertDialog(
               title: titleRow,
               content: SizedBox(
-                width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+                width: math
+                    .min(400, MediaQuery.of(context).size.width - 32)
+                    .toDouble(),
                 child: SingleChildScrollView(child: contentBody),
               ),
               actions: [
@@ -2712,7 +3135,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       grouped.putIfAbsent(dateKey, () => []);
       grouped[dateKey]!.add(MapEntry(startIndex + i, att));
     }
-    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a)); // newest first
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) => b.compareTo(a)); // newest first
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2734,7 +3158,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: dayColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -2745,19 +3170,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         Icon(Icons.calendar_today, size: 13, color: dayColor),
                         const SizedBox(width: 5),
                         Text('$dayOfWeek, $dateStr',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: dayColor)),
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: dayColor)),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text('${entries.length}',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600)),
                   ),
                   const Spacer(),
                 ],
@@ -2788,7 +3220,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     borderRadius: BorderRadius.circular(10),
                     onTap: () => _showAttendanceDetailDialog(att, globalIdx),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -2798,13 +3231,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               Expanded(
                                 child: Text(
                                   att.employeeName ?? att.pin ?? '—',
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(timeStr,
+                              Text(
+                                timeStr,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -2820,14 +3256,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               _buildVerifyTypeIcon(att.verifyType),
                               const SizedBox(width: 4),
                               Text(_getVerifyTypeName(att.verifyType),
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-                              if (att.deviceName != null && att.deviceName!.isNotEmpty) ...[
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Color(0xFF71717A))),
+                              if (att.deviceName != null &&
+                                  att.deviceName!.isNotEmpty) ...[
                                 const SizedBox(width: 8),
-                                const Icon(Icons.router, size: 12, color: Color(0xFFA1A1AA)),
+                                const Icon(Icons.router,
+                                    size: 12, color: Color(0xFFA1A1AA)),
                                 const SizedBox(width: 3),
                                 Expanded(
-                                  child: Text(att.deviceName!,
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                                  child: Text(
+                                    att.deviceName!,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Color(0xFF71717A)),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -2943,9 +3384,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         color: Theme.of(context).primaryColor, size: 24),
                     const SizedBox(height: 8),
                     Text(dateStr,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     Text(dayOfWeek,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12)),
                   ],
                 ),
               ),
@@ -2957,10 +3400,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         color: Theme.of(context).primaryColor, size: 24),
                     const SizedBox(height: 8),
                     Text(timeStr,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     Text(att.punchTypeText,
                         style: TextStyle(
-                          color: att.attendanceState == 0 ? Colors.green : Colors.orange,
+                          color: att.attendanceState == 0
+                              ? Colors.green
+                              : Colors.orange,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         )),
@@ -2975,17 +3421,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _buildDetailRow('UID (Mã máy)', att.enrollNumber ?? '-', Icons.badge),
         _buildDetailRow('Mã nhân viên', att.employeeId ?? '-', Icons.numbers),
         _buildDetailRow('Tên nhân viên', att.employeeName ?? '-', Icons.person),
-        _buildDetailRow('Tên trong máy', att.deviceUserName ?? '-', Icons.text_fields),
-        _buildDetailRow('Quyền hạn', att.privilegeText, Icons.admin_panel_settings),
-        _buildDetailRow('Thiết bị', att.deviceName ?? att.deviceId ?? '-', Icons.router),
-        _buildDetailRow('Loại xác thực', _getVerifyTypeName(att.verifyType), Icons.verified_user),
+        _buildDetailRow(
+            'Tên trong máy', att.deviceUserName ?? '-', Icons.text_fields),
+        _buildDetailRow(
+            'Quyền hạn', att.privilegeText, Icons.admin_panel_settings),
+        _buildDetailRow(
+            'Thiết bị', att.deviceName ?? att.deviceId ?? '-', Icons.router),
+        _buildDetailRow('Loại xác thực', _getVerifyTypeName(att.verifyType),
+            Icons.verified_user),
         if (att.workCode != null && att.workCode!.isNotEmpty)
           _buildDetailRow('Mã công việc', att.workCode!, Icons.work),
-        if (att.note != null && _getDisplayNote(att.note).isNotEmpty && _getDisplayNote(att.note) != '-')
+        if (att.note != null &&
+            _getDisplayNote(att.note).isNotEmpty &&
+            _getDisplayNote(att.note) != '-')
           _buildDetailRow('Ghi chú', _getDisplayNote(att.note), Icons.note),
         if (att.createdAt != null)
-          _buildDetailRow('Thời gian tạo',
-              DateFormat('dd/MM/yyyy HH:mm:ss').format(att.createdAt!), Icons.create),
+          _buildDetailRow(
+              'Thời gian tạo',
+              DateFormat('dd/MM/yyyy HH:mm:ss').format(att.createdAt!),
+              Icons.create),
         if (_extractCorrectionRequestId(att.note) != null) ...[
           const SizedBox(height: 12),
           Container(
@@ -3002,13 +3456,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 const Expanded(
                   child: Text(
                     'Từ yêu cầu chấm công đã duyệt',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.orange),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.orange),
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _showCorrectionRequestDetail(_extractCorrectionRequestId(att.note)!);
+                    _showCorrectionRequestDetail(
+                        _extractCorrectionRequestId(att.note)!);
                   },
                   icon: const Icon(Icons.open_in_new, size: 16),
                   label: const Text('Xem', style: TextStyle(fontSize: 12)),
@@ -3035,7 +3493,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _showEditAttendanceDialog(att);
         },
         icon: Icon(Icons.edit, color: Theme.of(context).primaryColor, size: 18),
-        label: Text('Sửa', style: TextStyle(color: Theme.of(context).primaryColor)),
+        label: Text('Sửa',
+            style: TextStyle(color: Theme.of(context).primaryColor)),
       ),
       ElevatedButton.icon(
         onPressed: () => Navigator.of(context).pop(),
@@ -3083,8 +3542,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       showDialog(
         context: context,
         builder: (context) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 800,
@@ -3261,7 +3722,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ],
           ),
           content: SizedBox(
-            width: math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
+            width: math
+                .min(400, MediaQuery.of(context).size.width - 32)
+                .toDouble(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -3354,7 +3817,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   decoration: BoxDecoration(
                     color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -3402,7 +3866,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      dateController.dispose();
+      timeController.dispose();
+    });
   }
 
   /// Update attendance (only time, state is auto-calculated)
@@ -3739,10 +4206,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 columnIndex: 4, rowIndex: row))
             .value = excel_lib.TextCellValue(att.enrollNumber ?? '');
         sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: 5, rowIndex: row))
-                .value =
-            excel_lib.TextCellValue(att.employeeId ?? '');
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: 5, rowIndex: row))
+            .value = excel_lib.TextCellValue(att.employeeId ?? '');
         sheet
             .cell(excel_lib.CellIndex.indexByColumnRow(
                 columnIndex: 6, rowIndex: row))
@@ -3773,7 +4239,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final fileName =
             'ChamCong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
 
-        await file_saver.saveFileBytes(blob, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await file_saver.saveFileBytes(blob, fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         appNotification.showSuccess(
           title: 'Xuất file thành công',

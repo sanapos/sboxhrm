@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -38,6 +38,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   String? _filterEmployeeId;
   String? _filterGroupId;
   String? _filterItemId;
+  String? _filterBranchId;
+  List<Map<String, dynamic>> _branches = [];
   int _page = 1;
   final int _pageSize = 50;
 
@@ -73,6 +75,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
+    try {
+      final br = await _apiService.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
 
     // Load product groups and items
     try {
@@ -370,7 +380,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   _buildDropdown(
                     'Nhân viên',
                     _filterEmployeeId,
-                    _employees.map((e) {
+                    (_filterBranchId != null
+                            ? _employees
+                                .where((e) =>
+                                    e['branchId']?.toString() ==
+                                    _filterBranchId)
+                                .toList()
+                            : _employees)
+                        .map((e) {
                       final name =
                           '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
                               .trim();
@@ -395,6 +412,62 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       _reloadCurrentTab();
                     },
                   ),
+                  if (_branches.isNotEmpty)
+                    Container(
+                      height: 40,
+                      constraints:
+                          const BoxConstraints(minWidth: 150, maxWidth: 220),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.account_tree_outlined,
+                            size: 15, color: Color(0xFF6B7280)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String?>(
+                              value: _filterBranchId,
+                              isExpanded: true,
+                              isDense: true,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFF111827)),
+                              icon: const Icon(Icons.keyboard_arrow_down,
+                                  size: 16, color: Color(0xFF9CA3AF)),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('Chi nhánh',
+                                        style: TextStyle(fontSize: 12))),
+                                ..._branches.map((b) => DropdownMenuItem<
+                                        String?>(
+                                    value: b['id']?.toString(),
+                                    child: Text(b['name']?.toString() ?? '',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12)))),
+                              ],
+                              onChanged: (v) {
+                                setState(() {
+                                  _filterBranchId = v;
+                                  if (v != null) _filterEmployeeId = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        if (_filterBranchId != null)
+                          InkWell(
+                            onTap: () => setState(() => _filterBranchId = null),
+                            child: const Padding(
+                                padding: EdgeInsets.all(3),
+                                child: Icon(Icons.close,
+                                    size: 13, color: Color(0xFF9CA3AF))),
+                          ),
+                      ]),
+                    ),
                 ],
               ),
             ),
@@ -434,7 +507,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   bool get _hasActiveFilters =>
       _filterEmployeeId != null ||
       _filterGroupId != null ||
-      _filterItemId != null;
+      _filterItemId != null ||
+      _filterBranchId != null;
 
   void _showMobileImportMenu(BuildContext context) {
     showModalBottomSheet(

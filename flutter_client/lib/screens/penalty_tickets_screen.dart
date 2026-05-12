@@ -39,6 +39,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   DateTimeRange? _dateRange;
   String _datePreset =
       'this_month'; // today, yesterday, this_week, last_week, this_month, last_month, custom, all
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+
+  List<Map<String, dynamic>> get _filteredTickets {
+    if (_selectedBranchId == null) return _tickets;
+    final ids = _employees
+        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .map((e) => e['id']?.toString() ?? '')
+        .toSet();
+    return _tickets
+        .where((t) => ids.contains(t['employeeId']?.toString()))
+        .toList();
+  }
 
   // Multi-select for bulk approve
   final Set<String> _selectedIds = {};
@@ -115,6 +128,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         _loadStats(),
         _loadEmployees(),
       ]);
+      if (_branches.isEmpty) {
+        try {
+          final br = await _apiService.getBranchesForSelect();
+          final bd = br['data'];
+          if (bd is List && mounted) {
+            setState(() => _branches =
+                bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+          }
+        } catch (_) {}
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
       _maybeOpenHighlight();
@@ -1430,6 +1453,55 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          if (_branches.isNotEmpty)
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.account_tree_outlined,
+                    size: 16, color: Color(0xFF6B7280)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: _selectedBranchId,
+                      isExpanded: true,
+                      isDense: true,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF111827)),
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          size: 18, color: Color(0xFF9CA3AF)),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Tất cả chi nhánh',
+                                style: TextStyle(fontSize: 13))),
+                        ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(b['name']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (v) => setState(() => _selectedBranchId = v),
+                    ),
+                  ),
+                ),
+                if (_selectedBranchId != null)
+                  InkWell(
+                    onTap: () => setState(() => _selectedBranchId = null),
+                    child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close,
+                            size: 14, color: Color(0xFF9CA3AF))),
+                  ),
+              ]),
+            ),
         ],
       ),
     );
@@ -1502,7 +1574,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   }
 
   Widget _buildTicketList() {
-    if (_tickets.isEmpty) {
+    if (_filteredTickets.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1524,9 +1596,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Widget _buildMobileList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: _tickets.length,
+      itemCount: _filteredTickets.length,
       itemBuilder: (_, i) {
-        final ticket = _tickets[i];
+        final ticket = _filteredTickets[i];
         final id = ticket['id'].toString();
         final status = ticket['status'] as String? ?? '';
         final type = ticket['type'] as String? ?? '';
@@ -1644,9 +1716,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Widget _buildDesktopList() {
     return ListView.builder(
       padding: const EdgeInsets.all(8),
-      itemCount: _tickets.length,
+      itemCount: _filteredTickets.length,
       itemBuilder: (context, index) {
-        final ticket = _tickets[index];
+        final ticket = _filteredTickets[index];
         final id = ticket['id'].toString();
         final status = ticket['status'] as String? ?? '';
         final type = ticket['type'] as String? ?? '';

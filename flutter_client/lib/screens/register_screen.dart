@@ -21,7 +21,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _confirmPasswordController = TextEditingController();
   String? _agentCode; // Mã đại lý nếu vào từ link giới thiệu
   String? _agentName;
+  List<_PublicServicePackage> _servicePackages = const [];
+  String? _selectedServicePackageId;
+  String? _initialPackageName;
+  bool _loadedRouteArgs = false;
   bool _isLoading = false;
+  bool _isLoadingPackages = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _loginNameManuallyEdited = false;
@@ -36,6 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   void initState() {
     super.initState();
     _readAgentCodeFromUrl();
+    _loadServicePackages();
     _storeNameController.addListener(_onStoreNameChanged);
     _animController = AnimationController(
       vsync: this,
@@ -45,8 +51,24 @@ class _RegisterScreenState extends State<RegisterScreen>
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    ).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loadedRouteArgs) return;
+    _loadedRouteArgs = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final packageName = args['packageName']?.toString().trim();
+      if (packageName != null && packageName.isNotEmpty) {
+        _initialPackageName = packageName;
+        _applyInitialPackageSelection();
+      }
+    }
   }
 
   void _readAgentCodeFromUrl() {
@@ -73,6 +95,56 @@ class _RegisterScreenState extends State<RegisterScreen>
         }
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadServicePackages() async {
+    setState(() => _isLoadingPackages = true);
+    try {
+      final api = ApiService();
+      final result = await api.getPublicServicePackages();
+      if (!mounted) return;
+      final rawItems = (result['data'] as List?) ?? const [];
+      final packages = rawItems
+          .whereType<Map>()
+          .map((item) =>
+              _PublicServicePackage.fromMap(Map<String, dynamic>.from(item)))
+          .toList();
+      setState(() {
+        _servicePackages = packages;
+        if (packages.isNotEmpty && _selectedServicePackageId == null) {
+          _selectedServicePackageId = packages.first.id;
+        }
+      });
+      _applyInitialPackageSelection();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _servicePackages = const [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingPackages = false);
+      }
+    }
+  }
+
+  void _applyInitialPackageSelection() {
+    if (_initialPackageName == null || _servicePackages.isEmpty) return;
+    final normalizedTarget = _normalizePackageName(_initialPackageName!);
+    final matched = _servicePackages
+        .where((package) =>
+            _normalizePackageName(package.name) == normalizedTarget)
+        .firstOrNull;
+    if (matched == null) return;
+    if (mounted) {
+      setState(() => _selectedServicePackageId = matched.id);
+    } else {
+      _selectedServicePackageId = matched.id;
+    }
+  }
+
+  static String _normalizePackageName(String value) {
+    return value.toLowerCase().trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   void _onStoreNameChanged() {
@@ -150,15 +222,20 @@ class _RegisterScreenState extends State<RegisterScreen>
         _storeNameController.text.trim(),
         _emailController.text.trim(),
         _passwordController.text,
-        phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
         storeCode: _loginNameController.text.trim(),
         agentCode: _agentCode,
+        servicePackageId: _selectedServicePackageId,
       );
 
       if (result['isSuccess'] == true) {
         final message = result['data'] as String? ?? 'Đăng ký thành công!';
-        final codeMatch = RegExp(r'Mã cửa hàng của bạn là:\s*(\S+)').firstMatch(message);
-        final storeCode = codeMatch?.group(1)?.replaceAll('.', '') ?? _loginNameController.text.trim();
+        final codeMatch =
+            RegExp(r'Mã cửa hàng của bạn là:\s*(\S+)').firstMatch(message);
+        final storeCode = codeMatch?.group(1)?.replaceAll('.', '') ??
+            _loginNameController.text.trim();
         if (mounted) {
           _navigateToSuccessScreen(storeCode);
         }
@@ -274,7 +351,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -317,7 +395,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.2)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.15),
@@ -336,7 +415,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                           color: const Color(0xFF0C56D0).withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.rocket_launch_rounded, color: Color(0xFF0C56D0), size: 20),
+                        child: const Icon(Icons.rocket_launch_rounded,
+                            color: Color(0xFF0C56D0), size: 20),
                       ),
                       const SizedBox(width: 16),
                       const Column(
@@ -344,12 +424,19 @@ class _RegisterScreenState extends State<RegisterScreen>
                         children: [
                           Text(
                             'THIẾT LẬP NHANH',
-                            style: TextStyle(color: Color(0xFF586064), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+                            style: TextStyle(
+                                color: Color(0xFF586064),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'CHỈ 2 PHÚT',
-                            style: TextStyle(color: Color(0xFF0C56D0), fontSize: 20, fontWeight: FontWeight.w800),
+                            style: TextStyle(
+                                color: Color(0xFF0C56D0),
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800),
                           ),
                         ],
                       ),
@@ -367,364 +454,491 @@ class _RegisterScreenState extends State<RegisterScreen>
   // ===== Form Panel (Right side / Mobile) =====
   Widget _buildFormPanel({required bool isDesktop}) {
     final scrollContent = Center(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 60 : 24,
-                  vertical: 32,
-                ),
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: SlideTransition(
-                    position: _slideAnim,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Logo
-                          _buildLogo(isDesktop: isDesktop),
-                          const SizedBox(height: 36),
-                          // Title
-                          Align(
-                            alignment: isDesktop ? Alignment.centerLeft : Alignment.center,
-                            child: const Text(
-                              'Đăng ký doanh nghiệp',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF2B3437),
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: isDesktop ? Alignment.centerLeft : Alignment.center,
-                            child: const Text(
-                              'Tạo tài khoản doanh nghiệp mới để bắt đầu.',
-                              style: TextStyle(color: Color(0xFF586064), fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Banner: đăng ký qua link đại lý
-                          if (_agentCode != null) ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7E6),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFFFD591)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.handshake_rounded, color: Color(0xFFD46B08)),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _agentName != null
-                                          ? 'Bạn đang đăng ký qua đại lý: $_agentName ($_agentCode)'
-                                          : 'Bạn đang đăng ký qua mã đại lý: $_agentCode',
-                                      style: const TextStyle(
-                                        color: Color(0xFFAD4E00),
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-
-                          // Form
-                          Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Success message
-                                if (_successMessage != null) ...[
-                                  _buildBanner(_successMessage!, isError: false),
-                                  const SizedBox(height: 20),
-                                ],
-                                // Error message
-                                if (_errorMessage != null) ...[
-                                  _buildBanner(_errorMessage!, isError: true),
-                                  const SizedBox(height: 20),
-                                ],
-
-                                // Store name
-                                _buildLabel('TÊN DOANH NGHIỆP'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _storeNameController,
-                                  hint: 'Nhập tên doanh nghiệp của bạn',
-                                  icon: Icons.store_rounded,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng nhập tên doanh nghiệp';
-                                    if (v.length < 2) return 'Tên doanh nghiệp phải có ít nhất 2 ký tự';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Login name (auto-generated)
-                                _buildLabel('TÊN ĐĂNG NHẬP (MÃ DOANH NGHIỆP)'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _loginNameController,
-                                  hint: 'Tự động tạo từ tên doanh nghiệp',
-                                  icon: Icons.badge_rounded,
-                                  onChanged: (value) {
-                                    if (!_loginNameManuallyEdited) {
-                                      setState(() => _loginNameManuallyEdited = true);
-                                    }
-                                  },
-                                  suffixIcon: _loginNameManuallyEdited
-                                      ? IconButton(
-                                          icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0C56D0), size: 20),
-                                          tooltip: 'Tạo lại từ tên doanh nghiệp',
-                                          onPressed: () {
-                                            setState(() {
-                                              _loginNameManuallyEdited = false;
-                                              _loginNameController.text = _generateLoginName(_storeNameController.text);
-                                            });
-                                          },
-                                        )
-                                      : null,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng nhập tên đăng nhập';
-                                    if (v.length < 2) return 'Tên đăng nhập phải có ít nhất 2 ký tự';
-                                    if (!RegExp(r'^[a-z0-9]+$').hasMatch(v)) return 'Chỉ chấp nhận chữ thường và số, không dấu';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Email
-                                _buildLabel('EMAIL'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _emailController,
-                                  hint: 'Nhập email đăng nhập',
-                                  icon: Icons.email_rounded,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng nhập email';
-                                    if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(v.trim())) return 'Email không hợp lệ';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Phone
-                                _buildLabel('SỐ ĐIỆN THOẠI (TÙY CHỌN)'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _phoneController,
-                                  hint: 'Nhập số điện thoại',
-                                  icon: Icons.phone_rounded,
-                                  keyboardType: TextInputType.phone,
-                                  validator: (v) {
-                                    if (v != null && v.isNotEmpty) {
-                                      if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(v)) return 'Số điện thoại không hợp lệ';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Password
-                                _buildLabel('MẬT KHẨU'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _passwordController,
-                                  hint: 'Nhập mật khẩu',
-                                  icon: Icons.lock_outline_rounded,
-                                  obscure: _obscurePassword,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                      color: const Color(0xFFABB3B7), size: 20,
-                                    ),
-                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
-                                    if (v.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
-                                    if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Phải có ít nhất 1 chữ hoa';
-                                    if (!RegExp(r'[a-z]').hasMatch(v)) return 'Phải có ít nhất 1 chữ thường';
-                                    if (!RegExp(r'[0-9]').hasMatch(v)) return 'Phải có ít nhất 1 chữ số';
-                                    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) return 'Phải có ít nhất 1 ký tự đặc biệt';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Confirm password
-                                _buildLabel('XÁC NHẬN MẬT KHẨU'),
-                                const SizedBox(height: 8),
-                                _buildField(
-                                  controller: _confirmPasswordController,
-                                  hint: 'Nhập lại mật khẩu',
-                                  icon: Icons.lock_outline_rounded,
-                                  obscure: _obscureConfirmPassword,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                      color: const Color(0xFFABB3B7), size: 20,
-                                    ),
-                                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng xác nhận mật khẩu';
-                                    if (v != _passwordController.text) return 'Mật khẩu không khớp';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 28),
-
-                                // Register button
-                                SizedBox(
-                                  height: 54,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF0C56D0).withValues(alpha: 0.25),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ElevatedButton(
-                                      onPressed: _isLoading ? null : _handleRegister,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.transparent,
-                                        shadowColor: Colors.transparent,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      child: _isLoading
-                                          ? const SizedBox(
-                                              width: 22, height: 22,
-                                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                                            )
-                                          : const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Text('Đăng ký doanh nghiệp',
-                                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                                                SizedBox(width: 8),
-                                                Icon(Icons.arrow_forward, size: 18),
-                                              ],
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-
-                          // Login link
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('Đã có tài khoản?',
-                                  style: TextStyle(color: Color(0xFF586064), fontSize: 14)),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                style: TextButton.styleFrom(foregroundColor: const Color(0xFF0C56D0)),
-                                child: const Text('Đăng nhập',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700, fontSize: 14,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: Color(0xFF0C56D0),
-                                    )),
-                              ),
-                            ],
-                          ),
-                          // Spacing for footer (desktop only)
-                          if (isDesktop) const SizedBox(height: 80),
-                        ],
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop ? 60 : 24,
+          vertical: 32,
+        ),
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo
+                  _buildLogo(isDesktop: isDesktop),
+                  const SizedBox(height: 36),
+                  // Title
+                  Align(
+                    alignment:
+                        isDesktop ? Alignment.centerLeft : Alignment.center,
+                    child: const Text(
+                      'Đăng ký doanh nghiệp',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2B3437),
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment:
+                        isDesktop ? Alignment.centerLeft : Alignment.center,
+                    child: const Text(
+                      'Tạo tài khoản doanh nghiệp mới để bắt đầu.',
+                      style: TextStyle(color: Color(0xFF586064), fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Banner: đăng ký qua link đại lý
+                  if (_agentCode != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7E6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFFD591)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.handshake_rounded,
+                              color: Color(0xFFD46B08)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _agentName != null
+                                  ? 'Bạn đang đăng ký qua đại lý: $_agentName ($_agentCode)'
+                                  : 'Bạn đang đăng ký qua mã đại lý: $_agentCode',
+                              style: const TextStyle(
+                                color: Color(0xFFAD4E00),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Form
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Success message
+                        if (_successMessage != null) ...[
+                          _buildBanner(_successMessage!, isError: false),
+                          const SizedBox(height: 20),
+                        ],
+                        // Error message
+                        if (_errorMessage != null) ...[
+                          _buildBanner(_errorMessage!, isError: true),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // Store name
+                        _buildLabel('TÊN DOANH NGHIỆP'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _storeNameController,
+                          hint: 'Nhập tên doanh nghiệp của bạn',
+                          icon: Icons.store_rounded,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Vui lòng nhập tên doanh nghiệp';
+                            }
+                            if (v.length < 2) {
+                              return 'Tên doanh nghiệp phải có ít nhất 2 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Login name (auto-generated)
+                        _buildLabel('TÊN ĐĂNG NHẬP (MÃ DOANH NGHIỆP)'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _loginNameController,
+                          hint: 'Tự động tạo từ tên doanh nghiệp',
+                          icon: Icons.badge_rounded,
+                          onChanged: (value) {
+                            if (!_loginNameManuallyEdited) {
+                              setState(() => _loginNameManuallyEdited = true);
+                            }
+                          },
+                          suffixIcon: _loginNameManuallyEdited
+                              ? IconButton(
+                                  icon: const Icon(Icons.refresh_rounded,
+                                      color: Color(0xFF0C56D0), size: 20),
+                                  tooltip: 'Tạo lại từ tên doanh nghiệp',
+                                  onPressed: () {
+                                    setState(() {
+                                      _loginNameManuallyEdited = false;
+                                      _loginNameController.text =
+                                          _generateLoginName(
+                                              _storeNameController.text);
+                                    });
+                                  },
+                                )
+                              : null,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Vui lòng nhập tên đăng nhập';
+                            }
+                            if (v.length < 2) {
+                              return 'Tên đăng nhập phải có ít nhất 2 ký tự';
+                            }
+                            if (!RegExp(r'^[a-z0-9]+$').hasMatch(v)) {
+                              return 'Chỉ chấp nhận chữ thường và số, không dấu';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Email
+                        _buildLabel('EMAIL'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _emailController,
+                          hint: 'Nhập email đăng nhập',
+                          icon: Icons.email_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Vui lòng nhập email';
+                            }
+                            if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$')
+                                .hasMatch(v.trim())) {
+                              return 'Email không hợp lệ';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Phone
+                        _buildLabel('SỐ ĐIỆN THOẠI (TÙY CHỌN)'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _phoneController,
+                          hint: 'Nhập số điện thoại',
+                          icon: Icons.phone_rounded,
+                          keyboardType: TextInputType.phone,
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty) {
+                              if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(v)) {
+                                return 'Số điện thoại không hợp lệ';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        _buildLabel('GÓI DÙNG THỬ'),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedServicePackageId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            hintText: _isLoadingPackages
+                                ? 'Đang tải gói dịch vụ...'
+                                : 'Chọn gói dùng thử',
+                            prefixIcon: const Icon(Icons.inventory_2_outlined,
+                                color: Color(0xFF586064), size: 20),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 18),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD9E0E3)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD9E0E3)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF0C56D0), width: 1.4),
+                            ),
+                          ),
+                          items: _servicePackages
+                              .map(
+                                (package) => DropdownMenuItem<String>(
+                                  value: package.id,
+                                  child: Text(
+                                    package.displayLabel,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged:
+                              _isLoadingPackages || _servicePackages.isEmpty
+                                  ? null
+                                  : (value) => setState(
+                                      () => _selectedServicePackageId = value),
+                          validator: (_) {
+                            if (_servicePackages.isNotEmpty &&
+                                (_selectedServicePackageId == null ||
+                                    _selectedServicePackageId!.isEmpty)) {
+                              return 'Vui lòng chọn gói dùng thử';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_servicePackages.isNotEmpty &&
+                            _selectedServicePackageId != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _servicePackages
+                                .firstWhere((package) =>
+                                    package.id == _selectedServicePackageId)
+                                .summary,
+                            style: const TextStyle(
+                                color: Color(0xFF586064),
+                                fontSize: 12,
+                                height: 1.45),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
+                        // Password
+                        _buildLabel('MẬT KHẨU'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _passwordController,
+                          hint: 'Nhập mật khẩu',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: _obscurePassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: const Color(0xFFABB3B7),
+                              size: 20,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Vui lòng nhập mật khẩu';
+                            }
+                            if (v.length < 6) {
+                              return 'Mật khẩu phải có ít nhất 6 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Confirm password
+                        _buildLabel('XÁC NHẬN MẬT KHẨU'),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _confirmPasswordController,
+                          hint: 'Nhập lại mật khẩu',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: _obscureConfirmPassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: const Color(0xFFABB3B7),
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() =>
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Vui lòng xác nhận mật khẩu';
+                            }
+                            if (v != _passwordController.text) {
+                              return 'Mật khẩu không khớp';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 28),
+
+                        // Register button
+                        SizedBox(
+                          height: 54,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF0C56D0)
+                                      .withValues(alpha: 0.25),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleRegister,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text('Đăng ký doanh nghiệp',
+                                            style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700)),
+                                        SizedBox(width: 8),
+                                        Icon(Icons.arrow_forward, size: 18),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Login link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Đã có tài khoản?',
+                          style: TextStyle(
+                              color: Color(0xFF586064), fontSize: 14)),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF0C56D0)),
+                        child: const Text('Đăng nhập',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Color(0xFF0C56D0),
+                            )),
+                      ),
+                    ],
+                  ),
+                  // Spacing for footer (desktop only)
+                  if (isDesktop) const SizedBox(height: 80),
+                ],
               ),
+            ),
+          ),
+        ),
+      ),
     );
 
     return Container(
       color: const Color(0xFFF8F9FA),
       child: SafeArea(
         child: isDesktop
-          ? Stack(
-              children: [
-                scrollContent,
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  bottom: 20,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 0.5),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildFooterLink('TÌM HIỂU THÊM'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('LIÊN HỆ'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('HỖ TRỢ'),
-                        ],
-                      ),
-                    ],
+            ? Stack(
+                children: [
+                  scrollContent,
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 20,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                          style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildFooterLink('TÌM HIỂU THÊM'),
+                            const SizedBox(width: 16),
+                            _buildFooterLink('LIÊN HỆ'),
+                            const SizedBox(width: 16),
+                            _buildFooterLink('HỖ TRỢ'),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            )
-          : Column(
-              children: [
-                Expanded(child: scrollContent),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildFooterLink('TÌM HIỂU THÊM'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('LIÊN HỆ'),
-                          const SizedBox(width: 16),
-                          _buildFooterLink('HỖ TRỢ'),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 0.5),
-                      ),
-                    ],
+                ],
+              )
+            : Column(
+                children: [
+                  Expanded(child: scrollContent),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildFooterLink('TÌM HIỂU THÊM'),
+                            const SizedBox(width: 16),
+                            _buildFooterLink('LIÊN HỆ'),
+                            const SizedBox(width: 16),
+                            _buildFooterLink('HỖ TRỢ'),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                          style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
       ),
     );
   }
@@ -733,7 +947,8 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Widget _buildLogo({bool isDesktop = false}) {
     return Row(
-      mainAxisAlignment: isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
+      mainAxisAlignment:
+          isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: const [
         Icon(Icons.bubble_chart, color: Color(0xFF0C56D0), size: 44),
@@ -791,7 +1006,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       child: Row(
         children: [
           Icon(
-            isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+            isError
+                ? Icons.error_outline_rounded
+                : Icons.check_circle_outline_rounded,
             color: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
             size: 20,
           ),
@@ -800,7 +1017,8 @@ class _RegisterScreenState extends State<RegisterScreen>
             child: Text(
               message,
               style: TextStyle(
-                color: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                color:
+                    isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
                 fontSize: 13,
               ),
             ),
@@ -834,14 +1052,17 @@ class _RegisterScreenState extends State<RegisterScreen>
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+              color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+              color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -858,5 +1079,53 @@ class _RegisterScreenState extends State<RegisterScreen>
         errorStyle: const TextStyle(color: Color(0xFFEF4444)),
       ),
     );
+  }
+}
+
+class _PublicServicePackage {
+  const _PublicServicePackage({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.defaultDurationDays,
+    required this.maxUsers,
+    required this.maxDevices,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final int defaultDurationDays;
+  final int maxUsers;
+  final int maxDevices;
+
+  String get displayLabel => '$name - $defaultDurationDays ngày';
+
+  String get summary {
+    final desc = description.trim();
+    final limitUsers =
+        maxUsers > 0 ? '$maxUsers người dùng' : 'không giới hạn người dùng';
+    final limitDevices =
+        maxDevices > 0 ? '$maxDevices thiết bị' : 'không giới hạn thiết bị';
+    if (desc.isEmpty) {
+      return 'Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices.';
+    }
+    return '$desc. Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices.';
+  }
+
+  factory _PublicServicePackage.fromMap(Map<String, dynamic> map) {
+    return _PublicServicePackage(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      defaultDurationDays: _toInt(map['defaultDurationDays']),
+      maxUsers: _toInt(map['maxUsers']),
+      maxDevices: _toInt(map['maxDevices']),
+    );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

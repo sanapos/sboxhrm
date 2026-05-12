@@ -31,20 +31,24 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final res = await _apiService.getMyPayslips();
+      if (!mounted) return;
       if (res['isSuccess'] == true) {
         setState(() => _myPayslips = List<Map<String, dynamic>>.from(res['data'] ?? []));
       }
     } catch (e) {
       debugPrint('Error loading payslips: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   Future<void> _loadPayslipDetail(String id) async {
     final res = await _apiService.getPayslipById(id);
+    if (!mounted) return;
     if (res['isSuccess'] == true) {
       setState(() {
         _selectedPayslip = res['data'];

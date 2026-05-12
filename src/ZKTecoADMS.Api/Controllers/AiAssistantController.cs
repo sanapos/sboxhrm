@@ -40,6 +40,8 @@ public class AiAssistantController(
         public string Reply { get; set; } = "";
         public string Provider { get; set; } = "";
         public List<string> Actions { get; set; } = new();
+        /// <summary>Structured create intents: "type,key=val,key=val" — Flutter parses and calls API directly.</summary>
+        public List<string> Creates { get; set; } = new();
     }
 
     /// <summary>
@@ -113,11 +115,27 @@ public class AiAssistantController(
                 start = i;
             }
 
+            // Extract [[CREATE:xxx]] tags (structured create intents)
+            var creates = new List<string>();
+            var cStart = 0;
+            while (true)
+            {
+                var ci = cleaned.IndexOf("[[CREATE:", cStart, StringComparison.Ordinal);
+                if (ci < 0) break;
+                var cj = cleaned.IndexOf("]]", ci, StringComparison.Ordinal);
+                if (cj < 0) break;
+                var ctag = cleaned.Substring(ci + 9, cj - (ci + 9)).Trim();
+                if (!string.IsNullOrWhiteSpace(ctag)) creates.Add(ctag);
+                cleaned = cleaned.Remove(ci, cj - ci + 2);
+                cStart = ci;
+            }
+
             return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
             {
                 Reply = cleaned.Trim(),
                 Provider = usedProvider,
-                Actions = actions
+                Actions = actions,
+                Creates = creates
             }));
         }
         catch (Exception ex)
@@ -265,7 +283,7 @@ public class AiAssistantController(
                     buf.AppendLine($"- {p.Month:D2}/{p.Year}: {p.NetSalary:N0}đ ({p.Status})");
             }
 
-            // Manager-only: pending approvals snapshot (only count, no PII of others)
+            // Manager-only: pending approvals + today attendance/absent summary
             var roleLower = role.ToLowerInvariant();
             if (roleLower == "owner" || roleLower == "admin" || roleLower == "director" ||
                 roleLower == "manager" || roleLower == "departmenthead")
@@ -283,6 +301,87 @@ public class AiAssistantController(
                     buf.AppendLine($"- Nghỉ phép: {pendingLeaves} | Ứng lương: {pendingAdv}");
                 }
                 catch { /* ignore */ }
+
+                // Today's attendance vs leave cross-reference (nghỉ có phép / nghỉ không phép)
+                try
+                {
+                    var todayVn = DateTime.UtcNow.AddHours(7).Date;
+                    var tomorrowVn = todayVn.AddDays(1);
+
+                    // All active employees in this store
+                    var activeEmps = await db.Employees
+                        .AsNoTracking()
+                        .Where(e => e.StoreId == storeId && e.WorkStatus == Domain.Enums.EmployeeWorkStatus.Active)
+                        .Select(e => new { e.Id, e.ApplicationUserId, e.FirstName, e.LastName })
+                        .ToListAsync(ct);
+
+                    var activeEmpIds = activeEmps.Select(e => e.Id).ToList();
+                    var activeUserIds = activeEmps
+                        .Where(e => e.ApplicationUserId.HasValue)
+                        .Select(e => e.ApplicationUserId!.Value)
+                        .ToList();
+
+                    // Employees who checked in today (any punch counts as present)
+                    var checkedInEmpIds = await db.AttendanceLogs
+                        .AsNoTracking()
+                        .Where(a => a.AttendanceTime >= todayVn && a.AttendanceTime < tomorrowVn
+                                    && a.EmployeeId.HasValue && activeEmpIds.Contains(a.EmployeeId.Value))
+                        .Select(a => a.EmployeeId!.Value)
+                        .Distinct()
+                        .ToListAsync(ct);
+
+                    // Employees with approved leave covering today
+                    var approvedLeaveUserIds = await db.Leaves
+                        .AsNoTracking()
+                        .Where(l => l.StoreId == storeId
+                                    && l.Status == Domain.Enums.LeaveStatus.Approved
+                                    && l.StartDate.Date <= todayVn && l.EndDate.Date >= todayVn
+                                    && activeUserIds.Contains(l.EmployeeUserId))
+                        .Select(l => l.EmployeeUserId)
+                        .Distinct()
+                        .ToListAsync(ct);
+
+                    var absentWithLeave = activeEmps
+                        .Where(e => !checkedInEmpIds.Contains(e.Id)
+                                    && e.ApplicationUserId.HasValue
+                                    && approvedLeaveUserIds.Contains(e.ApplicationUserId.Value))
+                        .ToList();
+
+                    var absentNoLeave = activeEmps
+                        .Where(e => !checkedInEmpIds.Contains(e.Id)
+                                    && !(e.ApplicationUserId.HasValue
+                                         && approvedLeaveUserIds.Contains(e.ApplicationUserId.Value)))
+                        .ToList();
+
+                    buf.AppendLine();
+                    buf.AppendLine($"Tình hình nhân sự hôm nay ({todayVn:dd/MM/yyyy}):");
+                    buf.AppendLine($"- Tổng nhân viên (đang làm việc): {activeEmps.Count}");
+                    buf.AppendLine($"- Đã chấm công: {checkedInEmpIds.Count}");
+                    buf.AppendLine($"- Vắng CÓ PHÉP (đơn nghỉ được duyệt): {absentWithLeave.Count}");
+                    buf.AppendLine($"- Vắng KHÔNG PHÉP (không chấm công, không có đơn duyệt): {absentNoLeave.Count}");
+
+                    if (absentWithLeave.Count > 0)
+                    {
+                        buf.AppendLine("Danh sách nghỉ CÓ PHÉP hôm nay:");
+                        foreach (var e in absentWithLeave.Take(20))
+                            buf.AppendLine($"  • {e.LastName} {e.FirstName}");
+                        if (absentWithLeave.Count > 20)
+                            buf.AppendLine($"  ...và {absentWithLeave.Count - 20} người khác");
+                    }
+
+                    if (absentNoLeave.Count > 0)
+                    {
+                        buf.AppendLine("Danh sách vắng KHÔNG PHÉP hôm nay:");
+                        foreach (var e in absentNoLeave.Take(20))
+                            buf.AppendLine($"  • {e.LastName} {e.FirstName}");
+                        if (absentNoLeave.Count > 20)
+                            buf.AppendLine($"  ...và {absentNoLeave.Count - 20} người khác");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to load today absent summary");
+                }
             }
         }
         catch (Exception ex)
@@ -301,9 +400,17 @@ public class AiAssistantController(
 NGUYÊN TẮC:
 - Luôn trả lời BẰNG TIẾNG VIỆT, ngắn gọn, thân thiện, chuyên nghiệp.
 - Chỉ trả lời dựa trên DỮ LIỆU CÁ NHÂN của chính người dùng được cung cấp bên dưới.
-- KHÔNG bịa số liệu. Nếu không đủ thông tin, nói thẳng ""Tôi không có dữ liệu này"".
+- KHÔNG bịa số liệu. Nếu không đủ thông tin, nói thẳng ""Tôi không thể truy cập dữ liệu này"".
 - Tôn trọng phân quyền: nếu user là nhân viên (Employee) thì chỉ nói về dữ liệu CỦA HỌ. Nếu là quản lý/admin thì có thể nói về số đơn chờ duyệt toàn cửa hàng (đã cung cấp ở context).
 - Khi người dùng muốn thực hiện tác vụ (tạo/sửa/xem), hãy hướng dẫn ngắn gọn VÀ kèm thẻ hành động ở cuối tin nhắn.
+
+XỬ LÝ CÂU HỎI DỮ LIỆU TỔ CHỨC (quan trọng):
+- Nếu trong phần ""Tình hình nhân sự hôm nay"" ở context có dữ liệu → DÙNG DỮ LIỆU ĐÓ để trả lời trực tiếp khi người dùng hỏi ""hôm nay ai nghỉ"", ""ai vắng không phép"", ""danh sách vắng mặt"" v.v. Đây là dữ liệu thật, không bịa.
+- LƯU Ý: Danh sách ""vắng KHÔNG PHÉP"" có thể bao gồm nhân viên nghỉ ngày nghỉ trong tuần (thứ 7, CN) hoặc nghỉ lễ — hãy nhắc điều này khi trả lời nếu số lượng lớn bất thường.
+- Nếu KHÔNG có dữ liệu tình hình nhân sự trong context (user là nhân viên thường, không phải quản lý) → Trả lời: ""Tôi không thể truy cập dữ liệu này. Bạn có thể xem tại đây:"" + kèm thẻ điều hướng phù hợp.
+- Câu hỏi vắng mặt/nghỉ phép của người khác mà không có dữ liệu → kèm [[ACTION:nav_leave]]
+- Câu hỏi chấm công của người khác mà không có dữ liệu → kèm [[ACTION:nav_attendance_history]]
+- Câu hỏi dữ liệu khác mà không có trong context → chỉ nói ""Tôi không thể truy cập dữ liệu này"".
 
 XỬ LÝ ĐẦU VÀO GIỌNG NÓI:
 - Câu hỏi có thể nhập qua MICRO nên có thể NHẬN DẠNG SAI, THIẾU DẤU, SAI CHÍNH TẢ.
@@ -346,8 +453,26 @@ CÁC THẺ HÀNH ĐỘNG HỢP LỆ (đặt CUỐI tin nhắn, mỗi thẻ 1 dò
 QUY TẮC DÙNG THẺ:
 - Người dùng nói ""thêm"", ""tạo"", ""đăng ký"", ""xin"", ""gửi"" → ưu tiên thẻ ""_create"".
 - Người dùng nói ""xem"", ""danh sách"", ""kiểm tra"", ""trạng thái"", ""bao nhiêu"" → dùng thẻ xem.
-- Tối đa 2 thẻ mỗi câu trả lời. Đặt ở cuối, mỗi thẻ 1 dòng.
+- Tối đa 2 thẻ ACTION mỗi câu trả lời. Đặt ở cuối, mỗi thẻ 1 dòng.
 - Tuyệt đối KHÔNG đặt thẻ giữa câu.
+
+— TẠO PHIẾU TRỰC TIẾP (thẻ [[CREATE:...]]) —
+Khi người dùng muốn TẠO một phiếu VÀ đã cung cấp đầy đủ dữ liệu bắt buộc → dùng thẻ [[CREATE:...]] thay cho [[ACTION:...]].
+Hệ thống sẽ tạo phiếu trực tiếp khi người dùng nhấn xác nhận, KHÔNG cần mở màn hình.
+
+LOẠI TẠO HỖ TRỢ:
+1. Phiếu sửa giờ / báo quên chấm công:
+   Dữ liệu bắt buộc: ngày + giờ + lý do
+   Thẻ: [[CREATE:attendance_correction,date=YYYY-MM-DD,time=HH:MM,action=add,reason=lý do không có dấu phẩy]]
+   - action=add (thêm lần chấm mới / quên chấm) hoặc action=edit (sửa giờ chấm sai)
+   - date: ngày theo định dạng YYYY-MM-DD (""hôm nay"" = {DateTime.UtcNow.AddHours(7).ToString("yyyy-MM-dd")})
+   - time: giờ theo HH:MM
+   - reason: KHÔNG dùng dấu phẩy trong lý do; thay bằng dấu gạch ngang hoặc chữ khác
+   Ví dụ: [[CREATE:attendance_correction,date=2026-05-07,time=13:00,action=add,reason=quên chấm công buổi chiều]]
+
+2. Nếu thiếu dữ liệu → hỏi lại thông tin còn thiếu, KHÔNG phát thẻ CREATE.
+3. Nếu người dùng chưa xác nhận → mô tả ngắn gọn thông tin sẽ tạo + kèm thẻ CREATE để họ nhấn xác nhận.
+4. Chỉ 1 thẻ CREATE mỗi câu trả lời.
 
 === THÔNG TIN NGƯỜI DÙNG ===
 {userContext}

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -30,18 +30,49 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   bool _loading = false;
   List<AdvanceRequest> _requests = [];
   String _empSearch = '';
+  String? _selectedBranchId;
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _employeesList = [];
 
-  List<AdvanceRequest> get _filtered => _empSearch.isEmpty
-      ? _requests
-      : _requests
-          .where((r) =>
-              r.employeeName.toLowerCase().contains(_empSearch.toLowerCase()))
-          .toList();
+  List<AdvanceRequest> get _filtered {
+    var result = _requests;
+    if (_selectedBranchId != null) {
+      final ids = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['id']?.toString() ?? '')
+          .toSet();
+      result = result.where((r) => ids.contains(r.employeeUserId)).toList();
+    }
+    if (_empSearch.isEmpty) return result;
+    return result
+        .where((r) =>
+            r.employeeName.toLowerCase().contains(_empSearch.toLowerCase()))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadBranches();
+  }
+
+  Future<void> _loadBranches() async {
+    try {
+      final emps = await _api.getEmployees(pageSize: 1000);
+      if (mounted) {
+        setState(() => _employeesList =
+            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {}
+    try {
+      final br = await _api.getBranchesForSelect();
+      final bd = br['data'];
+      if (bd is List && mounted) {
+        setState(() => _branches =
+            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -87,7 +118,8 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   }
 
   Future<void> _exportExcel() async {
-    if (_requests.isEmpty) {
+    final data = _filtered;
+    if (data.isEmpty) {
       NotificationOverlayManager()
           .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
       return;
@@ -108,8 +140,8 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         'Người duyệt',
         'Ngày duyệt'
       ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < _requests.length; i++) {
-        final r = _requests[i];
+      for (int i = 0; i < data.length; i++) {
+        final r = data[i];
         sh.appendRow([
           excel_lib.IntCellValue(i + 1),
           excel_lib.TextCellValue(r.employeeName),
@@ -134,7 +166,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã xuất: $fn');
+              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
         }
       }
     } catch (e) {
@@ -225,13 +257,13 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(children: [
         Row(children: [
-          Expanded(child: _DateBtn('Từ ngày', _from, _pickFrom)),
+          Expanded(child: _dateBtn('Từ ngày', _from, _pickFrom)),
           const SizedBox(width: 8),
-          Expanded(child: _DateBtn('Đến ngày', _to, _pickTo)),
+          Expanded(child: _dateBtn('Đến ngày', _to, _pickTo)),
         ]),
         const SizedBox(height: 6),
         Row(children: [
-          Expanded(child: _StatusDrop()),
+          Expanded(child: _statusDrop()),
           const SizedBox(width: 8),
           SizedBox(
             height: 40,
@@ -250,6 +282,56 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             ),
           ),
         ]),
+        if (_branches.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.account_tree_outlined,
+                  size: 16, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _selectedBranchId,
+                    isExpanded: true,
+                    isDense: true,
+                    style:
+                        const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                    icon: const Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: Color(0xFF9CA3AF)),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Tất cả chi nhánh',
+                              style: TextStyle(fontSize: 13))),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13)))),
+                    ],
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                ),
+              ),
+              if (_selectedBranchId != null)
+                InkWell(
+                  onTap: () => setState(() => _selectedBranchId = null),
+                  child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 14, color: Color(0xFF9CA3AF))),
+                ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 6),
         _buildEmpSearch('Lọc theo tên nhân viên...'),
       ]),
@@ -338,7 +420,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     );
   }
 
-  Widget _DateBtn(String label, DateTime val, VoidCallback onTap) {
+  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -371,7 +453,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     );
   }
 
-  Widget _StatusDrop() {
+  Widget _statusDrop() {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -407,9 +489,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _SumCard('Tổng yêu cầu', _filtered.length.toString(), Icons.list_alt,
+          _sumCard('Tổng yêu cầu', _filtered.length.toString(), Icons.list_alt,
               Colors.blueGrey),
-          _SumCard(
+          _sumCard(
               'Chờ duyệt',
               _filtered
                   .where((r) => r.status == AdvanceRequestStatus.pending)
@@ -417,7 +499,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                   .toString(),
               Icons.hourglass_empty,
               Colors.orange),
-          _SumCard(
+          _sumCard(
               'Đã duyệt',
               _filtered
                   .where((r) => r.status == AdvanceRequestStatus.approved)
@@ -425,12 +507,12 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                   .toString(),
               Icons.check_circle_outline,
               const Color(0xFF16A34A)),
-          _SumCard(
+          _sumCard(
               'Tổng tiền',
               '${_fmtMoney.format(_filtered.fold(0.0, (s, r) => s + r.amount))}đ',
               Icons.payments_outlined,
               _aTheme),
-          _SumCard(
+          _sumCard(
               'Tiền đã duyệt',
               '${_fmtMoney.format(_filtered.where((r) => r.status == AdvanceRequestStatus.approved).fold(0.0, (s, r) => s + r.amount))}đ',
               Icons.account_balance,
@@ -440,7 +522,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     );
   }
 
-  Widget _SumCard(String title, String value, IconData icon, Color color) {
+  Widget _sumCard(String title, String value, IconData icon, Color color) {
     return Container(
       width: 148,
       margin: const EdgeInsets.only(right: 8),

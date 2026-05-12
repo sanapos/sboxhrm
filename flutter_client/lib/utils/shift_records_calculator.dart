@@ -478,9 +478,8 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           }
           totalDecimalHours += actualWorkedMinutes / 60.0;
           // Chỉ tính 1 ca khi NV làm đủ ít nhất 2/3 số giờ ca quy định
-          final minMinutesForShift = shiftDurationMin > 0
-              ? (shiftDurationMin * 2.0 / 3.0).round()
-              : 0;
+          final minMinutesForShift =
+              shiftDurationMin > 0 ? (shiftDurationMin * 2.0 / 3.0).round() : 0;
           if (actualWorkedMinutes >= minMinutesForShift) {
             totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
           }
