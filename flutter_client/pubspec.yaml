@@ -47,7 +47,7 @@ dependencies:
   excel: ^4.0.3
   
   # Rich text editor
-  flutter_quill: any
+  flutter_quill: ^11.5.1
   vsc_quill_delta_to_html: ^1.0.5
   
   # Time formatting
