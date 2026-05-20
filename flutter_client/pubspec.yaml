@@ -118,6 +118,7 @@ flutter:
   assets:
     - assets/logo.png
     - assets/mobilefacenet.tflite
+    - assets/w600k_mbf.onnx
 
   fonts:
     - family: BeVietnamPro
