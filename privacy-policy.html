@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chính sách quyền riêng tư – SANA HRM</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #333; }
+    header { background: #1565C0; color: #fff; padding: 32px 24px; text-align: center; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { margin-top: 8px; font-size: 15px; opacity: 0.85; }
+    .container { max-width: 800px; margin: 40px auto; padding: 0 20px 60px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); padding: 32px; margin-bottom: 24px; }
+    h2 { font-size: 18px; color: #1565C0; margin-bottom: 12px; border-left: 4px solid #1565C0; padding-left: 12px; }
+    p { line-height: 1.7; font-size: 15px; margin-bottom: 10px; }
+    ul { margin: 10px 0 10px 20px; }
+    li { line-height: 1.8; font-size: 15px; }
+    .badge { display: inline-block; background: #E3F2FD; color: #1565C0; border-radius: 6px; padding: 2px 10px; font-size: 13px; font-weight: 600; margin-right: 6px; }
+    footer { text-align: center; padding: 24px; color: #888; font-size: 13px; }
+    .updated { font-size: 13px; color: #999; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Chính sách quyền riêng tư</h1>
+  <p>SANA HRM – Ứng dụng quản lý nhân sự</p>
+  <p class="updated">Cập nhật lần cuối: 21/05/2026</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <h2>1. Giới thiệu</h2>
+    <p>SANA HRM ("chúng tôi") cam kết bảo vệ quyền riêng tư của người dùng. Chính sách này mô tả cách chúng tôi thu thập, sử dụng và bảo vệ dữ liệu cá nhân khi bạn sử dụng ứng dụng SANA HRM trên thiết bị Android và iOS.</p>
+  </div>
+
+  <div class="card">
+    <h2>2. Thông tin thu thập</h2>
+    <p>Chúng tôi chỉ thu thập các thông tin cần thiết để vận hành hệ thống quản lý nhân sự:</p>
+    <ul>
+      <li><span class="badge">Họ tên, email</span> Định danh tài khoản nhân viên</li>
+      <li><span class="badge">Camera / Ảnh khuôn mặt</span> Nhận diện danh tính khi chấm công</li>
+      <li><span class="badge">Vị trí GPS</span> Xác minh địa điểm check-in / check-out</li>
+      <li><span class="badge">Token thiết bị</span> Gửi thông báo đẩy (FCM)</li>
+      <li><span class="badge">Dữ liệu chấm công</span> Giờ vào/ra, ca làm việc, ngày nghỉ</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>3. Mục đích sử dụng</h2>
+    <ul>
+      <li>Xác thực danh tính nhân viên khi chấm công bằng khuôn mặt</li>
+      <li>Ghi nhận và quản lý thời gian làm việc, nghỉ phép, tăng ca</li>
+      <li>Gửi thông báo phê duyệt đơn từ, lịch làm việc, sinh nhật</li>
+      <li>Tạo báo cáo chuyên cần và bảng lương nội bộ doanh nghiệp</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>4. Quyền truy cập thiết bị</h2>
+    <p><strong>Camera:</strong> Chỉ được kích hoạt khi nhân viên chủ động thực hiện chấm công. Hình ảnh được xử lý để xác thực danh tính và không được lưu trữ dưới dạng ảnh thô trên máy chủ.</p>
+    <p><strong>Vị trí:</strong> Chỉ ghi nhận tại thời điểm chấm công. Không theo dõi vị trí liên tục trong nền.</p>
+    <p><strong>Thông báo đẩy:</strong> Sử dụng Firebase Cloud Messaging (Google) để gửi thông báo nội bộ. Token thiết bị được lưu an toàn và xóa khi đăng xuất.</p>
+  </div>
+
+  <div class="card">
+    <h2>4a. Dữ liệu khuôn mặt (Face Data)</h2>
+    <p><strong>Thu thập:</strong> Ứng dụng chụp ảnh khuôn mặt qua camera thiết bị khi nhân viên thực hiện chấm công bằng điện thoại. Ảnh chỉ được chụp khi nhân viên chủ động khởi tạo thao tác check-in / check-out.</p>
+    <p><strong>Mục đích sử dụng:</strong> Dữ liệu khuôn mặt được sử dụng duy nhất để xác thực danh tính nhân viên – ảnh chụp được so sánh với ảnh đại diện đã đăng ký để xác nhận đúng người. Không có mục đích sử dụng nào khác.</p>
+    <p><strong>Chia sẻ bên thứ ba:</strong> Dữ liệu khuôn mặt <strong>không được chia sẻ với bất kỳ bên thứ ba nào</strong>, kể cả các dịch vụ AI như Google Gemini. Ảnh được truyền qua kết nối HTTPS đến máy chủ riêng của SBOX tại sbox.sana.vn (đặt tại Việt Nam) và lưu trong cơ sở dữ liệu nội bộ.</p>
+    <p><strong>Thời gian lưu trữ:</strong> Dữ liệu khuôn mặt được lưu giữ trong suốt thời gian hồ sơ nhân viên còn tồn tại trong hệ thống. Khi hồ sơ nhân viên bị xóa bởi quản trị viên, toàn bộ dữ liệu khuôn mặt liên quan sẽ bị xóa vĩnh viễn.</p>
+    <p><em>SBOX HRM may collect face images via your device camera when you use the mobile attendance check-in feature. This face data is used solely to verify your identity by comparing the captured image with your registered reference photo. Your face data is stored securely on SBOX servers and is never shared with any third party, including AI services. Face data is retained for the duration of your employment record and permanently deleted when your account is removed.</em></p>
+  </div>
+
+  <div class="card">
+    <h2>5. Chia sẻ dữ liệu</h2>
+    <p>Chúng tôi <strong>không bán, không chia sẻ</strong> dữ liệu cá nhân với bên thứ ba vì mục đích thương mại. Dữ liệu chỉ được lưu trữ trên máy chủ của doanh nghiệp sử dụng hệ thống SANA HRM.</p>
+    <p>Các dịch vụ bên thứ ba được sử dụng:</p>
+    <ul>
+      <li>Firebase (Google) – thông báo đẩy</li>
+      <li>ZKTeco – thiết bị chấm công phần cứng</li>
+      <li>Google Gemini AI – xử lý câu hỏi trong tính năng Trợ lý AI (chỉ gửi nội dung văn bản của câu hỏi và dữ liệu nhân sự không nhận dạng danh tính; dữ liệu khuôn mặt / sinh trắc học không bao giờ được gửi đến AI)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>6. Bảo mật dữ liệu</h2>
+    <p>Dữ liệu được truyền qua kết nối HTTPS mã hóa TLS. Mật khẩu được băm bằng thuật toán an toàn. Quyền truy cập dữ liệu được kiểm soát theo vai trò (nhân viên, quản lý, admin).</p>
+  </div>
+
+  <div class="card">
+    <h2>7. Quyền của người dùng</h2>
+    <ul>
+      <li>Yêu cầu xem, chỉnh sửa hoặc xóa dữ liệu cá nhân</li>
+      <li>Thu hồi quyền camera / vị trí bất kỳ lúc nào trong Cài đặt điện thoại</li>
+      <li>Đăng xuất để vô hiệu hóa token thông báo đẩy</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>8. Liên hệ</h2>
+    <p>Mọi thắc mắc về quyền riêng tư, vui lòng liên hệ:</p>
+    <p>📧 <strong>support@sana.vn</strong></p>
+    <p>🌐 <strong>https://sbox.sana.vn</strong></p>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 SANA Technology. All rights reserved.
+</footer>
+
+</body>
+</html>

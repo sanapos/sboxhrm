@@ -656,34 +656,35 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   const SizedBox(height: 28),
 
-                  // Register link
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text('Chưa có tài khoản?',
-                            style: TextStyle(
-                                color: Color(0xFF586064),
-                                fontSize: 14,
-                                height: 1.5)),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.of(context).pushNamed('/register'),
-                          style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF0C56D0)),
-                          child: const Text('Đăng ký ngay',
+                  // Register link — web only (hidden on iOS/Android per App Store guideline 3.1.1)
+                  if (kIsWeb)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text('Chưa có tài khoản?',
                               style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Color(0xFF0C56D0),
-                              )),
-                        ),
-                      ],
+                                  color: Color(0xFF586064),
+                                  fontSize: 14,
+                                  height: 1.5)),
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.of(context).pushNamed('/register'),
+                            style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF0C56D0)),
+                            child: const Text('Đăng ký ngay',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Color(0xFF0C56D0),
+                                )),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 40),
 
                   // Platform icons

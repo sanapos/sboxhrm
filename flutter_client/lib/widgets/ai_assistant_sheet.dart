@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -39,6 +41,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   bool _ttsSpeaking = false;
   String _partialTranscript = '';
 
+  static const _kAiConsentKey = 'ai_assistant_consent_v1';
+  bool _consentChecked = false;
+  bool _consentGiven = false;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +52,61 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _initStt();
     _messages.add(_ChatMsg('assistant',
         'Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.'));
+    if (!kIsWeb) {
+      _checkAiConsent();
+    } else {
+      _consentChecked = true;
+      _consentGiven = true;
+    }
+  }
+
+  Future<void> _checkAiConsent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final given = prefs.getBool(_kAiConsentKey) ?? false;
+    if (mounted) {
+      setState(() {
+        _consentGiven = given;
+        _consentChecked = true;
+      });
+      if (!given) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showConsentDialog());
+      }
+    }
+  }
+
+  Future<void> _showConsentDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Trợ lý AI – Thông tin quyền riêng tư'),
+        content: const Text(
+          'Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
+          'sẽ được gửi đến máy chủ của chúng tôi và xử lý bằng Google Gemini AI để tạo phản hồi.\n\n'
+          'Dữ liệu sinh trắc học (khuôn mặt, vân tay) không được gửi đến AI.\n\n'
+          'Bạn đồng ý để tiếp tục sử dụng tính năng này không?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) Navigator.of(context).pop(); // close sheet
+            },
+            child: const Text('Không đồng ý'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool(_kAiConsentKey, true);
+              if (mounted) setState(() => _consentGiven = true);
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: const Text('Đồng ý'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _initTts() async {
@@ -161,6 +222,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   Future<void> _send() async {
+    // On mobile, require consent before sending any data to AI
+    if (!kIsWeb && !_consentGiven) {
+      _showConsentDialog();
+      return;
+    }
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _isSending) return;
     setState(() {
