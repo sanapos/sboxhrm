@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -687,7 +687,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   const SizedBox(height: 40),
 
-                  // Platform icons
+                  // Platform icons — hide Android icon on iOS (Apple guideline 2.3.10)
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Opacity(
@@ -698,8 +698,10 @@ class _LoginScreenState extends State<LoginScreen>
                           _buildPlatformIcon(Icons.language, 'WEB'),
                           const SizedBox(width: 32),
                           _buildPlatformIcon(Icons.apple, 'IOS'),
-                          const SizedBox(width: 32),
-                          _buildPlatformIcon(Icons.android, 'ANDROID'),
+                          if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) ...[
+                            const SizedBox(width: 32),
+                            _buildPlatformIcon(Icons.android, 'ANDROID'),
+                          ],
                         ],
                       ),
                     ),
