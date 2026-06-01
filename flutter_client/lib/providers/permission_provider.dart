@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/dashboard_permission_modules.dart';
 
 /// Provider quản lý quyền hiệu lực của user hiện tại.
 /// Lưu cache danh sách module permissions (canView, canCreate, canEdit, ...)
@@ -92,8 +93,16 @@ class PermissionProvider extends ChangeNotifier {
     if (_isSuperUser) return true;
     if (!_isLoaded) return true; // Chưa load xong → hiện hết (tránh flash)
     if (_loadError) return false; // API lỗi → ẩn hết (secure default)
+    if (moduleCode == 'Dashboard') {
+      return DashboardPermissionModules.canViewNavDashboard(this);
+    }
     final perm = _permissions[moduleCode];
     if (perm == null) return false; // Module không có trong danh sách → ẩn
+    if (DashboardPermissionModules.allWidgets.contains(moduleCode) &&
+        _permissions[DashboardPermissionModules.legacyDashboard]?.canView ==
+            true) {
+      return true;
+    }
     return perm.canView;
   }
 

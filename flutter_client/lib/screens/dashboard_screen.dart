@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:collection';
 // ignore_for_file: unused_import, unused_element, unused_field, unused_local_variable
 import 'dart:math' as math;
@@ -8,8 +8,12 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/attendance.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/attendance_load_utils.dart';
+import '../utils/dashboard_ui_capabilities.dart';
 import '../utils/shift_records_calculator.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import 'main_layout.dart';
@@ -53,7 +57,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _presetKey =
       'today'; // today|yesterday|thisWeek|lastWeek|thisMonth|lastMonth|custom
   List<dynamic> _todayLeaves = [];
-  List<dynamic> _trends = [];
   List<dynamic> _devices = [];
   List<dynamic> _communications = [];
   List<dynamic> _employees = [];
@@ -96,28 +99,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _cashSummary = {};
   Map<String, dynamic> _monthlyReport = {};
   List<dynamic> _expiringDocs = []; // sắp hết hạn (≤30 ngày)
-  int? _trendTappedDay;
-  int? _lateEarlyTappedDay;
-  final Set<String> _hiddenShifts = {};
-  String? _lateEarlyShiftFilter;
   List<dynamic> _expiredContracts = []; // đã hết hạn
+
+  bool _dashboardModeResolved = false;
+
+  DashboardUiCapabilities _caps(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final role =
+        Provider.of<AuthProvider>(context, listen: false).userRole;
+    return DashboardUiCapabilities.from(perm, role: role);
+  }
+
+  void _resolveDashboardMode(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.isLoaded) return;
+
+    final caps = DashboardUiCapabilities.from(
+      perm,
+      role: Provider.of<AuthProvider>(context, listen: false).userRole,
+    );
+    final useEmp = caps.useEmployeeLayout;
+    if (!_dashboardModeResolved || _isEmployee != useEmp) {
+      final switching = _isEmployee != useEmp;
+      _dashboardModeResolved = true;
+      _isEmployee = useEmp;
+      if (switching || _isLoading) {
+        if (useEmp) {
+          _loadEmployeeData();
+        } else {
+          _loadAllData(caps);
+        }
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // Greeting and current-shift display only need coarse updates — every 60s
-    // rebuilds the entire dashboard tree unnecessarily. 5 minutes is enough to
-    // cross morning/afternoon/evening boundaries and shift transitions.
     _clockTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _isEmployee = authProvider.userRole == 'Employee';
-    if (_isEmployee) {
-      _loadEmployeeData();
-    } else {
-      _loadAllData();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resolveDashboardMode(context);
+    });
   }
 
   @override
@@ -198,7 +222,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _loadAllData() async {
+  Future<void> _loadAllData([DashboardUiCapabilities? caps]) async {
+    final c = caps ?? _caps(context);
+    if (c.useEmployeeLayout) return;
+
     setState(() => _isLoading = true);
     final now = DateTime.now();
 
@@ -275,24 +302,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final filterFromStr = _rangeStart != null ? fmt(_rangeStart!) : todayStr;
     final filterToStr = todayStr;
 
-    final critical = await Future.wait([
-      _safe(
+    final criticalFutures = <Future<dynamic>>[];
+    if (c.loadDailyReport) {
+      criticalFutures.add(_safe(
           () => _api.getDailyAttendanceReport(
               date: todayStr, overnightCutoff: dayCutoffStr),
           emptyMap,
-          'daily'),
-      _safe(() => _api.getDevices(storeOnly: true), emptyList, 'devices'),
-      _safe(() => _api.getEmployees(pageSize: 200), emptyList, 'employees'),
-    ]);
+          'daily'));
+    }
+    if (c.loadDevices) {
+      criticalFutures.add(
+          _safe(() => _api.getDevices(storeOnly: true), emptyList, 'devices'));
+    }
+    if (c.loadEmployees) {
+      criticalFutures.add(
+          _safe(() => _api.getEmployees(pageSize: 200), emptyList, 'employees'));
+    }
+
+    final critical = criticalFutures.isEmpty
+        ? <dynamic>[]
+        : await Future.wait(criticalFutures);
 
     if (!mounted) return;
-    final dailyResp = critical[0] as Map<String, dynamic>;
-    final dailyData = (dailyResp['data'] as Map<String, dynamic>?) ?? {};
+    var ci = 0;
+    Map<String, dynamic> dailyData = {};
+    if (c.loadDailyReport && critical.isNotEmpty) {
+      final dailyResp = critical[ci++] as Map<String, dynamic>;
+      dailyData = (dailyResp['data'] as Map<String, dynamic>?) ?? {};
+    }
     setState(() {
       _dailyReport = dailyData;
       _dailyReportItems = (dailyData['items'] as List<dynamic>?) ?? [];
-      _devices = critical[1] as List<dynamic>;
-      _employees = critical[2] as List<dynamic>;
+      if (c.loadDevices && ci < critical.length) {
+        _devices = critical[ci++] as List<dynamic>;
+      } else if (!c.loadDevices) {
+        _devices = const [];
+      }
+      if (c.loadEmployees && ci < critical.length) {
+        _employees = critical[ci++] as List<dynamic>;
+      } else if (!c.loadEmployees) {
+        _employees = const [];
+      }
       // Xóa dữ liệu raw/derived cũ (từ ngày trước) để Phase 1 dùng fallback
       // daily-report thay vì tính từ data stale → tránh flash sai trước Phase 2.
       _rawAttendances = const [];
@@ -304,134 +354,217 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _recomputeMemoized();
     });
 
-    // Phase 2 — all remaining data in ONE parallel batch (was 2 sequential phases).
-    // Each call is independently protected: a single 500 won't break the others.
-    final batch = await Future.wait([
-      _safe(() => _api.getAttendanceTrends(days: 14), emptyList,
-          'trends'), // 0 — 14 cal days = ~10 working days
-      _safe(() => _api.getCommunications(page: 1, pageSize: 5), emptyMap,
-          'comms'), // 1
-      _safe(() => _api.getKpiResults(), emptyMap, 'kpi-results'), // 2
-      _safe(
+    // Phase 2 — chỉ gọi API khi user có quyền module tương ứng.
+    final batchKeys = <String>[];
+    final batchJobs = <Future<dynamic>>[];
+    void queue(String key, Future<dynamic> job) {
+      batchKeys.add(key);
+      batchJobs.add(job);
+    }
+
+    if (c.loadCommunications) {
+      queue('comms', _safe(() => _api.getCommunications(page: 1, pageSize: 5),
+          emptyMap, 'comms'));
+    }
+    if (c.loadKpi) {
+      queue('kpi-results',
+          _safe(() => _api.getKpiResults(), emptyMap, 'kpi-results'));
+      queue('kpi-dashboard',
+          _safe(() => _api.getKpiDashboard(), emptyMap, 'kpi-dashboard'));
+    }
+    if (c.loadLeaves) {
+      queue('leaves-today', _safe(
           () => _api.getAllLeaves(
               status: 'Approved',
               fromDate: filterFromStr,
               toDate: filterToStr,
               pageSize: 100),
           emptyMap,
-          'leaves-today'), // 3
-      _safe(() => _api.getKpiDashboard(), emptyMap, 'kpi-dashboard'), // 4
-      _safe(
+          'leaves-today'));
+    }
+    if (c.loadSchedules) {
+      queue('schedules', _safe(
           () => _api.getWorkSchedules(
               fromDate: dayStart, toDate: dayEnd, pageSize: 500),
           emptyMap,
-          'schedules'), // 5
-      _safe(() => _api.getPendingLeaves(pageSize: 100), emptyMap,
-          'pending-leaves'), // 6
-      _safe(() => _api.getAttendanceCorrections(pageSize: 100), emptyMap,
-          'corrections'), // 7
-      _safe(() => _api.getShiftSwapsPendingApproval(), emptyMap, 'swaps'), // 8
-      _safe(() => _api.getTaskStatistics(), emptyMap, 'tasks'), // 9
-      _safe(() => _api.getOvertimeStatistics(), emptyMap, 'ot'), // 10
-      _safe(
+          'schedules'));
+    }
+    if (c.loadPendingApprovals) {
+      queue('pending-leaves', _safe(
+          () => _api.getPendingLeaves(pageSize: 100), emptyMap, 'pending-leaves'));
+      queue('corrections', _safe(() => _api.getAttendanceCorrections(pageSize: 100),
+          emptyMap, 'corrections'));
+      queue('swaps', _safe(
+          () => _api.getShiftSwapsPendingApproval(), emptyMap, 'swaps'));
+    }
+    if (c.loadTasks) {
+      queue('tasks', _safe(() => _api.getTaskStatistics(), emptyMap, 'tasks'));
+    }
+    if (c.loadOvertime) {
+      queue('ot', _safe(() => _api.getOvertimeStatistics(), emptyMap, 'ot'));
+    }
+    if (c.loadPenalty) {
+      queue('penalty', _safe(
           () => _api.getPenaltyTicketStats(
               fromDate: filterFromStr, toDate: filterToStr),
           emptyMap,
-          'penalty'), // 11
-      _safe(
+          'penalty'));
+    }
+    if (c.loadCash) {
+      queue('cash', _safe(
           () => _api.getCashTransactionSummary(
               fromDate: monthStart, toDate: monthEnd),
           emptyMap,
-          'cash'), // 12
-      Future.value(emptyMap), // 13 – monthly report (card ẩn, bỏ API call)
-      _safe(() => _api.getExpiringContracts(), emptyMap, 'contracts'), // 14
-      _safe(() => _api.getAdvanceRequests(status: 0, pageSize: 100), emptyMap,
-          'advances'), // 15
-      _safe(() => _api.getBirthdays(), emptyList, 'birthdays'), // 16
-      _safe(() => _api.getShifts(), emptyList, 'shifts'), // 17
-      // 18..22: inputs cho thuật toán "Tổng hợp theo ca".
-      // AttendanceTime được lưu dạng VN local time trên backend (ZKTeco device gửi
-      // giờ địa phương, lưu thẳng vào timestamp without time zone — không convert UTC).
-      // Cần gửi phạm vi thời gian VN trực tiếp (không trừ 7h).
-      _safe(
-          () => _api.getAttendances(
-              deviceIds: _devices
-                  .map((d) => (d is Map ? d['id']?.toString() ?? '' : ''))
-                  .where((s) => s.isNotEmpty)
-                  .toList(),
-              fromDate: attFromDate,
-              toDate: attToDate,
-              page: 1,
-              pageSize: 1000),
-          emptyMap,
-          'attendances'), // 18
-      _safe(() => _api.getShiftSalaryLevels(), emptyMap,
-          'shift-salary-levels'), // 19
-      _safe(() => _api.getSalaryProfiles(), emptyList, 'salary-profiles'), // 20
-      _safe(() => _api.getHolidaySettings(0), emptyList, 'holidays'), // 21
-      _safe(
-          () => _api.getAppSetting('day_end_time'), emptyMap, 'day-end'), // 22
-    ]);
+          'cash'));
+    }
+    if (c.loadContracts) {
+      queue('contracts',
+          _safe(() => _api.getExpiringContracts(), emptyMap, 'contracts'));
+    }
+    if (c.loadAdvances) {
+      queue('advances', _safe(() => _api.getAdvanceRequests(status: 0, pageSize: 100),
+          emptyMap, 'advances'));
+    }
+    if (c.loadBirthdays) {
+      queue('birthdays', _safe(() => _api.getBirthdays(), emptyList, 'birthdays'));
+    }
+    if (c.loadRawAttendances) {
+      queue('shifts', _safe(() => _api.getShifts(), emptyList, 'shifts'));
+      queue('shift-salary-levels', _safe(
+          () => _api.getShiftSalaryLevels(), emptyMap, 'shift-salary-levels'));
+      queue('salary-profiles',
+          _safe(() => _api.getSalaryProfiles(), emptyList, 'salary-profiles'));
+      queue('holidays',
+          _safe(() => _api.getHolidaySettings(0), emptyList, 'holidays'));
+      queue('day-end',
+          _safe(() => _api.getAppSetting('day_end_time'), emptyMap, 'day-end'));
+    }
 
-    if (!mounted) return;
-    Map<String, dynamic> asMap(int i) => batch[i] as Map<String, dynamic>;
-    setState(() {
-      _trends = batch[0] as List<dynamic>;
-      _communications = _extractList(asMap(1));
-      _kpiResults = _extractList(asMap(2));
-      _todayLeaves = _extractList(asMap(3));
-      _kpiDashboard = (asMap(4)['data'] as Map<String, dynamic>?) ?? {};
-      _todaySchedules = _extractList(asMap(5));
-      _pendingLeaves = _extractList(asMap(6));
-      _pendingCorrections = _extractList(asMap(7));
-      _pendingSwaps = _extractList(asMap(8));
-      _taskStats = (asMap(9)['data'] as Map<String, dynamic>?) ?? asMap(9);
-      _overtimeStats =
-          (asMap(10)['data'] as Map<String, dynamic>?) ?? asMap(10);
-      _penaltyStats = (asMap(11)['data'] as Map<String, dynamic>?) ?? asMap(11);
-      _cashSummary = (asMap(12)['data'] as Map<String, dynamic>?) ?? asMap(12);
-      _monthlyReport =
-          (asMap(13)['data'] as Map<String, dynamic>?) ?? asMap(13);
-      final contractsMap = asMap(14);
-      _expiringDocs = (contractsMap['expiring'] as List?) ?? [];
-      _expiredContracts = (contractsMap['expired'] as List?) ?? [];
-      _pendingAdvances = _extractList(asMap(15));
-      _birthdayEmployees = batch[16] as List<dynamic>;
-      _shiftTemplates = batch[17] as List<dynamic>;
+    final batchResults = batchJobs.isEmpty
+        ? <dynamic>[]
+        : await Future.wait(batchJobs);
+    final byKey = <String, dynamic>{};
+    for (var i = 0; i < batchKeys.length; i++) {
+      byKey[batchKeys[i]] = batchResults[i];
+    }
 
-      // Tổng hợp theo ca — raw inputs
-      final attMap = batch[18] as Map<String, dynamic>;
-      final attItems = (attMap['items'] as List?) ?? const [];
-      _rawAttendances = attItems
-          .map((it) {
-            try {
-              return Attendance.fromJson(it as Map<String, dynamic>);
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<Attendance>()
-          .toList();
-      _shiftTemplatesTyped =
-          _shiftTemplates.whereType<Map<String, dynamic>>().toList();
-      final sslMap = batch[19] as Map<String, dynamic>;
-      final sslData = sslMap['data'];
-      final sslList = sslData is Map
-          ? (sslData['items'] as List? ?? const [])
-          : (sslData is List ? sslData : const []);
-      _shiftSalaryLevels = sslList.whereType<Map<String, dynamic>>().toList();
-      final spList = batch[20] as List<dynamic>;
-      _salaryProfiles = spList.whereType<Map<String, dynamic>>().toList();
-      _holidaysSettings = batch[21] as List<dynamic>;
-      final dayEndResp = batch[22] as Map<String, dynamic>;
+    // Tải đủ log chấm công (phân trang) sau khi có day_end_time từ batch.
+    List<Attendance> phase2RawAttendances = const [];
+    if (c.loadRawAttendances) {
+      final dayEndResp = (byKey['day-end'] as Map<String, dynamic>?) ?? {};
+      var deh = _dayEndHour;
+      var dem = _dayEndMinute;
       if (dayEndResp['isSuccess'] == true && dayEndResp['data'] is Map) {
         final dv =
             (dayEndResp['data'] as Map)['value']?.toString() ?? '00:00:00';
         final parts = dv.split(':');
         if (parts.length >= 2) {
-          _dayEndHour = int.tryParse(parts[0]) ?? 0;
-          _dayEndMinute = int.tryParse(parts[1]) ?? 0;
+          deh = int.tryParse(parts[0]) ?? 0;
+          dem = int.tryParse(parts[1]) ?? 0;
         }
+      }
+      final deviceIds = _devices
+          .map((d) => (d is Map ? d['id']?.toString() ?? '' : ''))
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (deviceIds.isNotEmpty) {
+        final attLoad = await loadAttendancesForPeriodResult(
+          _api,
+          deviceIds: deviceIds,
+          fromDate: attFromDate,
+          toDate: attToDate,
+          dayEndHour: deh,
+          dayEndMinute: dem,
+          pageSize: 1000,
+        );
+        phase2RawAttendances = attLoad.items;
+      }
+    }
+
+    if (!mounted) return;
+    Map<String, dynamic> mapOf(String k) =>
+        (byKey[k] as Map<String, dynamic>?) ?? {};
+
+    setState(() {
+      _communications =
+          c.loadCommunications ? _extractList(mapOf('comms')) : const [];
+      _kpiResults = c.loadKpi ? _extractList(mapOf('kpi-results')) : const [];
+      _todayLeaves =
+          c.loadLeaves ? _extractList(mapOf('leaves-today')) : const [];
+      _kpiDashboard = c.loadKpi
+          ? (mapOf('kpi-dashboard')['data'] as Map<String, dynamic>?) ?? {}
+          : {};
+      _todaySchedules =
+          c.loadSchedules ? _extractList(mapOf('schedules')) : const [];
+      _pendingLeaves = c.loadPendingApprovals
+          ? _extractList(mapOf('pending-leaves'))
+          : const [];
+      _pendingCorrections = c.loadPendingApprovals
+          ? _extractList(mapOf('corrections'))
+          : const [];
+      _pendingSwaps =
+          c.loadPendingApprovals ? _extractList(mapOf('swaps')) : const [];
+      _taskStats = c.loadTasks
+          ? (mapOf('tasks')['data'] as Map<String, dynamic>?) ?? mapOf('tasks')
+          : {};
+      _overtimeStats = c.loadOvertime
+          ? (mapOf('ot')['data'] as Map<String, dynamic>?) ?? mapOf('ot')
+          : {};
+      _penaltyStats = c.loadPenalty
+          ? (mapOf('penalty')['data'] as Map<String, dynamic>?) ??
+              mapOf('penalty')
+          : {};
+      _cashSummary = c.loadCash
+          ? (mapOf('cash')['data'] as Map<String, dynamic>?) ?? mapOf('cash')
+          : {};
+      _monthlyReport = {};
+      if (c.loadContracts) {
+        final contractsMap = mapOf('contracts');
+        _expiringDocs = (contractsMap['expiring'] as List?) ?? [];
+        _expiredContracts = (contractsMap['expired'] as List?) ?? [];
+      } else {
+        _expiringDocs = const [];
+        _expiredContracts = const [];
+      }
+      _pendingAdvances =
+          c.loadAdvances ? _extractList(mapOf('advances')) : const [];
+      _birthdayEmployees = c.loadBirthdays
+          ? (byKey['birthdays'] as List<dynamic>? ?? const [])
+          : const [];
+      _shiftTemplates = c.loadRawAttendances
+          ? (byKey['shifts'] as List<dynamic>? ?? const [])
+          : const [];
+
+      if (c.loadRawAttendances) {
+        _rawAttendances = phase2RawAttendances;
+        _shiftTemplatesTyped =
+            _shiftTemplates.whereType<Map<String, dynamic>>().toList();
+        final sslMap = mapOf('shift-salary-levels');
+        final sslData = sslMap['data'];
+        final sslList = sslData is Map
+            ? (sslData['items'] as List? ?? const [])
+            : (sslData is List ? sslData : const []);
+        _shiftSalaryLevels =
+            sslList.whereType<Map<String, dynamic>>().toList();
+        final spList = byKey['salary-profiles'] as List<dynamic>? ?? const [];
+        _salaryProfiles = spList.whereType<Map<String, dynamic>>().toList();
+        _holidaysSettings =
+            byKey['holidays'] as List<dynamic>? ?? const [];
+        final dayEndResp = mapOf('day-end');
+        if (dayEndResp['isSuccess'] == true && dayEndResp['data'] is Map) {
+          final dv =
+              (dayEndResp['data'] as Map)['value']?.toString() ?? '00:00:00';
+          final parts = dv.split(':');
+          if (parts.length >= 2) {
+            _dayEndHour = int.tryParse(parts[0]) ?? 0;
+            _dayEndMinute = int.tryParse(parts[1]) ?? 0;
+          }
+        }
+      } else {
+        _rawAttendances = const [];
+        _shiftPairs = const [];
+        _shiftRecords = const [];
+        _lateShiftEntries = const [];
       }
       _recomputeMemoized();
     });
@@ -439,8 +572,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // After Phase 2 loads (shifts + day_end_time), re-fetch daily report with
     // the correct overnightCutoff so backend uses the exact same window as
     // _rawAttendances: [D+cutoff, D+1+cutoff).
-    // Priority: day_end_time (AppSettings) > shift template overnightCutoffTime.
-    if (_selectedDate == null) {
+    if (c.loadDailyReport &&
+        c.loadRawAttendances &&
+        _selectedDate == null) {
       final shiftCutoff = _activeOvernightCutoff;
       final hasDayEndNow = _dayEndHour != 0 || _dayEndMinute != 0;
       final effectiveCutoffH = hasDayEndNow ? _dayEndHour : shiftCutoff?.hour;
@@ -1010,72 +1144,199 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return LoadingWidget(message: _l10n.loadingOverview);
-    }
+    return Consumer<PermissionProvider>(
+      builder: (context, perm, _) {
+        if (perm.isLoaded) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _resolveDashboardMode(context);
+          });
+        }
 
-    final body = _isEmployee
-        ? _buildEmployeeDashboard()
-        : RefreshIndicator(
-            onRefresh: _loadAllData,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(
-                  MediaQuery.of(context).size.width < 768 ? 12 : 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 14),
-                  if (_bannerItems.isNotEmpty) ...[
-                    _buildRollingBanner(),
-                    const SizedBox(height: 10),
-                  ],
-                  _buildQuickActions(),
-                  const SizedBox(height: 16),
-                  _buildHeroOverview(),
-                  const SizedBox(height: 14),
-                  _buildTodayShiftSchedule(),
-                  const SizedBox(height: 20),
-                  _buildMainGrid(),
-                ],
-              ),
+        if (_isLoading) {
+          return LoadingWidget(message: _l10n.loadingOverview);
+        }
+
+        final caps = DashboardUiCapabilities.from(
+          perm,
+          role: Provider.of<AuthProvider>(context, listen: false).userRole,
+        );
+
+        final body = _isEmployee
+            ? _buildEmployeeDashboard()
+            : RefreshIndicator(
+                onRefresh: () => _loadAllData(caps),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
+                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
+                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
+                    100,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 14),
+                      if (_bannerItems.isNotEmpty) ...[
+                        _buildRollingBanner(),
+                        const SizedBox(height: 10),
+                      ],
+                      if (caps.isOverviewOnly) ...[
+                        _buildOverviewOnlyCard(),
+                        const SizedBox(height: 16),
+                      ],
+                      if (caps.showQuickActions) ...[
+                        _buildQuickActions(caps),
+                        const SizedBox(height: 16),
+                      ],
+                      if (caps.showAttendanceHero) ...[
+                        _buildHeroOverview(),
+                        const SizedBox(height: 14),
+                      ],
+                      if (caps.showShiftSchedule) ...[
+                        _buildTodayShiftSchedule(),
+                        const SizedBox(height: 20),
+                      ],
+                      if (caps.showInsightSection && !caps.showAttendanceHero) ...[
+                        _buildInsightSectionTitle(),
+                        const SizedBox(height: 10),
+                        _buildInsightChipsRow(caps),
+                        const SizedBox(height: 20),
+                      ],
+                      if (caps.showMainGrid) _buildMainGrid(caps),
+                    ],
+                  ),
+                ),
+              );
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFFAFAFA),
+          body: Scrollbar(
+            thumbVisibility: true,
+            child: body,
+          ),
+          floatingActionButton: caps.showAiFab
+              ? FloatingActionButton.extended(
+                  onPressed: () => showAiAssistant(context),
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('Trợ lý AI'),
+                  tooltip: 'Mở trợ lý ảo HRM',
+                )
+              : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildOverviewOnlyCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBAE6FD)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFF0284C7)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Quyền tổng quan',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tài khoản chỉ có quyền xem Tổng quan. Dùng Trang chủ để mở các module khác đã được cấp, hoặc liên hệ quản trị để bổ sung gói quyền (Chấm công, Thiết lập HRM…).',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () =>
+                      NavigationNotifier.goTo(NavigationNotifier.home),
+                  icon: const Icon(Icons.home_outlined, size: 18),
+                  label: const Text('Mở Trang chủ'),
+                ),
+              ],
             ),
-          );
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: body,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAiAssistant(context),
-        backgroundColor: const Color(0xFF8B5CF6),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.auto_awesome_rounded),
-        label: const Text('Trợ lý AI'),
-        tooltip: 'Mở trợ lý ảo HRM',
+          ),
+        ],
       ),
     );
   }
 
+  Widget _buildInsightSectionTitle() {
+    return const Text(
+      'Chỉ số nhân sự & vận hành',
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF475569),
+      ),
+    );
+  }
+
+  /// Cùng palette banner chào như [main_layout] Trang chủ.
+  ({String greeting, IconData icon, Color accent}) _greetingForTime() {
+    if (_now.hour < 12) {
+      return (
+        greeting: _l10n.goodMorning,
+        icon: Icons.wb_sunny_rounded,
+        accent: const Color(0xFFFCD34D),
+      );
+    }
+    if (_now.hour < 18) {
+      return (
+        greeting: _l10n.goodAfternoon,
+        icon: Icons.wb_twilight_rounded,
+        accent: const Color(0xFFFB923C),
+      );
+    }
+    return (
+      greeting: _l10n.goodEvening,
+      icon: Icons.nightlight_round,
+      accent: const Color(0xFFA78BFA),
+    );
+  }
+
+  BoxDecoration get _homeGreetingBannerDecoration => BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            HrmPageChrome.primaryNavy,
+            HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      );
+
   // ===================== HEADER =====================
   Widget _buildHeader() {
-    String greeting;
-    IconData greetIcon;
-    Color iconColor;
-    if (_now.hour < 12) {
-      greeting = _l10n.goodMorning;
-      greetIcon = Icons.wb_sunny_rounded;
-      iconColor = const Color(0xFFFCD34D);
-    } else if (_now.hour < 18) {
-      greeting = _l10n.goodAfternoon;
-      greetIcon = Icons.wb_twilight_rounded;
-      iconColor = const Color(0xFFFB923C);
-    } else {
-      greeting = _l10n.goodEvening;
-      greetIcon = Icons.nightlight_round;
-      iconColor = const Color(0xFFA78BFA);
-    }
-
+    final greet = _greetingForTime();
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final fullName = auth.user?.fullName ?? 'User';
     final role = auth.userRole;
@@ -1083,185 +1344,102 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final hh = _now.hour.toString().padLeft(2, '0');
     final mm = _now.minute.toString().padLeft(2, '0');
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
+    return Container(
+      decoration: _homeGreetingBannerDecoration,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
         children: [
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF050B1A),
-                  Color(0xFF0B1E3F),
-                  Color(0xFF14306B)
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white24, width: 2),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
           ),
-          // Strong dark scrim to guarantee text legibility under bright camera/sunlight
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.25),
-                    Colors.black.withValues(alpha: 0.10),
-                    Colors.black.withValues(alpha: 0.25),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-          // Tiny accent orb in corner only (small + low alpha)
-          Positioned(
-            right: -80,
-            top: -70,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  iconColor.withValues(alpha: 0.10),
-                  iconColor.withValues(alpha: 0.0),
-                ]),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            child: Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Avatar
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: Colors.white24, width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(greetIcon, color: iconColor, size: 16),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              '$greeting,',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                shadows: const [
-                                  Shadow(
-                                      color: Color(0x66000000),
-                                      blurRadius: 4,
-                                      offset: Offset(0, 1)),
-                                ],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        fullName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                          shadows: [
-                            Shadow(
-                                color: Color(0xCC000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 2)),
-                            Shadow(
-                                color: Color(0x80000000),
-                                blurRadius: 2,
-                                offset: Offset(0, 1)),
-                          ],
+                Row(
+                  children: [
+                    Icon(greet.icon, color: greet.accent, size: 18),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '${greet.greeting},',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _headerBadge(role),
-                          const SizedBox(width: 6),
-                          _headerBadge(
-                              '${_weekday(_now.weekday)} • ${_now.day}/${_now.month}'),
-                        ],
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  fullName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _headerBadge(role),
+                    const SizedBox(width: 6),
+                    _headerBadge(
+                        '${_weekday(_now.weekday)} • ${_now.day}/${_now.month}'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$hh:$mm',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Live clock pill
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.35)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$hh:$mm',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          letterSpacing: 1.2,
-                          shadows: [
-                            Shadow(
-                                color: Color(0x80000000),
-                                blurRadius: 4,
-                                offset: Offset(0, 1)),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        _now.year.toString(),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
+                Text(
+                  _now.year.toString(),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
                   ),
                 ),
               ],
@@ -1370,25 +1548,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== QUICK ACTIONS =====================
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(DashboardUiCapabilities caps) {
     final actions = <_QuickAction>[
-      _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ',
-          const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
-      _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6),
-          () => NavigationNotifier.goToWorkSchedule()),
-      _QuickAction(Icons.payments_rounded, 'Phiếu lương',
-          const Color(0xFF06B6D4), () => NavigationNotifier.goToPayroll()),
-      _QuickAction(
-          Icons.campaign_rounded,
-          'Truyền thông',
-          const Color(0xFFEC4899),
-          () => NavigationNotifier.goToCommunication()),
-      _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI',
-          const Color(0xFF6366F1), () => showAiAssistant(context)),
+      if (caps.quickLeave)
+        _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ',
+            const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
+      if (caps.quickShiftSwap)
+        _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6),
+            () {
+          NavigationNotifier.scheduleApprovalTab.value = 2;
+          NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+        }),
+      if (caps.quickPayroll)
+        _QuickAction(Icons.payments_rounded, 'Phiếu lương',
+            const Color(0xFF06B6D4), () => NavigationNotifier.goToPayroll()),
+      if (caps.quickCommunication)
+        _QuickAction(
+            Icons.campaign_rounded,
+            'Truyền thông',
+            const Color(0xFFEC4899),
+            () => NavigationNotifier.goToCommunication()),
+      if (caps.quickAi)
+        _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI',
+            const Color(0xFF6366F1), () => showAiAssistant(context)),
     ];
 
+    if (actions.isEmpty) return const SizedBox.shrink();
+
     return SizedBox(
-      height: 86,
+      height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -1406,8 +1594,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: a.onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: 78,
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          width: 84,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -1447,10 +1635,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 a.label,
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
+                  height: 1.15,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF1E293B),
                 ),
@@ -1484,7 +1673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               const Icon(Icons.analytics_outlined,
-                  size: 18, color: Color(0xFF1E3A5F)),
+                  size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -1492,7 +1681,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E3A5F)),
+                      color: HrmPageChrome.primaryNavy),
                 ),
               ),
               if (_rangeLabel().isNotEmpty)
@@ -1500,7 +1689,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: .08),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -1508,7 +1697,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E3A5F)),
+                        color: HrmPageChrome.primaryNavy),
                   ),
                 ),
             ],
@@ -1540,11 +1729,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: _presetKey == 'custom'
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : Colors.white,
                       border: Border.all(
                           color: _presetKey == 'custom'
-                              ? const Color(0xFF1E3A5F)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFFE4E9F0)),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -1577,30 +1766,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 720;
-              final donut = _buildAttendanceDonut(rate);
+              final useSideBySide = constraints.maxWidth >= 960;
+              final donutCard = _buildDonutCard(rate);
               final tiles = _buildHeroKpiTiles();
-              if (isWide) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(width: 260, child: donut),
-                    const SizedBox(width: 18),
-                    Expanded(child: tiles),
-                  ],
+              if (useSideBySide) {
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(width: 272, child: donutCard),
+                      const SizedBox(width: 14),
+                      Expanded(child: tiles),
+                    ],
+                  ),
                 );
               }
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(height: 230, child: donut),
+                  donutCard,
                   const SizedBox(height: 12),
                   tiles,
                 ],
               );
             },
           ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFE4E9F0)),
           const SizedBox(height: 12),
-          _buildInsightChipsRow(),
+          const Text(
+            'Chỉ số nhân sự & vận hành',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildInsightChipsRow(_caps(context)),
         ],
       ),
     );
@@ -1943,26 +2146,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(children: [
             const Icon(Icons.calendar_today_rounded,
-                size: 16, color: Color(0xFF1E3A5F)),
+                size: 16, color: HrmPageChrome.primaryNavy),
             const SizedBox(width: 6),
             const Expanded(
               child: Text('Lịch làm việc hôm nay',
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text('${shiftNames.length} ca',
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
             ),
           ]),
           const SizedBox(height: 10),
@@ -2058,9 +2261,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.event_available_rounded,
                             'Lịch',
                             schedCount,
-                            const Color(0xFF1E3A5F),
+                            HrmPageChrome.primaryNavy,
                             () => showShiftEmpList('Lịch – $shiftName',
-                                const Color(0xFF1E3A5F), schedCards)),
+                                HrmPageChrome.primaryNavy, schedCards)),
                         chip(
                             Icons.how_to_reg_rounded,
                             'Có mặt',
@@ -2086,7 +2289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== INSIGHT CHIPS ROW =====================
-  Widget _buildInsightChipsRow() {
+  Widget _buildInsightChipsRow(DashboardUiCapabilities caps) {
     final pendingTotal = _pendingLeaves.length +
         _pendingCorrections.length +
         _pendingSwaps.length +
@@ -2119,119 +2322,202 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cashInCount = _toInt(_cashSummary['incomeTransactions'] ?? 0);
     final cashOutCount = _toInt(_cashSummary['expenseTransactions'] ?? 0);
 
-    // Reorder: Thu chi full-width at row 4 (last)
     final chips = <_InsightChipData>[
-      // Row 1
-      _InsightChipData(
-          Icons.beach_access_outlined,
-          'Nghỉ phép',
-          '${_absentWithPermission.length}',
-          const Color(0xFFF59E0B),
-          'leave_today'),
-      _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt',
-          '$pendingTotal', const Color(0xFFEF4444), 'pending_all'),
-      _InsightChipData(
-          Icons.cake_outlined,
-          'Sinh nhật',
-          '${_todayBirthdays.length}',
-          const Color(0xFFEC4899),
-          'birthday_detail'),
-      // Row 2
-      _InsightChipData(Icons.av_timer_outlined, 'OT tháng', '$otCount NV',
-          const Color(0xFF8B5CF6), 'overtime_detail'),
-      _InsightChipData(
-          Icons.task_alt_outlined,
-          'Công việc',
-          taskTotal > 0 ? '$taskDone/$taskTotal' : '0',
-          const Color(0xFF2D5F8B),
-          'task_detail'),
-      _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount',
-          const Color(0xFFDC2626), 'penalty_detail'),
-      // Row 3
-      _InsightChipData(
-          Icons.assignment_late_outlined,
-          'HĐ hết hạn',
-          '${_expiringDocs.length + _expiredContracts.length}',
-          const Color(0xFFEA580C),
-          'docs_detail'),
-      _InsightChipData(
-          Icons.account_balance_wallet_outlined,
-          'Ứng lương',
-          '${_pendingAdvances.length}',
-          const Color(0xFF10B981),
-          'advance_detail'),
-      _InsightChipData(
-          Icons.groups_outlined,
-          'NV mới',
-          '${_newHiresThisMonth()}',
-          const Color(0xFF0F2340),
-          'newhires_detail'),
-      // Row 4 — 2 chips: Phiếu thu | Phiếu chi (số phiếu + phụ đề tiền)
-      _InsightChipData(
-          Icons.arrow_downward_rounded,
-          'Phiếu thu',
-          cashInCount > 0 ? '$cashInCount phiếu' : _fmtMoney(cashIn),
-          const Color(0xFF16A34A),
-          'receipt_detail'),
-      _InsightChipData(
-          Icons.arrow_upward_rounded,
-          'Phiếu chi',
-          cashOutCount > 0 ? '$cashOutCount phiếu' : _fmtMoney(cashOut),
-          const Color(0xFFEF4444),
-          'payment_detail'),
+      if (caps.insightLeave)
+        _InsightChipData(
+            Icons.beach_access_outlined,
+            'Nghỉ phép',
+            '${_absentWithPermission.length}',
+            const Color(0xFFF59E0B),
+            'leave_today'),
+      if (caps.insightPending)
+        _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt',
+            '$pendingTotal', const Color(0xFFEF4444), 'pending_all'),
+      if (caps.insightBirthday)
+        _InsightChipData(
+            Icons.cake_outlined,
+            'Sinh nhật',
+            '${_todayBirthdays.length}',
+            const Color(0xFFEC4899),
+            'birthday_detail'),
+      if (caps.insightOvertime)
+        _InsightChipData(Icons.av_timer_outlined, 'OT tháng', '$otCount NV',
+            const Color(0xFF8B5CF6), 'overtime_detail'),
+      if (caps.insightTask)
+        _InsightChipData(
+            Icons.task_alt_outlined,
+            'Công việc',
+            taskTotal > 0 ? '$taskDone/$taskTotal' : '0',
+            const Color(0xFF2D5F8B),
+            'task_detail'),
+      if (caps.insightPenalty)
+        _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount',
+            const Color(0xFFDC2626), 'penalty_detail'),
+      if (caps.insightContracts)
+        _InsightChipData(
+            Icons.assignment_late_outlined,
+            'HĐ hết hạn',
+            '${_expiringDocs.length + _expiredContracts.length}',
+            const Color(0xFFEA580C),
+            'docs_detail'),
+      if (caps.insightAdvance)
+        _InsightChipData(
+            Icons.account_balance_wallet_outlined,
+            'Ứng lương',
+            '${_pendingAdvances.length}',
+            const Color(0xFF10B981),
+            'advance_detail'),
+      if (caps.insightNewHires)
+        _InsightChipData(
+            Icons.groups_outlined,
+            'NV mới',
+            '${_newHiresThisMonth()}',
+            HrmPageChrome.primaryNavy,
+            'newhires_detail'),
+      if (caps.insightCash) ...[
+        _InsightChipData(
+            Icons.arrow_downward_rounded,
+            'Phiếu thu',
+            cashInCount > 0 ? '$cashInCount phiếu' : _fmtMoney(cashIn),
+            const Color(0xFF16A34A),
+            'receipt_detail'),
+        _InsightChipData(
+            Icons.arrow_upward_rounded,
+            'Phiếu chi',
+            cashOutCount > 0 ? '$cashOutCount phiếu' : _fmtMoney(cashOut),
+            const Color(0xFFEF4444),
+            'payment_detail'),
+      ],
     ];
 
-    Widget fixedRow(int start, int count) => Row(
-          children: List.generate(count * 2 - 1, (i) {
-            if (i.isOdd) return const SizedBox(width: 8);
-            final idx = start + i ~/ 2;
-            return Expanded(child: _buildInsightChip(chips[idx]));
-          }),
-        );
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    final today = chips
+        .where((c) =>
+            c.kind == 'leave_today' ||
+            c.kind == 'pending_all' ||
+            c.kind == 'birthday_detail')
+        .toList();
+    final ops = chips
+        .where((c) =>
+            c.kind == 'overtime_detail' ||
+            c.kind == 'task_detail' ||
+            c.kind == 'penalty_detail')
+        .toList();
+    final hrFin = chips
+        .where((c) =>
+            c.kind == 'docs_detail' ||
+            c.kind == 'advance_detail' ||
+            c.kind == 'newhires_detail' ||
+            c.kind == 'receipt_detail' ||
+            c.kind == 'payment_detail')
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        fixedRow(0, 3),
-        const SizedBox(height: 8),
-        fixedRow(3, 3),
-        const SizedBox(height: 8),
-        fixedRow(6, 3),
-        const SizedBox(height: 8),
-        fixedRow(9, 2),
+        if (today.isNotEmpty) _buildInsightGroup('Hôm nay', today),
+        if (ops.isNotEmpty) _buildInsightGroup('Vận hành', ops),
+        if (hrFin.isNotEmpty) _buildInsightGroup('Hồ sơ & tài chính', hrFin),
       ],
     );
   }
 
+  Widget _buildInsightGroup(String title, List<_InsightChipData> items) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF94A3B8),
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final cols = w >= 900 ? 3 : (w >= 520 ? 2 : 1);
+              const gap = 8.0;
+              final itemW = (w - gap * (cols - 1)) / cols;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final c in items)
+                    SizedBox(width: itemW, child: _buildInsightChip(c)),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInsightChip(_InsightChipData c) {
-    return GestureDetector(
-      onTap: () => _showInsightDetail(c),
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 88),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: c.color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: c.color.withValues(alpha: 0.22)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(c.icon, size: 12, color: c.color),
-              const SizedBox(width: 4),
-              Text(c.label,
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: c.color,
-                      fontWeight: FontWeight.w600)),
-            ]),
-            const SizedBox(height: 4),
-            Text(c.value,
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.bold, color: c.color),
-                maxLines: 1),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showInsightDetail(c),
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE4E9F0)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: c.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(c.icon, size: 18, color: c.color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      c.value,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: c.color,
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 16, color: c.color.withValues(alpha: 0.45)),
+            ],
+          ),
         ),
       ),
     );
@@ -2441,7 +2727,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                     child: SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
+                      child: FilledButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: c.color,
                           foregroundColor: Colors.white,
@@ -2720,8 +3006,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             break;
           case 'swap':
             result = approve
-                ? await _api.approveShiftSwap(id)
-                : await _api.cancelShiftSwap(id);
+                ? await _api.approveShiftSwap(id, approve: true)
+                : await _api.approveShiftSwap(id,
+                    approve: false, rejectionReason: reason);
             break;
           case 'advance':
             result = await _api.approveAdvanceRequest(
@@ -2788,7 +3075,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
                       child: const Text('Hủy')),
-                  ElevatedButton(
+                  FilledButton(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),
                         foregroundColor: Colors.white),
@@ -2911,7 +3198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF22C55E),
                         foregroundColor: Colors.white,
@@ -3246,7 +3533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         TextButton(
                             onPressed: () => Navigator.pop(context, false),
                             child: const Text('Hủy')),
-                        ElevatedButton(
+                        FilledButton(
                           style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFEF4444),
                               foregroundColor: Colors.white),
@@ -3392,7 +3679,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: ElevatedButton.icon(
+                                child: FilledButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF22C55E),
                                     foregroundColor: Colors.white,
@@ -3979,7 +4266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const Color(0xFF22C55E)),
       const SizedBox(height: 8),
       _detailStatRow(
-          Icons.task_alt, 'Hoàn thành', '$completed', const Color(0xFF1E3A5F)),
+          Icons.task_alt, 'Hoàn thành', '$completed', HrmPageChrome.primaryNavy),
       const SizedBox(height: 8),
       _detailStatRow(Icons.pending_outlined, 'Chờ duyệt', '$pending',
           const Color(0xFFF59E0B)),
@@ -4090,7 +4377,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const Color(0xFF22C55E), '1'),
       const SizedBox(height: 8),
       tappableRow(Icons.bolt_outlined, 'Tự duyệt', '$autoApproved',
-          const Color(0xFF1E3A5F), '3'),
+          HrmPageChrome.primaryNavy, '3'),
       const SizedBox(height: 8),
       tappableRow(Icons.pending_outlined, 'Chờ xử lý', '$pending',
           const Color(0xFFF59E0B), '0'),
@@ -4193,10 +4480,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1E3A5F) : Colors.white,
+          color: selected ? HrmPageChrome.primaryNavy : Colors.white,
           border: Border.all(
               color:
-                  selected ? const Color(0xFF1E3A5F) : const Color(0xFFE4E9F0)),
+                  selected ? HrmPageChrome.primaryNavy : const Color(0xFFE4E9F0)),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -4253,8 +4540,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         end = DateTime(today.year, today.month + 1, 0);
         break;
       case 'lastMonth':
-        start = DateTime(today.year, today.month - 1, 1);
-        end = DateTime(today.year, today.month, 0);
+        final firstThis = DateTime(today.year, today.month, 1);
+        final lastDayPrev = firstThis.subtract(const Duration(days: 1));
+        start = DateTime(lastDayPrev.year, lastDayPrev.month, 1);
+        end = lastDayPrev;
         break;
     }
 
@@ -4308,10 +4597,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1E3A5F) : Colors.white,
+          color: selected ? HrmPageChrome.primaryNavy : Colors.white,
           border: Border.all(
               color:
-                  selected ? const Color(0xFF1E3A5F) : const Color(0xFFE4E9F0)),
+                  selected ? HrmPageChrome.primaryNavy : const Color(0xFFE4E9F0)),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -4322,6 +4611,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: selected ? Colors.white : const Color(0xFF475569),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDonutCard(double rate) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE4E9F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Tỉ lệ có mặt',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          _buildAttendanceDonut(rate),
+        ],
       ),
     );
   }
@@ -4506,19 +4821,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        // Per-shift legend
         if (shiftNames.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 8,
+            spacing: 6,
             runSpacing: 4,
-            alignment: WrapAlignment.center,
+            alignment: WrapAlignment.start,
             children: [
-              for (var i = 0; i < shiftNames.length; i++)
+              for (var i = 0; i < shiftNames.length && i < 4; i++)
                 _donutLegendItem(
                   palette[i % palette.length],
                   shiftNames[i],
                   shiftCounts[shiftNames[i]]!,
+                ),
+              if (shiftNames.length > 4)
+                Padding(
+                  padding: const EdgeInsets.only(left: 2, top: 2),
+                  child: Text(
+                    '+${shiftNames.length - 4} ca',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -4530,7 +4856,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeroKpiTiles() {
     final tiles = <_HeroKpi>[
       _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded,
-          const Color(0xFF1E3A5F), 'total'),
+          HrmPageChrome.primaryNavy, 'total'),
       _HeroKpi(_presentShiftLabel, '$_presentCount', Icons.how_to_reg_rounded,
           const Color(0xFF22C55E), 'present'),
       _HeroKpi('Đi trễ / Về sớm', '$_lateCount', Icons.schedule_rounded,
@@ -4540,119 +4866,185 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded,
           const Color(0xFF2D5F8B), 'inout'),
       _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices',
-          Icons.router_rounded, const Color(0xFF0F2340), 'devices'),
+          Icons.router_rounded, HrmPageChrome.primaryNavy, 'devices'),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cols = constraints.maxWidth < 380
-            ? 2
-            : constraints.maxWidth < 620
-                ? 3
-                : 3;
-        final ratio = constraints.maxWidth < 380 ? 1.7 : 2.0;
-        return GridView.count(
-          crossAxisCount: cols,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: ratio,
-          children: tiles.map(_buildHeroKpiTile).toList(),
+        final w = constraints.maxWidth;
+        // <520: 2 cột (2×2); >=520: 4 cột một hàng (desktop / tablet ngang)
+        final cols = w >= 520 ? 4 : 2;
+        final compact = cols <= 2;
+        final gap = 8.0;
+        final itemW = (w - gap * (cols - 1)) / cols;
+
+        Widget grid(List<_HeroKpi> items) {
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final k in items)
+                SizedBox(
+                  width: itemW,
+                  child: _buildHeroKpiTile(k, compact: compact),
+                ),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            grid(tiles.take(4).toList()),
+            const SizedBox(height: 8),
+            grid(tiles.skip(4).toList()),
+          ],
         );
       },
     );
   }
 
-  Widget _buildHeroKpiTile(_HeroKpi k) {
-    final lighter = Color.lerp(k.color, Colors.white, 0.18)!;
+  /// Nhãn ngắn trên mobile — tránh cắt "TANG CA..." / "Đi trễ / Về sớm".
+  String _heroKpiShortLabel(_HeroKpi k, bool compact) {
+    if (!compact) return k.label;
+    switch (k.kind) {
+      case 'total':
+        return 'Tổng NV';
+      case 'present':
+        return 'Có mặt';
+      case 'late':
+        return 'Trễ / Sớm';
+      case 'absent':
+        return 'Vắng';
+      case 'inout':
+        return 'Vào / Ra';
+      case 'devices':
+        return 'Thiết bị';
+      default:
+        return k.label;
+    }
+  }
+
+  Widget _buildHeroKpiTile(_HeroKpi k, {bool compact = false}) {
+    final label = _heroKpiShortLabel(k, compact);
+    final decoration = BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE4E9F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+
+    if (compact) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showKpiDetail(k),
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            decoration: decoration,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: k.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(k.icon, size: 16, color: k.color),
+                    ),
+                    const Spacer(),
+                    Text(
+                      k.value,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: k.color,
+                        height: 1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
+                  ),
+                  maxLines: 2,
+                  softWrap: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showKpiDetail(k),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [k.color, lighter],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                  color: k.color.withValues(alpha: 0.30),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4)),
-            ],
-          ),
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+          decoration: decoration,
+          child: Row(
             children: [
-              // decorative ring
-              Positioned(
-                right: -14,
-                bottom: -14,
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.10),
-                  ),
+              Container(
+                width: 3,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: k.color,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: Icon(k.icon, size: 18, color: Colors.white),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                k.label,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.2),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Icon(Icons.chevron_right,
-                                size: 14,
-                                color: Colors.white.withValues(alpha: 0.7)),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          k.value,
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.3),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    const SizedBox(height: 4),
+                    Text(
+                      k.value,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: k.color,
+                        height: 1.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              Icon(k.icon, size: 18, color: k.color.withValues(alpha: 0.55)),
             ],
           ),
         ),
@@ -4899,11 +5291,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.12),
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.people_alt_rounded,
-                            color: Color(0xFF1E3A5F), size: 20),
+                            color: HrmPageChrome.primaryNavy, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -4969,7 +5361,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1E3A5F)
+                                        color: HrmPageChrome.primaryNavy
                                             .withValues(alpha: 0.09),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
@@ -4978,13 +5370,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           children: [
                                             const Icon(Icons.business_rounded,
                                                 size: 13,
-                                                color: Color(0xFF1E3A5F)),
+                                                color: HrmPageChrome.primaryNavy),
                                             const SizedBox(width: 4),
                                             Text(deptName,
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF1E3A5F))),
+                                                    color: HrmPageChrome.primaryNavy)),
                                           ]),
                                     ),
                                     const SizedBox(width: 8),
@@ -6852,89 +7244,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== MAIN GRID =====================
-  Widget _buildMainGrid() {
+  Widget _buildMainGrid(DashboardUiCapabilities caps) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 1100;
         final isMedium = constraints.maxWidth > 700;
 
+        Widget gap16() => const SizedBox(height: 16);
+
+        Widget rowRealtimeAbsent() => IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (caps.gridRealtime)
+                    Expanded(
+                        flex: 2, child: _buildRealtimeAttendanceCard()),
+                  if (caps.gridRealtime && caps.gridAbsent)
+                    const SizedBox(width: 16),
+                  if (caps.gridAbsent)
+                    Expanded(flex: 1, child: _buildAbsentCard()),
+                ],
+              ),
+            );
+
+        Widget colRealtimeAbsent() => Column(
+              children: [
+                if (caps.gridRealtime) _buildRealtimeAttendanceCard(),
+                if (caps.gridRealtime && caps.gridAbsent) gap16(),
+                if (caps.gridAbsent) _buildAbsentCard(),
+                if (caps.gridLateEarly &&
+                    (caps.gridRealtime || caps.gridAbsent))
+                  gap16(),
+                if (caps.gridLateEarly) _buildLateEarlyCard(),
+              ],
+            );
+
+        Widget rowKpiNews() => IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (caps.gridKpi) Expanded(child: _buildKpiCard()),
+                  if (caps.gridKpi && caps.gridNews) const SizedBox(width: 16),
+                  if (caps.gridNews) Expanded(child: _buildInternalNewsCard()),
+                ],
+              ),
+            );
+
+        Widget colKpiNews() => Column(
+              children: [
+                if (caps.gridKpi) _buildKpiCard(),
+                if (caps.gridKpi && caps.gridNews) gap16(),
+                if (caps.gridNews) _buildInternalNewsCard(),
+              ],
+            );
+
+        final hasTop = caps.gridRealtime || caps.gridAbsent;
+        final hasBottom = caps.gridKpi || caps.gridNews;
+
         if (isWide) {
           return Column(
             children: [
-              // Row 1: Realtime + Absent
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 2, child: _buildRealtimeAttendanceCard()),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 1, child: _buildAbsentCard()),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Row 2: Late/Early (full width)
-              _buildLateEarlyCard(),
-              const SizedBox(height: 16),
-              // Row 3: Trends
-              _buildAttendanceTrendCard(),
-              const SizedBox(height: 16),
-              // Row 4: KPI + News
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildKpiCard()),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildInternalNewsCard()),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Row 5: HR Insight
-              _buildHRInsightCard(),
-              const SizedBox(height: 16),
-              // Row 6: Productivity
-              _buildProductivityCard(),
+              if (hasTop) rowRealtimeAbsent(),
+              if (hasTop && caps.gridLateEarly) gap16(),
+              if (caps.gridLateEarly) _buildLateEarlyCard(),
+              if ((hasTop || caps.gridLateEarly) && hasBottom) gap16(),
+              if (hasBottom) rowKpiNews(),
             ],
           );
         }
 
         return Column(
           children: [
-            if (isMedium) ...[
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildRealtimeAttendanceCard()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildAbsentCard()),
-              ]),
-              const SizedBox(height: 16),
+            if (hasTop || caps.gridLateEarly)
+              isMedium ? rowRealtimeAbsent() : colRealtimeAbsent(),
+            if (!isMedium && caps.gridLateEarly && !hasTop)
               _buildLateEarlyCard(),
-            ] else ...[
-              _buildRealtimeAttendanceCard(),
-              const SizedBox(height: 16),
-              _buildAbsentCard(),
-              const SizedBox(height: 16),
-              _buildLateEarlyCard(),
-            ],
-            const SizedBox(height: 16),
-            _buildAttendanceTrendCard(),
-            const SizedBox(height: 16),
-            if (isMedium) ...[
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildKpiCard()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildInternalNewsCard()),
-              ]),
-              const SizedBox(height: 16),
-              _buildHRInsightCard(),
-              const SizedBox(height: 16),
-              _buildProductivityCard(),
-            ] else ...[
-              _buildKpiCard(),
-              const SizedBox(height: 16),
-              _buildInternalNewsCard(),
-              const SizedBox(height: 16),
-              _buildHRInsightCard(),
-              const SizedBox(height: 16),
-              _buildProductivityCard(),
-            ],
+            if ((hasTop || caps.gridLateEarly) && hasBottom) gap16(),
+            if (hasBottom) (isMedium ? rowKpiNews() : colKpiNews()),
           ],
         );
       },
@@ -6975,7 +7361,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _DashCard(
         icon: Icons.monitor_heart_outlined,
         title: _l10n.realtimeAttendance,
-        color: const Color(0xFF1E3A5F),
+        color: HrmPageChrome.primaryNavy,
         badge: '${punches.length} lượt',
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: visibleRows * rowHeight),
@@ -7033,7 +7419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.monitor_heart_outlined,
       title: _l10n.realtimeAttendance,
-      color: const Color(0xFF1E3A5F),
+      color: HrmPageChrome.primaryNavy,
       badge: '${working.length} working',
       child: working.isEmpty
           ? _emptyState(_l10n.noAttendanceToday)
@@ -7184,7 +7570,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -7215,7 +7601,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isEarlyLeave = status.contains('sớm') || status.contains('early');
     final statusColor = (isLate || isEarlyLeave)
         ? const Color(0xFFF59E0B)
-        : const Color(0xFF1E3A5F);
+        : HrmPageChrome.primaryNavy;
     final statusText = isLate && isEarlyLeave
         ? '${_l10n.late} + Về sớm'
         : isLate
@@ -7249,12 +7635,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ])),
         if (checkIn != null)
           Text(_fmtTime(checkIn),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F))),
+              style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         if (checkOut != null) ...[
           const Text(' → ',
               style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
           Text(_fmtTime(checkOut),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F))),
+              style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         ],
         const SizedBox(width: 8),
         Container(
@@ -7552,7 +7938,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
         if (monthly.isNotEmpty) ...[
           _sectionLabel('📅 Trong tháng ${DateTime.now().month}',
-              const Color(0xFF0F2340)),
+              HrmPageChrome.primaryNavy),
           ...monthly.take(10).map((e) {
             final ln = (e['lastName'] ?? '').toString().trim();
             final fn = (e['firstName'] ?? '').toString().trim();
@@ -7567,7 +7953,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
-                const Icon(Icons.cake, size: 14, color: Color(0xFF0F2340)),
+                const Icon(Icons.cake, size: 14, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Column(
@@ -7643,13 +8029,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       currentShift = 'Ca đêm';
       shiftIcon = Icons.nightlight;
-      shiftColor = const Color(0xFF1E3A5F);
+      shiftColor = HrmPageChrome.primaryNavy;
     }
 
     return _DashCard(
       icon: Icons.calendar_today_outlined,
       title: _l10n.todaySchedule,
-      color: const Color(0xFF1E3A5F),
+      color: HrmPageChrome.primaryNavy,
       badge: '$scheduledWorkers NV được xếp lịch',
       child: Column(children: [
         Container(
@@ -7703,7 +8089,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final attended = shiftAttended[e.key] ?? 0;
             final rate = total > 0 ? (attended / total) : 0.0;
             final rateColor = rate >= 0.8
-                ? const Color(0xFF1E3A5F)
+                ? HrmPageChrome.primaryNavy
                 : rate >= 0.5
                     ? const Color(0xFFF59E0B)
                     : const Color(0xFFEF4444);
@@ -7712,7 +8098,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(children: [
                 Row(children: [
                   const Icon(Icons.access_time,
-                      size: 14, color: Color(0xFF1E3A5F)),
+                      size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(e.key,
@@ -7742,10 +8128,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 10),
         Row(children: [
           _scheduleInfoBox('Tổng NV', '$_totalEmployees', Icons.groups,
-              const Color(0xFF1E3A5F)),
+              HrmPageChrome.primaryNavy),
           const SizedBox(width: 10),
           _scheduleInfoBox('Xếp lịch', '$scheduledWorkers',
-              Icons.event_available, const Color(0xFF1E3A5F)),
+              Icons.event_available, HrmPageChrome.primaryNavy),
           const SizedBox(width: 10),
           _scheduleInfoBox('Nghỉ/Trống', '${_notScheduledEmployees.length}',
               Icons.event_busy, const Color(0xFFA1A1AA)),
@@ -7778,734 +8164,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ===================== CARD: ATTENDANCE TREND =====================
-  Widget _buildAttendanceTrendCard() {
-    if (_trends.isEmpty) {
-      return _DashCard(
-        icon: Icons.trending_up_rounded,
-        title: 'Xu hướng chấm công 10 ngày',
-        color: const Color(0xFF1E3A5F),
-        child: _emptyState('Chưa có dữ liệu xu hướng'),
-      );
-    }
-
-    final days = _trends.take(10).toList();
-
-    // Collect all unique shift names (ordered by first appearance)
-    final shiftNamesSet = <String>{};
-    final shiftNames = <String>[];
-    for (final t in days) {
-      final breakdown = (t['shiftBreakdown'] as List<dynamic>?) ?? [];
-      for (final s in breakdown) {
-        final name = s['shiftName']?.toString() ?? 'Ca khác';
-        if (shiftNamesSet.add(name)) shiftNames.add(name);
-      }
-    }
-    shiftNames.sort();
-
-    // Ẩn/hiện ca theo toggle (Chart 1)
-    final visibleShiftNames =
-        shiftNames.where((n) => !_hiddenShifts.contains(n)).toList();
-
-    // Lọc dữ liệu đi trễ/về sớm theo ca đã chọn (Chart 2)
-    final lateEarlyDays = _lateEarlyShiftFilter == null
-        ? days
-        : days.map((t) {
-            final lateList = (t['lateEmployees'] as List<dynamic>?) ?? [];
-            final earlyList = (t['earlyEmployees'] as List<dynamic>?) ?? [];
-            final fl = lateList
-                .where((e) => e['shift']?.toString() == _lateEarlyShiftFilter)
-                .toList();
-            final fe = earlyList
-                .where((e) => e['shift']?.toString() == _lateEarlyShiftFilter)
-                .toList();
-            return <String, dynamic>{
-              ...(t as Map).cast<String, dynamic>(),
-              'late': fl.length,
-              'earlyLeave': fe.length,
-              'lateEmployees': fl,
-              'earlyEmployees': fe,
-            };
-          }).toList();
-
-    const shiftPalette = [
-      Color(0xFF3B82F6), // xanh dương
-      Color(0xFF10B981), // xanh lá
-      Color(0xFFF59E0B), // vàng cam
-      Color(0xFF8B5CF6), // tím
-      Color(0xFFEF4444), // đỏ
-      Color(0xFF06B6D4), // cyan
-      Color(0xFFEC4899), // hồng
-    ];
-
-    return _DashCard(
-      icon: Icons.trending_up_rounded,
-      title: 'Xu hướng chấm công 10 ngày',
-      color: const Color(0xFF1E3A5F),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Biểu đồ 1: Số NV theo ca ─────────────────────────────
-          const Text(
-            'Số nhân viên có mặt theo ca',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF374151)),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 168,
-            child: LayoutBuilder(builder: (_, constraints) {
-              final cw = constraints.maxWidth;
-              return GestureDetector(
-                onTapUp: (d) {
-                  const leftPad = 28.0, rightPad = 6.0;
-                  final chartW = cw - leftPad - rightPad;
-                  final n = days.length;
-                  if (n == 0) return;
-                  final xStep = n > 1 ? chartW / (n - 1) : chartW;
-                  final tapX = d.localPosition.dx - leftPad;
-                  final raw = (tapX / xStep).round();
-                  final idx = raw.clamp(0, n - 1);
-                  setState(() {
-                    _trendTappedDay = _trendTappedDay == idx ? null : idx;
-                  });
-                },
-                child: CustomPaint(
-                  painter: _ShiftLineChartPainter(
-                    days: days,
-                    shiftNames: visibleShiftNames,
-                    palette: shiftPalette,
-                    tappedIdx: _trendTappedDay,
-                  ),
-                  size: Size.infinite,
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 8),
-          // Legend cho biểu đồ 1 — nhấn để ẩn/hiện ca
-          if (shiftNames.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: shiftNames.asMap().entries.map((e) {
-                final color = shiftPalette[e.key % shiftPalette.length];
-                final hidden = _hiddenShifts.contains(e.value);
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    if (hidden) {
-                      _hiddenShifts.remove(e.value);
-                    } else {
-                      _hiddenShifts.add(e.value);
-                    }
-                  }),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: hidden
-                          ? const Color(0xFFF3F4F6)
-                          : color.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: hidden
-                            ? const Color(0xFFE5E7EB)
-                            : color.withValues(alpha: .4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 18,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: hidden ? const Color(0xFFD1D5DB) : color,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          e.value,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: hidden ? const Color(0xFFB0B7C3) : color,
-                          ),
-                        ),
-                        if (hidden) ...[
-                          const SizedBox(width: 3),
-                          const Icon(Icons.visibility_off_rounded,
-                              size: 10, color: Color(0xFFB0B7C3)),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
-          const SizedBox(height: 14),
-
-          // ── Biểu đồ 2: Đi trễ & Về sớm ───────────────────────────
-          const Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Đi trễ & Về sớm',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF374151)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Bộ lọc theo ca cho biểu đồ 2
-          if (shiftNames.isNotEmpty)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _shiftFilterChip('Tất cả', null),
-                  const SizedBox(width: 5),
-                  ...shiftNames.map((n) => Padding(
-                        padding: const EdgeInsets.only(right: 5),
-                        child: _shiftFilterChip(n, n),
-                      )),
-                ],
-              ),
-            ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 148,
-            child: LayoutBuilder(builder: (_, constraints) {
-              final cw = constraints.maxWidth;
-              return GestureDetector(
-                onTapUp: (d) {
-                  const leftPad = 28.0, rightPad = 6.0;
-                  final chartW = cw - leftPad - rightPad;
-                  final n = lateEarlyDays.length;
-                  if (n == 0) return;
-                  final xStep = n > 1 ? chartW / (n - 1) : chartW;
-                  final tapX = d.localPosition.dx - leftPad;
-                  final raw = (tapX / xStep).round();
-                  final idx = raw.clamp(0, n - 1);
-                  setState(() {
-                    _lateEarlyTappedDay =
-                        _lateEarlyTappedDay == idx ? null : idx;
-                  });
-                  _showLateEarlyDetail(lateEarlyDays[idx]);
-                },
-                child: CustomPaint(
-                  painter: _LateEarlyChartPainter(
-                    days: lateEarlyDays,
-                    tappedIdx: _lateEarlyTappedDay,
-                  ),
-                  size: Size.infinite,
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _legendLineSwatch('Đi trễ', const Color(0xFFF59E0B)),
-              const SizedBox(width: 14),
-              _legendLineSwatch('Về sớm', const Color(0xFFEF4444)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _legendLineSwatch(String label, Color color) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: 22,
-        height: 3,
-        decoration:
-            BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
-      ),
-      const SizedBox(width: 4),
-      Text(label,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
-    ]);
-  }
-
-  Widget _shiftFilterChip(String label, String? filterValue) {
-    final isSelected = _lateEarlyShiftFilter == filterValue;
-    return GestureDetector(
-      onTap: () => setState(() {
-        _lateEarlyShiftFilter =
-            (isSelected && filterValue != null) ? null : filterValue;
-      }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : const Color(0xFF71717A),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showLateEarlyDetail(dynamic t) {
-    final date = DateTime.tryParse(t['date']?.toString() ?? '');
-    final dateLabel = date != null
-        ? '${_weekdayVi(date.weekday)}, ${date.day}/${date.month}/${date.year}'
-        : t['date']?.toString() ?? '';
-    // Phân biệt null (data cũ không có field) vs empty list (không có NV trễ)
-    final hasDetailData = (t is Map) && (t).containsKey('lateEmployees');
-    final lateList = (t['lateEmployees'] as List<dynamic>?) ?? [];
-    final earlyList = (t['earlyEmployees'] as List<dynamic>?) ?? [];
-    final lateCount = _toInt(t['late'] ?? 0);
-    final earlyCount = _toInt(t['earlyLeave'] ?? 0);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.3,
-        expand: false,
-        builder: (_, controller) => Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 4),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(children: [
-                const Icon(Icons.access_time_rounded,
-                    size: 16, color: Color(0xFFF59E0B)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(dateLabel,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                ),
-              ]),
-            ),
-            const Divider(height: 1, color: Colors.white12),
-            Expanded(
-              child: ListView(
-                controller: controller,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                children: [
-                  if (lateList.isNotEmpty) ...[
-                    Row(children: [
-                      const Icon(Icons.arrow_circle_up_rounded,
-                          size: 15, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 6),
-                      Text('Đi trễ (${lateList.length} NV)',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFF59E0B))),
-                    ]),
-                    const SizedBox(height: 8),
-                    ...lateList.map((e) => _buildEmpRow(e, isLate: true)),
-                    const SizedBox(height: 16),
-                  ],
-                  if (earlyList.isNotEmpty) ...[
-                    Row(children: [
-                      const Icon(Icons.arrow_circle_down_rounded,
-                          size: 15, color: Color(0xFFEF4444)),
-                      const SizedBox(width: 6),
-                      Text('Về sớm (${earlyList.length} NV)',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFEF4444))),
-                    ]),
-                    const SizedBox(height: 8),
-                    ...earlyList.map((e) => _buildEmpRow(e, isLate: false)),
-                  ],
-                  if (lateList.isEmpty && earlyList.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 32),
-                      child: Center(
-                        child: !hasDetailData &&
-                                (lateCount > 0 || earlyCount > 0)
-                            ? Column(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.refresh_rounded,
-                                    size: 36, color: Colors.white24),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Dữ liệu cũ (${lateCount > 0 ? "$lateCount đi trễ" : ""}${lateCount > 0 && earlyCount > 0 ? ", " : ""}${earlyCount > 0 ? "$earlyCount về sớm" : ""})',
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 13),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                    'Kéo xuống để làm mới dashboard\nvà xem chi tiết nhân viên',
-                                    style: TextStyle(
-                                        color: Colors.white38, fontSize: 12),
-                                    textAlign: TextAlign.center),
-                              ])
-                            : const Text('Không có nhân viên đi trễ/về sớm',
-                                style: TextStyle(
-                                    color: Colors.white54, fontSize: 13)),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmpRow(dynamic e, {required bool isLate}) {
-    final name = e['name']?.toString() ?? e['pin']?.toString() ?? '';
-    final shift = e['shift']?.toString() ?? '';
-    final timeInfo = isLate
-        ? 'Vào: ${e['checkIn']?.toString() ?? ''}'
-        : 'Ra: ${e['checkOut']?.toString() ?? ''}';
-    final mins = isLate
-        ? (e['lateMinutes'] as int? ?? 0)
-        : (e['earlyMinutes'] as int? ?? 0);
-    final minutesLabel = isLate ? '+${mins}ph' : '-${mins}ph';
-    final color = isLate ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
-    final bgColor = isLate ? const Color(0x1AF59E0B) : const Color(0x1AEF4444);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-              color: bgColor, borderRadius: BorderRadius.circular(8)),
-          child: Center(
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name,
-                style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500)),
-            Text('$timeInfo • $shift',
-                style: const TextStyle(fontSize: 11, color: Colors.white54)),
-          ]),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            color: isLate ? const Color(0x2AF59E0B) : const Color(0x2AEF4444),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(minutesLabel,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-        ),
-      ]),
-    );
-  }
-
-  void _showTrendDayDetail(dynamic t) {
-    final date = DateTime.tryParse(t['date']?.toString() ?? '');
-    final dateLabel = date != null
-        ? '${_weekdayVi(date.weekday)}, ${date.day}/${date.month}/${date.year}'
-        : t['date']?.toString() ?? '';
-    final present = _toInt(t['present'] ?? 0);
-    final onTime = _toInt(t['onTime'] ?? (present - _toInt(t['late'] ?? 0)));
-    final late = _toInt(t['late'] ?? t['lateArrivals'] ?? 0);
-    final absent = _toInt(t['absent'] ?? t['absences'] ?? 0);
-    final total = _toInt(t['total'] ?? (present + absent));
-    final rate = t['attendanceRate'] is num
-        ? (t['attendanceRate'] as num).toDouble()
-        : (total > 0 ? present / total * 100.0 : 0.0);
-    final shiftBreakdown = (t['shiftBreakdown'] as List<dynamic>?) ?? [];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: const Color(0xFF3F3F46),
-                        borderRadius: BorderRadius.circular(2))),
-              ),
-              const SizedBox(height: 14),
-              Row(children: [
-                const Icon(Icons.calendar_today_outlined,
-                    color: Color(0xFF60A5FA), size: 18),
-                const SizedBox(width: 8),
-                Text(dateLabel,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-              ]),
-              const SizedBox(height: 16),
-              // Stats grid
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2E),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(children: [
-                  Row(children: [
-                    _trendStatItem(
-                        'Tổng NV', '$total', const Color(0xFF60A5FA)),
-                    _trendStatItem(
-                        'Đúng giờ', '$onTime', const Color(0xFF22C55E)),
-                    _trendStatItem('Đi trễ', '$late', const Color(0xFFF59E0B)),
-                    _trendStatItem('Vắng', '$absent', const Color(0xFFEF4444)),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    const Icon(Icons.show_chart,
-                        color: Color(0xFF60A5FA), size: 16),
-                    const SizedBox(width: 6),
-                    Text('Tỷ lệ có mặt: ${rate.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: rate >= 80
-                              ? const Color(0xFF22C55E)
-                              : rate >= 60
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFFEF4444),
-                        )),
-                  ]),
-                ]),
-              ),
-              if (shiftBreakdown.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text('Theo ca làm việc',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFA1A1AA))),
-                const SizedBox(height: 8),
-                ...shiftBreakdown.map((s) {
-                  final sName = s['shiftName']?.toString() ?? 'Ca khác';
-                  final sPresent = _toInt(s['present'] ?? 0);
-                  final sLate = _toInt(s['late'] ?? 0);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(children: [
-                      Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                              color: const Color(0xFF60A5FA),
-                              borderRadius: BorderRadius.circular(2))),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(sName,
-                              style: const TextStyle(
-                                  fontSize: 13, color: Colors.white70))),
-                      Text('$sPresent người có mặt',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF22C55E))),
-                      if (sLate > 0) ...[
-                        const SizedBox(width: 8),
-                        Text('($sLate trễ)',
-                            style: const TextStyle(
-                                fontSize: 12, color: Color(0xFFF59E0B))),
-                      ],
-                    ]),
-                  );
-                }),
-              ],
-            ]),
-      ),
-    );
-  }
-
-  Widget _legendDot(String label, Color color) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(3))),
-      const SizedBox(width: 4),
-      Text(label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-    ]);
-  }
-
-  Widget _trendStatItem(String label, String value, Color color) {
-    return Expanded(
-      child: Column(children: [
-        Text(value,
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
-      ]),
-    );
-  }
-
-  String _weekdayVi(int weekday) {
-    switch (weekday) {
-      case 1:
-        return 'Thứ Hai';
-      case 2:
-        return 'Thứ Ba';
-      case 3:
-        return 'Thứ Tư';
-      case 4:
-        return 'Thứ Năm';
-      case 5:
-        return 'Thứ Sáu';
-      case 6:
-        return 'Thứ Bảy';
-      case 7:
-        return 'Chủ Nhật';
-      default:
-        return '';
-    }
-  }
-
-  // ===================== CARD: DEPARTMENT STATS =====================
-  Widget _buildDepartmentStatsCard() {
-    final deptMap = <String, Map<String, int>>{};
-    for (final e in _todayEmployees) {
-      if (e is Map<String, dynamic>) {
-        final dept = (e['departmentName'] ?? e['department'] ?? '').toString();
-        if (dept.isEmpty || dept == 'N/A') continue;
-        final status = (e['status'] ?? '').toString().toLowerCase();
-        // Skip employees with no schedule or day off - they shouldn't be in dept stats
-        if (status.contains('không có lịch') ||
-            status.contains('ngày nghỉ') ||
-            status.contains('nghỉ lễ')) {
-          continue;
-        }
-        deptMap.putIfAbsent(dept, () => {'total': 0, 'present': 0});
-        deptMap[dept]!['total'] = (deptMap[dept]!['total'] ?? 0) + 1;
-        if (status != 'vắng mặt' &&
-            status != 'absent' &&
-            status != 'nghỉ phép' &&
-            status != 'leave' &&
-            !status.contains('vắng') &&
-            !status.contains('không phép')) {
-          deptMap[dept]!['present'] = (deptMap[dept]!['present'] ?? 0) + 1;
-        }
-      }
-    }
-    final departments = deptMap.entries
-        .map((e) => <String, dynamic>{
-              'name': e.key,
-              'totalEmployees': e.value['total'] ?? 0,
-              'presentToday': e.value['present'] ?? 0,
-            })
-        .toList()
-      ..sort((a, b) =>
-          (b['totalEmployees'] as int).compareTo(a['totalEmployees'] as int));
-
-    return _DashCard(
-      icon: Icons.business_outlined,
-      title: _l10n.byDepartment,
-      color: const Color(0xFF0F2340),
-      child: departments.isEmpty
-          ? _emptyState('Chưa có dữ liệu phòng ban')
-          : Column(
-              children: departments.take(6).map((d) {
-              final name = d['name'] ?? 'N/A';
-              final total = d['totalEmployees'] ?? 0;
-              final present = d['presentToday'] ?? 0;
-              final rate = total > 0 ? (present / total * 100) : 0.0;
-              final rateColor = rate >= 80
-                  ? const Color(0xFF1E3A5F)
-                  : rate >= 50
-                      ? const Color(0xFFF59E0B)
-                      : const Color(0xFFEF4444);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(children: [
-                  Row(children: [
-                    const Icon(Icons.apartment,
-                        size: 14, color: Color(0xFF0F2340)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: Text(name,
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500))),
-                    Text('$present/$total',
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF71717A))),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                        width: 40,
-                        child: Text('${rate.toStringAsFixed(0)}%',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: rateColor),
-                            textAlign: TextAlign.right)),
-                  ]),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                          value: rate / 100,
-                          minHeight: 4,
-                          backgroundColor: const Color(0xFFE4E4E7),
-                          valueColor: AlwaysStoppedAnimation(rateColor))),
-                ]),
-              );
-            }).toList()),
-    );
-  }
 
   // ===================== CARD: KPI =====================
   Widget _buildKpiCard() {
@@ -8548,32 +8206,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Điểm TB',
                         avgScore.toStringAsFixed(1),
                         avgScore >= 80
-                            ? const Color(0xFF1E3A5F)
+                            ? HrmPageChrome.primaryNavy
                             : avgScore >= 50
                                 ? const Color(0xFFF59E0B)
                                 : const Color(0xFFEF4444))),
                 Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
                 Expanded(
                     child: _kpiSummaryItem('NV đánh giá', '$totalKpiEmployees',
-                        const Color(0xFF1E3A5F))),
+                        HrmPageChrome.primaryNavy)),
                 Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
                 Expanded(
                     child: _kpiSummaryItem(
                         'Đã duyệt',
                         '$totalApproved/$totalCalculated',
-                        const Color(0xFF1E3A5F))),
+                        HrmPageChrome.primaryNavy)),
               ]),
               if (totalBonusAmount > 0) ...[
                 const SizedBox(height: 8),
                 Row(children: [
                   const Icon(Icons.monetization_on,
-                      size: 14, color: Color(0xFF1E3A5F)),
+                      size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
                   Text('Tổng thưởng KPI: ${_formatCurrency(totalBonusAmount)}',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E3A5F))),
+                          color: HrmPageChrome.primaryNavy)),
                 ]),
               ],
             ]),
@@ -8602,10 +8260,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Color kpiColor;
             String kpiLabel;
             if (pct >= 90) {
-              kpiColor = const Color(0xFF1E3A5F);
+              kpiColor = HrmPageChrome.primaryNavy;
               kpiLabel = 'Xuất sắc';
             } else if (pct >= 70) {
-              kpiColor = const Color(0xFF1E3A5F);
+              kpiColor = HrmPageChrome.primaryNavy;
               kpiLabel = 'Tốt';
             } else if (pct >= 50) {
               kpiColor = const Color(0xFFF59E0B);
@@ -8679,7 +8337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.newspaper_outlined,
       title: _l10n.internalNews,
-      color: const Color(0xFF0F2340),
+      color: HrmPageChrome.primaryNavy,
       child: _communications.isEmpty
           ? _emptyState('Chưa có bản tin nội bộ')
           : Column(
@@ -8689,16 +8347,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final created = c['createdAt'] ?? c['publishedAt'];
               String typeLabel = 'Thông báo';
               IconData typeIcon = Icons.info_outline;
-              Color typeColor = const Color(0xFF1E3A5F);
+              Color typeColor = HrmPageChrome.primaryNavy;
               switch (type) {
                 case 'News':
                   typeLabel = 'Tin tức';
                   typeIcon = Icons.article;
-                  typeColor = const Color(0xFF0F2340);
+                  typeColor = HrmPageChrome.primaryNavy;
                 case 'Event':
                   typeLabel = 'Sự kiện';
                   typeIcon = Icons.event;
-                  typeColor = const Color(0xFF0F2340);
+                  typeColor = HrmPageChrome.primaryNavy;
                 case 'Policy':
                   typeLabel = 'Chính sách';
                   typeIcon = Icons.policy;
@@ -8714,7 +8372,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 'Recruitment':
                   typeLabel = 'Tuyển dụng';
                   typeIcon = Icons.person_add;
-                  typeColor = const Color(0xFF1E3A5F);
+                  typeColor = HrmPageChrome.primaryNavy;
                 case 'Regulation':
                   typeLabel = 'Quy định';
                   typeIcon = Icons.gavel;
@@ -8784,18 +8442,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.payments_outlined,
       title: 'Lương ngày hôm nay',
-      color: const Color(0xFF1E3A5F),
+      color: HrmPageChrome.primaryNavy,
       child: Column(children: [
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              const Color(0xFF1E3A5F).withValues(alpha: 0.08),
-              const Color(0xFF1E3A5F).withValues(alpha: 0.03)
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.03)
             ]),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.15)),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.15)),
           ),
           child: Column(children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -8805,7 +8463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
             ]),
             const SizedBox(height: 8),
             ClipRRect(
@@ -8815,7 +8473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     minHeight: 8,
                     backgroundColor: const Color(0xFFE4E4E7),
                     valueColor:
-                        const AlwaysStoppedAnimation(Color(0xFF1E3A5F)))),
+                        const AlwaysStoppedAnimation(HrmPageChrome.primaryNavy))),
             const SizedBox(height: 12),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               _salaryInfo(
@@ -8834,14 +8492,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _l10n.present,
                   '$_presentCount/$_totalEmployees',
                   Icons.people,
-                  const Color(0xFF1E3A5F))),
+                  HrmPageChrome.primaryNavy)),
           const SizedBox(width: 8),
           Expanded(
               child: _salaryStatBox(
                   _l10n.attendanceRate,
                   '${_attendanceRate.toStringAsFixed(1)}%',
                   Icons.pie_chart,
-                  const Color(0xFF1E3A5F))),
+                  HrmPageChrome.primaryNavy)),
         ]),
       ]),
     );
@@ -8867,17 +8525,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: color.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withValues(alpha: 0.12))),
-      child: Row(children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
           Text(value,
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+          const SizedBox(height: 2),
           Text(label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -8890,11 +8552,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.devices_other_outlined,
       title: 'Trạng thái thiết bị',
-      color: const Color(0xFF0F2340),
+      color: HrmPageChrome.primaryNavy,
       badge: '$_onlineDevices/$_totalDevices online',
       child: Column(children: [
         Row(children: [
-          _miniChip('Online', '${online.length}', const Color(0xFF1E3A5F)),
+          _miniChip('Online', '${online.length}', HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
           _miniChip('Offline', '${offline.length}', const Color(0xFFEF4444)),
         ]),
@@ -8915,7 +8577,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 8,
                     decoration: BoxDecoration(
                         color: isOn
-                            ? const Color(0xFF1E3A5F)
+                            ? HrmPageChrome.primaryNavy
                             : const Color(0xFFEF4444),
                         shape: BoxShape.circle)),
                 const SizedBox(width: 10),
@@ -8938,7 +8600,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       color: (isOn
-                              ? const Color(0xFF1E3A5F)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFFEF4444))
                           .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12)),
@@ -8947,7 +8609,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: isOn
-                              ? const Color(0xFF1E3A5F)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFFEF4444))),
                 ),
               ]),
@@ -9084,7 +8746,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 8),
               Row(children: [
                 _taskStatBox('Hoàn thành', '$done', Icons.check_circle_outline,
-                    const Color(0xFF1E3A5F)),
+                    HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 _taskStatBox('Quá hạn', '$overdue', Icons.error_outline,
                     const Color(0xFFEF4444)),
@@ -9099,7 +8761,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (done > 0)
                         Expanded(
                             flex: done,
-                            child: Container(color: const Color(0xFF1E3A5F))),
+                            child: Container(color: HrmPageChrome.primaryNavy)),
                       if (inProgress > 0)
                         Expanded(
                             flex: inProgress,
@@ -9170,24 +8832,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.more_time_outlined,
       title: 'Thống kê tăng ca',
-      color: const Color(0xFF0F2340),
+      color: HrmPageChrome.primaryNavy,
       badge: totalHours > 0 ? '${totalHours.toStringAsFixed(1)}h' : null,
       child: Column(children: [
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              const Color(0xFF0F2340).withValues(alpha: 0.08),
-              const Color(0xFF0F2340).withValues(alpha: 0.03)
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.03)
             ]),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: const Color(0xFF0F2340).withValues(alpha: 0.15)),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.15)),
           ),
           child: Row(children: [
             Expanded(
                 child: _kpiSummaryItem('Tổng giờ TC',
-                    totalHours.toStringAsFixed(1), const Color(0xFF0F2340))),
+                    totalHours.toStringAsFixed(1), HrmPageChrome.primaryNavy)),
             Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
             Expanded(
                 child: _kpiSummaryItem(
@@ -9208,20 +8870,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.12)),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
             child: Column(children: [
               const Icon(Icons.check_circle,
-                  size: 20, color: Color(0xFF1E3A5F)),
+                  size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
               Text('$approved',
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
               const Text('Đã duyệt',
                   style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
             ]),
@@ -9231,20 +8893,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.12)),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
             child: Column(children: [
               const Icon(Icons.monetization_on,
-                  size: 20, color: Color(0xFF1E3A5F)),
+                  size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
               Text(_formatCurrency(totalAmount),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
               const Text('Chi phí TC',
                   style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
             ]),
@@ -9356,7 +9018,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.account_balance_wallet_outlined,
       title: 'Thu chi tháng ${_now.month}',
-      color: const Color(0xFF1E3A5F),
+      color: HrmPageChrome.primaryNavy,
       badge: transactionCount > 0 ? '$transactionCount giao dịch' : null,
       child: Column(children: [
         Row(children: [
@@ -9364,20 +9026,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.12)),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
             child: Column(children: [
               const Icon(Icons.arrow_downward,
-                  size: 20, color: Color(0xFF1E3A5F)),
+                  size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
               Text(_formatCurrency(totalIncome),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A5F))),
+                      color: HrmPageChrome.primaryNavy)),
               const Text('Thu',
                   style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
             ]),
@@ -9411,15 +9073,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              (balance >= 0 ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444))
+              (balance >= 0 ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444))
                   .withValues(alpha: 0.08),
-              (balance >= 0 ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444))
+              (balance >= 0 ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444))
                   .withValues(alpha: 0.03)
             ]),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
                 color: (balance >= 0
-                        ? const Color(0xFF1E3A5F)
+                        ? HrmPageChrome.primaryNavy
                         : const Color(0xFFEF4444))
                     .withValues(alpha: 0.2)),
           ),
@@ -9427,7 +9089,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icon(balance >= 0 ? Icons.trending_up : Icons.trending_down,
                 size: 22,
                 color: balance >= 0
-                    ? const Color(0xFF1E3A5F)
+                    ? HrmPageChrome.primaryNavy
                     : const Color(0xFFEF4444)),
             const SizedBox(width: 10),
             Expanded(
@@ -9441,14 +9103,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: balance >= 0
-                              ? const Color(0xFF1E3A5F)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFFEF4444))),
                 ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                   color: (balance >= 0
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : const Color(0xFFEF4444))
                       .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20)),
@@ -9457,7 +9119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: balance >= 0
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : const Color(0xFFEF4444))),
             ),
           ]),
@@ -9492,14 +9154,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(children: [
         Row(children: [
           _monthStatBox('Ngày công', '$totalWorkDays', Icons.work_outline,
-              const Color(0xFF1E3A5F)),
+              HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
           _monthStatBox(
               'Tỷ lệ CC',
               '${avgAttendanceRate.toStringAsFixed(0)}%',
               Icons.pie_chart_outline,
               avgAttendanceRate >= 80
-                  ? const Color(0xFF1E3A5F)
+                  ? HrmPageChrome.primaryNavy
                   : const Color(0xFFF59E0B)),
         ]),
         const SizedBox(height: 8),
@@ -9683,15 +9345,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: 0.15))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(value,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 15, color: color)),
-          const SizedBox(width: 4),
-          Text(label,
-              style:
-                  TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8))),
-        ]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+            const SizedBox(height: 2),
+            Text(label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11, color: color.withValues(alpha: 0.8))),
+          ],
+        ),
       ),
     );
   }
@@ -9817,157 +9485,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ===================== CARD: HR INSIGHT =====================
-  Widget _buildHRInsightCard() {
-    // Gender breakdown from employees list
-    int male = 0, female = 0, other = 0;
-    int withContract = 0;
-    final deptCountMap = <String, int>{};
-
-    for (final e in _employees) {
-      if (e is! Map<String, dynamic>) continue;
-      final gender =
-          (e['gender'] ?? e['Gender'] ?? '').toString().toLowerCase();
-      if (gender == 'male' || gender == 'nam' || gender == '1') {
-        male++;
-      } else if (gender == 'female' || gender == 'nữ' || gender == '0') {
-        female++;
-      } else {
-        other++;
-      }
-      final contractType = e['contractType'] ?? e['employmentType'] ?? '';
-      if (contractType.toString().isNotEmpty) withContract++;
-
-      final dept = (e['departmentName'] ?? e['department'] ?? '').toString();
-      if (dept.isNotEmpty && dept != 'N/A') {
-        deptCountMap[dept] = (deptCountMap[dept] ?? 0) + 1;
-      }
-    }
-
-    final total = _employees.length;
-    final topDepts = (deptCountMap.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(4)
-        .toList();
-
-    return _DashCard(
-      icon: Icons.groups_3_outlined,
-      title: 'Phân tích nhân sự',
-      color: const Color(0xFF0F2340),
-      badge: '$total nhân viên',
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Gender strip
-        Row(children: [
-          _hrStatMini(
-              Icons.male_rounded, 'Nam', '$male', const Color(0xFF2D5F8B)),
-          const SizedBox(width: 8),
-          _hrStatMini(
-              Icons.female_rounded, 'Nữ', '$female', const Color(0xFFEC4899)),
-          const SizedBox(width: 8),
-          _hrStatMini(
-              Icons.person_outlined, 'Khác', '$other', const Color(0xFF71717A)),
-          const SizedBox(width: 8),
-          _hrStatMini(Icons.person_add_outlined, 'NV mới',
-              '${_newHiresThisMonth()}', const Color(0xFF22C55E)),
-        ]),
-        const SizedBox(height: 12),
-        if (male + female + other > 0) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Row(
-              children: [
-                if (male > 0)
-                  Flexible(
-                      flex: male,
-                      child:
-                          Container(height: 8, color: const Color(0xFF2D5F8B))),
-                if (female > 0)
-                  Flexible(
-                      flex: female,
-                      child:
-                          Container(height: 8, color: const Color(0xFFEC4899))),
-                if (other > 0)
-                  Flexible(
-                      flex: other,
-                      child:
-                          Container(height: 8, color: const Color(0xFF71717A))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        // Top departments
-        if (topDepts.isNotEmpty) ...[
-          const Text('Top phòng ban',
-              style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF71717A),
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          ...topDepts.map((e) {
-            final pct = total > 0 ? e.value / total : 0.0;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Expanded(
-                          child: Text(e.key,
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w500),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis)),
-                      Text('${e.value} NV',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF71717A))),
-                      const SizedBox(width: 6),
-                      Text('${(pct * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F2340))),
-                    ]),
-                    const SizedBox(height: 2),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: pct,
-                        minHeight: 4,
-                        backgroundColor: const Color(0xFFE4E4E7),
-                        valueColor:
-                            const AlwaysStoppedAnimation(Color(0xFF1E3A5F)),
-                      ),
-                    ),
-                  ]),
-            );
-          }),
-        ],
-      ]),
-    );
-  }
-
-  Widget _hrStatMini(IconData icon, String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.12)),
-        ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(height: 2),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
-              style: const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
-        ]),
-      ),
-    );
-  }
 
   // ===================== CARD: LEAVE ANALYTICS =====================
   Widget _buildLeaveAnalyticsCard() {
@@ -10019,7 +9536,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _leaveStatBox('Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
           const SizedBox(width: 8),
           _leaveStatBox(
-              'Ngày phép đã dùng', '$annualUsed', const Color(0xFF1E3A5F)),
+              'Ngày phép đã dùng', '$annualUsed', HrmPageChrome.primaryNavy),
         ]),
         if (leaveTypes.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -10093,150 +9610,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ===================== CARD: PRODUCTIVITY DASHBOARD =====================
-  Widget _buildProductivityCard() {
-    // KPI
-    final avgKpi = ((_kpiDashboard['averageKpiScore'] ?? 0) as num).toDouble();
-    final kpiTotal = _toInt(_kpiDashboard['totalEmployees'] ?? 0);
-    final kpiApproved = _toInt(_kpiDashboard['totalApproved'] ?? 0);
-
-    // Attendance monthly — backend returns { workingDays, totalEmployees, items[] }
-    // where each item has totalDaysWorked / totalLateDays / totalLeaveDays / totalAbsentDays.
-    // Aggregate across all employees to compute org-level rate.
-    final monthWorkingDays = _toInt(_monthlyReport['workingDays'] ??
-        _monthlyReport['totalWorkDays'] ??
-        _monthlyReport['workdays'] ??
-        0);
-    final monthEmployees = _toInt(_monthlyReport['totalEmployees'] ?? 0);
-    final monthItems = (_monthlyReport['items'] as List<dynamic>?) ?? const [];
-    var sumDaysWorked = 0;
-    var sumLateDays = 0;
-    for (final it in monthItems) {
-      if (it is Map) {
-        sumDaysWorked += _toInt(it['totalDaysWorked'] ?? 0);
-        sumLateDays += _toInt(it['totalLateDays'] ?? 0);
-      }
-    }
-    // Fall back to legacy top-level fields if items aren't available.
-    final monthPresent = sumDaysWorked > 0
-        ? sumDaysWorked
-        : _toInt(
-            _monthlyReport['totalPresent'] ?? _monthlyReport['present'] ?? 0);
-    final monthLate = sumLateDays > 0
-        ? sumLateDays
-        : _toInt(_monthlyReport['totalLate'] ?? _monthlyReport['late'] ?? 0);
-    final monthTotal = (monthWorkingDays * monthEmployees) > 0
-        ? monthWorkingDays * monthEmployees
-        : _toInt(_monthlyReport['totalWorkDays'] ?? 0);
-    final monthRate =
-        monthTotal > 0 ? (monthPresent / monthTotal * 100) : _attendanceRate;
-
-    // Task
-    final taskTotal =
-        _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
-    final taskDone =
-        _toInt(_taskStats['completedCount'] ?? _taskStats['completed'] ?? 0);
-    final taskRate = taskTotal > 0 ? (taskDone / taskTotal * 100) : 0.0;
-
-    // OT hours — backend returns totalActualHours / totalPlannedHours.
-    final otHours = ((_overtimeStats['totalActualHours'] ??
-            _overtimeStats['totalPlannedHours'] ??
-            _overtimeStats['totalOvertimeHours'] ??
-            _overtimeStats['hours'] ??
-            0) as num)
-        .toDouble();
-
-    final kpiColor = avgKpi >= 80
-        ? const Color(0xFF22C55E)
-        : avgKpi >= 60
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
-    final attColor = monthRate >= 85
-        ? const Color(0xFF22C55E)
-        : monthRate >= 70
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
-    final taskColor = taskRate >= 80
-        ? const Color(0xFF22C55E)
-        : taskRate >= 50
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
-
-    return _DashCard(
-      icon: Icons.bar_chart_rounded,
-      title: 'Năng suất & Hiệu suất',
-      color: const Color(0xFF2D5F8B),
-      child: Column(children: [
-        // KPI gauge row
-        _productivityRow('KPI trung bình', '${avgKpi.toStringAsFixed(1)}/100',
-            avgKpi / 100, kpiColor,
-            sub: '$kpiApproved/$kpiTotal NV được đánh giá'),
-        const SizedBox(height: 10),
-        // Attendance rate
-        _productivityRow('Chấm công tháng', '${monthRate.toStringAsFixed(1)}%',
-            monthRate / 100, attColor,
-            sub: monthLate > 0 ? '$monthLate lần đi trễ trong tháng' : ''),
-        const SizedBox(height: 10),
-        // Task completion
-        _productivityRow('Hoàn thành công việc',
-            '${taskRate.toStringAsFixed(0)}%', taskRate / 100, taskColor,
-            sub: '$taskDone/$taskTotal việc'),
-        const SizedBox(height: 10),
-        // OT hours summary
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: const Color(0xFF8B5CF6).withValues(alpha: 0.15)),
-          ),
-          child: Row(children: [
-            const Icon(Icons.av_timer, size: 20, color: Color(0xFF8B5CF6)),
-            const SizedBox(width: 10),
-            const Expanded(
-                child: Text('OT tháng này',
-                    style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-            Text('${otHours.toStringAsFixed(1)} giờ',
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF8B5CF6))),
-          ]),
-        ),
-      ]),
-    );
-  }
-
-  Widget _productivityRow(
-      String label, String value, double progress, Color color,
-      {String sub = ''}) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500))),
-        Text(value,
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-      ]),
-      if (sub.isNotEmpty)
-        Text(sub,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
-      const SizedBox(height: 4),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(5),
-        child: LinearProgressIndicator(
-          value: progress.clamp(0.0, 1.0),
-          minHeight: 7,
-          backgroundColor: const Color(0xFFE4E4E7),
-          valueColor: AlwaysStoppedAnimation(color),
-        ),
-      ),
-    ]);
-  }
 
   // ===================== EMPLOYEE DASHBOARD =====================
   Widget _buildEmployeeDashboard() {
@@ -10261,55 +9634,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _now.hour < 12
-                        ? Icons.wb_sunny_outlined
-                        : _now.hour < 18
-                            ? Icons.wb_cloudy_outlined
-                            : Icons.nightlight_outlined,
-                    color: Colors.amber,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          empName.isNotEmpty
-                              ? '${_now.hour < 12 ? _l10n.goodMorning : _now.hour < 18 ? _l10n.goodAfternoon : _l10n.goodEvening}, $empName'
-                              : _l10n.loadingOverview,
-                          style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
-                          overflow: TextOverflow.ellipsis,
+            // Header — cùng banner navy như Trang chủ
+            Builder(
+              builder: (context) {
+                final greet = _greetingForTime();
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: _homeGreetingBannerDecoration,
+                  child: Row(
+                    children: [
+                      Icon(greet.icon, color: greet.accent, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              empName.isNotEmpty
+                                  ? '${greet.greeting}, $empName'
+                                  : _l10n.loadingOverview,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white.withValues(alpha: 0.95),
+                                letterSpacing: -0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
-                          style: const TextStyle(
-                              color: Colors.white60, fontSize: 12),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 16),
 
@@ -10355,7 +9732,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         break;
       case 'checked-out':
         statusText = 'Đã chấm công ra';
-        statusColor = const Color(0xFF1E3A5F);
+        statusColor = HrmPageChrome.primaryNavy;
         statusIcon = Icons.logout_rounded;
         break;
       case 'not-started':
@@ -10372,7 +9749,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.fingerprint_rounded,
       title: 'Chấm công hôm nay',
-      color: const Color(0xFF1E3A5F),
+      color: HrmPageChrome.primaryNavy,
       child: Column(
         children: [
           Container(
@@ -10418,7 +9795,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildTimeBox(
                     'Giờ ra',
                     checkOut != null ? _fmtTime(checkOut) : '--:--',
-                    const Color(0xFF1E3A5F)),
+                    HrmPageChrome.primaryNavy),
               ),
             ],
           ),
@@ -10486,7 +9863,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                   child: _statItem('Tổng ngày', '$totalDays',
-                      Icons.calendar_today, const Color(0xFF1E3A5F))),
+                      Icons.calendar_today, HrmPageChrome.primaryNavy)),
               Expanded(
                   child: _statItem('Có mặt', '$present',
                       Icons.check_circle_rounded, const Color(0xFF22C55E))),
@@ -10534,7 +9911,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.schedule_rounded,
       title: 'Ca làm việc',
-      color: const Color(0xFF0F2340),
+      color: HrmPageChrome.primaryNavy,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -10789,368 +10166,3 @@ class _InsightCta {
   const _InsightCta(this.label, this.icon, this.screen);
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Line chart: số NV theo ca (mỗi ca 1 đường màu riêng)
-// ───────────────────────────────────────────────────────────────────────────
-class _ShiftLineChartPainter extends CustomPainter {
-  final List<dynamic> days;
-  final List<String> shiftNames;
-  final List<Color> palette;
-  final int? tappedIdx;
-
-  const _ShiftLineChartPainter({
-    required this.days,
-    required this.shiftNames,
-    required this.palette,
-    this.tappedIdx,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (days.isEmpty) return;
-
-    const leftPad = 28.0;
-    const rightPad = 6.0;
-    const topPad = 8.0;
-    const bottomPad = 26.0;
-
-    final chartW = size.width - leftPad - rightPad;
-    final chartH = size.height - topPad - bottomPad;
-    final n = days.length;
-    final xStep = n > 1 ? chartW / (n - 1) : chartW;
-
-    // Tìm max count trên tất cả các ca + tất cả các ngày
-    int maxCount = 1;
-    for (final t in days) {
-      final breakdown = (t['shiftBreakdown'] as List<dynamic>?) ?? [];
-      for (final s in breakdown) {
-        final c = (s['present'] as int?) ?? 0;
-        if (c > maxCount) maxCount = c;
-      }
-    }
-
-    // ── Vẽ grid ngang
-    final gridPaint = Paint()
-      ..color = const Color(0xFFF3F4F6)
-      ..strokeWidth = 1;
-
-    for (var i = 0; i <= 4; i++) {
-      final y = topPad + chartH * (1 - i / 4);
-      canvas.drawLine(
-          Offset(leftPad, y), Offset(leftPad + chartW, y), gridPaint);
-
-      final label = (maxCount * i / 4).round().toString();
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(fontSize: 8.5, color: Color(0xFFB0B7C3)),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(leftPad - tp.width - 3, y - tp.height / 2));
-    }
-
-    // ── Vẽ đường cho từng ca
-    for (var si = 0; si < shiftNames.length; si++) {
-      final shiftName = shiftNames[si];
-      final color = palette[si % palette.length];
-
-      // Lấy count cho tất cả ngày (0 nếu không có dữ liệu)
-      final points = <Offset>[];
-      for (var di = 0; di < n; di++) {
-        final x = leftPad + (n > 1 ? xStep * di : chartW / 2);
-        final breakdown = (days[di]['shiftBreakdown'] as List<dynamic>?) ?? [];
-        final idx = breakdown
-            .indexWhere((s) => s['shiftName']?.toString() == shiftName);
-        final count = idx >= 0 ? ((breakdown[idx]['present'] as int?) ?? 0) : 0;
-        final y = topPad + chartH * (1 - count / maxCount);
-        points.add(Offset(x, y));
-      }
-
-      if (points.length < 2) {
-        // Chỉ 1 điểm → vẽ dot duy nhất
-        final dotPaint = Paint()..color = color;
-        canvas.drawCircle(points[0], 4, dotPaint);
-        canvas.drawCircle(points[0], 2, Paint()..color = Colors.white);
-        continue;
-      }
-
-      // Vùng fill mờ bên dưới đường
-      final fillPath = Path()..moveTo(points[0].dx, topPad + chartH);
-      for (final p in points) {
-        fillPath.lineTo(p.dx, p.dy);
-      }
-      fillPath.lineTo(points.last.dx, topPad + chartH);
-      fillPath.close();
-      canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: 0.07));
-
-      // Đường kẻ
-      final linePaint = Paint()
-        ..color = color
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      final path = Path()..moveTo(points[0].dx, points[0].dy);
-      for (var i = 1; i < points.length; i++) {
-        path.lineTo(points[i].dx, points[i].dy);
-      }
-      canvas.drawPath(path, linePaint);
-
-      // Dot tại mỗi điểm dữ liệu
-      for (final p in points) {
-        canvas.drawCircle(p, 3.5, Paint()..color = color);
-        canvas.drawCircle(p, 1.8, Paint()..color = Colors.white);
-      }
-    }
-
-    // ── Nhãn ngày trên trục X
-    for (var di = 0; di < n; di++) {
-      final x = leftPad + (n > 1 ? xStep * di : chartW / 2);
-      final t = days[di];
-      final date = DateTime.tryParse(t['date']?.toString() ?? '');
-      final label = date != null ? '${date.day}/${date.month}' : '';
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(fontSize: 8.5, color: Color(0xFFB0B7C3)),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x - tp.width / 2, topPad + chartH + 6));
-    }
-
-    // ── Vertical highlight + value bubbles when day is tapped
-    if (tappedIdx != null && tappedIdx! < n) {
-      final tx = leftPad + (n > 1 ? xStep * tappedIdx! : chartW / 2);
-      canvas.drawLine(
-        Offset(tx, topPad),
-        Offset(tx, topPad + chartH),
-        Paint()
-          ..color = const Color(0xFFCBD5E1)
-          ..strokeWidth = 1.5,
-      );
-      var bOffset = 0.0;
-      for (var si = 0; si < shiftNames.length; si++) {
-        final shiftName = shiftNames[si];
-        final color = palette[si % palette.length];
-        final breakdown =
-            (days[tappedIdx!]['shiftBreakdown'] as List<dynamic>?) ?? [];
-        final bidx = breakdown
-            .indexWhere((s) => s['shiftName']?.toString() == shiftName);
-        final count =
-            bidx >= 0 ? ((breakdown[bidx]['present'] as int?) ?? 0) : 0;
-        final y = topPad + chartH * (1 - count / maxCount);
-        _paintBubble(canvas, tx, y - bOffset, '$count NV', color, size.width);
-        bOffset += 20;
-      }
-    }
-  }
-
-  void _paintBubble(Canvas canvas, double cx, double cy, String text,
-      Color color, double maxW) {
-    final tp = TextPainter(
-      text: TextSpan(
-          text: text,
-          style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const hPad = 5.0, vPad = 2.5;
-    final bw = tp.width + hPad * 2;
-    final bh = tp.height + vPad * 2;
-    final rawBx = cx - bw / 2;
-    final bx = rawBx < 0 ? 0.0 : (rawBx + bw > maxW ? maxW - bw : rawBx);
-    final by = cy - bh - 6;
-    final rrect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(bx, by, bw, bh), const Radius.circular(4));
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = const Color(0xF8FFFFFF)
-          ..style = PaintingStyle.fill);
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = color.withValues(alpha: 0.6)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1);
-    tp.paint(canvas, Offset(bx + hPad, by + vPad));
-  }
-
-  @override
-  bool shouldRepaint(_ShiftLineChartPainter old) =>
-      old.days != days ||
-      old.shiftNames != shiftNames ||
-      old.tappedIdx != tappedIdx;
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Line chart: đi trễ (amber) và về sớm (red) theo ngày
-// ───────────────────────────────────────────────────────────────────────────
-class _LateEarlyChartPainter extends CustomPainter {
-  final List<dynamic> days;
-  final int? tappedIdx;
-
-  const _LateEarlyChartPainter({required this.days, this.tappedIdx});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (days.isEmpty) return;
-
-    const leftPad = 28.0;
-    const rightPad = 6.0;
-    const topPad = 8.0;
-    const bottomPad = 26.0;
-
-    final chartW = size.width - leftPad - rightPad;
-    final chartH = size.height - topPad - bottomPad;
-    final n = days.length;
-    final xStep = n > 1 ? chartW / (n - 1) : chartW;
-
-    final lateValues = days.map((t) => (t['late'] as int?) ?? 0).toList();
-    final earlyValues =
-        days.map((t) => (t['earlyLeave'] as int?) ?? 0).toList();
-
-    int maxCount = 1;
-    for (var i = 0; i < n; i++) {
-      if (lateValues[i] > maxCount) maxCount = lateValues[i];
-      if (earlyValues[i] > maxCount) maxCount = earlyValues[i];
-    }
-
-    // ── Grid ngang
-    final gridPaint = Paint()
-      ..color = const Color(0xFFF3F4F6)
-      ..strokeWidth = 1;
-
-    for (var i = 0; i <= 4; i++) {
-      final y = topPad + chartH * (1 - i / 4);
-      canvas.drawLine(
-          Offset(leftPad, y), Offset(leftPad + chartW, y), gridPaint);
-
-      final label = (maxCount * i / 4).round().toString();
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(fontSize: 8.5, color: Color(0xFFB0B7C3)),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(leftPad - tp.width - 3, y - tp.height / 2));
-    }
-
-    // ── Vẽ 1 đường line với fill
-    void drawSeries(List<int> values, Color color) {
-      final points = <Offset>[];
-      for (var di = 0; di < n; di++) {
-        final x = leftPad + (n > 1 ? xStep * di : chartW / 2);
-        final y = topPad + chartH * (1 - values[di] / maxCount);
-        points.add(Offset(x, y));
-      }
-
-      if (points.length >= 2) {
-        // Fill dưới đường
-        final fillPath = Path()..moveTo(points[0].dx, topPad + chartH);
-        for (final p in points) {
-          fillPath.lineTo(p.dx, p.dy);
-        }
-        fillPath.lineTo(points.last.dx, topPad + chartH);
-        fillPath.close();
-        canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: 0.09));
-
-        // Đường kẻ
-        final linePaint = Paint()
-          ..color = color
-          ..strokeWidth = 2.0
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round;
-        final path = Path()..moveTo(points[0].dx, points[0].dy);
-        for (var i = 1; i < points.length; i++) {
-          path.lineTo(points[i].dx, points[i].dy);
-        }
-        canvas.drawPath(path, linePaint);
-      }
-
-      // Dots
-      for (final p in points) {
-        canvas.drawCircle(p, 3.5, Paint()..color = color);
-        canvas.drawCircle(p, 1.8, Paint()..color = Colors.white);
-      }
-    }
-
-    drawSeries(lateValues, const Color(0xFFF59E0B));
-    drawSeries(earlyValues, const Color(0xFFEF4444));
-
-    // ── Nhãn ngày trên trục X
-    for (var di = 0; di < n; di++) {
-      final x = leftPad + (n > 1 ? xStep * di : chartW / 2);
-      final t = days[di];
-      final date = DateTime.tryParse(t['date']?.toString() ?? '');
-      final label = date != null ? '${date.day}/${date.month}' : '';
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(fontSize: 8.5, color: Color(0xFFB0B7C3)),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x - tp.width / 2, topPad + chartH + 6));
-    }
-
-    // ── Vertical highlight + value bubbles when day is tapped
-    if (tappedIdx != null && tappedIdx! < n) {
-      final tx = leftPad + (n > 1 ? xStep * tappedIdx! : chartW / 2);
-      canvas.drawLine(
-        Offset(tx, topPad),
-        Offset(tx, topPad + chartH),
-        Paint()
-          ..color = const Color(0xFFCBD5E1)
-          ..strokeWidth = 1.5,
-      );
-      final lv = lateValues[tappedIdx!];
-      final ev = earlyValues[tappedIdx!];
-      final yLate = topPad + chartH * (1 - lv / maxCount);
-      final yEarly = topPad + chartH * (1 - ev / maxCount);
-      _paintBubble(
-          canvas, tx, yLate, '$lv', const Color(0xFFF59E0B), size.width);
-      _paintBubble(
-          canvas, tx, yEarly - 20, '$ev', const Color(0xFFEF4444), size.width);
-    }
-  }
-
-  void _paintBubble(Canvas canvas, double cx, double cy, String text,
-      Color color, double maxW) {
-    final tp = TextPainter(
-      text: TextSpan(
-          text: text,
-          style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const hPad = 5.0, vPad = 2.5;
-    final bw = tp.width + hPad * 2;
-    final bh = tp.height + vPad * 2;
-    final rawBx = cx - bw / 2;
-    final bx = rawBx < 0 ? 0.0 : (rawBx + bw > maxW ? maxW - bw : rawBx);
-    final by = cy - bh - 6;
-    final rrect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(bx, by, bw, bh), const Radius.circular(4));
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = const Color(0xF8FFFFFF)
-          ..style = PaintingStyle.fill);
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = color.withValues(alpha: 0.6)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1);
-    tp.paint(canvas, Offset(bx + hPad, by + vPad));
-  }
-
-  @override
-  bool shouldRepaint(_LateEarlyChartPainter old) =>
-      old.days != days || old.tappedIdx != tappedIdx;
-}

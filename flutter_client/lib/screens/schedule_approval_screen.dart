@@ -10,6 +10,10 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/shift_swap_panel.dart';
+import '../widgets/shift_swap_ui.dart';
+import 'main_layout.dart';
 
 // =====================================================
 // SCHEDULE APPROVAL SCREEN - BẢN NÂNG CẤP
@@ -62,6 +66,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   bool _isLoading = true;
   String? _selectedBranchId;
   List<Map<String, dynamic>> _branches = [];
+  final GlobalKey<ShiftSwapPanelState> _swapPanelKey = GlobalKey();
+  int _swapPendingCount = 0;
 
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
   String? _selectedStatusFilter;
@@ -76,8 +82,18 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    final initialTab = NavigationNotifier.scheduleApprovalTab.value.clamp(0, 2);
+    NavigationNotifier.scheduleApprovalTab.value = 0;
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: initialTab,
+    );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) setState(() {});
+    });
     _loadInitialData();
+    _loadSwapPendingCount();
   }
 
   @override
@@ -180,6 +196,18 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             .toList();
       });
     }
+  }
+
+  Future<void> _loadSwapPendingCount() async {
+    try {
+      final result = await _apiService.getShiftSwapsPendingApproval();
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        setState(() {
+          _swapPendingCount = parseShiftSwapList(result['data']).length;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadStaffingQuotas() async {
@@ -361,8 +389,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         toolbarHeight: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFF1E3A5F),
-          labelColor: const Color(0xFF1E3A5F),
+          indicatorColor: HrmPageChrome.primaryNavy,
+          labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: const Color(0xFF71717A),
           tabs: [
             Tab(
@@ -394,6 +422,28 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 Text('Phân bổ nhân viên'),
               ]),
             ),
+            Tab(
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.swap_horiz, size: 18),
+                const SizedBox(width: 6),
+                const Text('Đổi ca'),
+                if (_swapPendingCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text('$_swapPendingCount',
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ]),
+            ),
           ],
         ),
       ),
@@ -404,8 +454,29 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               children: [
                 _buildShiftOverviewTab(),
                 _buildEmployeeDistributionTab(),
+                Column(
+                  children: [
+                    Expanded(
+                      child: ShiftSwapPanel(
+                        key: _swapPanelKey,
+                        embedded: true,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
+      floatingActionButton: _tabController.index == 2
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                _swapPanelKey.currentState?.showCreateDialog();
+                _loadSwapPendingCount();
+              },
+              backgroundColor: HrmPageChrome.primaryNavy,
+              icon: const Icon(Icons.add),
+              label: const Text('Yêu cầu đổi ca'),
+            )
+          : null,
     );
   }
 
@@ -441,12 +512,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 )),
                 const SizedBox(width: 6),
                 Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                   onPressed: _goToThisWeek,
                   icon: const Icon(Icons.today, size: 16),
                   label: const Text('Tuần này', style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
+                      backgroundColor: HrmPageChrome.primaryNavy,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 8)),
@@ -557,12 +628,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8)),
                   ),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: _goToThisWeek,
                     icon: const Icon(Icons.today, size: 18),
                     label: const Text('Tuần này'),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
+                        backgroundColor: HrmPageChrome.primaryNavy,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8)),
@@ -777,7 +848,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             padding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 12 : 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
               border:
@@ -791,7 +862,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 borderRadius: BorderRadius.circular(8)),
                             child: const Icon(Icons.schedule,
                                 color: Colors.white, size: 18),
@@ -817,18 +888,18 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F)
+                                color: HrmPageChrome.primaryNavy
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                    color: const Color(0xFF1E3A5F)
+                                    color: HrmPageChrome.primaryNavy
                                         .withValues(alpha: 0.3)),
                               ),
                               child: Text('$minEmp-$maxEmp người',
                                   style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1E3A5F))),
+                                      color: HrmPageChrome.primaryNavy)),
                             ),
                         ]),
                         if (allPending.isNotEmpty ||
@@ -845,14 +916,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                   const SizedBox(width: 6),
                                   _buildCountBadge(
                                       '${allProcessed.length} đã xử lý',
-                                      const Color(0xFF1E3A5F))
+                                      HrmPageChrome.primaryNavy)
                                 ],
                                 const SizedBox(width: 12),
                                 if (allPending.isNotEmpty && _canApprove) ...[
                                   _batchBtn(
                                       'Duyệt tất cả',
                                       Icons.check,
-                                      const Color(0xFF1E3A5F),
+                                      HrmPageChrome.primaryNavy,
                                       () => _approveAllForShift(allPending),
                                       filled: true),
                                   const SizedBox(width: 6),
@@ -885,7 +956,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                           borderRadius: BorderRadius.circular(8)),
                       child: const Icon(Icons.schedule,
                           color: Colors.white, size: 20),
@@ -907,21 +978,21 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: const Color(0xFF1E3A5F)
+                              color: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.3)),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.groups,
-                              size: 14, color: Color(0xFF1E3A5F)),
+                              size: 14, color: HrmPageChrome.primaryNavy),
                           const SizedBox(width: 4),
                           Text('Định biên: $minEmp-$maxEmp',
                               style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E3A5F))),
+                                  color: HrmPageChrome.primaryNavy)),
                         ]),
                       ),
                     ],
@@ -933,7 +1004,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     ],
                     if (allProcessed.isNotEmpty) ...[
                       _buildCountBadge('${allProcessed.length} đã xử lý',
-                          const Color(0xFF1E3A5F)),
+                          HrmPageChrome.primaryNavy),
                       const SizedBox(width: 6),
                     ],
                     if (allProcessed.isNotEmpty && _canApprove) ...[
@@ -962,7 +1033,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       _batchBtn(
                           'Duyệt tất cả',
                           Icons.check,
-                          const Color(0xFF1E3A5F),
+                          HrmPageChrome.primaryNavy,
                           () => _approveAllForShift(allPending),
                           filled: true),
                     ],
@@ -1025,7 +1096,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               _buildCountBadge(
                   '${pending.length} chờ', const Color(0xFFF59E0B)),
               const SizedBox(width: 6),
-              _batchBtn('Duyệt tất cả', Icons.check, const Color(0xFF1E3A5F),
+              _batchBtn('Duyệt tất cả', Icons.check, HrmPageChrome.primaryNavy,
                   () => _approveAllForShift(pending),
                   filled: true),
             ],
@@ -1075,12 +1146,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
               decoration: BoxDecoration(
                 color: isToday
-                    ? const Color(0xFF1E3A5F).withValues(alpha: 0.08)
+                    ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
                     : dotColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isToday
-                      ? const Color(0xFF1E3A5F).withValues(alpha: 0.4)
+                      ? HrmPageChrome.primaryNavy.withValues(alpha: 0.4)
                       : dotColor.withValues(alpha: 0.25),
                   width: isToday ? 1.5 : 1,
                 ),
@@ -1091,7 +1162,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: isToday
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : isSunday
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF71717A),
@@ -1100,7 +1171,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     style: TextStyle(
                         fontSize: 9,
                         color: isToday
-                            ? const Color(0xFF1E3A5F)
+                            ? HrmPageChrome.primaryNavy
                             : const Color(0xFFA1A1AA))),
                 const SizedBox(height: 4),
                 Text(
@@ -1177,7 +1248,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         decoration: BoxDecoration(
           border: const Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
           color:
-              isToday ? const Color(0xFF1E3A5F).withValues(alpha: 0.03) : null,
+              isToday ? HrmPageChrome.primaryNavy.withValues(alpha: 0.03) : null,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Day header with quota bar
@@ -1185,7 +1256,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isToday
-                  ? const Color(0xFF1E3A5F).withValues(alpha: 0.05)
+                  ? HrmPageChrome.primaryNavy.withValues(alpha: 0.05)
                   : const Color(0xFFF8FAFC),
               border:
                   const Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
@@ -1196,7 +1267,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isToday
-                        ? const Color(0xFF1E3A5F)
+                        ? HrmPageChrome.primaryNavy
                         : const Color(0xFF18181B),
                   )),
               const Spacer(),
@@ -1216,7 +1287,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A5F),
+                        color: HrmPageChrome.primaryNavy,
                         borderRadius: BorderRadius.circular(6)),
                     child: const Text('Duyệt',
                         style: TextStyle(
@@ -1307,7 +1378,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       child: Row(children: [
         CircleAvatar(
           radius: 14,
-          backgroundColor: const Color(0xFF1E3A5F),
+          backgroundColor: HrmPageChrome.primaryNavy,
           child: Text(
             employee.firstName.isNotEmpty
                 ? employee.firstName[0].toUpperCase()
@@ -1462,7 +1533,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   decoration: isToday
                       ? BoxDecoration(
                           color:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.08))
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.08))
                       : null,
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1472,7 +1543,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 color: isToday
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : isSunday
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF71717A))),
@@ -1480,7 +1551,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             style: TextStyle(
                                 fontSize: 9,
                                 color: isToday
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : const Color(0xFFA1A1AA))),
                         const SizedBox(height: 4),
                         // Quota chip
@@ -1525,7 +1596,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 5, vertical: 2),
                               decoration: BoxDecoration(
-                                  color: const Color(0xFF1E3A5F),
+                                  color: HrmPageChrome.primaryNavy,
                                   borderRadius: BorderRadius.circular(4)),
                               child: Text('Duyệt $pending',
                                   style: const TextStyle(
@@ -1617,7 +1688,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         child: Row(children: [
           CircleAvatar(
               radius: 14,
-              backgroundColor: const Color(0xFF1E3A5F),
+              backgroundColor: HrmPageChrome.primaryNavy,
               child: Text(
                   employee.firstName.isNotEmpty
                       ? employee.firstName[0].toUpperCase()
@@ -1881,7 +1952,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF71717A))),
                 ])),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => _sendReminderToAll(unregistered),
               icon: const Icon(Icons.notifications_active, size: 16),
               label: Text(isMobile ? 'Nhắc tất cả' : 'Gửi nhắc nhở tất cả',
@@ -2051,11 +2122,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [Color(0xFF1E3A5F), Color(0xFF2D5986)]),
+            colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5986)]),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.2),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -2229,7 +2300,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: const Color(0xFF1E3A5F),
+            backgroundColor: HrmPageChrome.primaryNavy,
             child: Text(
                 emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?',
                 style: const TextStyle(
@@ -2256,7 +2327,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             decoration: BoxDecoration(
               color: isZero
                   ? const Color(0xFFEF4444).withValues(alpha: 0.1)
-                  : const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text('${summary.scheduledShifts} ca',
@@ -2265,7 +2336,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   fontWeight: FontWeight.bold,
                   color: isZero
                       ? const Color(0xFFEF4444)
-                      : const Color(0xFF1E3A5F),
+                      : HrmPageChrome.primaryNavy,
                 )),
           ),
         ]),
@@ -2432,7 +2503,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                   CircleAvatar(
                       radius: 14,
-                      backgroundColor: const Color(0xFF1E3A5F),
+                      backgroundColor: HrmPageChrome.primaryNavy,
                       child: Text(
                           emp.firstName.isNotEmpty
                               ? emp.firstName[0].toUpperCase()
@@ -2527,7 +2598,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   Widget _batchBtn(String label, IconData icon, Color color, VoidCallback onTap,
       {bool filled = false}) {
     if (filled) {
-      return ElevatedButton.icon(
+      return FilledButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 14),
         label: Text(label, style: const TextStyle(fontSize: 11)),
@@ -2570,7 +2641,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận duyệt',
         'Bạn có chắc chắn muốn duyệt đăng ký này?',
         'Duyệt',
-        const Color(0xFF1E3A5F));
+        HrmPageChrome.primaryNavy);
     if (confirmed != true) return;
     try {
       await _apiService
@@ -2614,7 +2685,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Hủy',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEF4444)),
@@ -2696,7 +2767,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận duyệt hàng loạt',
         'Bạn có chắc chắn muốn duyệt ${regs.length} đăng ký?',
         'Duyệt tất cả',
-        const Color(0xFF1E3A5F));
+        HrmPageChrome.primaryNavy);
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
@@ -2812,7 +2883,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Hủy',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: confirmColor),
               child: Text(confirmText)),

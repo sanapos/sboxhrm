@@ -1,8 +1,10 @@
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -16,6 +18,7 @@ namespace ZKTecoADMS.Api.Controllers;
 /// System Administration - Quản trị toàn bộ hệ thống (SuperAdmin only)
 /// </summary>
 [Authorize(Roles = nameof(Roles.SuperAdmin))]
+[ServiceFilter(typeof(SystemAdminAgentScopeFilter))]
 [Route("api/system-admin")]
 public class SystemAdminController : AuthenticatedControllerBase
 {
@@ -3893,7 +3896,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             // ══════════ CHẤM CÔNG ══════════
             new("Attendance", "Chấm công", "Dữ liệu chấm công", "Chấm công"),
             new("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", "Chấm công"),
-            new("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp chấm công", "Chấm công"),
+            new("AttendanceSummary", "Tổng hợp chấm công thô", "Bảng tổng hợp chấm công thô", "Chấm công"),
             new("AttendanceByShift", "Tổng hợp theo ca", "Chấm công theo ca làm việc", "Chấm công"),
             new("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", "Chấm công"),
             new("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", "Chấm công"),
@@ -3925,6 +3928,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", "Báo cáo"),
             new("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", "Báo cáo"),
             new("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", "Báo cáo"),
+            new("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", "Báo cáo"),
 
             // ══════════ CÀI ĐẶT ══════════
             new("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", "Cài đặt"),
@@ -3941,7 +3945,6 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", "Cài đặt"),
             new("SystemSettings", "Hệ thống", "Giờ kết thúc ngày, tham số vận hành", "Cài đặt"),
             new("NotificationSettings", "Thiết lập thông báo", "Nhóm thông báo, bật/tắt nhận thông báo", "Cài đặt"),
-            new("GoogleDrive", "Google Drive", "Lưu trữ ảnh, service account", "Cài đặt"),
             new("AIGemini", "AI Gemini", "API key, model, tham số AI", "Cài đặt"),
             new("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", "Cài đặt"),
             new("Settings", "Cài đặt chung", "Cài đặt hệ thống", "Cài đặt"),

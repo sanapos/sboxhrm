@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 class ProductSalarySettingsScreen extends StatefulWidget {
@@ -13,6 +14,8 @@ class ProductSalarySettingsScreen extends StatefulWidget {
 
 class _ProductSalarySettingsScreenState
     extends State<ProductSalarySettingsScreen> {
+  static const Color _bg = Color(0xFFFAFAFA);
+
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
@@ -57,40 +60,115 @@ class _ProductSalarySettingsScreenState
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        backgroundColor: _bg,
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
-    return Column(
+
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: (!HrmPageChrome.isEmbedded && isMobile)
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              title: const Text(
+                'Lương sản phẩm',
+                style: TextStyle(
+                  color: Color(0xFF18181B),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  onPressed: _showAddGroupDialog,
+                  icon: const Icon(Icons.create_new_folder_outlined,
+                      color: HrmPageChrome.primaryNavy),
+                  tooltip: 'Thêm nhóm SP',
+                ),
+                IconButton(
+                  onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                  icon: const Icon(Icons.add_box_outlined,
+                      color: HrmPageChrome.primaryNavy),
+                  tooltip: 'Thêm sản phẩm',
+                ),
+              ],
+            )
+          : null,
+      body: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          decoration: const BoxDecoration(
+        if (HrmPageChrome.isEmbedded)
+          Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 16, vertical: 10),
             color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.precision_manufacturing,
-                      color: const Color(0xFF0F2340), size: isMobile ? 22 : 28),
-                  SizedBox(width: isMobile ? 8 : 12),
-                  Expanded(
-                    child: Text('Lương sản phẩm',
-                        style: TextStyle(
-                            fontSize: isMobile ? 17 : 20,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A))),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isMobile) ...[
+                  IconButton(
+                    onPressed: _showAddGroupDialog,
+                    icon: const Icon(Icons.create_new_folder_outlined,
+                        color: HrmPageChrome.primaryNavy),
                   ),
-                  if (!isMobile) ...[
+                  IconButton(
+                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                    icon: const Icon(Icons.add_box_outlined,
+                        color: HrmPageChrome.primaryNavy),
+                  ),
+                ] else ...[
+                  FilledButton.icon(
+                    onPressed: _showAddGroupDialog,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Thêm nhóm SP'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Thêm sản phẩm'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        if (!isMobile && !HrmPageChrome.isEmbedded)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.precision_manufacturing,
+                        color: HrmPageChrome.primaryNavy, size: 28),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text('Lương sản phẩm',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A))),
+                    ),
                     FilledButton.icon(
                       onPressed: _showAddGroupDialog,
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Thêm nhóm SP'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F2340),
+                        backgroundColor: HrmPageChrome.primaryNavy,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -99,35 +177,19 @@ class _ProductSalarySettingsScreenState
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Thêm sản phẩm'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
+                        backgroundColor: HrmPageChrome.primaryNavy,
                       ),
                     ),
-                  ] else ...[
-                    IconButton(
-                      onPressed: _showAddGroupDialog,
-                      icon: const Icon(Icons.create_new_folder_outlined, size: 22),
-                      color: const Color(0xFF0F2340),
-                      tooltip: 'Thêm nhóm SP',
-                    ),
-                    IconButton(
-                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                      icon: const Icon(Icons.add_box_outlined, size: 22),
-                      color: const Color(0xFF1E3A5F),
-                      tooltip: 'Thêm sản phẩm',
-                    ),
                   ],
-                ],
-              ),
-              if (!isMobile) ...[
+                ),
                 const SizedBox(height: 8),
                 const Text(
                   'Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc',
                   style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
 
         // Group chips
         if (_groups.isNotEmpty)
@@ -147,31 +209,36 @@ class _ProductSalarySettingsScreenState
 
         // Product list
         Expanded(
-          child: _filteredItems.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inventory_2_outlined,
-                          size: 64, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text(
-                        _groups.isEmpty
-                            ? 'Chưa có nhóm sản phẩm.\nHãy thêm nhóm sản phẩm trước.'
-                            : 'Chưa có sản phẩm nào.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                      ),
-                    ],
+          child: ColoredBox(
+            color: _bg,
+            child: _filteredItems.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory_2_outlined,
+                            size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          _groups.isEmpty
+                              ? 'Chưa có nhóm sản phẩm.\nHãy thêm nhóm sản phẩm trước.'
+                              : 'Chưa có sản phẩm nào.',
+                          textAlign: TextAlign.center,
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredItems.length,
+                    itemBuilder: (ctx, i) => _buildItemCard(_filteredItems[i]),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _filteredItems.length,
-                  itemBuilder: (ctx, i) => _buildItemCard(_filteredItems[i]),
-                ),
+          ),
         ),
       ],
+    ),
     );
   }
 
@@ -180,14 +247,14 @@ class _ProductSalarySettingsScreenState
     return FilterChip(
       selected: selected,
       label: Text(label),
-      selectedColor: const Color(0xFF0F2340),
+      selectedColor: HrmPageChrome.primaryNavy,
       labelStyle: TextStyle(
           color: selected ? Colors.white : const Color(0xFF334155),
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
       checkmarkColor: Colors.white,
       onSelected: (_) => setState(() => _selectedGroupId = groupId),
       side: BorderSide(
-          color: selected ? const Color(0xFF0F2340) : const Color(0xFFCBD5E1)),
+          color: selected ? HrmPageChrome.primaryNavy : const Color(0xFFCBD5E1)),
       onDeleted: groupId == null
           ? null
           : () => _showEditGroupDialog(
@@ -220,14 +287,14 @@ class _ProductSalarySettingsScreenState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F2340).withValues(alpha: 0.08),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(item['code'] ?? '',
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
-                          color: Color(0xFF0F2340))),
+                          color: HrmPageChrome.primaryNavy)),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -918,7 +985,7 @@ class _ProductSalarySettingsScreenState
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: const Color(0xFF0F2340),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(

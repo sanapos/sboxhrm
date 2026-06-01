@@ -1,10 +1,14 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/attendance_correction_privilege.dart';
+import '../utils/responsive_helper.dart';
 
 class MobileAttendanceApprovalScreen extends StatefulWidget {
   const MobileAttendanceApprovalScreen({super.key});
@@ -156,112 +160,138 @@ class _MobileAttendanceApprovalScreenState
     }
   }
 
+  TabBar _buildApprovalTabBar() {
+    return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      labelColor: HrmPageChrome.primaryNavy,
+      unselectedLabelColor: const Color(0xFF71717A),
+      indicatorColor: HrmPageChrome.primaryNavy,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+      tabs: [
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.pending_actions, size: 18),
+              const SizedBox(width: 6),
+              const Text('Chờ duyệt'),
+              if (_filteredPendingRecords.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_filteredPendingRecords.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, size: 18),
+              SizedBox(width: 6),
+              Text('Đã duyệt'),
+            ],
+          ),
+        ),
+        const Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cancel, size: 18),
+              SizedBox(width: 6),
+              Text('Từ chối'),
+            ],
+          ),
+        ),
+        const Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.table_chart, size: 18),
+              SizedBox(width: 6),
+              Text('Tổng hợp'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+    Widget tabChild(Widget child) =>
+        isMobile ? HrmScrollSlivers.nestedTabList(child: child) : child;
+
+    final tabBarView = TabBarView(
+      controller: _tabController,
+      children: _isLoading
+          ? List.generate(
+              4,
+              (_) => const Center(child: CircularProgressIndicator()),
+            )
+          : [
+              tabChild(_buildPendingTab()),
+              tabChild(_buildApprovedTab()),
+              tabChild(_buildRejectedTab()),
+              tabChild(_buildSummaryTab()),
+            ],
+    );
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            child: Row(
+      backgroundColor: HrmPageChrome.background,
+      body: isMobile
+          ? HrmMobileNestedTabLayout(
+              headerSections: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: 'Bộ lọc',
+                    icon: const Icon(Icons.filter_list,
+                        color: Color(0xFF71717A)),
+                    onPressed: _showFilterDialog,
+                  ),
+                ),
+              ],
+              tabBar: _buildApprovalTabBar(),
+              tabBarView: tabBarView,
+            )
+          : Column(
               children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelColor: const Color(0xFF1E3A5F),
-                    unselectedLabelColor: const Color(0xFF71717A),
-                    indicatorColor: const Color(0xFF1E3A5F),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.pending_actions, size: 18),
-                            const SizedBox(width: 6),
-                            const Text('Chờ duyệt'),
-                            if (_filteredPendingRecords.isNotEmpty) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '${_filteredPendingRecords.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                Container(
+                  color: Colors.white,
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildApprovalTabBar()),
+                      IconButton(
+                        tooltip: 'Bộ lọc',
+                        icon: const Icon(Icons.filter_list,
+                            color: Color(0xFF71717A)),
+                        onPressed: _showFilterDialog,
                       ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle, size: 18),
-                            SizedBox(width: 6),
-                            Text('Đã duyệt'),
-                          ],
-                        ),
-                      ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.cancel, size: 18),
-                            SizedBox(width: 6),
-                            Text('Từ chối'),
-                          ],
-                        ),
-                      ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.table_chart, size: 18),
-                            SizedBox(width: 6),
-                            Text('Tổng hợp'),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(width: 4),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Bộ lọc',
-                  icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
-                  onPressed: _showFilterDialog,
-                ),
-                const SizedBox(width: 4),
+                Expanded(child: tabBarView),
               ],
             ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildPendingTab(),
-                      _buildApprovedTab(),
-                      _buildRejectedTab(),
-                      _buildSummaryTab(),
-                    ],
-                  ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -376,8 +406,8 @@ class _MobileAttendanceApprovalScreenState
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (Provider.of<PermissionProvider>(context, listen: false)
-                  .canApprove('MobileAttendanceApproval'))
+              if (canApproveMobileAttendance(
+                  Provider.of<PermissionProvider>(context, listen: false)))
                 OutlinedButton.icon(
                   onPressed: () => _bulkAction(false),
                   icon: const Icon(Icons.close, size: 18),
@@ -390,18 +420,16 @@ class _MobileAttendanceApprovalScreenState
                   ),
                 ),
               const SizedBox(width: 8),
-              if (Provider.of<PermissionProvider>(context, listen: false)
-                  .canApprove('MobileAttendanceApproval'))
-                ElevatedButton.icon(
+              if (canApproveMobileAttendance(
+                  Provider.of<PermissionProvider>(context, listen: false)))
+                FilledButton.icon(
                   onPressed: () => _bulkAction(true),
                   icon: const Icon(Icons.check, size: 18),
                   label: const Text('Duyệt tất cả'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
-                    foregroundColor: Colors.white,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    elevation: 0,
                   ),
                 ),
             ],
@@ -458,7 +486,7 @@ class _MobileAttendanceApprovalScreenState
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: (isCheckIn
-                        ? const Color(0xFF1E3A5F)
+                        ? HrmPageChrome.primaryNavy
                         : const Color(0xFFEF4444))
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
@@ -468,12 +496,12 @@ class _MobileAttendanceApprovalScreenState
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: isCheckIn
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : const Color(0xFFEF4444))),
             ),
             const SizedBox(width: 8),
-            if (Provider.of<PermissionProvider>(context, listen: false)
-                .canApprove('MobileAttendanceApproval'))
+            if (canApproveMobileAttendance(
+                Provider.of<PermissionProvider>(context, listen: false)))
               InkWell(
                 onTap: () => _rejectRecord(record),
                 borderRadius: BorderRadius.circular(6),
@@ -483,15 +511,15 @@ class _MobileAttendanceApprovalScreenState
                         Icon(Icons.close, size: 18, color: Color(0xFFEF4444))),
               ),
             const SizedBox(width: 4),
-            if (Provider.of<PermissionProvider>(context, listen: false)
-                .canApprove('MobileAttendanceApproval'))
+            if (canApproveMobileAttendance(
+                Provider.of<PermissionProvider>(context, listen: false)))
               InkWell(
                 onTap: () => _approveRecord(record),
                 borderRadius: BorderRadius.circular(6),
                 child: const Padding(
                     padding: EdgeInsets.all(4),
                     child:
-                        Icon(Icons.check, size: 18, color: Color(0xFF1E3A5F))),
+                        Icon(Icons.check, size: 18, color: HrmPageChrome.primaryNavy)),
               ),
           ],
         ),
@@ -515,7 +543,7 @@ class _MobileAttendanceApprovalScreenState
               height: 36,
               decoration: BoxDecoration(
                 color: (isApproved
-                        ? const Color(0xFF1E3A5F)
+                        ? HrmPageChrome.primaryNavy
                         : const Color(0xFFEF4444))
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -523,7 +551,7 @@ class _MobileAttendanceApprovalScreenState
               child: Icon(isApproved ? Icons.check : Icons.close,
                   size: 18,
                   color: isApproved
-                      ? const Color(0xFF1E3A5F)
+                      ? HrmPageChrome.primaryNavy
                       : const Color(0xFFEF4444)),
             ),
             const SizedBox(width: 12),
@@ -774,11 +802,10 @@ class _MobileAttendanceApprovalScreenState
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
             ),
             child: const Text('Duyệt'),
           ),
@@ -844,11 +871,10 @@ class _MobileAttendanceApprovalScreenState
             onPressed: () => Navigator.pop(context),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, reasonController.text),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
             ),
             child: const Text('Từ chối'),
           ),
@@ -898,12 +924,11 @@ class _MobileAttendanceApprovalScreenState
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor:
-                  approve ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
+                  approve ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444),
             ),
             child: Text(approve ? 'Duyệt tất cả' : 'Từ chối tất cả'),
           ),
@@ -1006,7 +1031,7 @@ class _MobileAttendanceApprovalScreenState
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.date_range, size: 16, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.date_range, size: 16, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 6),
               Expanded(
                 child: GestureDetector(
@@ -1021,7 +1046,7 @@ class _MobileAttendanceApprovalScreenState
                       builder: (ctx, child) => Theme(
                         data: Theme.of(ctx).copyWith(
                           colorScheme: const ColorScheme.light(
-                              primary: Color(0xFF1E3A5F)),
+                              primary: HrmPageChrome.primaryNavy),
                         ),
                         child: child!,
                       ),
@@ -1044,7 +1069,7 @@ class _MobileAttendanceApprovalScreenState
                       '${DateFormat('dd/MM/yyyy').format(_summaryFrom)} – ${DateFormat('dd/MM/yyyy').format(_summaryTo)}',
                       style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                           fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -1392,7 +1417,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       border: Border(
                           right: BorderSide(color: Colors.white24, width: 1),
                           bottom:
@@ -1455,7 +1480,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                               decoration: BoxDecoration(
                                 color: isToday
                                     ? const Color(0xFF2563EB)
-                                    : const Color(0xFF1E3A5F),
+                                    : HrmPageChrome.primaryNavy,
                                 border: const Border(
                                     right: BorderSide(
                                         color: Colors.white12, width: 0.5),

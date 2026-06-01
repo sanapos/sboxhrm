@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Allowances;
 using ZKTecoADMS.Application.Queries.Allowances;
@@ -16,6 +17,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Allowance", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<AllowanceDto>>>> GetAllowances(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -30,6 +32,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Allowance", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> GetAllowanceById(Guid id)
     {
         var query = new GetAllowanceByIdQuery(RequiredStoreId, id);
@@ -39,6 +42,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Allowance", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> CreateAllowance([FromBody] CreateAllowanceDto request)
     {
         var command = new CreateAllowanceCommand(
@@ -61,6 +65,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Allowance", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> UpdateAllowance(Guid id, [FromBody] UpdateAllowanceDto request)
     {
         var command = new UpdateAllowanceCommand(
@@ -85,6 +90,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Allowance", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAllowance(Guid id)
     {
         var command = new DeleteAllowanceCommand(RequiredStoreId, id);
@@ -92,3 +98,4 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
         return Ok(result);
     }
 }
+

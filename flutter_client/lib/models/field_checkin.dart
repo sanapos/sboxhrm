@@ -250,7 +250,7 @@ class FieldLocation {
       name: json['name'] ?? '',
       address: json['address'],
       contactName: json['contactName'],
-      contactPhone: json['contactPhone'],
+      contactPhone: json['contactphone'],
       contactEmail: json['contactEmail'],
       note: json['note'],
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
@@ -271,7 +271,7 @@ class FieldLocation {
     'name': name,
     if (address != null) 'address': address,
     if (contactName != null) 'contactName': contactName,
-    if (contactPhone != null) 'contactPhone': contactPhone,
+    if (contactPhone != null) 'contactphone': contactPhone,
     if (contactEmail != null) 'contactEmail': contactEmail,
     if (note != null) 'note': note,
     'latitude': latitude,
@@ -378,7 +378,7 @@ class VisitReport {
       outsideRadius: json['outsideRadius'] ?? false,
       locationAddress: json['locationAddress'],
       contactName: json['contactName'],
-      contactPhone: json['contactPhone'],
+      contactPhone: json['contactphone'],
       contactEmail: json['contactEmail'],
     );
   }

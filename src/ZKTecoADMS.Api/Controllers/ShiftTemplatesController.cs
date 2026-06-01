@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.ShiftTemplates.CreateShiftTemplate;
 using ZKTecoADMS.Application.Commands.ShiftTemplates.UpdateShiftTemplate;
@@ -16,6 +17,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
 {
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "ShiftTemplate", "ShiftSetup")]
     public async Task<ActionResult<AppResponse<ShiftTemplateDto>>> CreateShiftTemplate([FromBody] CreateShiftTemplateRequest request)
     {
         var command = new CreateShiftTemplateCommand(
@@ -42,6 +44,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
 
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftTemplate", "ShiftSetup")]
     public async Task<ActionResult<AppResponse<List<ShiftTemplateDto>>>> GetShiftTemplates()
     {
         var query = new GetShiftTemplatesQuery(CurrentUserId, RequiredStoreId, IsManager, IsAdmin);
@@ -51,6 +54,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftTemplate", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftTemplateDto>>> UpdateShiftTemplate(Guid id, [FromBody] UpdateShiftTemplateRequest request)
     {
         var command = new UpdateShiftTemplateCommand(
@@ -76,6 +80,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "ShiftTemplate", "ShiftSetup")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteShiftTemplate(Guid id)
     {
         var command = new DeleteShiftTemplateCommand(id);
@@ -83,3 +88,4 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
         return Ok(result);
     }
 }
+

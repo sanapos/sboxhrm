@@ -5,6 +5,8 @@ import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -95,76 +97,90 @@ class _OvertimeScreenState extends State<OvertimeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
           _buildHeader(),
-          if (Responsive.isMobile(context)) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: InkWell(
-                onTap: () =>
-                    setState(() => _showMobileSummary = !_showMobileSummary),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics_outlined,
-                          size: 16, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
-                      Text('Tổng quan',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: Colors.blue.shade700)),
-                      const Spacer(),
-                      Icon(
-                          _showMobileSummary
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                          size: 20,
-                          color: Colors.blue.shade700),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (_showMobileSummary) _buildStatsRow(),
-          ] else ...[
-            _buildStatsRow(),
-          ],
-          TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFFEA580C),
-            unselectedLabelColor: Colors.grey[600],
-            indicatorColor: const Color(0xFFEA580C),
-            indicatorWeight: 3,
-            tabs: const [
-              Tab(text: 'Tất cả'),
-              Tab(text: 'Của tôi'),
-              Tab(text: 'Chờ duyệt'),
-              Tab(text: 'Thống kê'),
-            ],
-          ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
+            child: isMobile
+                ? HrmMobileNestedTabLayout(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    headerSections: _overtimeHeaderSections(),
+                    tabBar: TabBar(
+                      controller: _tabController,
+                      labelColor: const Color(0xFFEA580C),
+                      unselectedLabelColor: Colors.grey[600],
+                      indicatorColor: const Color(0xFFEA580C),
+                      indicatorWeight: 3,
+                      tabs: const [
+                        Tab(text: 'Tất cả'),
+                        Tab(text: 'Của tôi'),
+                        Tab(text: 'Chờ duyệt'),
+                        Tab(text: 'Thống kê'),
+                      ],
+                    ),
+                    tabBarView: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildOvertimeList(
+                                _filteredOvertimes(_allOvertimes),
+                                showActions: false,
+                                nestedTab: true),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildOvertimeList(_myOvertimes,
+                                showActions: false, nestedTab: true),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildOvertimeList(
+                                _filteredOvertimes(_pendingOvertimes),
+                                showActions: true,
+                                nestedTab: true),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : HrmScrollSlivers.nestedTabList(
+                                child: _buildStatisticsTab()),
+                      ],
+                    ),
+                  )
+                : Column(
                     children: [
-                      _buildOvertimeList(_filteredOvertimes(_allOvertimes),
-                          showActions: false),
-                      _buildOvertimeList(_myOvertimes, showActions: false),
-                      _buildOvertimeList(_filteredOvertimes(_pendingOvertimes),
-                          showActions: true),
-                      _buildStatisticsTab(),
+                      _buildStatsRow(),
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFFEA580C),
+                        unselectedLabelColor: Colors.grey[600],
+                        indicatorColor: const Color(0xFFEA580C),
+                        indicatorWeight: 3,
+                        tabs: const [
+                          Tab(text: 'Tất cả'),
+                          Tab(text: 'Của tôi'),
+                          Tab(text: 'Chờ duyệt'),
+                          Tab(text: 'Thống kê'),
+                        ],
+                      ),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _buildOvertimeList(
+                                      _filteredOvertimes(_allOvertimes),
+                                      showActions: false),
+                                  _buildOvertimeList(_myOvertimes,
+                                      showActions: false),
+                                  _buildOvertimeList(
+                                      _filteredOvertimes(_pendingOvertimes),
+                                      showActions: true),
+                                  _buildStatisticsTab(),
+                                ],
+                              ),
+                      ),
                     ],
                   ),
           ),
@@ -281,13 +297,13 @@ class _OvertimeScreenState extends State<OvertimeScreen>
       child: Row(
         children: [
           _buildMiniStat(
-              'Tổng', '${_allOvertimes.length}', const Color(0xFF1E3A5F)),
+              'Tổng', '${_allOvertimes.length}', HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
           _buildMiniStat('Chờ duyệt', '${_pendingOvertimes.length}',
               const Color(0xFFF59E0B)),
           const SizedBox(width: 12),
           _buildMiniStat('Tổng giờ TC', '${_statistics?['totalHours'] ?? 0}h',
-              const Color(0xFF1E3A5F)),
+              HrmPageChrome.primaryNavy),
         ],
       ),
     );
@@ -330,10 +346,49 @@ class _OvertimeScreenState extends State<OvertimeScreen>
     );
   }
 
+  List<Widget> _overtimeHeaderSections() => [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            onTap: () =>
+                setState(() => _showMobileSummary = !_showMobileSummary),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined,
+                      size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Text('Tổng quan',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.blue.shade700)),
+                  const Spacer(),
+                  Icon(
+                      _showMobileSummary
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                      color: Colors.blue.shade700),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_showMobileSummary) _buildStatsRow(),
+      ];
+
   Widget _buildOvertimeList(List<Map<String, dynamic>> items,
-      {required bool showActions}) {
+      {required bool showActions, bool nestedTab = false}) {
     if (items.isEmpty) {
-      return Center(
+      final empty = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -344,6 +399,18 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           ],
         ),
       );
+      if (nestedTab) {
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle:
+                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverFillRemaining(child: empty),
+          ],
+        );
+      }
+      return empty;
     }
     final totalCount = items.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
@@ -352,6 +419,89 @@ class _OvertimeScreenState extends State<OvertimeScreen>
     final endIndex = (page * _pageSize).clamp(0, totalCount);
     final paginatedItems =
         items.sublist(startIndex.clamp(0, totalCount), endIndex);
+
+    if (nestedTab) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        child: CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle:
+                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: _buildOvertimeDeckItem(paginatedItems[i],
+                          showActions: showActions),
+                    ),
+                  ),
+                  childCount: paginatedItems.length,
+                ),
+              ),
+            ),
+            if (totalPages > 1)
+              SliverToBoxAdapter(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left, size: 20),
+                            onPressed: page > 1
+                                ? () => setState(() => _currentPage--)
+                                : null,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Text('$page / $totalPages',
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w500)),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right, size: 20),
+                            onPressed: page < totalPages
+                                ? () => setState(() => _currentPage++)
+                                : null,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -478,7 +628,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                 child: const Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(Icons.check_circle,
-                        size: 20, color: Color(0xFF1E3A5F))),
+                        size: 20, color: HrmPageChrome.primaryNavy)),
               ),
               InkWell(
                 onTap: () => _rejectOvertime(ot['id']),
@@ -507,10 +657,10 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   'Tổng yêu cầu',
                   '${_statistics?['totalRequests'] ?? 0}',
                   Icons.list_alt,
-                  const Color(0xFF1E3A5F)),
+                  HrmPageChrome.primaryNavy),
               const SizedBox(width: 16),
               _buildStatCard('Đã duyệt', '${_statistics?['approved'] ?? 0}',
-                  Icons.check_circle, const Color(0xFF1E3A5F)),
+                  Icons.check_circle, HrmPageChrome.primaryNavy),
             ],
           ),
           const SizedBox(height: 16),
@@ -557,11 +707,11 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'rejected':
         return const Color(0xFFEF4444);
       case 'completed':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       default:
         return const Color(0xFFF59E0B);
     }

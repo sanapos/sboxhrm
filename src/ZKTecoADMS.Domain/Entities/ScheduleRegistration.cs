@@ -59,9 +59,20 @@ public class ScheduleRegistration : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? RejectionReason { get; set; }
 
+    /// <summary>
+    /// Tổng số cấp duyệt (theo schedule_approval_levels)
+    /// </summary>
+    public int TotalApprovalLevels { get; set; } = 1;
+
+    /// <summary>
+    /// Bước duyệt hiện tại (0 = chưa ai duyệt)
+    /// </summary>
+    public int CurrentApprovalStep { get; set; } = 0;
+
     // Navigation Properties
     public virtual Store Store { get; set; } = null!;
     public virtual Employee Employee { get; set; } = null!;
     public virtual ShiftTemplate? Shift { get; set; }
     public virtual ApplicationUser? ApprovedBy { get; set; }
+    public virtual ICollection<ScheduleApprovalRecord> ApprovalRecords { get; set; } = new List<ScheduleApprovalRecord>();
 }

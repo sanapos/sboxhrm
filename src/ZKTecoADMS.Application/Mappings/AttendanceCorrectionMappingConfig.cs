@@ -28,6 +28,7 @@ public class AttendanceCorrectionMappingConfig : IRegister
             .Map(dest => dest.OldType, src => src.OldType)
             .Map(dest => dest.NewDate, src => src.NewDate)
             .Map(dest => dest.NewTime, src => src.NewTime)
+            .Map(dest => dest.NewPunchType, src => src.NewPunchType)
             .Map(dest => dest.Reason, src => src.Reason)
             .Map(dest => dest.Status, src => src.Status)
             .Map(dest => dest.ApprovedById, src => src.ApprovedById)

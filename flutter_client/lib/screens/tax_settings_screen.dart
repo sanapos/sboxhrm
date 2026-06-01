@@ -1,11 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class TaxSettingsScreen extends StatefulWidget {
   const TaxSettingsScreen({super.key});
 
@@ -149,6 +148,25 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     super.dispose();
   }
 
+  Widget _buildSaveSettingsButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: FilledButton.icon(
+        onPressed: _saveSettings,
+        icon: const Icon(Icons.save, size: 20),
+        label: const Text(
+          'Lưu thiết lập thuế TNCN',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: HrmPageChrome.primaryNavy,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -156,23 +174,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final isMediumScreen = screenWidth >= 800 && screenWidth < 1200;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text('Thuế TNCN', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 18)),
-        leading: Responsive.isMobile(context) ? null : IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => SettingsHubScreen.goBack(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF71717A)),
-            onPressed: () {},
-          ),
-        ],
-      ),
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(title: 'Thuế TNCN'),
       body: _isLoading
           ? const LoadingWidget()
           : SingleChildScrollView(
@@ -180,40 +183,50 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF71717A).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  if (HrmPageChrome.isEmbedded) ...[
+                    _buildSaveSettingsButton(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (!HrmPageChrome.isEmbedded) ...[
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF71717A).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.receipt_long,
+                              color: Color(0xFF71717A), size: 20),
                         ),
-                        child: const Icon(Icons.receipt_long, color: Color(0xFF71717A), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Thiết lập Thuế TNCN',
-                            style: TextStyle(
-                              color: Color(0xFF1E3A5F),
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thiết lập Thuế TNCN',
+                                style: TextStyle(
+                                  color: HrmPageChrome.primaryNavy,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Cấu hình biểu thuế lũy tiến và giảm trừ gia cảnh theo Luật thuế TNCN sửa đổi 2026',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: Color(0xFF71717A), fontSize: 13),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Cấu hình biểu thuế lũy tiến và giảm trừ gia cảnh theo Luật thuế TNCN sửa đổi 2026',
-                            style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Main content - 3 columns
                   if (isWideScreen)
@@ -253,24 +266,10 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                       ],
                     ),
 
-                  const SizedBox(height: 24),
-
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _saveSettings,
-                      icon: const Icon(Icons.save, size: 20),
-                      label: const Text('Lưu thiết lập thuế TNCN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
+                  if (!HrmPageChrome.isEmbedded) ...[
+                    const SizedBox(height: 24),
+                    _buildSaveSettingsButton(),
+                  ],
 
                   const SizedBox(height: 32),
 
@@ -329,7 +328,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   height: isMobile ? 40 : 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -405,8 +404,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                         child: Row(children: [
                           Container(
                             width: 36, height: 36,
-                            decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                            child: Center(child: Text('${index + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)))),
+                            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                            child: Center(child: Text('${index + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: HrmPageChrome.primaryNavy))),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -445,7 +444,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             borderRadius: BorderRadius.only(
                               topLeft: Radius.circular(11),
                               topRight: Radius.circular(11),
@@ -572,10 +571,10 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.person, color: Color(0xFF1E3A5F), size: 20),
+                  child: const Icon(Icons.person, color: HrmPageChrome.primaryNavy, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -647,7 +646,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 },
                 icon: const Icon(Icons.save, size: 18),
                 label: const Text('Lưu'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
           );
@@ -740,7 +739,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF60A5FA)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF60A5FA)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -842,7 +841,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2),
+                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
               ),
               filled: true,
               fillColor: const Color(0xFFFAFAFA),
@@ -941,13 +940,13 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
 
   Widget _buildBracketRow(int level, String prefix, TextEditingController amountController, TextEditingController rateController) {
     final colors = [
-      const Color(0xFF1E3A5F), // Bracket 1
-      const Color(0xFF1E3A5F), // Bracket 2
+      HrmPageChrome.primaryNavy, // Bracket 1
+      HrmPageChrome.primaryNavy, // Bracket 2
       const Color(0xFFF59E0B), // Bracket 3
       const Color(0xFFEF4444), // Bracket 4
       const Color(0xFF7C3AED), // Bracket 5
       const Color(0xFFEC4899), // Bracket 6
-      const Color(0xFF0F2340), // Bracket 7
+      HrmPageChrome.primaryNavy, // Bracket 7
     ];
     final color = colors[level - 1];
 
@@ -1031,7 +1030,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
   }
 
   Widget _buildBracketRow7() {
-    const color = Color(0xFF0F2340);
+    const color = HrmPageChrome.primaryNavy;
     final amount6 = parseFormattedNumber(_bracket6AmountController.text)?.toDouble() ?? 80000000;
 
     return Wrap(
@@ -1142,7 +1141,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1188,7 +1187,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(11),
                         topRight: Radius.circular(11),
@@ -1221,13 +1220,13 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
 
   Widget _buildSummaryRow(int level, String range, double rate, bool isAlt, {bool isLast = false}) {
     final colors = [
-      const Color(0xFF1E3A5F),
-      const Color(0xFF1E3A5F),
+      HrmPageChrome.primaryNavy,
+      HrmPageChrome.primaryNavy,
       const Color(0xFFF59E0B),
       const Color(0xFFEF4444),
       const Color(0xFF7C3AED),
       const Color(0xFFEC4899),
-      const Color(0xFF0F2340),
+      HrmPageChrome.primaryNavy,
     ];
     final color = colors[level - 1];
 

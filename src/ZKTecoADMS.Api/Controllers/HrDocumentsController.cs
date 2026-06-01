@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.HrDocuments.CreateHrDocument;
 using ZKTecoADMS.Application.Commands.HrDocuments.UpdateHrDocument;
@@ -17,13 +18,15 @@ namespace ZKTecoADMS.Api.Controllers;
 public class HrDocumentsController(IMediator mediator) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Lấy danh sách tài liệu HR
+    /// Láº¥y danh sÃ¡ch tÃ i liá»‡u HR
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("HrDocument", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<HrDocumentDto>>>> GetHrDocuments(
         [FromQuery] PaginationRequest request,
         [FromQuery] Guid? employeeUserId = null,
+        [FromQuery] Guid? employeeId = null,
         [FromQuery] HrDocumentType? documentType = null,
         [FromQuery] bool? expiredOnly = null,
         [FromQuery] bool? expiringOnly = null,
@@ -33,6 +36,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
             RequiredStoreId,
             request,
             employeeUserId,
+            employeeId,
             documentType,
             expiredOnly,
             expiringOnly,
@@ -42,10 +46,11 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Lấy danh sách tài liệu sắp hết hạn
+    /// Láº¥y danh sÃ¡ch tÃ i liá»‡u sáº¯p háº¿t háº¡n
     /// </summary>
     [HttpGet("expiring")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("HrDocument", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ExpiringDocumentDto>>>> GetExpiringDocuments(
         [FromQuery] int daysAhead = 30)
     {
@@ -55,10 +60,11 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Tạo tài liệu mới
+    /// Táº¡o tÃ i liá»‡u má»›i
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("HrDocument", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<Guid>>> CreateHrDocument(
         [FromBody] CreateHrDocumentDto request)
     {
@@ -66,6 +72,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
             RequiredStoreId,
             CurrentUserId,
             request.EmployeeUserId,
+            request.EmployeeId,
             request.Name,
             request.Description,
             request.DocumentType,
@@ -84,10 +91,11 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Cập nhật tài liệu
+    /// Cáº­p nháº­t tÃ i liá»‡u
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("HrDocument", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> UpdateHrDocument(
         Guid id,
         [FromBody] UpdateHrDocumentDto request)
@@ -109,10 +117,11 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Xóa tài liệu
+    /// XÃ³a tÃ i liá»‡u
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("HrDocument", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteHrDocument(Guid id)
     {
         var command = new DeleteHrDocumentCommand(RequiredStoreId, id);
@@ -120,3 +129,4 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
         return Ok(result);
     }
 }
+

@@ -21,7 +21,8 @@ public class EmployeeOperationService(ILogger<EmployeeOperationService> logger) 
     private const string TIMEZONE_KEY = "TZ";
     private const string VERIFY_KEY = "Verify";
     private const string VICECARD_KEY = "ViceCard";
-    private const int MIN_FIELDS = 6; // At least PIN, Name, Passwd, Card, Grp, and Pri
+    // Chỉ bắt buộc PIN + Name; một số firmware gửi ít field hơn (Card/Grp/TZ có thể thiếu)
+    private const int MIN_FIELDS = 2;
 
     /// <summary>
     /// Parses and processes employee data from device OPERLOG format.
@@ -41,9 +42,19 @@ public class EmployeeOperationService(ILogger<EmployeeOperationService> logger) 
 
     private static List<string> ExtractEmployeeLines(string body)
     {
-        return body.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
-                   .Where(line => !string.IsNullOrWhiteSpace(line) && line.TrimStart().StartsWith(USER_PREFIX))
-                   .ToList();
+        var lines = body.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => line.Trim())
+            .ToList();
+
+        var operLogLines = lines.Where(l => l.StartsWith(USER_PREFIX, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (operLogLines.Count > 0)
+        {
+            return operLogLines;
+        }
+
+        // POST table=USERINFO: mỗi dòng PIN=...\tName=... (không có tiền tố USER)
+        return lines.Where(l => l.Contains($"{PIN_KEY}=", StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     private async Task<List<DeviceUser>> ProcessEmployeeLinesAsync(Device device, List<string> employeeLines)
@@ -92,20 +103,21 @@ public class EmployeeOperationService(ILogger<EmployeeOperationService> logger) 
         {
             var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            // Remove "USER " prefix and split by tabs
-            var content = line.Substring(USER_PREFIX.Length).TrimStart();
-            var parts = content.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+            var content = line.TrimStart();
+            if (content.StartsWith(USER_PREFIX, StringComparison.OrdinalIgnoreCase))
+            {
+                content = content.Substring(USER_PREFIX.Length).TrimStart();
+            }
 
+            var parts = content.Split('\t', StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 var keyValue = part.Split('=', 2);
                 if (keyValue.Length != 2) continue;
-                var key = keyValue[0].Trim();
-                var value = keyValue[1].Trim();
-                fields[key] = value;
+                fields[keyValue[0].Trim()] = keyValue[1].Trim();
             }
 
-            return fields;
+            return fields.Count > 0 ? fields : null;
         }
         catch (Exception ex)
         {
@@ -129,13 +141,7 @@ public class EmployeeOperationService(ILogger<EmployeeOperationService> logger) 
             return false;
         }
 
-        if (fields.Count >= MIN_FIELDS) 
-            return true;
-        
-        logger.LogWarning("Employee record has fewer than minimum required fields ({Min}). PIN: {PIN}",
-            MIN_FIELDS, fields.GetValueOrDefault(PIN_KEY));
-        return false;
-
+        return true;
     }
 
     private DeviceUser? ExtractEmployeeData(Dictionary<string, string> fields, Guid deviceId)

@@ -6,5 +6,6 @@ public record GetMealRecordsQuery(
     Guid StoreId,
     DateTime Date,
     Guid? MealSessionId,
-    PaginationRequest PaginationRequest
+    PaginationRequest PaginationRequest,
+    string? SearchTerm = null
 ) : IQuery<AppResponse<PagedResult<MealRecordDto>>>;

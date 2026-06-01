@@ -12,8 +12,10 @@ import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
@@ -55,7 +57,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   AssetType? _typeFilter;
   String? _categoryFilter;
   bool _showFilters = false;
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   // Selection
@@ -274,7 +275,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         content: Text(message),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: confirmColor, foregroundColor: Colors.white),
             child: Text(confirmText),
@@ -346,7 +347,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: _isLoading ? const LoadingWidget() : _buildBody(),
     );
   }
@@ -408,7 +409,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isActive ? const Color(0xFF1E3A5F) : Colors.transparent,
+                      color: isActive ? HrmPageChrome.primaryNavy : Colors.transparent,
                       width: 2,
                     ),
                   ),
@@ -416,14 +417,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFF71717A)),
+                    Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
                     const SizedBox(width: 6),
                     Text(
                       tab.$2,
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
                         fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+                        color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
                       ),
                     ),
                   ],
@@ -440,54 +441,81 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final isMobile = Responsive.isMobile(context);
     final hasPanel = _showTransfers || _showCategories;
 
-    return isMobile && hasPanel
-        ? _buildActivePanel()
+    if (isMobile && hasPanel) return _buildActivePanel();
+
+    final listLayout = HrmResponsiveListLayout(
+      padding: isMobile
+          ? const EdgeInsets.fromLTRB(12, 8, 12, 0)
+          : EdgeInsets.zero,
+      headerSections: _productTabHeaderSections(isMobile),
+      desktopBody: Column(
+        children: [
+          Expanded(child: _buildAssetTable()),
+          _buildPagination(),
+        ],
+      ),
+      mobileSlivers: (_) => _productTabMobileSlivers(),
+    );
+
+    return isMobile
+        ? listLayout
         : Row(
             children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    if (isMobile) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                        child: InkWell(
-                          onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
-                                const SizedBox(width: 6),
-                                Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
-                                const Spacer(),
-                                Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_showMobileSummary) _buildStatCards(),
-                    ] else ...[
-                      _buildStatCards(),
-                    ],
-                    if (!isMobile || _showMobileFilters) ...[
-                      _buildToolbar(),
-                      if (_showFilters) _buildFilterBar(),
-                    ],
-                    Expanded(child: _buildAssetTable()),
-                    if (!isMobile) _buildPagination(),
-                  ],
-                ),
-              ),
+              Expanded(child: listLayout),
               if (_showTransfers) _buildTransfersPanel(),
               if (_showCategories) _buildCategoriesPanel(),
             ],
           );
+  }
+
+  List<Widget> _productTabHeaderSections(bool isMobile) => [
+        if (isMobile) ...[
+          InkWell(
+            onTap: () =>
+                setState(() => _showMobileSummary = !_showMobileSummary),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined,
+                      size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Text('Tổng quan',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.blue.shade700)),
+                  const Spacer(),
+                  Icon(
+                      _showMobileSummary
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                      color: Colors.blue.shade700),
+                ],
+              ),
+            ),
+          ),
+          if (_showMobileSummary) _buildStatCards(),
+        ] else
+          _buildStatCards(),
+        _buildToolbar(),
+        if (_showFilters) _buildFilterBar(),
+      ];
+
+  List<Widget> _productTabMobileSlivers() {
+    return [
+      SliverFillRemaining(
+        hasScrollBody: true,
+        child: _buildAssetTable(),
+      ),
+    ];
   }
 
   Widget _buildInventoryTab() {
@@ -518,10 +546,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.fact_check_outlined, size: 20, color: Color(0xFF1E3A5F)),
+                  child: const Icon(Icons.fact_check_outlined, size: 20, color: HrmPageChrome.primaryNavy),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -534,12 +562,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: () => _showInventoryDialog(),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Tạo mới', style: TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white,
+                    backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     elevation: 0,
@@ -654,7 +682,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _stockSummaryCard('Tổng SP', '${summary.totalProducts}', Icons.inventory_2, const Color(0xFF1E3A5F)),
+                  _stockSummaryCard('Tổng SP', '${summary.totalProducts}', Icons.inventory_2, HrmPageChrome.primaryNavy),
                   _stockSummaryCard('Tổng tồn kho', '${summary.totalStockQuantity}', Icons.warehouse, const Color(0xFF059669)),
                   _stockSummaryCard('Đã nhập', '+${summary.totalStockIn}', Icons.arrow_downward, const Color(0xFF2563EB)),
                   _stockSummaryCard('Đã xuất', '-${summary.totalStockOut}', Icons.arrow_upward, const Color(0xFFEF4444)),
@@ -667,7 +695,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     onPressed: () => _showStockDialog(isStockIn: true),
                     icon: const Icon(Icons.add_box, size: 20),
                     label: const Text('Nhập kho'),
@@ -680,7 +708,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     onPressed: () => _showStockDialog(isStockIn: false),
                     icon: const Icon(Icons.outbox, size: 20),
                     label: const Text('Xuất kho'),
@@ -943,7 +971,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
-              ElevatedButton(
+              FilledButton(
                 onPressed: isSubmitting ? null : () async {
                   if (selectedAssetId == null || qtyCtrl.text.isEmpty || reasonCtrl.text.isEmpty) {
                     NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng điền đầy đủ SP, SL và lý do');
@@ -995,7 +1023,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.inventory_2, color: Color(0xFF1E3A5F), size: 22),
+            const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 22),
             const SizedBox(width: 8),
             Expanded(child: Text(asset.name, style: const TextStyle(fontSize: 16), overflow: TextOverflow.ellipsis)),
           ],
@@ -1068,7 +1096,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             color: Colors.white,
             child: Row(
               children: [
-                const Icon(Icons.history, size: 20, color: Color(0xFF1E3A5F)),
+                const Icon(Icons.history, size: 20, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 const Text('Lịch sử giao dịch', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const Spacer(),
@@ -1203,7 +1231,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.inventory_2, color: Color(0xFF1E3A5F), size: 28),
+          const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -1213,7 +1241,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           if (isMobile) ...[
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Color(0xFF1E3A5F)),
+              icon: const Icon(Icons.more_vert, color: HrmPageChrome.primaryNavy),
               tooltip: 'Thêm',
               onSelected: (v) {
                 if (v == 'transfers') {
@@ -1234,24 +1262,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             ),
             IconButton(
               onPressed: _showQrScanDialog,
-              icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF1E3A5F)),
+              icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
               tooltip: 'Quét QR tài sản',
-            ),
-            IconButton(
-              onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-              icon: Stack(
-                children: [
-                  Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: const Color(0xFF1E3A5F)),
-                  if (_hasActiveFilters || _searchQuery != null)
-                    Positioned(right: 0, top: 0, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
-                ],
-              ),
-              tooltip: 'Bộ lọc',
             ),
             if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
             IconButton(
               onPressed: () => _showAssetDialog(),
-              icon: const Icon(Icons.add, color: Color(0xFF1E3A5F), size: 22),
+              icon: const Icon(Icons.add, color: HrmPageChrome.primaryNavy, size: 22),
               tooltip: 'Thêm tài sản',
             ),
           ] else ...[
@@ -1283,7 +1300,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           }),
           const SizedBox(width: 16),
           // QR Scan button
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: _showQrScanDialog,
             icon: const Icon(Icons.qr_code_scanner, size: 18),
             label: const Text('Quét QR'),
@@ -1296,12 +1313,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           const SizedBox(width: 8),
           if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showAssetDialog(),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Thêm tài sản'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
+              backgroundColor: HrmPageChrome.primaryNavy,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1315,7 +1332,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   Widget _buildHeaderAction(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Material(
-      color: isActive ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : Colors.transparent,
+      color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -1325,12 +1342,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFF71717A)),
+              Icon(icon, size: 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
               const SizedBox(width: 6),
               Text(label, style: TextStyle(
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+                color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
               )),
             ],
           ),
@@ -1346,11 +1363,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: LayoutBuilder(builder: (context, constraints) {
         final chips = [
-          _buildStatChip('Tổng', stats?.totalAssets ?? 0, const Color(0xFF1E3A5F), Icons.inventory_2),
-          _buildStatChip('Đang dùng', stats?.activeAssets ?? 0, const Color(0xFF1E3A5F), Icons.check_circle),
-          _buildStatChip('Trong kho', stats?.inStockAssets ?? 0, const Color(0xFF1E3A5F), Icons.warehouse),
+          _buildStatChip('Tổng', stats?.totalAssets ?? 0, HrmPageChrome.primaryNavy, Icons.inventory_2),
+          _buildStatChip('Đang dùng', stats?.activeAssets ?? 0, HrmPageChrome.primaryNavy, Icons.check_circle),
+          _buildStatChip('Trong kho', stats?.inStockAssets ?? 0, HrmPageChrome.primaryNavy, Icons.warehouse),
           _buildStatChip('Đã cấp', stats?.assignedAssets ?? 0, const Color(0xFFF59E0B), Icons.person),
-          _buildStatChip('Bảo trì', stats?.maintenanceAssets ?? 0, const Color(0xFF0F2340), Icons.build),
+          _buildStatChip('Bảo trì', stats?.maintenanceAssets ?? 0, HrmPageChrome.primaryNavy, Icons.build),
           _buildStatChip('Hỏng', stats?.brokenAssets ?? 0, const Color(0xFFEF4444), Icons.error),
         ];
 
@@ -1510,14 +1527,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
     final filterToggle = Material(
       color: _showFilters || _hasActiveFilters
-          ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
           : Colors.white,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
@@ -1527,22 +1544,22 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _hasActiveFilters ? const Color(0xFF1E3A5F) : const Color(0xFFE4E4E7)),
+            border: Border.all(color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.filter_list, size: 18, color: _hasActiveFilters ? const Color(0xFF1E3A5F) : const Color(0xFF71717A)),
+              Icon(Icons.filter_list, size: 18, color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
               const SizedBox(width: 6),
               Text('Bộ lọc', style: TextStyle(
                 fontSize: 13,
-                color: _hasActiveFilters ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+                color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
               )),
               if (_hasActiveFilters) ...[
                 const SizedBox(width: 6),
                 Container(
                   width: 8, height: 8,
-                  decoration: const BoxDecoration(color: Color(0xFF1E3A5F), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(color: HrmPageChrome.primaryNavy, shape: BoxShape.circle),
                 ),
               ],
             ],
@@ -1560,17 +1577,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${_selectedAssetIds.length} đã chọn', style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500, fontSize: 13)),
+                Text('${_selectedAssetIds.length} đã chọn', style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500, fontSize: 13)),
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () => setState(() => _selectedAssetIds.clear()),
-                  child: const Icon(Icons.close, size: 16, color: Color(0xFF1E3A5F)),
+                  child: const Icon(Icons.close, size: 16, color: HrmPageChrome.primaryNavy),
                 ),
               ],
             ),
@@ -1666,7 +1683,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: value != null ? const Color(0xFF1E3A5F) : const Color(0xFFE4E4E7)),
+        border: Border.all(color: value != null ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -1754,7 +1771,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       const SizedBox(width: 4),
                       Text(
                         asset.assetCode,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(width: 10),
                       _buildStatusBadge(asset.status),
@@ -1797,10 +1814,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(getAssetTypeLabel(asset.assetType), style: const TextStyle(fontSize: 10, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500)),
+                            child: Text(getAssetTypeLabel(asset.assetType), style: const TextStyle(fontSize: 10, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500)),
                           ),
                           if (asset.brand != null) ...[
                             const SizedBox(width: 6),
@@ -1873,7 +1890,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         DataCell(Center(
           child: InkWell(
             onTap: () => _showAssetDetail(asset),
-            child: Text(asset.assetCode, style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600, fontSize: 13)),
+            child: Text(asset.assetCode, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         )),
         // Name + serial
@@ -1903,10 +1920,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.15),
+                      backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
                       child: Text(
                         asset.currentAssigneeName![0].toUpperCase(),
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F)),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -2124,7 +2141,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         children: [
           _buildPanelHeader('Danh mục', Icons.category, () => setState(() => _showCategories = false),
             action: IconButton(
-              icon: const Icon(Icons.add, size: 20, color: Color(0xFF1E3A5F)),
+              icon: const Icon(Icons.add, size: 20, color: HrmPageChrome.primaryNavy),
               onPressed: () => _showCategoryDialog(),
               tooltip: 'Thêm danh mục',
             ),
@@ -2154,7 +2171,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         children: [
           _buildPanelHeader('Kiểm kê', Icons.checklist, () => setState(() => _showInventories = false),
             action: IconButton(
-              icon: const Icon(Icons.add, size: 20, color: Color(0xFF1E3A5F)),
+              icon: const Icon(Icons.add, size: 20, color: HrmPageChrome.primaryNavy),
               onPressed: () => _showInventoryDialog(),
               tooltip: 'Tạo đợt kiểm kê',
             ),
@@ -2181,7 +2198,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFF1E3A5F)),
+          Icon(icon, size: 20, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
           Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
           const Spacer(),
@@ -2222,14 +2239,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('Xác nhận', style: TextStyle(fontSize: 11, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+                    child: const Text('Xác nhận', style: TextStyle(fontSize: 11, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
                   ),
                 )
               else
-                const Icon(Icons.check_circle, size: 16, color: Color(0xFF1E3A5F)),
+                const Icon(Icons.check_circle, size: 16, color: HrmPageChrome.primaryNavy),
             ],
           ),
           const SizedBox(height: 6),
@@ -2270,7 +2287,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           child: Row(
             children: [
-              Icon(level > 0 ? Icons.subdirectory_arrow_right : Icons.folder, size: 16, color: const Color(0xFF1E3A5F)),
+              Icon(level > 0 ? Icons.subdirectory_arrow_right : Icons.folder, size: 16, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -2457,7 +2474,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Row(
@@ -2483,21 +2500,21 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== Colors ====================
   Color _getStatusColor(AssetStatus status) {
     switch (status) {
-      case AssetStatus.active: return const Color(0xFF1E3A5F);
+      case AssetStatus.active: return HrmPageChrome.primaryNavy;
       case AssetStatus.inMaintenance: return const Color(0xFFF59E0B);
       case AssetStatus.broken: return const Color(0xFFEF4444);
       case AssetStatus.disposed: return const Color(0xFFA1A1AA);
-      case AssetStatus.lost: return const Color(0xFF0F2340);
-      case AssetStatus.inStock: return const Color(0xFF1E3A5F);
+      case AssetStatus.lost: return HrmPageChrome.primaryNavy;
+      case AssetStatus.inStock: return HrmPageChrome.primaryNavy;
     }
   }
 
   Color _getTransferTypeColor(AssetTransferType type) {
     switch (type) {
-      case AssetTransferType.assignment: return const Color(0xFF1E3A5F);
+      case AssetTransferType.assignment: return HrmPageChrome.primaryNavy;
       case AssetTransferType.transfer: return const Color(0xFFF59E0B);
-      case AssetTransferType.returnAsset: return const Color(0xFF1E3A5F);
-      case AssetTransferType.maintenance: return const Color(0xFF0F2340);
+      case AssetTransferType.returnAsset: return HrmPageChrome.primaryNavy;
+      case AssetTransferType.maintenance: return HrmPageChrome.primaryNavy;
       case AssetTransferType.disposal: return const Color(0xFFEF4444);
     }
   }
@@ -2560,7 +2577,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               Expanded(child: _dialogField(label, ctrl)),
               const SizedBox(width: 6),
               Material(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
                 child: InkWell(
                   onTap: () => scanQrForField(ctrl, setDialogState),
@@ -2568,7 +2585,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: Container(
                     width: 44, height: 44,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1E3A5F), size: 22),
+                    child: const Icon(Icons.qr_code_scanner_rounded, color: HrmPageChrome.primaryNavy, size: 22),
                   ),
                 ),
               ),
@@ -2749,7 +2766,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
                       ),
                       const SizedBox(width: 12),
-                      ElevatedButton(
+                      FilledButton(
                         onPressed: () => _saveAsset(
                           context, isEdit: isEdit, assetId: asset?.id,
                           code: codeCtrl.text, name: nameCtrl.text, description: descCtrl.text,
@@ -2762,7 +2779,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           purchaseDate: purchaseDate, images: pickedImages,
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A5F),
+                          backgroundColor: HrmPageChrome.primaryNavy,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -2804,7 +2821,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(isEdit ? Icons.edit : Icons.add_circle, color: const Color(0xFF1E3A5F)),
+                        Icon(isEdit ? Icons.edit : Icons.add_circle, color: HrmPageChrome.primaryNavy),
                         const SizedBox(width: 10),
                         Text(isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const Spacer(),
@@ -3088,11 +3105,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     ),
                     const Spacer(),
                     if (asset.currentAssigneeId == null)
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: () { Navigator.pop(context); _showAssignDialog(asset); },
                         icon: const Icon(Icons.person_add, size: 16),
                         label: const Text('Cấp phát'),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+                        style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                       ),
                     if (asset.currentAssigneeId != null) ...[
                       OutlinedButton.icon(
@@ -3101,7 +3118,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         label: const Text('Chuyển giao'),
                       ),
                       const SizedBox(width: 8),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: () { Navigator.pop(context); _showReturnDialog(asset); },
                         icon: const Icon(Icons.keyboard_return, size: 16),
                         label: const Text('Thu hồi'),
@@ -3146,10 +3163,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.inventory_2, color: Color(0xFF1E3A5F)),
+                        child: const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -3157,7 +3174,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              Text(asset.assetCode, style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text(asset.assetCode, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
                               const SizedBox(width: 8),
                               _buildStatusBadge(asset.status),
                             ]),
@@ -3268,9 +3285,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 children: [
                   TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
                   const SizedBox(width: 12),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: onSave,
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     child: Text(isEdit ? 'Cập nhật' : 'Thêm'),
                   ),
                 ],
@@ -3452,7 +3469,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               }
                             }),
                             child: Row(children: [
-                              Icon(itemQuantities.length == allAssets.length ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: const Color(0xFF1E3A5F)),
+                              Icon(itemQuantities.length == allAssets.length ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 6),
                               const Text('Chọn tất cả', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                             ]),
@@ -3460,8 +3477,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                            child: Text('Đã chọn: $selectedCount', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                            child: Text('Đã chọn: $selectedCount', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
                           ),
                         ],
                       ),
@@ -3520,7 +3537,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                 itemQuantities[asset.id] = asset.quantity;
                                               }
                                             }),
-                                            child: Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
+                                            child: Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA)),
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(
@@ -3558,7 +3575,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                   isDense: true,
                                                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF1E3A5F))),
+                                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                                                 ),
                                                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                                 onChanged: (v) {
@@ -3742,7 +3759,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
                   const SizedBox(width: 12),
                   if (step == 0)
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: () {
                         if (nameCtrl.text.isEmpty) {
                           NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập tên đợt kiểm kê');
@@ -3753,10 +3770,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       },
                       icon: const Icon(Icons.arrow_forward, size: 18),
                       label: const Text('Chọn hàng hóa'),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     ),
                   if (step == 1)
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: (selectedCount == 0 || isCreating) ? null : () async {
                         setDialogState(() => isCreating = true);
                         try {
@@ -3811,7 +3828,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       },
                       icon: isCreating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check, size: 18),
                       label: Text('Tạo ($selectedCount)'),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     ),
                 ],
               ),
@@ -3825,7 +3842,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               child: Row(
                 children: [
                   _stepDot(0, step, 'Thông tin'),
-                  Expanded(child: Container(height: 1, color: step >= 1 ? const Color(0xFF1E3A5F) : const Color(0xFFE4E4E7))),
+                  Expanded(child: Container(height: 1, color: step >= 1 ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7))),
                   _stepDot(1, step, 'Chọn hàng hóa'),
                 ],
               ),
@@ -3865,7 +3882,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                     child: Row(children: [
-                      const Icon(Icons.checklist, color: Color(0xFF1E3A5F), size: 22),
+                      const Icon(Icons.checklist, color: HrmPageChrome.primaryNavy, size: 22),
                       const SizedBox(width: 8),
                       const Expanded(child: Text('Tạo đợt kiểm kê mới', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
                       IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(context)),
@@ -3899,14 +3916,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         Container(
           width: 24, height: 24,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF1E3A5F) : Colors.white,
+            color: isActive ? HrmPageChrome.primaryNavy : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFFD4D4D8), width: 2),
+            border: Border.all(color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFD4D4D8), width: 2),
           ),
           child: Center(child: Text('${index + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : const Color(0xFFA1A1AA)))),
         ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA))),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))),
       ],
     );
   }
@@ -3950,7 +3967,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () async {
                         if (selectedUserId == null) {
                           NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn người nhận');
@@ -3967,7 +3984,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                       child: const Text('Cấp phát'),
                     ),
                   ],
@@ -4051,7 +4068,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () async {
                         if (selectedUserId == null) {
                           NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn người nhận');
@@ -4152,7 +4169,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () async {
                         final result = await _apiService.returnAsset(assetId: asset.id, fromUserId: asset.currentAssigneeId!, reason: reasonCtrl.text.isNotEmpty ? reasonCtrl.text : null, notes: notesCtrl.text.isNotEmpty ? notesCtrl.text : null, returnCondition: condition.index);
                         if (!context.mounted) return;
@@ -4238,7 +4255,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         content: Text('Bạn có chắc muốn xóa tài sản "${asset.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
             child: const Text('Xóa'),
@@ -4267,7 +4284,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         content: Text('Bạn có chắc muốn xóa danh mục "${category.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
             child: const Text('Xóa'),
@@ -4296,9 +4313,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         content: Text('Bạn xác nhận đã nhận tài sản "${transfer.assetName ?? 'Tài sản'}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             child: const Text('Xác nhận'),
           ),
         ],
@@ -4333,7 +4350,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         fillColor: const Color(0xFFFAFAFA),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
@@ -4347,7 +4364,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       fillColor: const Color(0xFFFAFAFA),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     );
   }
@@ -4425,7 +4442,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                color: Color(0xFF1E3A5F),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(
@@ -4461,13 +4478,13 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton(
+                            child: FilledButton(
                               onPressed: () {
                                 final v = _manualController.text.trim();
                                 if (v.isNotEmpty) widget.onAssetScanned(v);
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white,
+                                backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
@@ -4704,7 +4721,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             title: Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
-                color: Color(0xFF1E3A5F),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Column(
@@ -4874,9 +4891,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
-              ElevatedButton(
+              FilledButton(
                 onPressed: !hasEnteredQty ? null : () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                 child: Text(hasEnteredQty ? 'Xác nhận' : 'Nhập số lượng'),
               ),
             ],
@@ -4930,9 +4947,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           content: Text('Còn $unchecked hàng hóa chưa kiểm. Bạn có chắc muốn hoàn thành?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F), foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               child: const Text('Hoàn thành'),
             ),
           ],
@@ -5020,7 +5037,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF1E3A5F).withValues(alpha: 0.05), const Color(0xFF1E3A5F).withValues(alpha: 0.02)],
+          colors: [HrmPageChrome.primaryNavy.withValues(alpha: 0.05), HrmPageChrome.primaryNavy.withValues(alpha: 0.02)],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(10),
@@ -5030,9 +5047,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         children: [
           Row(
             children: [
-              const Icon(Icons.assessment, size: 18, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.assessment, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 6),
-              const Text('Báo cáo kiểm kê', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E3A5F))),
+              const Text('Báo cáo kiểm kê', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
               const Spacer(),
               Text('${s['checkedCount']}/${_inventory.totalAssets} đã kiểm', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
             ],
@@ -5132,7 +5149,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                  colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 0 : 16)),
@@ -5240,7 +5257,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: _isScanning ? null : _startQrScan,
                         icon: const Icon(Icons.qr_code_scanner, size: 18),
                         label: const Text('Quét mã', style: TextStyle(fontSize: 13)),
@@ -5260,13 +5277,13 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       color: const Color(0xFF3B82F6),
                     ),
                     const SizedBox(width: 6),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: _completeInventory,
                       icon: const Icon(Icons.check_circle_outline, size: 16),
                       label: const Text('Hoàn thành', style: TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        backgroundColor: const Color(0xFF1E3A5F),
+                        backgroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         elevation: 0,
@@ -5399,7 +5416,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Row(
@@ -5605,7 +5622,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           if (!checked && _inventory.isInProgress)
             IconButton(
               onPressed: () => _checkItemManually(item),
-              icon: const Icon(Icons.edit_note, size: 20, color: Color(0xFF1E3A5F)),
+              icon: const Icon(Icons.edit_note, size: 20, color: HrmPageChrome.primaryNavy),
               tooltip: 'Kiểm kê',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

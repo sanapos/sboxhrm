@@ -1,12 +1,14 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -94,10 +96,11 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     #endregion
 
     /// <summary>
-    /// Lấy danh sách phiếu phạt (có phân trang, lọc)
+    /// Láº¥y danh sÃ¡ch phiáº¿u pháº¡t (cÃ³ phÃ¢n trang, lá»c)
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltyTicketListResponse>>> GetPenaltyTickets(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -105,7 +108,9 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         [FromQuery] PenaltyTicketStatus? status = null,
         [FromQuery] PenaltyTicketType? type = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
         var query = dbContext.PenaltyTickets
@@ -114,6 +119,21 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             .Include(pt => pt.CashTransaction)
             .Where(pt => pt.StoreId == storeId && pt.Deleted == null)
             .AsQueryable();
+
+        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+            dbContext, storeId, branchId, includeChildBranches);
+        if (branchScope != null)
+        {
+            if (branchScope.IsEmpty)
+            {
+                return Ok(AppResponse<PenaltyTicketListResponse>.Success(new PenaltyTicketListResponse
+                {
+                    Page = page,
+                    PageSize = pageSize
+                }));
+            }
+            query = query.Where(pt => branchScope.EmployeeIds.Contains(pt.EmployeeId));
+        }
 
         if (employeeId.HasValue)
             query = query.Where(pt => pt.EmployeeId == employeeId.Value);
@@ -178,10 +198,11 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Lấy chi tiết phiếu phạt
+    /// Láº¥y chi tiáº¿t phiáº¿u pháº¡t
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> GetPenaltyTicket(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -192,7 +213,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
         var dto = new PenaltyTicketDto
         {
@@ -225,28 +246,42 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Hủy phiếu phạt (chỉ khi đang Pending)
+    /// Há»§y phiáº¿u pháº¡t (Pending / Approved / AutoApproved). Nếu có phiếu thu liên kết → hủy luôn phiếu thu.
     /// </summary>
     [HttpPost("{id}/cancel")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> CancelPenaltyTicket(Guid id, [FromBody] CancelPenaltyRequest request)
     {
         var storeId = RequiredStoreId;
         var ticket = await dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
+            .Include(pt => pt.CashTransaction)
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
-        if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể hủy phiếu phạt đang chờ duyệt"));
+        if (ticket.Status == PenaltyTicketStatus.Cancelled)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ há»§y"));
+
+        if (ticket.Status != PenaltyTicketStatus.Pending
+            && ticket.Status != PenaltyTicketStatus.Approved
+            && ticket.Status != PenaltyTicketStatus.AutoApproved)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("KhÃ´ng thá»ƒ há»§y phiáº¿u pháº¡t á»Ÿ tráº¡ng thÃ¡i hiá»‡n táº¡i"));
 
         ticket.Status = PenaltyTicketStatus.Cancelled;
         ticket.CancellationReason = request.Reason;
         ticket.ProcessedById = CurrentUserId;
         ticket.ProcessedDate = DateTime.Now;
         ticket.UpdatedAt = DateTime.Now;
+
+        var linkedCash = ticket.CashTransaction
+            ?? await PenaltyTicketFinanceHelper.ResolveLinkedCashTransactionAsync(dbContext, ticket);
+        if (PenaltyTicketFinanceHelper.CancelLinkedCashTransaction(linkedCash, request.Reason))
+            dbContext.Update(linkedCash!);
+
+        await CancelLinkedAttendancePenaltyTransactionsAsync(ticket);
 
         dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
@@ -257,8 +292,8 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Phiếu phạt đã bị hủy",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã bị hủy.",
+                    "Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ há»§y",
+                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ bá»‹ há»§y.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -274,10 +309,11 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Duyệt phiếu phạt thủ công → tạo phiếu thu ngay
+    /// Duyá»‡t phiáº¿u pháº¡t thá»§ cÃ´ng â†’ táº¡o phiáº¿u thu ngay
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> ApprovePenaltyTicket(Guid id, [FromBody] ApprovePenaltyRequest? request)
     {
         var storeId = RequiredStoreId;
@@ -286,18 +322,18 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể duyệt phiếu phạt đang chờ duyệt"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ duyá»‡t phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
 
         ticket.Status = PenaltyTicketStatus.Approved;
         ticket.ProcessedById = CurrentUserId;
         ticket.ProcessedDate = DateTime.Now;
         ticket.UpdatedAt = DateTime.Now;
 
-        // Tạo phiếu thu
-        var cashTransaction = await CreateCashTransactionAsync(ticket);
+        var cashTransaction = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
+            dbContext, ticket, CurrentUserId);
         ticket.CashTransactionId = cashTransaction.Id;
 
         dbContext.Update(ticket);
@@ -309,8 +345,8 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã được duyệt",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được duyệt.",
+                    "Phiáº¿u pháº¡t Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t",
+                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -327,27 +363,32 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Thống kê phiếu phạt theo tháng hoặc theo khoảng ngày
+    /// Thá»‘ng kÃª phiáº¿u pháº¡t theo thÃ¡ng hoáº·c theo khoáº£ng ngÃ y
     /// </summary>
     [HttpGet("stats")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltyStatsSummary>>> GetPenaltyStats(
         [FromQuery] int? month = null,
         [FromQuery] int? year = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
-        var now = DateTime.Now;
+        // Use VN-local "now" instead of DateTime.Now: Linux containers run in UTC, and at
+        // 00:00â€“07:00 VN that would point at the wrong month/year.
+        var now = DateTime.UtcNow.AddHours(7);
 
-        // Base query — todos os filtros comuns
+        // Base query â€” todos os filtros comuns
         var query = dbContext.PenaltyTickets
             .Where(pt => pt.StoreId == storeId && pt.Deleted == null)
             .AsQueryable();
 
         if (fromDate.HasValue || toDate.HasValue)
         {
-            // Lọc theo khoảng ngày tường minh (fromDate/toDate) khi được cung cấp.
+            // Lá»c theo khoáº£ng ngÃ y tÆ°á»ng minh (fromDate/toDate) khi Ä‘Æ°á»£c cung cáº¥p.
             if (fromDate.HasValue)
                 query = query.Where(pt => pt.ViolationDate >= fromDate.Value.Date);
             if (toDate.HasValue)
@@ -355,12 +396,21 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         }
         else
         {
-            // Fallback: lọc theo tháng/năm
+            // Fallback: lá»c theo thÃ¡ng/nÄƒm
             var targetMonth = month ?? now.Month;
             var targetYear = year ?? now.Year;
             var monthStart = new DateTime(targetYear, targetMonth, 1);
             var monthEnd = monthStart.AddMonths(1);
             query = query.Where(pt => pt.ViolationDate >= monthStart && pt.ViolationDate < monthEnd);
+        }
+
+        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+            dbContext, storeId, branchId, includeChildBranches);
+        if (branchScope != null)
+        {
+            if (branchScope.IsEmpty)
+                return Ok(AppResponse<PenaltyStatsSummary>.Success(new PenaltyStatsSummary()));
+            query = query.Where(pt => branchScope.EmployeeIds.Contains(pt.EmployeeId));
         }
 
         var stats = new PenaltyStatsSummary
@@ -377,9 +427,10 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Lấy danh sách phiếu phạt của nhân viên đang đăng nhập
+    /// Láº¥y danh sÃ¡ch phiáº¿u pháº¡t cá»§a nhÃ¢n viÃªn Ä‘ang Ä‘Äƒng nháº­p
     /// </summary>
     [HttpGet("my")]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltyTicketListResponse>>> GetMyPenaltyTickets(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -389,7 +440,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         var storeId = RequiredStoreId;
         var userId = CurrentUserId;
 
-        // Tìm Employee từ ApplicationUserId
+        // TÃ¬m Employee tá»« ApplicationUserId
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.ApplicationUserId == userId && e.StoreId == storeId);
 
@@ -440,10 +491,11 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Tạo phiếu phạt thủ công
+    /// Táº¡o phiáº¿u pháº¡t thá»§ cÃ´ng
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> CreatePenaltyTicket([FromBody] CreatePenaltyTicketRequest request)
     {
         var storeId = RequiredStoreId;
@@ -451,7 +503,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId);
         if (employee == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Nhân viên không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("NhÃ¢n viÃªn khÃ´ng tá»“n táº¡i"));
 
         if (!Enum.TryParse<PenaltyTicketType>(request.Type, out var ticketType))
             ticketType = PenaltyTicketType.Violation;
@@ -472,7 +524,7 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             ViolationDate = request.ViolationDate.Date,
             MinutesLateOrEarly = request.MinutesLateOrEarly,
             PenaltyTier = 1,
-            Description = request.Description ?? $"Phạt thủ công - {employee.LastName} {employee.FirstName}".Trim(),
+            Description = request.Description ?? $"Pháº¡t thá»§ cÃ´ng - {employee.LastName} {employee.FirstName}".Trim(),
             StoreId = storeId,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
@@ -487,8 +539,8 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             var uid = employee.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Bạn có phiếu phạt mới",
-                    $"Phiếu phạt {ticket.TicketCode} - {ticket.Amount:N0}đ ({ticket.Type}).",
+                    "Báº¡n cÃ³ phiáº¿u pháº¡t má»›i",
+                    $"Phiáº¿u pháº¡t {ticket.TicketCode} - {ticket.Amount:N0}Ä‘ ({ticket.Type}).",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -515,10 +567,11 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Sửa phiếu phạt (chỉ khi Pending)
+    /// Sá»­a phiáº¿u pháº¡t (chá»‰ khi Pending)
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> UpdatePenaltyTicket(Guid id, [FromBody] UpdatePenaltyTicketRequest request)
     {
         var storeId = RequiredStoreId;
@@ -527,10 +580,10 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể sửa phiếu phạt đang chờ duyệt"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ sá»­a phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
 
         if (request.Type != null && Enum.TryParse<PenaltyTicketType>(request.Type, out var newType))
             ticket.Type = newType;
@@ -549,8 +602,8 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã được cập nhật",
-                    $"Phiếu phạt {ticket.TicketCode} đã được cập nhật ({ticket.Amount:N0}đ).",
+                    "Phiáº¿u pháº¡t Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t",
+                    $"Phiáº¿u pháº¡t {ticket.TicketCode} Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t ({ticket.Amount:N0}Ä‘).",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -572,25 +625,37 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
     }
 
     /// <summary>
-    /// Xóa phiếu phạt (soft delete, chỉ khi Pending)
+    /// XÃ³a phiáº¿u pháº¡t (soft delete, chá»‰ khi Pending). Xóa mềm phiếu thu liên kết nếu có.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<string>>> DeletePenaltyTicket(Guid id)
     {
         var storeId = RequiredStoreId;
         var ticket = await dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
+            .Include(pt => pt.CashTransaction)
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<string>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<string>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<string>.Fail("Chỉ có thể xóa phiếu phạt đang chờ duyệt"));
+            return BadRequest(AppResponse<string>.Fail("Chá»‰ cÃ³ thá»ƒ xÃ³a phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
 
         var ticketCode = ticket.TicketCode;
         var employeeUserId = ticket.Employee?.ApplicationUserId;
+
+        var linkedCash = ticket.CashTransaction
+            ?? await PenaltyTicketFinanceHelper.ResolveLinkedCashTransactionAsync(dbContext, ticket);
+        if (PenaltyTicketFinanceHelper.SoftDeleteLinkedCashTransaction(linkedCash))
+        {
+            dbContext.Update(linkedCash!);
+            ticket.CashTransactionId = null;
+        }
+
+        await CancelLinkedAttendancePenaltyTransactionsAsync(ticket);
 
         ticket.Deleted = DateTime.Now;
         ticket.UpdatedAt = DateTime.Now;
@@ -602,21 +667,22 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
         {
             if (employeeUserId != null && employeeUserId != CurrentUserId)
                 await notificationService.CreateAndSendAsync(employeeUserId, NotificationType.Warning,
-                    "Phiếu phạt đã bị xóa",
-                    $"Phiếu phạt {ticketCode} đã bị xóa.",
+                    "Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ xÃ³a",
+                    $"Phiáº¿u pháº¡t {ticketCode} Ä‘Ã£ bá»‹ xÃ³a.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
         catch { /* Notification failure should not affect main operation */ }
 
-        return Ok(AppResponse<string>.Success("Đã xóa phiếu phạt"));
+        return Ok(AppResponse<string>.Success("ÄÃ£ xÃ³a phiáº¿u pháº¡t"));
     }
 
     /// <summary>
-    /// Hoàn duyệt phiếu phạt (Approved/AutoApproved → Pending, xóa phiếu thu liên quan)
+    /// HoÃ n duyá»‡t phiáº¿u pháº¡t (Approved/AutoApproved â†’ Pending, xÃ³a phiáº¿u thu liÃªn quan)
     /// </summary>
     [HttpPost("{id}/unapprove")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> UnapprovePenaltyTicket(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -626,18 +692,15 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
 
         if (ticket.Status != PenaltyTicketStatus.Approved && ticket.Status != PenaltyTicketStatus.AutoApproved)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể hoàn duyệt phiếu phạt đã duyệt"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ hoÃ n duyá»‡t phiáº¿u pháº¡t Ä‘Ã£ duyá»‡t"));
 
-        // Xóa phiếu thu liên quan nếu có
-        if (ticket.CashTransaction != null)
-        {
-            ticket.CashTransaction.Deleted = DateTime.Now;
-            ticket.CashTransaction.UpdatedAt = DateTime.Now;
-            dbContext.Update(ticket.CashTransaction);
-        }
+        var linkedCash = ticket.CashTransaction
+            ?? await PenaltyTicketFinanceHelper.ResolveLinkedCashTransactionAsync(dbContext, ticket);
+        if (PenaltyTicketFinanceHelper.SoftDeleteLinkedCashTransaction(linkedCash))
+            dbContext.Update(linkedCash!);
 
         ticket.Status = PenaltyTicketStatus.Pending;
         ticket.CashTransactionId = null;
@@ -653,8 +716,8 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã hoàn duyệt",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được hoàn duyệt về trạng thái chờ.",
+                    "Phiáº¿u pháº¡t Ä‘Ã£ hoÃ n duyá»‡t",
+                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ Ä‘Æ°á»£c hoÃ n duyá»‡t vá» tráº¡ng thÃ¡i chá».",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -671,73 +734,37 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
 
     #region Private Methods
 
-    private async Task<Domain.Entities.CashTransaction> CreateCashTransactionAsync(Domain.Entities.PenaltyTicket ticket)
+    /// <summary>
+    /// Hủy PaymentTransaction phạt tự động từ chấm công (tạo song song với PenaltyTicket).
+    /// </summary>
+    private async Task CancelLinkedAttendancePenaltyTransactionsAsync(Domain.Entities.PenaltyTicket ticket)
     {
-        // Tìm hoặc tạo danh mục
-        var category = await dbContext.TransactionCategories
-            .FirstOrDefaultAsync(c => c.Name == "Phạt nhân viên"
-                && c.Type == CashTransactionType.Income
-                && c.StoreId == ticket.StoreId);
-
-        if (category == null)
+        var prefix = ticket.Type switch
         {
-            category = new Domain.Entities.TransactionCategory
-            {
-                Id = Guid.NewGuid(),
-                Name = "Phạt nhân viên",
-                Description = "Thu phạt nhân viên vi phạm nội quy",
-                Type = CashTransactionType.Income,
-                Icon = "gavel",
-                Color = "#F44336",
-                IsSystem = true,
-                StoreId = ticket.StoreId,
-                IsActive = true,
-                CreatedAt = DateTime.Now
-            };
-            dbContext.TransactionCategories.Add(category);
+            PenaltyTicketType.Late => "Đi trễ",
+            PenaltyTicketType.EarlyLeave => "Về sớm",
+            _ => null
+        };
+        if (prefix == null) return;
+
+        var pending = await dbContext.PaymentTransactions
+            .Where(pt => pt.EmployeeId == ticket.EmployeeId
+                && pt.TransactionDate.Date == ticket.ViolationDate.Date
+                && pt.Type == "Penalty"
+                && pt.Status == "Pending"
+                && pt.Note != null
+                && pt.Note.Contains("Tự động tạo từ chấm công")
+                && pt.Description != null
+                && pt.Description.StartsWith(prefix))
+            .ToListAsync();
+
+        foreach (var pt in pending)
+        {
+            pt.Status = "Cancelled";
+            pt.UpdatedAt = DateTime.UtcNow;
         }
-
-        var dateStr = DateTime.Now.ToString("yyyyMMdd");
-        var txPrefix = $"TC-{dateStr}-";
-        var txCount = await dbContext.CashTransactions
-            .CountAsync(ct => ct.TransactionCode.StartsWith(txPrefix) && ct.StoreId == ticket.StoreId);
-
-        var employeeName = ticket.Employee != null
-            ? $"{ticket.Employee.LastName} {ticket.Employee.FirstName}".Trim()
-            : "N/A";
-
-        var typeText = ticket.Type switch
-        {
-            PenaltyTicketType.Late => "đi trễ",
-            PenaltyTicketType.EarlyLeave => "về sớm",
-            PenaltyTicketType.ForgotCheck => "quên chấm công",
-            PenaltyTicketType.UnauthorizedLeave => "nghỉ không phép",
-            PenaltyTicketType.Violation => "vi phạm nội quy",
-            _ => "vi phạm"
-        };
-
-        var cashTransaction = new Domain.Entities.CashTransaction
-        {
-            Id = Guid.NewGuid(),
-            TransactionCode = $"{txPrefix}{(txCount + 1):D4}",
-            Type = CashTransactionType.Income,
-            CategoryId = category.Id,
-            Amount = ticket.Amount,
-            TransactionDate = DateTime.Now,
-            Description = $"Thu phạt {typeText} - NV {employeeName} - Ngày {ticket.ViolationDate:dd/MM/yyyy} - {ticket.TicketCode}",
-            PaymentMethod = PaymentMethodType.Cash,
-            Status = CashTransactionStatus.Pending,
-            IsPaid = false,
-            StoreId = ticket.StoreId,
-            CreatedByUserId = CurrentUserId,
-            InternalNote = $"Tạo từ phiếu phạt {ticket.TicketCode}",
-            CreatedAt = DateTime.Now,
-            IsActive = true
-        };
-
-        dbContext.CashTransactions.Add(cashTransaction);
-        return cashTransaction;
     }
 
     #endregion
 }
+

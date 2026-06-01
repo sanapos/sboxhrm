@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 // ===== LUNAR CALENDAR CONVERTER =====
 class LunarDate {
   final int day, month, year;
@@ -176,23 +176,22 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   String _categoryFilter = 'all';
   Map<String, dynamic>? _selectedHoliday;
   int _selectedYear = DateTime.now().year;
-  bool _showMobileFilters = false;
 
   // Pagination
   int _holidayPage = 1;
   int _holidayPageSize = 50;
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
-  static const _primaryColor = Color(0xFF1E3A5F);
+  static const _primaryColor = HrmPageChrome.primaryNavy;
   static const _bgColor = Color(0xFFFAFAFA);
   static const _borderColor = Color(0xFFE4E4E7);
   static const _textDark = Color(0xFF18181B);
   static const _textMuted = Color(0xFF71717A);
 
   final List<Color> _badgeColors = [
-    const Color(0xFFEF4444), const Color(0xFFF59E0B), const Color(0xFF1E3A5F),
-    const Color(0xFF1E3A5F), const Color(0xFF0F2340), const Color(0xFFEC4899),
-    const Color(0xFF2D5F8B), const Color(0xFF0F2340),
+    const Color(0xFFEF4444), const Color(0xFFF59E0B), HrmPageChrome.primaryNavy,
+    HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy, const Color(0xFFEC4899),
+    const Color(0xFF2D5F8B), HrmPageChrome.primaryNavy,
   ];
 
   static const List<String> _categories = [
@@ -306,7 +305,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     switch (cat) {
       case 'Ngày nghỉ bù': return const Color(0xFFF59E0B);
       case 'Ngày nghỉ hàng tuần': return const Color(0xFF2D5F8B);
-      case 'Ngày đặc biệt công ty': return const Color(0xFF0F2340);
+      case 'Ngày đặc biệt công ty': return HrmPageChrome.primaryNavy;
       default: return const Color(0xFFEF4444);
     }
   }
@@ -352,694 +351,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
   Widget _buildMainContent() {
     final isMobile = Responsive.isMobile(context);
-    if (isMobile) {
-      return _buildMobileContent();
-    }
     return Column(
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 12 : 20, isMobile ? 16 : 24, isMobile ? 12 : 16),
-          color: Colors.white,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (!isMobile) ...[
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                      onPressed: () => SettingsHubScreen.goBack(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  const Icon(Icons.celebration, color: Color(0xFFF59E0B), size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('Thiết lập Ngày Lễ', style: TextStyle(fontSize: isMobile ? 16 : 20, fontWeight: FontWeight.bold, color: _textDark)),
-                  ),
-                  // Year selector
-                  Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: _borderColor),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        InkWell(
-                          onTap: () { setState(() { _selectedYear--; }); _loadData(); },
-                          child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.chevron_left, size: 18, color: _textMuted)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text('$_selectedYear', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
-                        ),
-                        InkWell(
-                          onTap: () { setState(() { _selectedYear++; }); _loadData(); },
-                          child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.chevron_right, size: 18, color: _textMuted)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showHolidayDialog(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: isMobile ? 8 : 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Stats + Search
-              if (isMobile) ...[
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildMiniStat(Icons.celebration, '${_holidays.length}', 'Tổng', const Color(0xFFEF4444)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(Icons.flag, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}', 'Chính thức', const Color(0xFFEF4444)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(Icons.swap_horiz, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}', 'Nghỉ bù', const Color(0xFFF59E0B)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: _borderColor)),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _categoryFilter,
-                            isDense: true,
-                            isExpanded: true,
-                            icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
-                            style: const TextStyle(fontSize: 12, color: _textDark),
-                            items: [
-                              const DropdownMenuItem(value: 'all', child: Text('Tất cả danh mục')),
-                              ..._categories.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))),
-                            ],
-                            onChanged: (v) => setState(() => _categoryFilter = v ?? 'all'),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Tìm ngày lễ...',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => setState(() => _searchQuery = ''))
-                        : null,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    isDense: true,
-                    filled: true,
-                    fillColor: _bgColor,
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ] else ...[
-              Row(
-                children: [
-                  _buildMiniStat(Icons.celebration, '${_holidays.length}', 'Tổng', const Color(0xFFEF4444)),
-                  const SizedBox(width: 12),
-                  _buildMiniStat(Icons.flag, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}', 'Chính thức', const Color(0xFFEF4444)),
-                  const SizedBox(width: 12),
-                  _buildMiniStat(Icons.swap_horiz, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}', 'Nghỉ bù', const Color(0xFFF59E0B)),
-                  const SizedBox(width: 12),
-                  // Category filter
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: _borderColor)),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _categoryFilter,
-                        isDense: true,
-                        icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
-                        style: const TextStyle(fontSize: 12, color: _textDark),
-                        items: [
-                          const DropdownMenuItem(value: 'all', child: Text('Tất cả danh mục')),
-                          ..._categories.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))),
-                        ],
-                        onChanged: (v) => setState(() => _categoryFilter = v ?? 'all'),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: 260,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Tìm ngày lễ...',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => setState(() => _searchQuery = ''))
-                            : null,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        isDense: true,
-                        filled: true,
-                        fillColor: _bgColor,
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                    ),
-                  ),
-                ],
-              ),
-              ],
-            ],
-          ),
-        ),
-
-        // Content - Cards on mobile, Table on desktop
-        Expanded(
-          child: _filteredHolidays.isEmpty
-              ? _buildEmptyState()
-              : isMobile
-                  ? _buildHolidayCardList()
-                  : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _borderColor),
-                    ),
-                    child: Column(
-                      children: [
-                        // Table header
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: const BoxDecoration(
-                            color: _bgColor,
-                            borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                          ),
-                          child: Row(
-                            children: [
-                              _tableHeader('Tên ngày lễ', flex: 4),
-                              _tableHeader('Danh mục', flex: 3),
-                              _tableHeader('Ngày dương lịch', flex: 2),
-                              _tableHeader('Ngày âm lịch', flex: 2),
-                              _tableHeader('Thứ trong tuần', flex: 2),
-                              _tableHeader('Hệ số', flex: 1),
-                              _tableHeader('Nhân viên', flex: 1),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 24, color: _borderColor),
-                        Builder(builder: (_) {
-                          final allHolidays = _filteredHolidays;
-                          final totalPages = (allHolidays.length / _holidayPageSize).ceil();
-                          final safePage = _holidayPage.clamp(1, totalPages == 0 ? 1 : totalPages);
-                          final startIdx = (safePage - 1) * _holidayPageSize;
-                          final endIdx = (startIdx + _holidayPageSize).clamp(0, allHolidays.length);
-                          return Column(children: [
-                            ...List.generate(endIdx - startIdx, (idx) {
-                              final i = startIdx + idx;
-                              final h = allHolidays[i];
-                              final isSelected = _selectedHoliday != null && _selectedHoliday!['id'] == h['id'];
-                              return _buildTableRow(h, i, isSelected);
-                            }),
-                            if (totalPages > 1)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      height: 34,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFAFAFA),
-                                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<int>(
-                                          value: _holidayPageSize,
-                                          isDense: true,
-                                          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                                          items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
-                                          onChanged: (v) {
-                                            if (v != null) setState(() { _holidayPageSize = v; _holidayPage = 1; });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    IconButton(icon: const Icon(Icons.first_page), onPressed: safePage > 1 ? () => setState(() => _holidayPage = 1) : null),
-                                    IconButton(icon: const Icon(Icons.chevron_left), onPressed: safePage > 1 ? () => setState(() => _holidayPage--) : null),
-                                    Text('Trang $safePage / $totalPages (${allHolidays.length} dòng)', style: const TextStyle(fontSize: 13)),
-                                    IconButton(icon: const Icon(Icons.chevron_right), onPressed: safePage < totalPages ? () => setState(() => _holidayPage++) : null),
-                                    IconButton(icon: const Icon(Icons.last_page), onPressed: safePage < totalPages ? () => setState(() => _holidayPage = totalPages) : null),
-                                  ],
-                                ),
-                              ),
-                          ]);
-                        }),
-                      ],
-                    ),
-                  ),
-                ),
-        ),
+        _buildCompactToolbar(isMobile: isMobile),
+        Expanded(child: _buildHolidayListBody(isMobile: isMobile)),
       ],
-    );
-  }
-
-  Widget _tableHeader(String text, {int flex = 1}) {
-    return Expanded(
-      flex: flex,
-      child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textMuted, letterSpacing: 0.5)),
-    );
-  }
-
-  Widget _buildTableRow(Map<String, dynamic> holiday, int index, bool isSelected) {
-    final date = DateTime.tryParse(holiday['date'] ?? '');
-    final salaryRate = (holiday['salaryRate'] as num? ?? 3.0).toDouble();
-    final dayOfWeek = date != null ? _getDayOfWeek(date) : '';
-    final lunar = date != null ? LunarConverter.solarToLunar(date) : null;
-    final category = _getCategory(holiday);
-    final catColor = _getCategoryColor(category);
-    final empIds = _parseEmployeeIds(holiday['employeeIds']);
-    final color = _badgeColors[index % _badgeColors.length];
-
-    return InkWell(
-      onTap: () => setState(() => _selectedHoliday = holiday),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected ? _primaryColor.withValues(alpha: 0.06) : Colors.white,
-          border: Border(
-            bottom: const BorderSide(color: _borderColor, width: 0.5),
-            left: isSelected ? const BorderSide(color: _primaryColor, width: 3) : BorderSide.none,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Holiday name
-            Expanded(
-              flex: 4,
-              child: Row(
-                children: [
-                  Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                    child: Center(child: Icon(Icons.celebration, size: 18, color: color)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(holiday['name'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _textDark), overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-              ),
-            ),
-            // Category
-            Expanded(
-              flex: 3,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_getCategoryIcon(category), size: 12, color: catColor),
-                  const SizedBox(width: 4),
-                  Flexible(child: Text(category, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: catColor), overflow: TextOverflow.ellipsis)),
-                ],
-              ),
-            ),
-            // Solar date
-            Expanded(
-              flex: 2,
-              child: Text(
-                date != null ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}' : '',
-                style: const TextStyle(fontSize: 13, color: _textDark),
-              ),
-            ),
-            // Lunar date
-            Expanded(
-              flex: 2,
-              child: Text(lunar?.toString() ?? '', style: TextStyle(fontSize: 12, color: Colors.orange[700])),
-            ),
-            // Day of week
-            Expanded(
-              flex: 2,
-              child: Text(dayOfWeek, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _textDark)),
-            ),
-            // Salary rate
-            Expanded(
-              flex: 1,
-              child: Text('${salaryRate}x', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F2340))),
-            ),
-            // Employee count
-            Expanded(
-              flex: 1,
-              child: Row(
-                children: [
-                  Icon(Icons.people, size: 13, color: Colors.grey[400]),
-                  const SizedBox(width: 3),
-                  Text(empIds.isEmpty ? 'Tất cả' : '${empIds.length}', style: const TextStyle(fontSize: 11, color: _textMuted)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ===== MOBILE CARD VIEW =====
-  // ===== MOBILE FULL-SCROLL LAYOUT =====
-  Widget _buildMobileContent() {
-    final allHolidays = _filteredHolidays;
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.celebration, color: Color(0xFFF59E0B), size: 26),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text('Thiết lập Ngày Lễ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark)),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: _borderColor),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          InkWell(
-                            onTap: () { setState(() { _selectedYear--; }); _loadData(); },
-                            child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.chevron_left, size: 18, color: _textMuted)),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text('$_selectedYear', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
-                          ),
-                          InkWell(
-                            onTap: () { setState(() { _selectedYear++; }); _loadData(); },
-                            child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.chevron_right, size: 18, color: _textMuted)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showHolidayDialog(),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                      icon: Stack(
-                        children: [
-                          Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: const Color(0xFF1E3A5F)),
-                          if (_searchQuery.isNotEmpty || _categoryFilter != 'all')
-                            Positioned(right: 0, top: 0, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
-                        ],
-                      ),
-                      tooltip: 'Bộ lọc',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildMiniStat(Icons.celebration, '${_holidays.length}', 'Tổng', const Color(0xFFEF4444)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(Icons.flag, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}', 'Chính thức', const Color(0xFFEF4444)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(Icons.swap_horiz, '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}', 'Nghỉ bù', const Color(0xFFF59E0B)),
-                    ],
-                  ),
-                ),
-                if (_showMobileFilters) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: _borderColor)),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _categoryFilter,
-                            isDense: true,
-                            isExpanded: true,
-                            icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
-                            style: const TextStyle(fontSize: 12, color: _textDark),
-                            items: [
-                              const DropdownMenuItem(value: 'all', child: Text('Tất cả danh mục')),
-                              ..._categories.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))),
-                            ],
-                            onChanged: (v) => setState(() => _categoryFilter = v ?? 'all'),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Tìm ngày lễ...',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => setState(() => _searchQuery = ''))
-                        : null,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    isDense: true,
-                    filled: true,
-                    fillColor: _bgColor,
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (allHolidays.isEmpty)
-          SliverFillRemaining(child: _buildEmptyState())
-        else
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                children: List.generate(allHolidays.length, (i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _borderColor),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _buildHolidayDeckItem(allHolidays[i], i),
-                  ),
-                )),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHolidayCardList() {
-    final allHolidays = _filteredHolidays;
-    final totalPages = (allHolidays.length / _holidayPageSize).ceil();
-    final safePage = _holidayPage.clamp(1, totalPages == 0 ? 1 : totalPages);
-    final startIdx = (safePage - 1) * _holidayPageSize;
-    final endIdx = (startIdx + _holidayPageSize).clamp(0, allHolidays.length);
-    final pageHolidays = allHolidays.sublist(startIdx, endIdx);
-
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              Column(
-                children: List.generate(pageHolidays.length, (i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _borderColor),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _buildHolidayDeckItem(pageHolidays[i], startIdx + i),
-                  ),
-                )),
-              ),
-            ],
-          ),
-        ),
-        if (totalPages > 1)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                  const SizedBox(width: 8),
-                  Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _holidayPageSize,
-                        isDense: true,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                        items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() { _holidayPageSize = v; _holidayPage = 1; });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: safePage > 1 ? () => setState(() => _holidayPage--) : null),
-                  Text('$safePage / $totalPages', style: const TextStyle(fontSize: 13)),
-                  IconButton(icon: const Icon(Icons.chevron_right, size: 20), onPressed: safePage < totalPages ? () => setState(() => _holidayPage++) : null),
-                ],
-              ),
-            ]),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHolidayDeckItem(Map<String, dynamic> holiday, int index) {
-    final date = DateTime.tryParse(holiday['date'] ?? '');
-    final salaryRate = (holiday['salaryRate'] as num? ?? 3.0).toDouble();
-    final dayOfWeek = date != null ? _getDayOfWeek(date) : '';
-    final lunar = date != null ? LunarConverter.solarToLunar(date) : null;
-    final category = _getCategory(holiday);
-    final catColor = _getCategoryColor(category);
-    final empIds = _parseEmployeeIds(holiday['employeeIds']);
-    final color = _badgeColors[index % _badgeColors.length];
-    final dateStr = date != null ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}' : '';
-
-    return InkWell(
-      onTap: () => _showMobileHolidayDetailSheet(holiday),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-              child: Center(child: Icon(Icons.celebration, size: 18, color: color)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(holiday['name'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _textDark), overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Text(dateStr, style: const TextStyle(fontSize: 11, color: _textMuted)),
-                      if (dayOfWeek.isNotEmpty) ...[
-                        const Text(' · ', style: TextStyle(fontSize: 11, color: _textMuted)),
-                        Text(dayOfWeek, style: TextStyle(fontSize: 11, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _textMuted)),
-                      ],
-                      if (lunar != null) ...[
-                        const Text(' · ', style: TextStyle(fontSize: 11, color: _textMuted)),
-                        Flexible(child: Text(lunar.toShortString(), style: TextStyle(fontSize: 11, color: Colors.orange[700]), overflow: TextOverflow.ellipsis)),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: catColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(_shortCategory(category), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: catColor)),
-            ),
-            const SizedBox(width: 6),
-            Text('${salaryRate}x', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F2340))),
-            if (empIds.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Icon(Icons.people, size: 12, color: Colors.grey[400]),
-              Text('${empIds.length}', style: const TextStyle(fontSize: 10, color: _textMuted)),
-            ],
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1051,6 +367,531 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       case 'Ngày đặc biệt công ty': return 'Đặc biệt';
       default: return cat;
     }
+  }
+
+  String _shortDayOfWeek(String full) {
+    switch (full) {
+      case 'Chủ Nhật':
+        return 'CN';
+      case 'Thứ Hai':
+        return 'T2';
+      case 'Thứ Ba':
+        return 'T3';
+      case 'Thứ Tư':
+        return 'T4';
+      case 'Thứ Năm':
+        return 'T5';
+      case 'Thứ Sáu':
+        return 'T6';
+      case 'Thứ Bảy':
+        return 'T7';
+      default:
+        return full;
+    }
+  }
+
+  ({List<Map<String, dynamic>> items, int safePage, int totalPages}) _pagedHolidays() {
+    final all = _filteredHolidays;
+    final totalPages = (all.length / _holidayPageSize).ceil().clamp(1, 9999);
+    final safePage = _holidayPage.clamp(1, totalPages);
+    final start = (safePage - 1) * _holidayPageSize;
+    final end = (start + _holidayPageSize).clamp(0, all.length);
+    return (
+      items: all.sublist(start, end),
+      safePage: safePage,
+      totalPages: totalPages,
+    );
+  }
+
+  Widget _ellipsisText(
+    String text, {
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    return Tooltip(
+      message: text,
+      waitDuration: const Duration(milliseconds: 400),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+        style: TextStyle(
+          fontSize: fontSize ?? 12,
+          fontWeight: fontWeight ?? FontWeight.w500,
+          color: color ?? _textDark,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearSelector({bool compact = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: _borderColor),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() => _selectedYear--);
+              _loadData();
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.chevron_left, size: 18, color: _textMuted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '$_selectedYear',
+              style: TextStyle(
+                fontSize: compact ? 13 : 14,
+                fontWeight: FontWeight.bold,
+                color: _textDark,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              setState(() => _selectedYear++);
+              _loadData();
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.chevron_right, size: 18, color: _textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactToolbar({required bool isMobile}) {
+    final embedded = HrmPageChrome.isEmbedded;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 12 : 20,
+        isMobile ? 10 : 16,
+        isMobile ? 12 : 20,
+        isMobile ? 10 : 12,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: _borderColor)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (!embedded && !isMobile) ...[
+                const Icon(Icons.celebration, color: Color(0xFFF59E0B), size: 24),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Thiết lập ngày lễ',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _textDark,
+                    ),
+                  ),
+                ),
+              ] else if (!embedded && isMobile)
+                const Expanded(
+                  child: Text(
+                    'Thiết lập ngày lễ',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _textDark,
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+              _buildYearSelector(compact: isMobile),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () => _showHolidayDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 12 : 16,
+                    vertical: isMobile ? 8 : 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildMiniStat(Icons.celebration, '${_holidays.length}', 'Tổng',
+                  const Color(0xFFEF4444)),
+              _buildMiniStat(
+                  Icons.flag,
+                  '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}',
+                  'Chính thức',
+                  const Color(0xFFEF4444)),
+              _buildMiniStat(
+                  Icons.swap_horiz,
+                  '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}',
+                  'Nghỉ bù',
+                  const Color(0xFFF59E0B)),
+              SizedBox(
+                width: isMobile ? double.infinity : 200,
+                child: _categoryDropdown(),
+              ),
+              SizedBox(
+                width: isMobile ? double.infinity : 240,
+                child: _searchField(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryDropdown() {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: _bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _borderColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _categoryFilter,
+          isDense: true,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
+          style: const TextStyle(fontSize: 12, color: _textDark),
+          items: [
+            const DropdownMenuItem(value: 'all', child: Text('Tất cả danh mục')),
+            ..._categories.map(
+              (c) => DropdownMenuItem(
+                value: c,
+                child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: (v) => setState(() => _categoryFilter = v ?? 'all'),
+        ),
+      ),
+    );
+  }
+
+  Widget _searchField() {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: 'Tìm ngày lễ...',
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () => setState(() => _searchQuery = ''),
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: _borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: _borderColor),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        isDense: true,
+        filled: true,
+        fillColor: _bgColor,
+      ),
+      style: const TextStyle(fontSize: 13),
+      onChanged: (v) => setState(() => _searchQuery = v),
+    );
+  }
+
+  Widget _buildListHeader() {
+    TextStyle h = const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: _textMuted,
+      letterSpacing: 0.2,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      color: const Color(0xFFF8FAFC),
+      child: Row(
+        children: [
+          const SizedBox(width: 40),
+          Expanded(flex: 4, child: Text('Tên ngày lễ', style: h)),
+          SizedBox(width: 92, child: Text('Dương lịch', style: h)),
+          SizedBox(width: 76, child: Text('Âm lịch', style: h)),
+          SizedBox(width: 32, child: Text('Thứ', style: h)),
+          SizedBox(width: 72, child: Text('Danh mục', style: h)),
+          SizedBox(width: 44, child: Text('Hệ số', style: h, textAlign: TextAlign.center)),
+          SizedBox(
+              width: 48,
+              child: Text('NV', style: h, textAlign: TextAlign.center)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHolidayListRow(
+    Map<String, dynamic> holiday,
+    int index, {
+    required bool isSelected,
+    required VoidCallback onTap,
+    bool showChevron = false,
+    bool useHorizontalScroll = false,
+  }) {
+    final date = DateTime.tryParse(holiday['date']?.toString() ?? '');
+    final salaryRate = (holiday['salaryRate'] as num? ?? 3.0).toDouble();
+    final dayOfWeek = date != null ? _getDayOfWeek(date) : '';
+    final lunar = date != null ? LunarConverter.solarToLunar(date) : null;
+    final category = _getCategory(holiday);
+    final catColor = _getCategoryColor(category);
+    final empIds = _parseEmployeeIds(holiday['employeeIds']);
+    final color = _badgeColors[index % _badgeColors.length];
+    final solar = date != null
+        ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+        : '';
+    final lunarStr = lunar?.toShortString() ?? '';
+    final empLabel = empIds.isEmpty ? 'Tất cả' : '${empIds.length}';
+    final name = holiday['name']?.toString() ?? '';
+
+    final cells = <Widget>[
+      Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(child: Icon(Icons.celebration, size: 16, color: color)),
+      ),
+      const SizedBox(width: 8),
+      if (useHorizontalScroll)
+        SizedBox(
+          width: 128,
+          child: _ellipsisText(name, fontSize: 13, fontWeight: FontWeight.w600),
+        )
+      else
+        Expanded(
+          flex: 4,
+          child: _ellipsisText(name, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      SizedBox(
+        width: 92,
+        child: _ellipsisText(solar, fontSize: 12, color: _textMuted),
+      ),
+      SizedBox(
+        width: 76,
+        child: _ellipsisText(lunarStr, fontSize: 11, color: Colors.orange[800]),
+      ),
+      SizedBox(
+        width: 32,
+        child: _ellipsisText(
+          _shortDayOfWeek(dayOfWeek),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy')
+              ? Colors.red
+              : _textDark,
+          textAlign: TextAlign.center,
+        ),
+      ),
+      SizedBox(
+        width: 72,
+        child: _ellipsisText(
+          _shortCategory(category),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: catColor,
+        ),
+      ),
+      SizedBox(
+        width: 44,
+        child: _ellipsisText(
+          '${salaryRate}x',
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: HrmPageChrome.primaryNavy,
+          textAlign: TextAlign.center,
+        ),
+      ),
+      SizedBox(
+        width: 48,
+        child: _ellipsisText(
+          empLabel,
+          fontSize: 11,
+          color: _textMuted,
+          textAlign: TextAlign.center,
+        ),
+      ),
+      if (showChevron)
+        const Icon(Icons.chevron_right, size: 18, color: _textMuted),
+    ];
+
+    Widget row = Row(children: cells);
+    if (useHorizontalScroll) {
+      row = SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: row,
+      );
+    }
+
+    return Material(
+      color: isSelected ? _primaryColor.withValues(alpha: 0.06) : Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: const Color(0xFFF1F5F9),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: const BorderSide(color: _borderColor, width: 0.5),
+              left: isSelected
+                  ? const BorderSide(color: _primaryColor, width: 3)
+                  : BorderSide.none,
+            ),
+          ),
+          child: row,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationBar() {
+    final all = _filteredHolidays;
+    final totalPages = (all.length / _holidayPageSize).ceil();
+    if (totalPages <= 1) return const SizedBox.shrink();
+    final safePage = _holidayPage.clamp(1, totalPages);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _borderColor)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(width: 6),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _holidayPageSize,
+              isDense: true,
+              style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+              items: _pageSizeOptions
+                  .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() {
+                    _holidayPageSize = v;
+                    _holidayPage = 1;
+                  });
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_left),
+            onPressed: safePage > 1 ? () => setState(() => _holidayPage--) : null,
+          ),
+          Text(
+            'Trang $safePage/$totalPages · ${all.length} ngày',
+            style: const TextStyle(fontSize: 12),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_right),
+            onPressed:
+                safePage < totalPages ? () => setState(() => _holidayPage++) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHolidayListBody({required bool isMobile}) {
+    final page = _pagedHolidays();
+    if (page.items.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            margin: EdgeInsets.fromLTRB(isMobile ? 10 : 16, isMobile ? 10 : 16, isMobile ? 10 : 16, 0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _borderColor),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                if (!isMobile) _buildListHeader(),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: page.items.length,
+                    itemBuilder: (_, i) {
+                      final h = page.items[i];
+                      final globalIndex = (page.safePage - 1) * _holidayPageSize + i;
+                      final isSelected = _selectedHoliday != null &&
+                          _selectedHoliday!['id'] == h['id'];
+                      return _buildHolidayListRow(
+                        h,
+                        globalIndex,
+                        isSelected: isSelected,
+                        showChevron: isMobile,
+                        useHorizontalScroll: isMobile,
+                        onTap: () {
+                          if (isMobile) {
+                            _showMobileHolidayDetailSheet(h);
+                          } else {
+                            setState(() => _selectedHoliday = h);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _buildPaginationBar(),
+      ],
+    );
   }
 
   void _showMobileHolidayDetailSheet(Map<String, dynamic> holiday) {
@@ -1177,14 +1018,14 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0F2340).withValues(alpha: 0.1),
+                                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.trending_up, size: 16, color: Color(0xFF0F2340)),
+                                  const Icon(Icons.trending_up, size: 16, color: HrmPageChrome.primaryNavy),
                                   const SizedBox(width: 6),
-                                  Text('Hệ số: ${salaryRate}x', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F2340))),
+                                  Text('Hệ số: ${salaryRate}x', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: HrmPageChrome.primaryNavy)),
                                 ],
                               ),
                             ),
@@ -1199,8 +1040,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   const Text('Thông tin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
                   const SizedBox(height: 10),
                   _buildInfoRow(Icons.category, 'Danh mục', category, catColor),
-                  _buildInfoRow(Icons.payments, 'Hệ số lương', '${salaryRate}x', const Color(0xFF0F2340)),
-                  _buildInfoRow(Icons.people, 'Nhân viên', empIds.isEmpty ? 'Tất cả nhân viên' : '${empIds.length} nhân viên', const Color(0xFF1E3A5F)),
+                  _buildInfoRow(Icons.payments, 'Hệ số lương', '${salaryRate}x', HrmPageChrome.primaryNavy),
+                  _buildInfoRow(Icons.people, 'Nhân viên', empIds.isEmpty ? 'Tất cả nhân viên' : '${empIds.length} nhân viên', HrmPageChrome.primaryNavy),
                   if (holiday['createdAt'] != null)
                     _buildInfoRow(Icons.access_time, 'Ngày tạo', _formatCreatedAt(holiday['createdAt']), Colors.grey),
                   const SizedBox(height: 16),
@@ -1322,19 +1163,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   }
 
   Widget _buildMiniStat(IconData icon, String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 6),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8))),
-        ],
-      ),
+    return HrmMiniStatChip(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
     );
   }
 
@@ -1349,15 +1182,13 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           const SizedBox(height: 8),
           Text('Nhấn "Thêm ngày lễ" để bắt đầu', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
           const SizedBox(height: 20),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showHolidayDialog(),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Thêm ngày lễ'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ],
@@ -1734,17 +1565,15 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           child: const Text('Hủy'),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: isSaving ? null : onSave,
                           icon: isSaving
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.save, size: 18),
                           label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ],
@@ -1891,7 +1720,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       child: const Text('Hủy'),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () {
                         onChanged(day, month, year);
                         Navigator.pop(ctx);
@@ -2059,12 +1888,10 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           child: const Text('Hủy'),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: onConfirm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                           ),
                           child: Text('Xác nhận (${tempIds.length})'),
                         ),

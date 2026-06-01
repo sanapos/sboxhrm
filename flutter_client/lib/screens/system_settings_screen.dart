@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 /// Màn hình Thiết lập hệ thống
@@ -209,35 +210,31 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final saveButton = FilledButton.icon(
+      onPressed: _isSaving ? null : _saveSettings,
+      icon: _isSaving
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.save, size: 18),
+      label: const Text('Lưu thiết lập'),
+      style: FilledButton.styleFrom(
+        backgroundColor: HrmPageChrome.primaryNavy,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      ),
+    );
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        automaticallyImplyLeading: !Responsive.isMobile(context),
-        title: const Text('Thiết lập hệ thống'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF18181B),
-        elevation: 0,
-        scrolledUnderElevation: 1,
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        title: 'Thiết lập hệ thống',
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: FilledButton.icon(
-              onPressed: _isSaving ? null : _saveSettings,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.save, size: 18),
-              label: const Text('Lưu thiết lập'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              ),
-            ),
+            child: saveButton,
           ),
         ],
       ),
@@ -248,6 +245,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (HrmPageChrome.isEmbedded) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: saveButton,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   // Row 1: Giờ kết thúc ngày + Phê duyệt chấm công
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -309,7 +313,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildDayEndTimeCard() {
     return _buildSettingCard(
       icon: Icons.access_time_filled,
-      iconColor: const Color(0xFF1E3A5F),
+      iconColor: HrmPageChrome.primaryNavy,
       title: 'Giờ kết thúc ngày',
       subtitle: 'Thời điểm phân chia ngày chấm công',
       child: Column(
@@ -328,16 +332,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.schedule,
-                          color: Color(0xFF1E3A5F), size: 22),
+                          color: HrmPageChrome.primaryNavy, size: 22),
                       const SizedBox(width: 10),
                       Text(
                         _dayEndTimeString,
@@ -358,8 +362,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 icon: const Icon(Icons.edit, size: 15),
                 label: const Text('Đổi giờ'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF1E3A5F),
-                  side: const BorderSide(color: Color(0xFF1E3A5F)),
+                  foregroundColor: HrmPageChrome.primaryNavy,
+                  side: const BorderSide(color: HrmPageChrome.primaryNavy),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
@@ -403,7 +407,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildApprovalCard() {
     return _buildSettingCard(
       icon: Icons.approval,
-      iconColor: const Color(0xFF0F2340),
+      iconColor: HrmPageChrome.primaryNavy,
       title: 'Phê duyệt chấm công',
       subtitle: 'Cài đặt quy trình phê duyệt yêu cầu sửa chấm công',
       child: Column(
@@ -473,12 +477,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF0F2340).withValues(alpha: 0.08)
+                ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF0F2340).withValues(alpha: 0.4)
+                  ? HrmPageChrome.primaryNavy.withValues(alpha: 0.4)
                   : Colors.grey.shade200,
             ),
           ),
@@ -490,13 +494,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     : Icons.radio_button_unchecked,
                 size: 20,
                 color:
-                    isSelected ? const Color(0xFF0F2340) : Colors.grey.shade400,
+                    isSelected ? HrmPageChrome.primaryNavy : Colors.grey.shade400,
               ),
               const SizedBox(width: 10),
               Icon(icon,
                   size: 18,
                   color: isSelected
-                      ? const Color(0xFF0F2340)
+                      ? HrmPageChrome.primaryNavy
                       : Colors.grey.shade500),
               const SizedBox(width: 8),
               Expanded(
@@ -633,20 +637,20 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     return ActionChip(
       label: Text(label),
       avatar: isSelected
-          ? const Icon(Icons.check_circle, size: 14, color: Color(0xFF1E3A5F))
+          ? const Icon(Icons.check_circle, size: 14, color: HrmPageChrome.primaryNavy)
           : null,
       backgroundColor: isSelected
-          ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
           : Colors.grey.shade100,
       labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFF52525B),
+        color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF52525B),
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         fontFamily: 'monospace',
         fontSize: 12,
       ),
       side: BorderSide(
         color: isSelected
-            ? const Color(0xFF1E3A5F).withValues(alpha: 0.3)
+            ? HrmPageChrome.primaryNavy.withValues(alpha: 0.3)
             : Colors.grey.shade300,
       ),
       onPressed: () {
@@ -825,7 +829,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               Switch(
                 value: _allowManualCorrection,
                 onChanged: (v) => setState(() => _allowManualCorrection = v),
-                activeThumbColor: const Color(0xFF1E3A5F),
+                activeThumbColor: HrmPageChrome.primaryNavy,
               ),
             ],
           ),

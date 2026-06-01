@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 class StoresTab extends StatefulWidget {
   const StoresTab({super.key});
@@ -460,8 +461,8 @@ class StoresTabState extends State<StoresTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.store, color: Color(0xFF1E3A5F), size: 18),
+            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.store, color: HrmPageChrome.primaryNavy, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -768,7 +769,7 @@ class StoresTabState extends State<StoresTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.save, size: 16),
             label: const Text('Lưu'),
@@ -1047,7 +1048,7 @@ class StoresTabState extends State<StoresTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.restart_alt, size: 16),
             label: const Text('Xác nhận khôi phục'),
@@ -1134,7 +1135,7 @@ class StoresTabState extends State<StoresTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.delete_forever, size: 16),
             label: const Text('Xóa hoàn toàn'),
@@ -1241,7 +1242,7 @@ class StoresTabState extends State<StoresTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.check, size: 16),
             label: const Text('Gia hạn'),
@@ -1356,7 +1357,7 @@ class StoresTabState extends State<StoresTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: selectedId == null ? null : () => Navigator.pop(ctx, true),
               icon: const Icon(Icons.check, size: 16),
               label: const Text('Xác nhận'),
@@ -1545,7 +1546,7 @@ class StoresTabState extends State<StoresTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () async {
                 final keys = keyControllers
                     .map((c) => c.text.trim())

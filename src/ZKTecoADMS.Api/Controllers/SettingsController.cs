@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Settings;
 using ZKTecoADMS.Application.Queries.Settings;
@@ -16,26 +17,138 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/[controller]")]
 public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
-    // Salary Settings (general work config)
+    // Salary Settings (general work config — stored in AppSettings per store)
     [HttpGet("salary")]
     [Authorize]
-    public IActionResult GetSalarySettings()
+    [RequireAnyModulePermission(ModulePermissionAction.View, "SalarySettings", "SystemSettings")]
+    public async Task<IActionResult> GetSalarySettings()
     {
+        var storeId = CurrentStoreId;
+        if (!storeId.HasValue)
+        {
+            return Ok(AppResponse<object>.Success(DefaultSalarySettingsDto()));
+        }
+
+        var keys = SalarySettingKeys;
+        var settings = await dbContext.AppSettings
+            .AsNoTracking()
+            .Where(s => s.StoreId == storeId.Value && keys.Contains(s.Key))
+            .ToListAsync();
+        var map = settings.ToDictionary(s => s.Key, s => s.Value);
+
         return Ok(AppResponse<object>.Success(new
         {
-            standardWorkHours = 8,
-            lunchBreakMinutes = 60,
-            workStartTime = "08:30",
-            workEndTime = "18:00",
-            overtimeRate = 1.5,
-            weekendRate = 2.0,
-            holidayRate = 3.0
+            standardWorkHours = ParseDouble(map, "standard_work_hours", 8),
+            standardWorkDays = ParseInt(map, "standard_work_days", 26),
+            lunchBreakMinutes = ParseInt(map, "lunch_break_minutes", 60),
+            workStartTime = map.GetValueOrDefault("work_start_time") ?? "08:30",
+            workEndTime = map.GetValueOrDefault("work_end_time") ?? "18:00",
+            overtimeRate = ParseDouble(map, "overtime_rate", 1.5),
+            weekendRate = ParseDouble(map, "weekend_rate", 2.0),
+            holidayRate = ParseDouble(map, "holiday_rate", 3.0),
         }));
+    }
+
+    [HttpPut("salary")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "SalarySettings", "SystemSettings")]
+    public async Task<IActionResult> UpdateSalarySettings([FromBody] UpdateSalarySettingsRequest request)
+    {
+        var storeId = CurrentStoreId;
+        if (!storeId.HasValue)
+            return BadRequest(AppResponse<object>.Fail("Yêu cầu đăng nhập theo cửa hàng"));
+
+        await UpsertStoreSettingAsync(storeId.Value, "standard_work_hours",
+            request.StandardWorkHours?.ToString() ?? "8", "Số giờ công chuẩn/ngày");
+        await UpsertStoreSettingAsync(storeId.Value, "standard_work_days",
+            request.StandardWorkDays?.ToString() ?? "26", "Số ngày công chuẩn/tháng");
+        await UpsertStoreSettingAsync(storeId.Value, "lunch_break_minutes",
+            request.LunchBreakMinutes?.ToString() ?? "60", "Nghỉ trưa (phút)");
+        await UpsertStoreSettingAsync(storeId.Value, "work_start_time",
+            request.WorkStartTime ?? "08:30", "Giờ vào ca mặc định");
+        await UpsertStoreSettingAsync(storeId.Value, "work_end_time",
+            request.WorkEndTime ?? "18:00", "Giờ ra ca mặc định");
+        await UpsertStoreSettingAsync(storeId.Value, "overtime_rate",
+            request.OvertimeRate?.ToString() ?? "1.5", "Hệ số tăng ca ngày thường");
+        await UpsertStoreSettingAsync(storeId.Value, "weekend_rate",
+            request.WeekendRate?.ToString() ?? "2.0", "Hệ số tăng ca cuối tuần");
+        await UpsertStoreSettingAsync(storeId.Value, "holiday_rate",
+            request.HolidayRate?.ToString() ?? "3.0", "Hệ số tăng ca ngày lễ");
+
+        await dbContext.SaveChangesAsync();
+        return await GetSalarySettings();
+    }
+
+    private static readonly string[] SalarySettingKeys =
+    [
+        "standard_work_hours", "standard_work_days", "lunch_break_minutes",
+        "work_start_time", "work_end_time",
+        "overtime_rate", "weekend_rate", "holiday_rate"
+    ];
+
+    private static object DefaultSalarySettingsDto() => new
+    {
+        standardWorkHours = 8,
+        standardWorkDays = 26,
+        lunchBreakMinutes = 60,
+        workStartTime = "08:30",
+        workEndTime = "18:00",
+        overtimeRate = 1.5,
+        weekendRate = 2.0,
+        holidayRate = 3.0,
+    };
+
+    private static double ParseDouble(IReadOnlyDictionary<string, string?> map, string key, double fallback) =>
+        map.TryGetValue(key, out var v) && double.TryParse(v, out var d) ? d : fallback;
+
+    private static int ParseInt(IReadOnlyDictionary<string, string?> map, string key, int fallback) =>
+        map.TryGetValue(key, out var v) && int.TryParse(v, out var i) ? i : fallback;
+
+    private async Task UpsertStoreSettingAsync(Guid storeId, string key, string value, string description)
+    {
+        var setting = await dbContext.AppSettings.AsTracking()
+            .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Key == key);
+        if (setting == null)
+        {
+            setting = new AppSettings
+            {
+                Id = Guid.NewGuid(),
+                Key = key,
+                Value = value,
+                Description = description,
+                Group = "Salary",
+                DataType = "string",
+                StoreId = storeId,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = CurrentUserId.ToString(),
+            };
+            dbContext.AppSettings.Add(setting);
+        }
+        else
+        {
+            setting.Value = value;
+            setting.Description = description;
+            setting.LastModified = DateTime.UtcNow;
+            setting.LastModifiedBy = CurrentUserId.ToString();
+        }
+    }
+
+    public class UpdateSalarySettingsRequest
+    {
+        public double? StandardWorkHours { get; set; }
+        public int? StandardWorkDays { get; set; }
+        public int? LunchBreakMinutes { get; set; }
+        public string? WorkStartTime { get; set; }
+        public string? WorkEndTime { get; set; }
+        public double? OvertimeRate { get; set; }
+        public double? WeekendRate { get; set; }
+        public double? HolidayRate { get; set; }
     }
 
     // Penalty Settings
     [HttpGet("penalty")]
     [Authorize]
+    [RequireModulePermission("PenaltySetup", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltySettingDto>>> GetPenaltySettings()
     {
         var query = new GetPenaltySettingsQuery(RequiredStoreId);
@@ -45,6 +158,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
     [HttpPut("penalty")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("PenaltySetup", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<PenaltySettingDto>>> UpdatePenaltySettings([FromBody] UpdatePenaltySettingDto request)
     {
         var command = new UpdatePenaltySettingsCommand(
@@ -69,6 +183,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     // Insurance Settings
     [HttpGet("insurance")]
     [Authorize]
+    [RequireModulePermission("Insurance", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<InsuranceSettingDto>>> GetInsuranceSettings()
     {
         var query = new GetInsuranceSettingsQuery(RequiredStoreId);
@@ -78,6 +193,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
     [HttpPut("insurance")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Insurance", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<InsuranceSettingDto>>> UpdateInsuranceSettings([FromBody] UpdateInsuranceSettingDto request)
     {
         var command = new UpdateInsuranceSettingsCommand(
@@ -101,6 +217,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     // Tax Settings
     [HttpGet("tax")]
     [Authorize]
+    [RequireModulePermission("Tax", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<TaxSettingDto>>> GetTaxSettings()
     {
         var query = new GetTaxSettingsQuery(RequiredStoreId);
@@ -110,6 +227,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
     [HttpPut("tax")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Tax", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<TaxSettingDto>>> UpdateTaxSettings([FromBody] UpdateTaxSettingDto request)
     {
         var command = new UpdateTaxSettingsCommand(
@@ -131,6 +249,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     // Calculate Tax
     [HttpPost("tax/calculate")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Tax", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<TaxCalculationDto>>> CalculateTax([FromBody] CalculateTaxDto request)
     {
         var query = new CalculateTaxQuery(
@@ -146,6 +265,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     // Employee Tax Deductions
     [HttpGet("tax/employee-deductions")]
     [Authorize]
+    [RequireModulePermission("Tax", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<EmployeeTaxDeductionDto>>>> GetEmployeeTaxDeductions()
     {
         var query = new GetEmployeeTaxDeductionsQuery(RequiredStoreId, CurrentUserId);
@@ -155,6 +275,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
     [HttpPut("tax/employee-deductions")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Tax", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<EmployeeTaxDeductionDto>>> UpdateEmployeeTaxDeduction([FromBody] CreateOrUpdateEmployeeTaxDeductionDto request)
     {
         var command = new CreateOrUpdateEmployeeTaxDeductionCommand(
@@ -168,9 +289,10 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         return Ok(result);
     }
 
-    // App Settings (Thiết lập hệ thống)
+    // App Settings (Thiáº¿t láº­p há»‡ thá»‘ng)
     [HttpGet("app/{key}")]
-    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [Authorize]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "SystemSettings", "SalarySettings")]
     public async Task<ActionResult<AppResponse<AppSettingsDto>>> GetAppSetting(string key)
     {
         var storeId = CurrentStoreId;
@@ -180,7 +302,11 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         else
             setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
         if (setting == null)
-            return NotFound(AppResponse<AppSettingsDto>.Fail("Setting không tồn tại"));
+        {
+            return Ok(AppResponse<AppSettingsDto>.Success(new AppSettingsDto(
+                Guid.Empty, key, string.Empty, null,
+                "system", "string", 0, false, null)));
+        }
 
         var dto = new AppSettingsDto(
             setting.Id, setting.Key, setting.Value, setting.Description,
@@ -191,7 +317,8 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     }
 
     [HttpPost("app")]
-    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "SystemSettings", "SalarySettings")]
     public async Task<ActionResult<AppResponse<AppSettingsDto>>> UpsertAppSetting([FromBody] UpsertAppSettingRequest request)
     {
         var storeId = CurrentStoreId;
@@ -242,7 +369,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     }
 
     /// <summary>
-    /// Lấy danh sách module được phép của cửa hàng hiện tại (dựa trên gói dịch vụ)
+    /// Láº¥y danh sÃ¡ch module Ä‘Æ°á»£c phÃ©p cá»§a cá»­a hÃ ng hiá»‡n táº¡i (dá»±a trÃªn gÃ³i dá»‹ch vá»¥)
     /// </summary>
     [HttpGet("my-modules")]
     [Authorize]
@@ -251,7 +378,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         var storeId = CurrentStoreId;
         if (storeId == null)
         {
-            // SuperAdmin/Agent không có store → trả rỗng (frontend sẽ hiểu là không giới hạn)
+            // SuperAdmin/Agent khÃ´ng cÃ³ store â†’ tráº£ rá»—ng (frontend sáº½ hiá»ƒu lÃ  khÃ´ng giá»›i háº¡n)
             return Ok(AppResponse<List<string>>.Success(new List<string>()));
         }
 
@@ -261,7 +388,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
         if (store?.ServicePackage == null || string.IsNullOrEmpty(store.ServicePackage.AllowedModules))
         {
-            // Store chưa gán gói dịch vụ → không giới hạn
+            // Store chÆ°a gÃ¡n gÃ³i dá»‹ch vá»¥ â†’ khÃ´ng giá»›i háº¡n
             return Ok(AppResponse<List<string>>.Success(new List<string>()));
         }
 
@@ -271,3 +398,4 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         return Ok(AppResponse<List<string>>.Success(modules));
     }
 }
+

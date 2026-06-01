@@ -14,6 +14,7 @@ public class GetManagerDashboardHandler(
     IRepository<Shift> shiftRepository,
     IRepository<Leave> leaveRepository,
     IRepository<Attendance> attendanceRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
     UserManager<ApplicationUser> userManager,
     ILogger<GetManagerDashboardHandler> logger
 ) : IQueryHandler<GetManagerDashboardQuery, AppResponse<ManagerDashboardDto>>
@@ -22,8 +23,14 @@ public class GetManagerDashboardHandler(
     {
         try
         {
+            // VN-local window. request.Date is the calendar date (zero time-of-day) the
+            // caller wants to inspect. Shift.StartTime is local VN, so this window stays in VN.
             var startOfDay = request.Date.Date;
-            var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+            var endOfDayExclusive = startOfDay.AddDays(1);
+            var endOfDay = endOfDayExclusive.AddTicks(-1);
+            // AttendanceTime is stored as UTC — convert the VN window once for that query.
+            var attUtcStart = startOfDay.AddHours(-7);
+            var attUtcEnd = endOfDayExclusive.AddHours(-7);
 
             // Get all employees managed by this manager
             var managedUsers = await userManager.Users
@@ -62,31 +69,43 @@ public class GetManagerDashboardHandler(
             var todayShifts = (await shiftRepository.GetAllAsync(
                 filter: s => managedUserIds.Contains(s.EmployeeUserId) &&
                            s.StartTime >= startOfDay &&
-                           s.StartTime <= endOfDay &&
+                           s.StartTime < endOfDayExclusive &&
                            s.Status == ShiftStatus.Approved,
-                includeProperties: new[] { "ApplicationUser", "ApplicationUser.Employee" },
+                includeProperties: new[] { "EmployeeUser", "EmployeeUser.Employee" },
                 cancellationToken: cancellationToken)).ToList();
 
-            // Get all approved leaves for today that are associated with shifts
+            // Get all approved leaves for today (Shift nav is ignored in EF — load templates separately).
             var leavesForToday = (await leaveRepository.GetAllAsync(
                 filter: l => l.Status == LeaveStatus.Approved &&
                            l.StartDate <= endOfDay &&
                            l.EndDate >= startOfDay &&
                            managedUserIds.Contains(l.EmployeeUserId),
-                includeProperties: new[] { "EmployeeUser", "EmployeeUser.Employee", "Shift" },
+                includeProperties: new[] { "EmployeeUser", "EmployeeUser.Employee" },
                 cancellationToken: cancellationToken))
                 .ToList();
+
+            var leaveShiftTemplateIds = leavesForToday
+                .Select(l => l.ShiftId)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList();
+            var leaveShiftTemplates = leaveShiftTemplateIds.Count == 0
+                ? new Dictionary<Guid, ShiftTemplate>()
+                : (await shiftTemplateRepository.GetAllAsync(
+                    filter: t => leaveShiftTemplateIds.Contains(t.Id),
+                    cancellationToken: cancellationToken))
+                    .ToDictionary(t => t.Id);
 
             // Get all employees for the managed users to map attendance
             var employeeIdToUserIdMap = managedUsers
                 .Where(u => u.Employee != null)
                 .ToDictionary(u => u.Employee!.Id, u => u.Id);
 
-            // Get attendances for today
+            // Get attendances for today — query in UTC since AttendanceTime is UTC.
             var attendances = (await attendanceRepository.GetAllAsync(
                 filter: a => a.EmployeeId != null && employeeIdToUserIdMap.Keys.Contains(a.EmployeeId.Value) &&
-                           a.AttendanceTime >= startOfDay &&
-                           a.AttendanceTime <= endOfDay,
+                           a.AttendanceTime >= attUtcStart &&
+                           a.AttendanceTime < attUtcEnd,
                 includeProperties: new[] { "Employee" },
                 orderBy: q => q.OrderBy(a => a.AttendanceTime),
                 cancellationToken: cancellationToken)).ToList();
@@ -118,41 +137,51 @@ public class GetManagerDashboardHandler(
                 );
 
             // Build employees on leave list
-            var employeesOnLeave = leavesForToday.Select(l => new EmployeeOnLeaveDto
+            var employeesOnLeave = leavesForToday.Select(l =>
             {
-                EmployeeUserId = l.EmployeeUserId,
-                FullName = GetFullName(l.EmployeeUser),
-                Email = l.EmployeeUser.Email ?? "",
-                LeaveId = l.Id,
-                LeaveType = l.Type.ToString(),
-                LeaveStartDate = l.StartDate,
-                LeaveEndDate = l.EndDate,
-                IsFullDay = l.IsHalfShift == false,
-                Reason = l.Reason,
-                ShiftId = l.ShiftId,
-                ShiftStartTime = l.Shift != null ? startOfDay.Date.Add(l.Shift.StartTime) : l.StartDate,
-                ShiftEndTime = l.Shift != null ? startOfDay.Date.Add(l.Shift.EndTime) : l.EndDate
+                leaveShiftTemplates.TryGetValue(l.ShiftId, out var shiftTemplate);
+                return new EmployeeOnLeaveDto
+                {
+                    EmployeeUserId = l.EmployeeUserId,
+                    FullName = GetFullName(l.EmployeeUser),
+                    Email = l.EmployeeUser.Email ?? "",
+                    LeaveId = l.Id,
+                    LeaveType = l.Type.ToString(),
+                    LeaveStartDate = l.StartDate,
+                    LeaveEndDate = l.EndDate,
+                    IsFullDay = l.IsHalfShift == false,
+                    Reason = l.Reason,
+                    ShiftId = l.ShiftId,
+                    ShiftStartTime = shiftTemplate != null
+                        ? startOfDay.Date.Add(shiftTemplate.StartTime)
+                        : l.StartDate,
+                    ShiftEndTime = shiftTemplate != null
+                        ? startOfDay.Date.Add(shiftTemplate.EndTime)
+                        : l.EndDate
+                };
             }).ToList();
 
             var onLeaveUserIds = employeesOnLeave.Select(e => e.EmployeeUserId).ToHashSet();
 
-            // Build late employees list (checked in but late, excluding those on leave)
+            // Build late employees list (checked in but late, excluding those on leave).
+            // checkIn.AttendanceTime is UTC; shift.StartTime is VN-local — convert before comparing.
             var lateEmployees = new List<LateDeviceUserDto>();
             foreach (var shift in todayShifts.Where(s => !onLeaveUserIds.Contains(s.EmployeeUserId)))
             {
                 if (employeeCheckIns.TryGetValue(shift.EmployeeUserId, out var checkIn))
                 {
-                    if (checkIn.AttendanceTime > shift.StartTime)
+                    var checkInVn = checkIn.AttendanceTime.AddHours(7);
+                    if (checkInVn > shift.StartTime)
                     {
                         lateEmployees.Add(new LateDeviceUserDto
                         {
                             EmployeeUserId = shift.EmployeeUserId,
                             FullName = GetFullName(shift.EmployeeUser),
-                            Email = shift.EmployeeUser.Email ?? "",
+                            Email = shift.EmployeeUser?.Email ?? "",
                             ShiftId = shift.Id,
                             ShiftStartTime = shift.StartTime,
-                            ActualCheckInTime = checkIn.AttendanceTime,
-                            LateBy = checkIn.AttendanceTime - shift.StartTime,
+                            ActualCheckInTime = checkInVn,
+                            LateBy = checkInVn - shift.StartTime,
                             Department = userDepartmentMap.GetValueOrDefault(shift.EmployeeUserId, "")
                         });
                     }
@@ -176,7 +205,8 @@ public class GetManagerDashboardHandler(
                 })
                 .ToList();
 
-            // Build today employees list (all employees with shifts)
+            // Build today employees list (all employees with shifts).
+            // Display times go back to VN for the UI; status compares the VN-converted check-in.
             var todayEmployees = todayShifts.Select(s =>
             {
                 string status;
@@ -189,13 +219,14 @@ public class GetManagerDashboardHandler(
                 }
                 else if (employeeCheckIns.TryGetValue(s.EmployeeUserId, out var checkIn))
                 {
-                    checkInTime = checkIn.AttendanceTime;
+                    var checkInVn = checkIn.AttendanceTime.AddHours(7);
+                    checkInTime = checkInVn;
                     if (employeeCheckOuts.TryGetValue(s.EmployeeUserId, out var checkOut))
                     {
-                        checkOutTime = checkOut.AttendanceTime;
+                        checkOutTime = checkOut.AttendanceTime.AddHours(7);
                     }
-                    
-                    status = checkIn.AttendanceTime > s.StartTime ? "Late" : "Present";
+
+                    status = checkInVn > s.StartTime ? "Late" : "Present";
                 }
                 else
                 {
@@ -217,9 +248,13 @@ public class GetManagerDashboardHandler(
                 };
             }).ToList();
 
-            // Calculate attendance rate
+            // Calculate attendance rate.
+            //  • AttendancePercentage = checked-in / total-shifted   (everybody who showed up)
+            //  • PunctualityPercentage = on-time / checked-in        (of those who showed up,
+            //    how many were on time). Earlier this divided by totalEmployeesWithShift which
+            //    conflated punctuality with attendance and dragged the number artificially low.
             var totalEmployeesWithShift = todayShifts.Count;
-            var presentEmployees = checkedInUserIds.Count - lateEmployees.Count;
+            var presentOnTime = checkedInUserIds.Count - lateEmployees.Count;
             var lateCount = lateEmployees.Count;
             var absentCount = absentEmployees.Count;
             var onLeaveCount = employeesOnLeave.Count;
@@ -227,16 +262,16 @@ public class GetManagerDashboardHandler(
             var attendanceRate = new AttendanceRateDto
             {
                 TotalEmployeesWithShift = totalEmployeesWithShift,
-                PresentEmployees = presentEmployees,
+                PresentEmployees = presentOnTime,
                 LateEmployees = lateCount,
                 AbsentEmployees = absentCount,
                 OnLeaveEmployees = onLeaveCount,
                 AttendancePercentage = totalEmployeesWithShift > 0
-                    ? Math.Round((double)(checkedInUserIds.Count) / totalEmployeesWithShift * 100, 2)
+                    ? Math.Round((double)checkedInUserIds.Count / totalEmployeesWithShift * 100, 2)
                     : 0,
-                PunctualityPercentage = totalEmployeesWithShift > 0
-                    ? Math.Round((double)presentEmployees / totalEmployeesWithShift * 100, 2)
-                    : 0
+                PunctualityPercentage = checkedInUserIds.Count > 0
+                    ? Math.Round((double)presentOnTime / checkedInUserIds.Count * 100, 2)
+                    : 100
             };
 
             var result = new ManagerDashboardDto

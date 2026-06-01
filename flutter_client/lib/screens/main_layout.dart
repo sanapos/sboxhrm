@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/announcement_banner.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../models/hrm.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
@@ -39,17 +40,15 @@ import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
 import 'dashboard_screen.dart';
 
-import 'payroll_report_screen.dart';
-import 'hr_report_screen.dart';
 import 'penalty_report_screen.dart';
 import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'leave_report_screen.dart';
+import 'asset_report_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
 import 'mobile_attendance_screen.dart';
-import 'mobile_attendance_approval_screen.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
@@ -96,6 +95,8 @@ class ScreenRefreshNotifier {
 /// Global navigation notifier - allows navigating from any screen
 class NavigationNotifier {
   static final ValueNotifier<int?> navigateTo = ValueNotifier<int?>(null);
+  /// Tab ban đầu khi mở Duyệt lịch làm việc: 0=ca, 1=NV, 2=đổi ca
+  static final ValueNotifier<int> scheduleApprovalTab = ValueNotifier<int>(0);
 
   // Screen indices mapping - must match _navItems order
   // [0]  Trang chủ
@@ -115,8 +116,7 @@ class NavigationNotifier {
   // [14] Tổng hợp lương (Payroll)
   // [15] Đăng ký chấm công Mobile
   // [16] Chấm công Mobile
-  // [17] Duyệt chấm công Mobile
-  // [18] Chấm cơm (Meal)
+  // [17] Chấm cơm (Meal)
   // [19] Phiếu thưởng
   // [20] Ứng lương
   // [21] Thu chi
@@ -127,10 +127,8 @@ class NavigationNotifier {
   // [26] Sản lượng
   // [27] Phản ánh / Ý kiến
   // [28] Check-in điểm bán
-  // [29] Báo cáo chấm công
-  // [30] Báo cáo lương
-  // [31] Báo cáo nhân sự
-  // [32] License Keys
+  // … các báo cáo khác (xem thứ tự _navItems)
+  // License Keys, Cài đặt, …
   // [33] Thiết lập HRM
   // [34] Cài đặt
   // [35] Quản trị hệ thống
@@ -151,29 +149,27 @@ class NavigationNotifier {
   static const int attendanceApproval = 12;
   static const int scheduleApproval = 13;
   static const int payroll = 14;
-  static const int meals = 18;
-  static const int bonusPenalty = 19;
-  static const int advanceRequests = 20;
-  static const int cashTransaction = 21;
-  static const int assetManagement = 22;
-  static const int taskManagement = 23;
-  static const int communication = 24;
-  static const int kpi = 25;
-  static const int production = 26;
-  static const int feedback = 27;
-  static const int fieldCheckIn = 28;
-  static const int attendanceReport = 29;
-  static const int payrollReport = 30;
-  static const int agentLicenseKeys = 32;
-  static const int settingsHub = 33;
-  static const int settings = 34;
-  static const int systemAdmin = 35;
-  static const int penaltyTickets = 36;
-  static const int notificationSettings = 37;
-  static const int penaltyReport = 38;
-  static const int cashReport = 39;
-  static const int advanceReport = 40;
-  static const int leaveReport = 41;
+  static const int meals = 17;
+  static const int bonusPenalty = 18;
+  static const int advanceRequests = 19;
+  static const int cashTransaction = 20;
+  static const int assetManagement = 21;
+  static const int taskManagement = 22;
+  static const int communication = 23;
+  static const int kpi = 24;
+  static const int production = 25;
+  static const int feedback = 26;
+  static const int fieldCheckIn = 27;
+  static const int agentLicenseKeys = 31;
+  static const int settingsHub = 32;
+  static const int settings = 33;
+  static const int systemAdmin = 34;
+  static const int penaltyTickets = 35;
+  static const int notificationSettings = 36;
+  static const int penaltyReport = 37;
+  static const int cashReport = 38;
+  static const int advanceReport = 39;
+  static const int leaveReport = 40;
 
   static final ValueNotifier<bool> goBackNotifier = ValueNotifier<bool>(false);
 
@@ -335,6 +331,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool get _canGoBack =>
       _navigationHistory.isNotEmpty ||
       SettingsHubScreen.internalBackCallback != null;
+
+  String _settingsHubTitle(AppLocalizations l) {
+    if (_selectedIndex == NavigationNotifier.settingsHub) {
+      final sub = SettingsHubScreen.activeSubPageTitle;
+      if (sub != null && sub.isNotEmpty) return sub;
+    }
+    return _navItems[_selectedIndex].localizedLabel(l);
+  }
 
   @override
   void dispose() {
@@ -738,6 +742,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'workschedule':
       case 'scheduleregistration':
         return NavigationNotifier.workSchedule;
+      case 'shiftswap':
+        return NavigationNotifier.scheduleApproval;
       case 'employee':
         return NavigationNotifier.employees;
       case 'payroll':
@@ -774,7 +780,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Trang chủ',
       screen: const SizedBox(), // Will be replaced by _HomeMenuScreen
       group: 'Tổng quan',
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Home',
     ),
     NavItem(
@@ -784,7 +790,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const NotificationsScreen(),
       group: 'Tổng quan',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Notification',
     ),
 
@@ -796,7 +802,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảng điều khiển tổng quan',
       screen: const DashboardScreen(),
       group: 'Tổng quan',
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Dashboard',
     ),
     NavItem(
@@ -807,7 +813,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const EmployeesScreen(),
       group: 'Hồ sơ nhân sự',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Employee',
     ),
     NavItem(
@@ -829,7 +835,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const DepartmentScreen(),
       group: 'Hồ sơ nhân sự',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Department',
     ),
     NavItem(
@@ -851,7 +857,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const SalarySettingsScreen(),
       group: 'Hồ sơ nhân sự',
       showInSidebar: false,
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'SalarySettings',
     ),
 
@@ -859,8 +865,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.access_time_outlined,
       activeIcon: Icons.access_time_filled,
-      label: 'Chấm công',
-      subtitle: 'Dữ liệu chấm công',
+      label: 'Chấm công thô',
+      subtitle: 'Dữ liệu chấm công thô từ máy',
       screen: const AttendanceScreen(),
       group: 'Chấm công',
       showInSidebar: false,
@@ -902,7 +908,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.fact_check_outlined,
       activeIcon: Icons.fact_check,
       label: 'Duyệt chấm công',
-      subtitle: 'Duyệt bổ sung, sửa chấm công',
+      subtitle: 'Duyệt điều chỉnh CC & chấm công mobile',
       screen: const AttendanceApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
@@ -913,7 +919,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.assignment_turned_in_outlined,
       activeIcon: Icons.assignment_turned_in,
       label: 'Duyệt lịch làm việc',
-      subtitle: 'Duyệt đề xuất đổi ca, lịch',
+      subtitle: 'Duyệt đăng ký lịch & đổi ca (tab Đổi ca)',
       screen: const ScheduleApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
@@ -950,17 +956,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'Chấm công',
       themeColor: const Color(0xFF0284C7),
       moduleCode: 'MobileAttendance',
-    ),
-    NavItem(
-      icon: Icons.how_to_reg_outlined,
-      activeIcon: Icons.how_to_reg,
-      label: 'Duyệt chấm công Mobile',
-      subtitle: 'Duyệt & quản lý đăng ký khuôn mặt',
-      screen: const MobileAttendanceApprovalScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
-      moduleCode: 'MobileAttendanceApproval',
     ),
     NavItem(
       icon: Icons.restaurant_outlined,
@@ -1074,7 +1069,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phản ánh, góp ý ẩn danh hoặc công khai',
       screen: const FeedbackScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF1E3A5F),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Feedback',
     ),
 
@@ -1091,28 +1086,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ BÁO CÁO ══════════
-    NavItem(
-      icon: Icons.payments_outlined,
-      activeIcon: Icons.payments,
-      label: 'Báo cáo lương',
-      subtitle: 'Chi phí lương, phân bổ',
-      screen: const PayrollReportScreen(),
-      group: 'Báo cáo',
-      showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'PayrollReport',
-    ),
-    NavItem(
-      icon: Icons.people_outline,
-      activeIcon: Icons.people,
-      label: 'Báo cáo nhân sự',
-      subtitle: 'Thống kê nhân sự, phòng ban',
-      screen: const HrReportScreen(),
-      group: 'Báo cáo',
-      showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'HrReport',
-    ),
     NavItem(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
@@ -1156,6 +1129,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: const Color(0xFF0284C7),
       moduleCode: 'LeaveReport',
+    ),
+    NavItem(
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2,
+      label: 'Báo cáo tài sản',
+      subtitle: 'Danh mục, cấp phát, kho, kiểm kê',
+      screen: const AssetReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF059669),
+      moduleCode: 'AssetReport',
     ),
 
     // ══════════ ĐẠI LÝ ══════════
@@ -1427,7 +1411,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 .textTheme
                 .headlineLarge
                 ?.copyWith(fontSize: 17),
-            title: Text(_navItems[_selectedIndex].localizedLabel(l)),
+            title: Text(_settingsHubTitle(l)),
             actions: [
               IconButton(
                 icon: Badge(
@@ -1743,7 +1727,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0C56D0),
+                            color: HrmPageChrome.primaryNavy,
                             letterSpacing: -0.5,
                           ),
                           overflow: TextOverflow.ellipsis),
@@ -1932,11 +1916,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           CircleAvatar(
             radius: _isExpanded ? 20 : 18,
-            backgroundColor: const Color(0xFF0C56D0).withValues(alpha: 0.1),
+            backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
             child: Text(
               (user?.fullName ?? 'U')[0].toUpperCase(),
               style: TextStyle(
-                color: const Color(0xFF0C56D0),
+                color: HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w700,
                 fontSize: _isExpanded ? 16 : 14,
               ),
@@ -2012,8 +1996,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           if (_canGoBack) const SizedBox(width: 4),
           Text(
-            _navItems[_selectedIndex]
-                .localizedLabel(AppLocalizations.of(context)),
+            _settingsHubTitle(AppLocalizations.of(context)),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -2227,7 +2210,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0C56D0),
+                        color: HrmPageChrome.primaryNavy,
                         letterSpacing: -0.5,
                       ),
                       overflow: TextOverflow.ellipsis),
@@ -2341,13 +2324,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onPressed: () => Navigator.pop(context),
             child: Text(l.cancel),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               Navigator.pop(context);
               Provider.of<PermissionProvider>(context, listen: false).clear();
               Provider.of<AuthProvider>(context, listen: false).logout();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: Text(l.logout),
           ),
         ],
@@ -2429,13 +2412,11 @@ class NavItem {
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
     'Feedback': (l) => 'Phản ánh / Ý kiến',
-    'HrReport': (l) => l.hrReport,
-    'AttendanceReport': (l) => l.attendanceReport,
-    'PayrollReport': (l) => l.payrollReport,
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',
     'LeaveReport': (l) => 'Báo cáo nghỉ phép',
+    'AssetReport': (l) => 'Báo cáo tài sản',
     'SettingsHub': (l) => l.hrmSetup,
     'Settings': (l) => l.settings,
   };
@@ -2448,9 +2429,7 @@ class NavItem {
     'Attendance': (l) => l.attendanceData,
     'Payroll': (l) => l.employeePayroll,
     'AdvanceRequests': (l) => l.advanceManagement,
-    'HrReport': (l) => l.hrReportSubtitle,
-    'AttendanceReport': (l) => l.attendanceReportSubtitle,
-    'PayrollReport': (l) => l.payrollReportSubtitle,
+    'AssetReport': (l) => 'Danh mục, kho, kiểm kê, bảo hành',
   };
 
   static final Map<String, String Function(AppLocalizations)> _groupMap = {
@@ -2499,7 +2478,7 @@ class _HomeMenuScreen extends StatefulWidget {
   };
 
   static const _groupColors = {
-    'Hồ sơ nhân sự': Color(0xFF1E3A5F), // Navy
+    'Hồ sơ nhân sự': HrmPageChrome.primaryNavy, // Navy
     'Chấm công': Color(0xFF0284C7), // Sky 600
     'Tài chính': Color(0xFFEC4899), // Pink 500
     'Quản lý Vận hành': Color(0xFF059669), // Emerald 600
@@ -2581,15 +2560,18 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
           Container(
             padding: EdgeInsets.all(isMobile ? 20 : 28),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
+                colors: [
+                  HrmPageChrome.primaryNavy,
+                  HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+                ],
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0C56D0).withValues(alpha: 0.3),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),
@@ -3417,7 +3399,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
       case 'DeviceOffline':
         return const Color(0xFFEF4444); // Red
       case 'NewDeviceDetected':
-        return const Color(0xFF1E3A5F); // Blue
+        return HrmPageChrome.primaryNavy; // Blue
       default:
         return const Color(0xFF6B7280); // Gray
     }

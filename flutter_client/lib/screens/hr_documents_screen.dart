@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class HrDocumentsScreen extends StatefulWidget {
   final String? highlightId;
@@ -93,15 +94,15 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
   Color _getDocTypeColor(String? type) {
     switch (type?.toLowerCase()) {
       case 'contract':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'certificate':
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       case 'id_card':
         return const Color(0xFFEA580C);
       case 'insurance':
         return const Color(0xFF059669);
       case 'license':
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       default:
         return const Color(0xFF6B7280);
     }
@@ -162,7 +163,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         onPressed: () => _showDocumentDialog(),
         icon: const Icon(Icons.note_add),
         label: const Text('Thêm tài liệu'),
-        backgroundColor: const Color(0xFF0F2340),
+        backgroundColor: HrmPageChrome.primaryNavy,
       ),
     );
   }
@@ -172,7 +173,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       decoration: const BoxDecoration(
         gradient:
-            LinearGradient(colors: [Color(0xFF153058), Color(0xFF0F2340)]),
+            LinearGradient(colors: [Color(0xFF153058), HrmPageChrome.primaryNavy]),
       ),
       child: Column(
         children: [

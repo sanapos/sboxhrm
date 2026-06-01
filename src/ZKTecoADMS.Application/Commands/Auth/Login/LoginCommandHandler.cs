@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Auth;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces.Auth;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Repositories;
@@ -79,16 +80,21 @@ public class LoginCommandHandler(
 
         // Check if the user account is locked out
         if (await userManager.IsLockedOutAsync(user))
-        {   
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị khóa. Vui lòng thử lại sau.");
+        {
+            return AppResponse<AuthenticateResponse>.Error(LockoutMessageHelper.GetLockedMessage(user));
         }
 
         // Validate password
         var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordValid)
         {
-            // Record failed login attempt
             await userManager.AccessFailedAsync(user);
+            var refreshed = await userManager.FindByIdAsync(user.Id.ToString());
+            if (refreshed != null && await userManager.IsLockedOutAsync(refreshed))
+            {
+                return AppResponse<AuthenticateResponse>.Error(
+                    LockoutMessageHelper.GetLockedMessage(refreshed));
+            }
             return AppResponse<AuthenticateResponse>.Error("Mật khẩu không đúng.");
         }
 

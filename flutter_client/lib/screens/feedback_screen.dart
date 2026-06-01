@@ -7,6 +7,7 @@ import '../widgets/ai_assist_sheet.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'feedback_detail_screen.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -27,8 +28,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   String? _filterCategory;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
-
   static const _statusLabels = {
     'Pending': 'Chờ xử lý',
     'InProgress': 'Đang xử lý',
@@ -124,11 +123,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    const primary = Color(0xFF1E3A5F);
+    const primary = HrmPageChrome.primaryNavy;
     final hasActiveFilter = _filterStatus != null || _filterCategory != null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback')
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
@@ -165,7 +164,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               ),
             ),
           // ===== Collapsible filters =====
-          if (!isMobile || _showMobileFilters)
+          
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(
@@ -219,34 +218,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     ],
                   ),
                 ),
-                Stack(
-                  children: [
-                    IconButton(
-                      tooltip: 'Bộ lọc',
-                      icon: Icon(
-                          _showMobileFilters
-                              ? Icons.filter_list_off
-                              : Icons.filter_list,
-                          color: _showMobileFilters ? Colors.orange : primary),
-                      onPressed: () => setState(
-                          () => _showMobileFilters = !_showMobileFilters),
-                    ),
-                    if (hasActiveFilter)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF97316),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 4),
               ],
             ),
           ),
@@ -356,7 +327,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             Row(
               children: [
                 Icon(_categoryIcons[category] ?? Icons.chat_bubble_outline,
-                    size: 20, color: const Color(0xFF1E3A5F)),
+                    size: 20, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(fb['title'] ?? '',
@@ -479,7 +450,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   icon: const Icon(Icons.chat_outlined, size: 16),
                   label: const Text('Xem / Trả lời'),
                   style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF1E3A5F)),
+                      foregroundColor: HrmPageChrome.primaryNavy),
                 ),
                 if (isMine && status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canDelete('Feedback'))
                   TextButton.icon(
@@ -547,7 +518,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   ? 'Danh tính sẽ được bảo mật'
                   : 'Người nhận sẽ biết bạn là ai'),
               value: isAnonymous,
-              activeThumbColor: const Color(0xFF1E3A5F),
+              activeThumbColor: HrmPageChrome.primaryNavy,
               secondary: Icon(
                 isAnonymous ? Icons.visibility_off : Icons.visibility,
                 color:
@@ -679,7 +650,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Gửi phản ánh / Ý kiến', overflow: TextOverflow.ellipsis, maxLines: 1),
-                  backgroundColor: const Color(0xFF1E3A5F),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   leading: IconButton(
                     icon: const Icon(Icons.close),
@@ -702,7 +673,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         child: FilledButton(
                           onPressed: () => onSubmit(ctx),
                           style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E3A5F)),
+                              backgroundColor: HrmPageChrome.primaryNavy),
                           child: const Text('Gửi'),
                         ),
                       ),
@@ -725,7 +696,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               FilledButton(
                 onPressed: () => onSubmit(ctx),
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F)),
+                    backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Gửi'),
               ),
             ],
@@ -839,7 +810,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               child: Scaffold(
                 appBar: AppBar(
                   title: const Text('Phản hồi ý kiến'),
-                  backgroundColor: const Color(0xFF1E3A5F),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   leading: IconButton(
                     icon: const Icon(Icons.close),
@@ -862,7 +833,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         child: FilledButton(
                           onPressed: () => onSubmit(ctx),
                           style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E3A5F)),
+                              backgroundColor: HrmPageChrome.primaryNavy),
                           child: const Text('Gửi phản hồi'),
                         ),
                       ),
@@ -885,7 +856,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               FilledButton(
                 onPressed: () => onSubmit(ctx),
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F)),
+                    backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Gửi phản hồi'),
               ),
             ],

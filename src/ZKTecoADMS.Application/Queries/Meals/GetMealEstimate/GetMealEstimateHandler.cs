@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Meals;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -9,6 +10,7 @@ namespace ZKTecoADMS.Application.Queries.Meals.GetMealEstimate;
 public class GetMealEstimateHandler(
     IRepository<MealSession> mealSessionRepository,
     IRepository<Shift> shiftRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<MealRecord> mealRecordRepository,
     IRepository<MealRegistration> registrationRepository
 ) : IQueryHandler<GetMealEstimateQuery, AppResponse<MealSummaryDto>>
@@ -17,40 +19,36 @@ public class GetMealEstimateHandler(
     {
         var date = request.Date.Date;
 
-        // Get all active meal sessions for this store
         var sessions = await mealSessionRepository.GetAllWithIncludeAsync(
             filter: s => s.StoreId == request.StoreId && s.IsActive,
             includes: q => q.Include(s => s.MealSessionShifts),
+            cancellationToken: cancellationToken);
+
+        var dayShifts = await shiftRepository.GetAllAsync(
+            s => s.StoreId == request.StoreId &&
+                 s.StartTime.Date == date &&
+                 s.Status == ShiftStatus.Approved &&
+                 s.CheckInAttendanceId != null,
             cancellationToken: cancellationToken);
 
         var estimates = new List<MealEstimateDto>();
 
         foreach (var session in sessions)
         {
-            // Count employees that checked in for shifts linked to this meal session
             var linkedShiftTemplateIds = session.MealSessionShifts.Select(ms => ms.ShiftTemplateId).ToList();
-            
-            int estimatedCount = 0;
+            List<ShiftTemplate> linkedTemplates = [];
             if (linkedShiftTemplateIds.Count > 0)
             {
-                // Count shifts on this date that are approved and linked to meal session
-                estimatedCount = await shiftRepository.CountAsync(
-                    s => s.StoreId == request.StoreId &&
-                         s.StartTime.Date == date &&
-                         s.Status == ShiftStatus.Approved &&
-                         s.CheckInAttendanceId != null,
-                    cancellationToken);
+                linkedTemplates = await shiftTemplateRepository.GetAllAsync(
+                    t => linkedShiftTemplateIds.Contains(t.Id),
+                    cancellationToken: cancellationToken);
             }
-            else
-            {
-                // If no shift templates linked, count all checked-in shifts for the day 
-                estimatedCount = await shiftRepository.CountAsync(
-                    s => s.StoreId == request.StoreId &&
-                         s.StartTime.Date == date &&
-                         s.Status == ShiftStatus.Approved &&
-                         s.CheckInAttendanceId != null,
-                    cancellationToken);
-            }
+
+            var estimatedCount = dayShifts
+                .Where(s => ShiftQualifiesForMealSession(s, session, linkedTemplates))
+                .Select(s => s.EmployeeUserId)
+                .Distinct()
+                .Count();
 
             // Count actual meal records for this session today
             var actualCount = await mealRecordRepository.CountAsync(
@@ -89,5 +87,22 @@ public class GetMealEstimateHandler(
         };
 
         return AppResponse<MealSummaryDto>.Success(summary);
+    }
+
+    private static bool ShiftQualifiesForMealSession(
+        Shift shift,
+        MealSession session,
+        List<ShiftTemplate> linkedTemplates)
+    {
+        var shiftStart = shift.StartTime.TimeOfDay;
+        var shiftEnd = shift.EndTime.TimeOfDay;
+        if (!MealTimeHelper.TimeRangesOverlap(shiftStart, shiftEnd, session.StartTime, session.EndTime))
+            return false;
+
+        if (linkedTemplates.Count == 0)
+            return true;
+
+        return linkedTemplates.Any(t =>
+            MealTimeHelper.TimeRangesOverlap(shiftStart, shiftEnd, t.StartTime, t.EndTime));
     }
 }

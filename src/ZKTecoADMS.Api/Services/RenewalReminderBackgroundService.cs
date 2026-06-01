@@ -43,11 +43,11 @@ public class RenewalReminderBackgroundService : BackgroundService
 
         foreach (var d in Thresholds)
         {
-            var dayStart = today.AddDays(d);
-            var dayEnd = dayStart.AddDays(1);
+            var targetDay = today.AddDays(d);
             var stores = await db.Stores.AsNoTracking()
                 .IgnoreQueryFilters()
-                .Where(s => s.ExpiryDate != null && s.ExpiryDate >= dayStart && s.ExpiryDate < dayEnd)
+                .Where(s => s.ExpiryDate != null
+                    && s.ExpiryDate.Value.Date == targetDay)
                 .Select(s => new { s.Id, s.Name, s.ExpiryDate })
                 .ToListAsync(ct);
 
@@ -80,7 +80,8 @@ public class RenewalReminderBackgroundService : BackgroundService
                             StoreIds = new List<Guid> { s.Id }
                         },
                         SendNow = true,
-                        ExpiresAt = s.ExpiryDate
+                        // Hiển thị banner đến hết ngày hết hạn (UTC date + 1 ngày)
+                        ExpiresAt = s.ExpiryDate?.Date.AddDays(1)
                     }, Guid.Empty, ct);
                     _logger.LogInformation("Sent renewal reminder T-{D} for store {Store}", d, s.Name);
                 }

@@ -70,10 +70,10 @@ public class PagedQueryRepository<TEntity>(
             }
             else
             {
-                // Default ordering by Created if no SortBy is provided
+                // Default ordering by CreatedAt + Id (stable pagination when CreatedAt ties)
                 query = string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
-                    ? query.OrderBy(e => e.CreatedAt)
-                    : query.OrderByDescending(e => e.CreatedAt);
+                    ? query.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id)
+                    : query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
             }
 
             // Apply pagination
@@ -158,10 +158,10 @@ public class PagedQueryRepository<TEntity>(
             }
             else
             {
-                // Default ordering by Created if no SortBy is provided
+                // Default ordering by CreatedAt + Id (stable pagination when CreatedAt ties)
                 query = string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
-                    ? query.OrderBy(e => e.CreatedAt)
-                    : query.OrderByDescending(e => e.CreatedAt);
+                    ? query.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id)
+                    : query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
             }
 
             // Apply pagination
@@ -196,7 +196,7 @@ public class PagedQueryRepository<TEntity>(
     {
         try
         {
-            IQueryable<TEntity> query = dbSet;
+            IQueryable<TEntity> query = dbSet.AsNoTracking();
 
             // Apply filter
             if (filter != null)
@@ -204,48 +204,11 @@ public class PagedQueryRepository<TEntity>(
                 query = query.Where(filter);
             }
 
-            // Get total count after filter but before projection
-            var totalCount = await query.CountAsync(cancellationToken);
+            var totalCount = request.IncludeTotalCount
+                ? await query.CountAsync(cancellationToken)
+                : 0;
 
-            // Apply ordering based on PaginationRequest.SortBy and SortOrder
-            if (!string.IsNullOrWhiteSpace(request.SortBy))
-            {
-                var sortBy = request.SortBy.Substring(0, 1).ToUpper() + request.SortBy.Substring(1);
-    
-                var prop = typeof(TEntity).GetProperty(sortBy);
-
-                if (prop == null)
-                {
-                    logger.LogWarning("SortBy '{SortBy}' is not a valid property of {EntityType}. Falling back to Created desc.",
-                        request.SortBy, typeof(TEntity).Name);
-                    throw new InvalidOperationException($"SortBy '{sortBy}' is not a valid property of {typeof(TEntity).Name}");
-                }
-
-                var parameter = Expression.Parameter(typeof(TEntity), "x");
-                var property = Expression.Property(parameter, prop);
-                var lambda = Expression.Lambda(property, parameter);
-
-                var methodName = string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
-                    ? "OrderBy"
-                    : "OrderByDescending";
-
-                var resultExpression = Expression.Call(
-                    typeof(Queryable),
-                    methodName,
-                    [typeof(TEntity), prop.PropertyType],
-                    query.Expression,
-                    Expression.Quote(lambda)
-                );
-
-                query = query.Provider.CreateQuery<TEntity>(resultExpression);
-            }
-            else
-            {
-                // Default ordering by Created if no SortBy is provided
-                query = string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
-                    ? query.OrderBy(e => e.CreatedAt)
-                    : query.OrderByDescending(e => e.CreatedAt);
-            }
+            query = ApplyOrdering(query, request);
 
             // Apply projection
             IQueryable<TProjection> projectedQuery;
@@ -258,21 +221,18 @@ public class PagedQueryRepository<TEntity>(
                 throw new InvalidOperationException("Projection expression is required for GetPagedResultWithProjectionAsync");
             }
 
-            // Apply pagination
             var items = await projectedQuery
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToListAsync(cancellationToken);
 
-            var result = new PagedResult<TProjection>
+            return new PagedResult<TProjection>
             {
                 Items = items,
                 TotalCount = totalCount,
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize
             };
-
-            return result;
         }
         catch (Exception ex)
         {
@@ -280,5 +240,40 @@ public class PagedQueryRepository<TEntity>(
                 typeof(TEntity).Name, request.PageNumber, request.PageSize);
             throw;
         }
+    }
+
+    private static IQueryable<TEntity> ApplyOrdering(IQueryable<TEntity> query, PaginationRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.SortBy))
+        {
+            var sortBy = request.SortBy.Substring(0, 1).ToUpper() + request.SortBy.Substring(1);
+            var prop = typeof(TEntity).GetProperty(sortBy);
+            if (prop == null)
+            {
+                throw new InvalidOperationException($"SortBy '{sortBy}' is not a valid property of {typeof(TEntity).Name}");
+            }
+
+            var parameter = Expression.Parameter(typeof(TEntity), "x");
+            var property = Expression.Property(parameter, prop);
+            var lambda = Expression.Lambda(property, parameter);
+
+            var methodName = string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "OrderBy"
+                : "OrderByDescending";
+
+            var resultExpression = Expression.Call(
+                typeof(Queryable),
+                methodName,
+                [typeof(TEntity), prop.PropertyType],
+                query.Expression,
+                Expression.Quote(lambda));
+
+            query = query.Provider.CreateQuery<TEntity>(resultExpression);
+            return query;
+        }
+
+        return string.Equals(request.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
+            ? query.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id)
+            : query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
     }
 } 

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
 
@@ -19,8 +19,6 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   bool _isLoading = true;
   String _searchQuery = '';
   String _statusFilter = 'all'; // all, online, offline
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -203,7 +201,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.edit, color: Color(0xFF1E3A5F)),
+              Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
               Text('Chỉnh sửa thiết bị'),
             ],
@@ -402,7 +400,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     children: [
                       // Scan barcode button
                       IconButton(
-                        icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF0C56D0)),
+                        icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
                         tooltip: 'Quét mã barcode',
                         onPressed: scanBarcode,
                       ),
@@ -499,7 +497,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.add_circle, color: Color(0xFF1E3A5F)),
+                Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Thêm máy chấm công'),
               ],
@@ -628,7 +626,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     const SizedBox(height: 20),
                     _buildSummaryCards(),
                     const SizedBox(height: 20),
-                    if (!Responsive.isMobile(context) || _showMobileFilters)
+                    
                     _buildToolbar(),
                     const SizedBox(height: 16),
                     _buildDeviceGrid(),
@@ -640,11 +638,51 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   }
 
   Widget _buildHeader() {
+    final embedded = HrmPageChrome.isEmbedded;
+    final isMobile = Responsive.isMobile(context);
+
+    if (embedded) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12 : 16, vertical: isMobile ? 10 : 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE4E4E7)),
+        ),
+        child: Row(
+          children: [
+            const Spacer(),
+            if (isMobile)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: _showAddDeviceDialog,
+                    icon: const Icon(Icons.add_circle_outline,
+                        color: HrmPageChrome.primaryNavy),
+                  ),
+                ],
+              )
+            else
+              FilledButton.icon(
+                onPressed: _showAddDeviceDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Thêm thiết bị'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF0F2340), Color(0xFF0F2340)],
+          colors: [Color(0xFF0F172A), HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -652,15 +690,6 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       ),
       child: Row(
         children: [
-          if (!Responsive.isMobile(context))
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => SettingsHubScreen.goBack(context),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          if (!Responsive.isMobile(context))
-            const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
@@ -675,6 +704,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 const SizedBox(height: 6),
                 Text(
                   'Quản lý danh sách máy chấm công, theo dõi trạng thái kết nối và điều khiển từ xa',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), height: 1.4),
                 ),
               ],
@@ -685,31 +716,6 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                    icon: Stack(
-                      children: [
-                        Icon(
-                          _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                          size: 24,
-                          color: _showMobileFilters ? Colors.orange : Colors.white,
-                        ),
-                        if (_searchQuery.isNotEmpty || _statusFilter != 'all')
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                            ),
-                          ),
-                      ],
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: _showAddDeviceDialog,
                     icon: const Icon(Icons.add_circle, size: 28),
@@ -736,45 +742,42 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   }
 
   Widget _buildSummaryCards() {
+    final cards = [
+      _buildStatCard('Tổng thiết bị', _totalCount, Icons.devices, HrmPageChrome.primaryNavy),
+      _buildStatCard('Đang online', _onlineCount, Icons.wifi, HrmPageChrome.primaryNavy),
+      _buildStatCard('Offline', _offlineCount, Icons.wifi_off, const Color(0xFFEF4444)),
+    ];
+    if (Responsive.isMobile(context)) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              SizedBox(width: 140, child: cards[i]),
+            ],
+          ],
+        ),
+      );
+    }
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Tổng thiết bị', _totalCount, Icons.devices, const Color(0xFF1E3A5F))),
+        Expanded(child: cards[0]),
         const SizedBox(width: 14),
-        Expanded(child: _buildStatCard('Đang online', _onlineCount, Icons.wifi, const Color(0xFF1E3A5F))),
+        Expanded(child: cards[1]),
         const SizedBox(width: 14),
-        Expanded(child: _buildStatCard('Offline', _offlineCount, Icons.wifi_off, const Color(0xFFEF4444))),
+        Expanded(child: cards[2]),
       ],
     );
   }
 
   Widget _buildStatCard(String label, int count, IconData icon, Color color) {
-    return Container(
-      padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(Responsive.isMobile(context) ? 8 : 12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: Responsive.isMobile(context) ? 20 : 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-                Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: '$count',
+      label: label,
+      color: color,
+      valueFontSize: Responsive.isMobile(context) ? 18 : 22,
     );
   }
 
@@ -828,7 +831,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildFilterChip(String label, String value, int count) {
     final isActive = _statusFilter == value;
-    final color = value == 'online' ? const Color(0xFF1E3A5F) : value == 'offline' ? const Color(0xFFEF4444) : const Color(0xFF1E3A5F);
+    final color = value == 'online' ? HrmPageChrome.primaryNavy : value == 'offline' ? const Color(0xFFEF4444) : HrmPageChrome.primaryNavy;
     return InkWell(
       onTap: () => setState(() => _statusFilter = value),
       borderRadius: BorderRadius.circular(10),
@@ -914,7 +917,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildDeviceDeckItem(Map<String, dynamic> device) {
     final online = _isOnline(device);
-    final statusColor = online ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444);
+    final statusColor = online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final deviceName = device['deviceName'] ?? 'Không tên';
     final serialNumber = device['serialNumber'] ?? '';
     final ipAddress = device['ipAddress'] ?? '—';
@@ -956,7 +959,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildDeviceCard(Map<String, dynamic> device) {
     final online = _isOnline(device);
-    final statusColor = online ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444);
+    final statusColor = online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final deviceName = device['deviceName'] ?? 'Không tên';
     final serialNumber = device['serialNumber'] ?? '';
     final location = device['location'] ?? 'Chưa thiết lập';
@@ -1058,7 +1061,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _buildQuickAction(Icons.info_outline, 'Chi tiết', const Color(0xFF1E3A5F), () => _showDeviceDetail(device)),
+                      child: _buildQuickAction(Icons.info_outline, 'Chi tiết', HrmPageChrome.primaryNavy, () => _showDeviceDetail(device)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1171,7 +1174,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                color: Color(0xFF0C56D0),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(
@@ -1297,11 +1300,11 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
               style: TextStyle(color: Color(0xFF586064), fontSize: 11),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => setState(() => _showManualInput = true),
               icon: const Icon(Icons.keyboard, size: 16),
               label: const Text('Nhập mã thủ công'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0C56D0), foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             ),
           ],
         ),
@@ -1315,7 +1318,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.qr_code, color: Color(0xFF0C56D0), size: 40),
+          const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
           const Text('Nhập mã Serial Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 16),
@@ -1335,12 +1338,13 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                 child: const Text('Quay lại camera'),
               ),
               const Spacer(),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final text = _manualController.text.trim();
                   if (text.isNotEmpty) Navigator.pop(context, text);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0C56D0), foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Xác nhận'),
               ),
             ],
@@ -1371,7 +1375,7 @@ class _DeviceDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = isOnline ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444);
+    final statusColor = isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final isMobile = Responsive.isMobile(context);
 
     Widget buildContent() {
@@ -1444,7 +1448,7 @@ class _DeviceDetailDialog extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           // Device Info Section
-          _buildSection('Thông tin thiết bị', Icons.info_outline, const Color(0xFF1E3A5F), [
+          _buildSection('Thông tin thiết bị', Icons.info_outline, HrmPageChrome.primaryNavy, [
             _buildDetailRow('Serial Number', device['serialNumber'] ?? '—'),
             _buildDetailRow('Tên thiết bị', device['deviceName'] ?? '—'),
             _buildDetailRow('Vị trí lắp đặt', device['location'] ?? 'Chưa thiết lập'),
@@ -1454,7 +1458,7 @@ class _DeviceDetailDialog extends StatelessWidget {
           ]),
           if (deviceInfo != null) ...[
             const SizedBox(height: 16),
-            _buildSection('Thông tin kỹ thuật', Icons.memory, const Color(0xFF1E3A5F), [
+            _buildSection('Thông tin kỹ thuật', Icons.memory, HrmPageChrome.primaryNavy, [
               _buildDetailRow('Firmware', deviceInfo!['firmwareVersion'] ?? '—'),
               _buildDetailRow('Số user đã đăng ký', '${deviceInfo!['enrolledUserCount'] ?? 0}'),
               _buildDetailRow('Số vân tay', '${deviceInfo!['fingerprintCount'] ?? 0}'),
@@ -1475,10 +1479,10 @@ class _DeviceDetailDialog extends StatelessWidget {
             children: [
               _buildCommandButton(context, Icons.restart_alt, 'Khởi động lại', const Color(0xFFF59E0B), () => onCommand(6, 'Khởi động lại')),
               _buildCommandButton(context, Icons.delete_forever, 'Xóa toàn bộ dữ liệu', const Color(0xFFEF4444), () => onCommand(5, 'Xóa toàn bộ dữ liệu')),
-              _buildCommandButton(context, Icons.lock_open, 'Mở cửa', const Color(0xFF1E3A5F), () => onCommand(15, 'Mở cửa')),
+              _buildCommandButton(context, Icons.lock_open, 'Mở cửa', HrmPageChrome.primaryNavy, () => onCommand(15, 'Mở cửa')),
               _buildCommandButton(context, Icons.lock, 'Đóng cửa', const Color(0xFFEF4444), () => onCommand(16, 'Đóng cửa')),
-              _buildCommandButton(context, Icons.sync, 'Đồng bộ user', const Color(0xFF1E3A5F), () => onCommand(8, 'Đồng bộ user')),
-              _buildCommandButton(context, Icons.sync_alt, 'Đồng bộ chấm công', const Color(0xFF1E3A5F), () => onCommand(7, 'Đồng bộ chấm công')),
+              _buildCommandButton(context, Icons.sync, 'Đồng bộ user', HrmPageChrome.primaryNavy, () => onCommand(8, 'Đồng bộ user')),
+              _buildCommandButton(context, Icons.sync_alt, 'Đồng bộ chấm công', HrmPageChrome.primaryNavy, () => onCommand(7, 'Đồng bộ chấm công')),
               _buildCommandButton(context, Icons.info, 'Lấy thông tin', const Color(0xFF71717A), () => onCommand(17, 'Lấy thông tin thiết bị')),
             ],
           ),
@@ -1492,8 +1496,8 @@ class _DeviceDetailDialog extends StatelessWidget {
                       icon: const Icon(Icons.edit, size: 16),
                       label: const Text('Đổi tên / Sửa'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        foregroundColor: HrmPageChrome.primaryNavy,
+                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),

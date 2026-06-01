@@ -26,6 +26,15 @@ public class WorkTaskDto
     
     public Guid? AssigneeId { get; set; }
     public string? AssigneeName { get; set; }
+
+    public Guid? BranchId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? TemplateId { get; set; }
+    public int? SlaReminderHours { get; set; }
+    public DateTime? AcceptedAt { get; set; }
+    public string? RejectionReason { get; set; }
+    public string? AssignmentNote { get; set; }
+    public List<Guid>? BlockedByTaskIds { get; set; }
     
     public DateTime? StartDate { get; set; }
     public DateTime? DueDate { get; set; }
@@ -125,12 +134,19 @@ public class CreateTaskDto
     public TaskPriority Priority { get; set; } = TaskPriority.Medium;
     public Guid? AssigneeId { get; set; }
     public List<Guid>? AssigneeIds { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? TemplateId { get; set; }
+    public int? SlaReminderHours { get; set; }
+    public string? AssignmentNote { get; set; }
+    public List<Guid>? BlockedByTaskIds { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? DueDate { get; set; }
     public decimal? EstimatedHours { get; set; }
     public Guid? ParentTaskId { get; set; }
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
+    public bool RequireAcceptance { get; set; } = true;
 }
 
 public class UpdateTaskDto
@@ -142,6 +158,12 @@ public class UpdateTaskDto
     public WorkTaskStatus? Status { get; set; }
     public int? Progress { get; set; }
     public Guid? AssigneeId { get; set; }
+    public List<Guid>? AssigneeIds { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public int? SlaReminderHours { get; set; }
+    public string? AssignmentNote { get; set; }
+    public List<Guid>? BlockedByTaskIds { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? DueDate { get; set; }
     public decimal? EstimatedHours { get; set; }
@@ -149,6 +171,80 @@ public class UpdateTaskDto
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
     public string? CompletionNotes { get; set; }
+}
+
+public class AcceptTaskDto
+{
+    public bool StartImmediately { get; set; }
+}
+
+public class RejectTaskDto
+{
+    public string Reason { get; set; } = string.Empty;
+}
+
+public class TaskAssignmentDashboardDto
+{
+    public int AssignedByMeCount { get; set; }
+    public int PendingAcceptanceCount { get; set; }
+    public int OverdueAssignedCount { get; set; }
+    public int MyActiveCount { get; set; }
+    public List<WorkTaskDto> PendingAcceptance { get; set; } = new();
+    public List<WorkTaskDto> RecentlyAssigned { get; set; } = new();
+    public List<TasksByAssigneeDto>? WorkloadByAssignee { get; set; }
+}
+
+public class TaskTemplateDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public TaskType TaskType { get; set; }
+    public TaskPriority Priority { get; set; }
+    public decimal? EstimatedHours { get; set; }
+    public int? DefaultSlaReminderHours { get; set; }
+    public string? Tags { get; set; }
+    public string? Checklist { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class CreateTaskTemplateDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public TaskType TaskType { get; set; } = TaskType.Task;
+    public TaskPriority Priority { get; set; } = TaskPriority.Medium;
+    public decimal? EstimatedHours { get; set; }
+    public int? DefaultSlaReminderHours { get; set; }
+    public string? Tags { get; set; }
+    public string? Checklist { get; set; }
+}
+
+public class CreateTaskFromTemplateDto
+{
+    public Guid TemplateId { get; set; }
+    public Guid? AssigneeId { get; set; }
+    public List<Guid>? AssigneeIds { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? DepartmentId { get; set; }
+}
+
+public class TaskDependencyDto
+{
+    public Guid Id { get; set; }
+    public Guid TaskId { get; set; }
+    public Guid DependsOnTaskId { get; set; }
+    public string? DependsOnTaskTitle { get; set; }
+    public WorkTaskStatus? DependsOnStatus { get; set; }
+}
+
+public class AddTaskDependencyDto
+{
+    public Guid DependsOnTaskId { get; set; }
 }
 
 public class UpdateTaskStatusDto
@@ -213,6 +309,7 @@ public class TaskStatisticsDto
     public int CompletedCount { get; set; }
     public int CancelledCount { get; set; }
     public int OnHoldCount { get; set; }
+    public int AssignedCount { get; set; }
     public int OverdueCount { get; set; }
     public double CompletionRate { get; set; }
     public double AverageProgress { get; set; }
@@ -273,6 +370,9 @@ public class BatchAssignDto
 {
     public List<Guid> TaskIds { get; set; } = new();
     public Guid AssigneeId { get; set; }
+    public List<Guid>? AssigneeIds { get; set; }
+    public DateTime? DueDate { get; set; }
+    public string? AssignmentNote { get; set; }
 }
 
 public class BatchDeleteDto

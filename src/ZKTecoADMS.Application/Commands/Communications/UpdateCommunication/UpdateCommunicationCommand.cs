@@ -18,5 +18,6 @@ public record UpdateCommunicationCommand(
     DateTime? PublishedAt,
     DateTime? ExpiresAt,
     bool? IsPinned,
-    string? Tags
+    string? Tags,
+    bool? IsPublicShareEnabled
 ) : ICommand<AppResponse<bool>>;

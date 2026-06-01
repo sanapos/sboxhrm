@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -73,6 +74,20 @@ public class UpdateCommunicationHandler(
             
             if (request.Tags != null)
                 communication.Tags = request.Tags;
+
+            if (request.IsPublicShareEnabled.HasValue)
+            {
+                communication.IsPublicShareEnabled = request.IsPublicShareEnabled.Value;
+                if (request.IsPublicShareEnabled.Value)
+                {
+                    if (string.IsNullOrEmpty(communication.PublicShareToken))
+                        communication.PublicShareToken = CommunicationShareTokenHelper.Generate();
+                }
+                else
+                {
+                    communication.PublicShareToken = null;
+                }
+            }
 
             communication.UpdatedAt = DateTime.UtcNow;
 

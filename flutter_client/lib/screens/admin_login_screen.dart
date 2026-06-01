@@ -561,7 +561,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                             ),
                                           ],
                                         ),
-                                        child: ElevatedButton(
+                                        child: FilledButton(
                                           onPressed: _isLoading
                                               ? null
                                               : (_isSetupMode

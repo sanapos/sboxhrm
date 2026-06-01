@@ -33,7 +33,12 @@ public enum WorkTaskStatus
     /// <summary>
     /// Tạm hoãn
     /// </summary>
-    OnHold = 5
+    OnHold = 5,
+
+    /// <summary>
+    /// Đã giao — chờ người nhận xác nhận
+    /// </summary>
+    Assigned = 6
 }
 
 /// <summary>

@@ -11,10 +11,14 @@ using ZKTecoADMS.Application.Queries.Employees.GetEmployeeById;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Employees;
 using Mapster;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -24,12 +28,27 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    public async Task<IActionResult> GetEmployees([FromQuery] PaginationRequest request, [FromQuery] string? searchTerm, [FromQuery] string? employmentType, [FromQuery] string? workStatus, [FromQuery] Guid? branchId)
+    [RequireModulePermission("Employee", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetEmployees(
+        [FromQuery] PaginationRequest request,
+        [FromQuery] string? searchTerm,
+        [FromQuery] string? employmentType,
+        [FromQuery] string? workStatus,
+        [FromQuery] Guid? branchId,
+        [FromQuery] bool includeChildBranches = true)
     {
         // Admin xem tất cả, Manager/Employee xem theo phạm vi quản lý
         List<Guid>? subordinateIds = null;
         if (!IsAdmin)
             subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId);
+
+        List<Guid>? branchIds = null;
+        if (branchId.HasValue)
+        {
+            var set = await BranchQueryHelper.GetBranchIdsIncludingChildrenAsync(
+                dbContext, RequiredStoreId, branchId.Value, includeChildBranches);
+            branchIds = set.ToList();
+        }
 
         var query = new GetEmployeesQuery
         {
@@ -40,7 +59,8 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
             WorkStatus = workStatus,
             ManagerId = CurrentUserId,
             SubordinateEmployeeIds = subordinateIds,
-            BranchId = branchId
+            BranchId = branchId,
+            BranchIds = branchIds,
         };
         
         var result = await mediator.Send(query);
@@ -70,6 +90,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     /// </summary>
     [HttpGet("birthdays")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     public async Task<IActionResult> GetBirthdays()
     {
         var items = await dbContext.Employees
@@ -94,6 +115,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 
     [HttpGet("expiring-contracts")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     public async Task<IActionResult> GetExpiringContracts([FromQuery] int daysAhead = 30)
     {
         var today = DateTime.UtcNow.Date;
@@ -124,6 +146,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     }
 
     [HttpGet("{id:guid}")]
+    [RequireModulePermission("Employee", ModulePermissionAction.View)]
     public async Task<IActionResult> GetEmployeeById(Guid id)
     {
         var result = await mediator.Send(new GetEmployeeByIdQuery { StoreId = RequiredStoreId, Id = id });
@@ -132,6 +155,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateEmployee([FromBody] CreateEmployeeRequest request)
     {
         try
@@ -146,11 +170,23 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         catch (Microsoft.EntityFrameworkCore.DbUpdateException dbEx)
         {
             var innerMsg = dbEx.InnerException?.Message ?? dbEx.Message;
-            if (innerMsg.Contains("IX_Employees_") || innerMsg.Contains("duplicate key"))
+            if (innerMsg.Contains("IX_Employees_", StringComparison.OrdinalIgnoreCase)
+                || innerMsg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
             {
-                return Ok(AppResponse<Guid>.Error("Mã nhân viên hoặc email công ty đã tồn tại."));
+                if (innerMsg.Contains("CompanyEmail", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Ok(AppResponse<Guid>.Error(
+                        "Email cong ty da ton tai. Vui long nhap email khac."));
+                }
+                if (innerMsg.Contains("EmployeeCode", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Ok(AppResponse<Guid>.Error(
+                        "Ma nhan vien da ton tai trong cua hang."));
+                }
+                return Ok(AppResponse<Guid>.Error(
+                    "Ma nhan vien hoac email cong ty da ton tai."));
             }
-            return Ok(AppResponse<Guid>.Error($"Lỗi lưu dữ liệu: {innerMsg}"));
+            return Ok(AppResponse<Guid>.Error($"Loi luu du lieu: {innerMsg}"));
         }
         catch (Exception ex)
         {
@@ -160,6 +196,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 
     [HttpPut("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateEmployee(Guid id, [FromBody] UpdateEmployeeCommand command)
     {
         command.StoreId = RequiredStoreId;
@@ -170,6 +207,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteEmployee(Guid id)
     {
         var result = await mediator.Send(new DeleteEmployeeCommand { StoreId = RequiredStoreId, Id = id });
@@ -179,6 +217,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     // ─── Export Excel ────────────────────────────────────────────────────────
     [HttpGet("export/excel")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportEmployeesExcel()
     {
         try
@@ -191,22 +230,11 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
                 PaginationRequest = new PaginationRequest { PageNumber = 1, PageSize = 10000 }
             };
             var result = await mediator.Send(query);
-            var employees = result.Data?.Items ?? [];
+            var employees = (result.Data?.Items ?? []).ToList();
 
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add("Nhân viên");
 
-            // Title
-            ws.Cell(1, 1).Value = "DANH SÁCH NHÂN VIÊN";
-            ws.Range(1, 1, 1, 17).Merge();
-            ws.Cell(1, 1).Style.Font.SetBold(true).Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            ws.Cell(2, 1).Value = $"Xuất ngày: {DateTime.Now:dd/MM/yyyy HH:mm}";
-            ws.Range(2, 1, 2, 17).Merge();
-            ws.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Headers
             var headers = new[]
             {
                 "STT", "Mã NV", "Họ và tên", "Giới tính", "Ngày sinh",
@@ -216,19 +244,13 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
                 "Trạng thái", "Ngân hàng", "Số tài khoản"
             };
 
-            int headerRow = 4;
-            for (int i = 0; i < headers.Length; i++)
-                ws.Cell(headerRow, i + 1).Value = headers[i];
+            var meta = ReportExcelMeta.FromUser(
+                User, "DANH SÁCH NHÂN VIÊN", null, null,
+                new[] { $"Tổng nhân viên: {employees.Count}" }, employees.Count);
+            var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
+            ReportExcelLayout.ApplyHeaderRow(ws, headerRow, headers);
 
-            ws.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.FromHtml("#6366F1"))
-                .Font.SetFontColor(XLColor.White)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
-
-            // Data
-            int row = headerRow + 1;
+            int row = dataStartRow;
             int stt = 1;
             foreach (var e in employees)
             {
@@ -256,7 +278,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
                 row++;
             }
 
-            ws.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(ws, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -274,24 +296,51 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     // ─── Import Excel ────────────────────────────────────────────────────────
     [HttpPost("import/excel")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Create)]
     public async Task<IActionResult> ImportEmployeesExcel([FromBody] List<CreateEmployeeRequest> records)
     {
         if (records == null || records.Count == 0)
-            return BadRequest("Không có dữ liệu để import.");
+            return BadRequest(new { isSuccess = false, message = "Không có dữ liệu để import." });
 
-        int imported = 0, failed = 0;
+        int imported = 0, updated = 0, failed = 0;
         var errors = new List<string>();
+        var storeId = RequiredStoreId;
 
         foreach (var (req, idx) in records.Select((r, i) => (r, i + 1)))
         {
             try
             {
-                var command = req.Adapt<CreateEmployeeCommand>();
-                command.StoreId = RequiredStoreId;
-                command.ManagerId = CurrentUserId;
-                var result = await mediator.Send(command);
-                if (result.IsSuccess) imported++;
-                else { failed++; errors.Add($"Hàng {idx} ({req.EmployeeCode}): {result.Message}"); }
+                var existing = await dbContext.Employees
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.StoreId == storeId && e.EmployeeCode == req.EmployeeCode);
+
+                if (existing != null)
+                {
+                    var updateCmd = req.Adapt<UpdateEmployeeCommand>();
+                    updateCmd.Id = existing.Id;
+                    updateCmd.StoreId = storeId;
+                    updateCmd.ManagerId = CurrentUserId;
+                    if (!Enum.IsDefined(typeof(EmployeeWorkStatus), updateCmd.WorkStatus))
+                        updateCmd.WorkStatus = existing.WorkStatus;
+                    if (IsPlaceholderImportEmail(req.EmployeeCode, req.CompanyEmail))
+                        updateCmd.CompanyEmail = existing.CompanyEmail;
+                    var updateResult = await mediator.Send(updateCmd);
+                    if (updateResult.IsSuccess) updated++;
+                    else
+                    {
+                        failed++;
+                        errors.Add($"Hàng {idx} ({req.EmployeeCode}): {updateResult.Message}");
+                    }
+                }
+                else
+                {
+                    var command = req.Adapt<CreateEmployeeCommand>();
+                    command.StoreId = storeId;
+                    command.ManagerId = CurrentUserId;
+                    var result = await mediator.Send(command);
+                    if (result.IsSuccess) imported++;
+                    else { failed++; errors.Add($"Hàng {idx} ({req.EmployeeCode}): {result.Message}"); }
+                }
             }
             catch (Exception ex)
             {
@@ -303,8 +352,17 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         return Ok(new
         {
             isSuccess = true,
-            data = new { imported, failed, errors },
-            message = $"Import hoàn tất: {imported} thành công, {failed} lỗi."
+            data = new { imported, updated, failed, errors },
+            message = $"Import hoàn tất: {imported} mới, {updated} cập nhật, {failed} lỗi."
         });
+    }
+
+    static bool IsPlaceholderImportEmail(string employeeCode, string? companyEmail)
+    {
+        if (string.IsNullOrWhiteSpace(companyEmail)) return true;
+        return string.Equals(
+            companyEmail.Trim(),
+            $"{employeeCode.Trim()}@company.com",
+            StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -628,7 +628,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // Phone
+                        // phone
                         _buildLabel('SỐ ĐIỆN THOẠI (TÙY CHỌN)'),
                         const SizedBox(height: 8),
                         _buildField(
@@ -802,7 +802,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 ),
                               ],
                             ),
-                            child: ElevatedButton(
+                            child: FilledButton(
                               onPressed: _isLoading ? null : _handleRegister,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,

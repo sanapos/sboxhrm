@@ -201,6 +201,8 @@ public class AnnouncementService : IAnnouncementService
     public async Task<List<ActiveAnnouncementDto>> GetActiveForUserAsync(Guid userId, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
+        const int bannerFlag = (int)NotificationChannel.Banner;
+        const int inAppFlag = (int)NotificationChannel.InApp;
         var rows = await (
             from d in _db.AnnouncementDeliveries
             join a in _db.SystemAnnouncements on d.AnnouncementId equals a.Id
@@ -208,7 +210,12 @@ public class AnnouncementService : IAnnouncementService
                 && a.Status == AnnouncementStatus.Sent
                 && (a.ExpiresAt == null || a.ExpiresAt > now)
                 && d.DismissedAt == null
-                && (a.Channels.HasFlag(NotificationChannel.Banner) || a.RequireAck)
+                && (((int)a.Channels & bannerFlag) != 0 || a.RequireAck)
+                && (
+                    (((int)a.Channels & bannerFlag) != 0 && d.Channel == NotificationChannel.Banner)
+                    || (((int)a.Channels & bannerFlag) == 0 && ((int)a.Channels & inAppFlag) != 0 && d.Channel == NotificationChannel.InApp)
+                    || (a.RequireAck && d.Channel == NotificationChannel.InApp)
+                )
             orderby a.Severity descending, a.CreatedAt descending
             select new ActiveAnnouncementDto
             {
@@ -228,8 +235,7 @@ public class AnnouncementService : IAnnouncementService
                 IsDismissed = d.DismissedAt != null
             }).Take(20).ToListAsync(ct);
 
-        // Hide acked items unless RequireAck still pending
-        return rows.Where(r => !r.IsAcked || (r.RequireAck && !r.IsAcked)).ToList();
+        return rows.Where(r => !r.IsAcked).ToList();
     }
 
     public async Task MarkSeenAsync(Guid announcementId, Guid userId, CancellationToken ct = default)

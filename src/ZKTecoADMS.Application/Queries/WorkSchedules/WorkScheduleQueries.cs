@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.WorkSchedules;
 using ZKTecoADMS.Application.DTOs.Commons;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Queries.WorkSchedules;
@@ -18,21 +19,38 @@ public record GetWorkSchedulesQuery(
     bool? IsDayOff = null) : IQuery<AppResponse<PagedResult<WorkScheduleDto>>>;
 
 public class GetWorkSchedulesHandler(
-    IRepository<WorkSchedule> workScheduleRepository
+    IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<Employee> employeeRepository
 ) : IQueryHandler<GetWorkSchedulesQuery, AppResponse<PagedResult<WorkScheduleDto>>>
 {
     public async Task<AppResponse<PagedResult<WorkScheduleDto>>> Handle(GetWorkSchedulesQuery request, CancellationToken cancellationToken)
     {
         try
         {
+            Guid? filterEmployeeId = null;
+            if (request.EmployeeUserId.HasValue)
+            {
+                var employee = await employeeRepository.GetSingleAsync(
+                    filter: e => (e.ApplicationUserId == request.EmployeeUserId.Value || e.Id == request.EmployeeUserId.Value)
+                                 && e.StoreId == request.StoreId,
+                    cancellationToken: cancellationToken);
+                if (employee == null)
+                {
+                    return AppResponse<PagedResult<WorkScheduleDto>>.Success(
+                        new PagedResult<WorkScheduleDto>([], 0, request.Page, request.PageSize));
+                }
+                filterEmployeeId = employee.Id;
+            }
+
             Expression<Func<WorkSchedule, bool>> filter = w => w.StoreId == request.StoreId;
 
-            if (request.EmployeeUserId.HasValue || request.ShiftId.HasValue || 
+            if (filterEmployeeId.HasValue || request.ShiftId.HasValue || 
                 request.FromDate.HasValue || request.ToDate.HasValue || request.IsDayOff.HasValue)
             {
+                var empId = filterEmployeeId;
                 filter = w => 
                     w.StoreId == request.StoreId &&
-                    (!request.EmployeeUserId.HasValue || w.EmployeeUserId == request.EmployeeUserId.Value) &&
+                    (!empId.HasValue || w.EmployeeUserId == empId.Value) &&
                     (!request.ShiftId.HasValue || w.ShiftId == request.ShiftId.Value) &&
                     (!request.FromDate.HasValue || w.Date >= request.FromDate.Value) &&
                     (!request.ToDate.HasValue || w.Date <= request.ToDate.Value) &&
@@ -199,7 +217,8 @@ public class GetMyScheduleRegistrationsHandler(
             var items = await registrationRepository.GetAllWithIncludeAsync(
                 filter: filter,
                 orderBy: q => q.OrderByDescending(r => r.Date),
-                includes: q => q.Include(r => r.Employee).Include(r => r.Shift).Include(r => r.ApprovedBy),
+                includes: q => q.Include(r => r.Employee).Include(r => r.Shift).Include(r => r.ApprovedBy)
+                    .Include(r => r.ApprovalRecords),
                 skip: (request.Page - 1) * request.PageSize,
                 take: request.PageSize,
                 cancellationToken: cancellationToken);
@@ -227,27 +246,52 @@ public record GetScheduleRegistrationsQuery(
     Guid? EmployeeUserId = null,
     ScheduleRegistrationStatus? Status = null,
     DateTime? FromDate = null,
-    DateTime? ToDate = null) : IQuery<AppResponse<PagedResult<ScheduleRegistrationDto>>>;
+    DateTime? ToDate = null,
+    Guid? PendingForApproverId = null) : IQuery<AppResponse<PagedResult<ScheduleRegistrationDto>>>;
 
 public class GetScheduleRegistrationsHandler(
-    IRepository<ScheduleRegistration> registrationRepository
+    IRepository<ScheduleRegistration> registrationRepository,
+    IRepository<Employee> employeeRepository
 ) : IQueryHandler<GetScheduleRegistrationsQuery, AppResponse<PagedResult<ScheduleRegistrationDto>>>
 {
     public async Task<AppResponse<PagedResult<ScheduleRegistrationDto>>> Handle(GetScheduleRegistrationsQuery request, CancellationToken cancellationToken)
     {
         try
         {
+            Guid? filterEmployeeId = null;
+            if (request.EmployeeUserId.HasValue)
+            {
+                var employee = await employeeRepository.GetSingleAsync(
+                    filter: e => (e.ApplicationUserId == request.EmployeeUserId.Value || e.Id == request.EmployeeUserId.Value)
+                                 && e.StoreId == request.StoreId,
+                    cancellationToken: cancellationToken);
+                if (employee == null)
+                {
+                    return AppResponse<PagedResult<ScheduleRegistrationDto>>.Success(
+                        new PagedResult<ScheduleRegistrationDto>([], 0, request.Page, request.PageSize));
+                }
+                filterEmployeeId = employee.Id;
+            }
+
             Expression<Func<ScheduleRegistration, bool>> filter = r => r.StoreId == request.StoreId;
 
-            if (request.EmployeeUserId.HasValue || request.Status.HasValue || 
-                request.FromDate.HasValue || request.ToDate.HasValue)
+            if (filterEmployeeId.HasValue || request.Status.HasValue ||
+                request.FromDate.HasValue || request.ToDate.HasValue ||
+                request.PendingForApproverId.HasValue)
             {
-                filter = r => 
+                var empId = filterEmployeeId;
+                var pendingApproverId = request.PendingForApproverId;
+                filter = r =>
                     r.StoreId == request.StoreId &&
-                    (!request.EmployeeUserId.HasValue || r.EmployeeUserId == request.EmployeeUserId.Value) &&
+                    (!empId.HasValue || r.EmployeeUserId == empId.Value) &&
                     (!request.Status.HasValue || r.Status == request.Status.Value) &&
                     (!request.FromDate.HasValue || r.Date >= request.FromDate.Value) &&
-                    (!request.ToDate.HasValue || r.Date <= request.ToDate.Value);
+                    (!request.ToDate.HasValue || r.Date <= request.ToDate.Value) &&
+                    (!pendingApproverId.HasValue ||
+                        (r.Status == ScheduleRegistrationStatus.Pending &&
+                         r.ApprovalRecords.Any(ar =>
+                             ar.Status == ApprovalStatus.Pending &&
+                             ar.AssignedUserId == pendingApproverId.Value)));
             }
 
             var totalCount = await registrationRepository.CountAsync(filter, cancellationToken);
@@ -255,7 +299,8 @@ public class GetScheduleRegistrationsHandler(
             var items = await registrationRepository.GetAllWithIncludeAsync(
                 filter: filter,
                 orderBy: q => q.OrderByDescending(r => r.Date),
-                includes: q => q.Include(r => r.Employee).Include(r => r.Shift).Include(r => r.ApprovedBy),
+                includes: q => q.Include(r => r.Employee).Include(r => r.Shift).Include(r => r.ApprovedBy)
+                    .Include(r => r.ApprovalRecords),
                 skip: (request.Page - 1) * request.PageSize,
                 take: request.PageSize,
                 cancellationToken: cancellationToken);

@@ -6,6 +6,7 @@ public record CreateHrDocumentCommand(
     Guid StoreId,
     Guid CurrentUserId,
     Guid EmployeeUserId,
+    Guid? EmployeeId,
     string Name,
     string? Description,
     HrDocumentType DocumentType,

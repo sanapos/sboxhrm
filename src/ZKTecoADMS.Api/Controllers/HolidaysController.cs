@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -14,6 +15,7 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Holiday", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<HolidayDto>>>> GetHolidays([FromQuery] int? year = null)
     {
         var targetYear = year ?? DateTime.Now.Year;
@@ -42,6 +44,7 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Holiday", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<HolidayDto>>> GetHoliday(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -72,6 +75,7 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Holiday", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<HolidayDto>>> CreateHoliday([FromBody] CreateHolidayRequest request)
     {
         var storeId = RequiredStoreId;
@@ -110,6 +114,7 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Holiday", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<HolidayDto>>> UpdateHoliday(Guid id, [FromBody] UpdateHolidayRequest request)
     {
         var storeId = RequiredStoreId;
@@ -151,6 +156,7 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Holiday", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteHoliday(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -177,7 +183,7 @@ public class HolidayDto
     public bool IsRecurring { get; set; }
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "Ngày nghỉ chính thức";
+    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
     public List<string>? EmployeeIds { get; set; }
 }
 
@@ -189,7 +195,7 @@ public class CreateHolidayRequest
     public bool IsRecurring { get; set; } = true;
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "Ngày nghỉ chính thức";
+    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
     public List<string>? EmployeeIds { get; set; }
 }
 
@@ -201,6 +207,7 @@ public class UpdateHolidayRequest
     public bool IsRecurring { get; set; }
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "Ngày nghỉ chính thức";
+    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
     public List<string>? EmployeeIds { get; set; }
 }
+

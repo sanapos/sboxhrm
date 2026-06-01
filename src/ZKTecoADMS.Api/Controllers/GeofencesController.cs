@@ -1,6 +1,7 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Geofence;
 using ZKTecoADMS.Application.DTOs;
@@ -26,6 +27,7 @@ public class GeofencesController : AuthenticatedControllerBase
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Geofence", ModulePermissionAction.View)]
     public async Task<IActionResult> GetGeofences([FromQuery] bool? activeOnly = null)
     {
         var storeId = CurrentStoreId;
@@ -43,6 +45,7 @@ public class GeofencesController : AuthenticatedControllerBase
     /// </summary>
     [HttpPost("validate")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Geofence", ModulePermissionAction.Create)]
     public async Task<IActionResult> ValidateLocation([FromBody] ValidateLocationDto dto)
     {
         var storeId = CurrentStoreId;
@@ -60,6 +63,7 @@ public class GeofencesController : AuthenticatedControllerBase
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Geofence", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateGeofence([FromBody] CreateGeofenceDto dto)
     {
         var storeId = CurrentStoreId;
@@ -77,6 +81,7 @@ public class GeofencesController : AuthenticatedControllerBase
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Geofence", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateGeofence(Guid id, [FromBody] UpdateGeofenceDto dto)
     {
         var storeId = CurrentStoreId;
@@ -94,6 +99,7 @@ public class GeofencesController : AuthenticatedControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Geofence", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteGeofence(Guid id)
     {
         var storeId = CurrentStoreId;
@@ -106,3 +112,4 @@ public class GeofencesController : AuthenticatedControllerBase
         return Ok(result);
     }
 }
+

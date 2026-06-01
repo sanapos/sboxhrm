@@ -229,7 +229,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     // Submit button
                     SizedBox(
                       height: 52,
-                      child: ElevatedButton(
+                      child: FilledButton(
                         onPressed: _isLoading || _successMessage != null ? null : _handleResetPassword,
                         child: _isLoading
                             ? const SizedBox(

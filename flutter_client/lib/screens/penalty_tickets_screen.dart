@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -57,7 +59,6 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   final Set<String> _selectedIds = {};
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
 
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   @override
@@ -309,11 +310,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Không',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A)),
-            child: const Text('Duyệt', style: TextStyle(color: Colors.white)),
+            child: const Text('Duyệt'),
           ),
         ],
       ),
@@ -358,11 +359,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Không',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child:
-                const Text('Hoàn duyệt', style: TextStyle(color: Colors.white)),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Hoàn duyệt'),
           ),
         ],
       ),
@@ -414,11 +414,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Không',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child:
-                const Text('Hủy phạt', style: TextStyle(color: Colors.white)),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hủy phạt'),
           ),
         ],
       ),
@@ -457,10 +456,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Không',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -519,12 +518,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Không',
                   style: TextStyle(color: Color(0xFF71717A)))),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A)),
-            child: Text('Duyệt ${ids.length}',
-                style: const TextStyle(color: Colors.white)),
+            child: Text('Duyệt ${ids.length}'),
           ),
         ],
       ),
@@ -811,7 +809,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       icon: const Icon(Icons.save, size: 18),
                       label: Text(isEditing ? 'Cập nhật' : 'Tạo'),
                       style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F2340)),
+                          foregroundColor: HrmPageChrome.primaryNavy),
                     ),
                   ],
                 ),
@@ -864,19 +862,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           child: const Text('Hủy',
                               style: TextStyle(color: Color(0xFF71717A)))),
                       const Spacer(),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: onSubmit,
                         icon:
                             Icon(isEditing ? Icons.save : Icons.add, size: 18),
                         label: Text(isEditing ? 'Cập nhật' : 'Tạo phiếu'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F2340),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
@@ -903,7 +897,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0F2340))),
+          borderSide: BorderSide(color: HrmPageChrome.primaryNavy)),
     );
   }
 
@@ -1070,19 +1064,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     if (Provider.of<PermissionProvider>(context, listen: false)
                         .canApprove('PenaltyTickets'))
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
                             _approveTicket(ticket['id'].toString());
                           },
                           icon: const Icon(Icons.check, size: 18),
                           label: const Text('Duyệt'),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF16A34A),
-                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
@@ -1176,46 +1167,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
         actions: [
-          if (isMobile)
-            IconButton(
-              icon: Stack(
-                children: [
-                  Icon(
-                      _showMobileFilters
-                          ? Icons.filter_alt
-                          : Icons.filter_alt_outlined,
-                      color: const Color(0xFF18181B)),
-                  if (_filterStatus != null || _filterType != null)
-                    Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: Colors.orangeAccent,
-                                shape: BoxShape.circle))),
-                ],
-              ),
-              onPressed: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              tooltip: 'Bộ lọc',
-            ),
           if (!isMobile &&
               Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('PenaltyTickets'))
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showTicketDialog(),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Tạo phiếu phạt'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F2340),
-                foregroundColor: Colors.white,
-                elevation: 0,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           IconButton(
@@ -1230,60 +1192,208 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   .canCreate('PenaltyTickets')
           ? FloatingActionButton(
               onPressed: () => _showTicketDialog(),
-              backgroundColor: const Color(0xFF0F2340),
+              backgroundColor: HrmPageChrome.primaryNavy,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (isMobile) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: InkWell(
-                      onTap: () => setState(
-                          () => _showMobileSummary = !_showMobileSummary),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Row(
-                          children: [
-                            Icon(Icons.analytics_outlined,
-                                size: 16, color: Colors.blue.shade700),
-                            const SizedBox(width: 6),
-                            Text('Tổng quan',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Colors.blue.shade700)),
-                            const Spacer(),
-                            Icon(
-                                _showMobileSummary
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 20,
-                                color: Colors.blue.shade700),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_showMobileSummary) _buildStatsCards(),
-                ] else ...[
-                  _buildStatsCards(),
+          : HrmResponsiveListLayout(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+              headerSections: _penaltyPageHeaderSections(isMobile),
+              desktopBody: Column(
+                children: [
+                  if (_isSelectionMode) _buildBulkActionBar(),
+                  Expanded(child: _buildTicketList()),
+                  if (_totalCount > _pageSize) _buildPagination(),
                 ],
-                if (!isMobile || _showMobileFilters) _buildFilterBar(),
-                if (_isSelectionMode) _buildBulkActionBar(),
-                Expanded(child: _buildTicketList()),
-                if (_totalCount > _pageSize) _buildPagination(),
-              ],
+              ),
+              mobileSlivers: (_) => _penaltyMobileSlivers(),
             ),
     );
+  }
+
+  List<Widget> _penaltyPageHeaderSections(bool isMobile) => [
+        if (isMobile) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
+                    const SizedBox(width: 6),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
+                    const Spacer(),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_showMobileSummary) _buildStatsCards(),
+        ] else
+          _buildStatsCards(),
+        _buildFilterBar(),
+        if (_isSelectionMode) _buildBulkActionBar(),
+      ];
+
+  List<Widget> _penaltyMobileSlivers() {
+    if (_filteredTickets.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                SizedBox(height: 16),
+                Text('Không có phiếu phạt',
+                    style: TextStyle(fontSize: 16, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+    final slivers = HrmScrollSlivers.fromListViewBuilder(
+      itemCount: _filteredTickets.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, i) {
+        final ticket = _filteredTickets[i];
+        final id = ticket['id'].toString();
+        final status = ticket['status'] as String? ?? '';
+        final type = ticket['type'] as String? ?? '';
+        final amount = (ticket['amount'] as num?)?.toDouble() ?? 0;
+        final isPending = status == 'Pending';
+        final isSelected = _selectedIds.contains(id);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            elevation: 0,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (_isSelectionMode && isPending) {
+                  _toggleSelection(id);
+                } else {
+                  _showDetailSheet(ticket);
+                }
+              },
+              onLongPress: isPending ? () => _toggleSelection(id) : null,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: isSelected
+                          ? Colors.orange
+                          : const Color(0xFFE4E4E7),
+                      width: isSelected ? 1.5 : 1),
+                ),
+                child: Row(
+                  children: [
+                    if (_isSelectionMode && isPending)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Colors.orange
+                              : const Color(0xFFA1A1AA),
+                          size: 22,
+                        ),
+                      ),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor:
+                          _getStatusColor(status).withValues(alpha: 0.15),
+                      child: Icon(_getTypeIcon(type),
+                          color: _getStatusColor(status), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(ticket['employeeName'] ?? 'N/A',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Color(0xFF18181B))),
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              _getTypeLabel(type),
+                              _formatDate(ticket['violationDate'])
+                            ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                            style: const TextStyle(
+                                color: Color(0xFF71717A), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('${_currencyFormat.format(amount)}\u0111',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[700],
+                                fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status)
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(_getStatusLabel(status),
+                              style: TextStyle(
+                                  color: _getStatusColor(status),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (_totalCount > _pageSize) {
+      slivers.add(HrmScrollSlivers.toBox(_buildPagination()));
+    }
+    return slivers;
   }
 
   Widget _buildStatsCards() {
@@ -1377,7 +1487,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       ? '${DateFormat('dd/MM').format(_dateRange!.start)} - ${DateFormat('dd/MM').format(_dateRange!.end)}'
                       : 'Lựa chọn khác'),
                   backgroundColor: _datePreset == 'custom'
-                      ? const Color(0xFF0F2340)
+                      ? HrmPageChrome.primaryNavy
                       : Colors.white,
                   labelStyle: TextStyle(
                       fontSize: 12,
@@ -1514,7 +1624,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       selected: selected,
       onSelected: (_) => _applyDatePreset(preset),
       backgroundColor: Colors.white,
-      selectedColor: const Color(0xFF0F2340),
+      selectedColor: HrmPageChrome.primaryNavy,
       labelStyle:
           TextStyle(color: selected ? Colors.white : const Color(0xFF18181B)),
       side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -1554,17 +1664,14 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             ),
           if (canApprove) ...[
             const SizedBox(width: 8),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: _bulkApprove,
               icon: const Icon(Icons.check, size: 16),
               label: Text('Duyệt ${_selectedIds.length}'),
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1867,20 +1974,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           if (Provider.of<PermissionProvider>(context,
                                   listen: false)
                               .canApprove('PenaltyTickets'))
-                            ElevatedButton.icon(
+                            FilledButton.icon(
                               onPressed: () =>
                                   _approveTicket(ticket['id'].toString()),
                               icon: const Icon(Icons.check, size: 16),
                               label: const Text('Duyệt',
                                   style: TextStyle(fontSize: 12)),
-                              style: ElevatedButton.styleFrom(
+                              style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF16A34A),
-                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                                 minimumSize: Size.zero,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                         ],
@@ -2011,7 +2115,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF0F2340),
+                    color: HrmPageChrome.primaryNavy,
                     borderRadius: BorderRadius.circular(8)),
                 child: Text('$_currentPage / $totalPages',
                     style: const TextStyle(

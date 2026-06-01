@@ -22,4 +22,7 @@ public class GetEmployeesQuery : IRequest<AppResponse<PagedResult<EmployeeDto>>>
     public List<Guid>? SubordinateEmployeeIds { get; set; }
 
     public Guid? BranchId { get; set; }
+
+    /// <summary>Resolved branch IDs (selected branch + optional descendants).</summary>
+    public List<Guid>? BranchIds { get; set; }
 }

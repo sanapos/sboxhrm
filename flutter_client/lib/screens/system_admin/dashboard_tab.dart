@@ -150,7 +150,7 @@ class DashboardTabState extends State<DashboardTab> {
         Text('Không thể tải dữ liệu dashboard',
             style: TextStyle(color: Colors.grey[500])),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
+        FilledButton.icon(
             onPressed: loadData,
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Thử lại')),

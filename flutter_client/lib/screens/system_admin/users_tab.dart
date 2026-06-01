@@ -208,7 +208,7 @@ class UsersTabState extends State<UsersTab> {
                   _applyFilters();
                 },
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _showCreateSuperAdminDialog,
                 icon: const Icon(Icons.person_add, size: 18),
                 label: const Text('Tạo SuperAdmin'),
@@ -620,7 +620,7 @@ class UsersTabState extends State<UsersTab> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: AdminHelpers.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Xóa', style: TextStyle(color: Colors.white)),
@@ -717,7 +717,7 @@ class UsersTabState extends State<UsersTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: selectedRole != currentRole
                   ? () => Navigator.pop(ctx, selectedRole)
                   : null,
@@ -792,7 +792,7 @@ class UsersTabState extends State<UsersTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               final res = await _apiService.updateUserCredentials(
                 user['id']?.toString() ?? '',
@@ -860,7 +860,7 @@ class UsersTabState extends State<UsersTab> {
           TextButton(
               onPressed: saving ? null : () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: saving ? null : () async {
               if (emailCtrl.text.trim().isEmpty ||
                   passwordCtrl.text.isEmpty ||

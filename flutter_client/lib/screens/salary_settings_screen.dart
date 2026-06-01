@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
@@ -36,8 +38,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   String _filterInsurance = 'all';
   String _filterAttendance = 'all';
   String? _filterBranchId;
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -199,131 +199,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          // Modern gradient header
           Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, isMobile ? 12 : 18,
-                isMobile ? 12 : 24, isMobile ? 10 : 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            padding: EdgeInsets.fromLTRB(
+                isMobile ? 12 : 20, isMobile ? 10 : 14, isMobile ? 12 : 20, 10),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
             ),
             child: Row(
+              mainAxisAlignment:
+                  isMobile ? MainAxisAlignment.end : MainAxisAlignment.start,
               children: [
-                if (!isMobile) ...[
-                  Material(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(Icons.arrow_back,
-                            size: 20, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-                if (!isMobile)
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.payments_outlined,
-                        size: 22, color: Colors.white),
-                  ),
-                if (!isMobile) const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Thiết lập Lương',
-                        style: TextStyle(
-                            fontSize: isMobile ? 16 : 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
-                      ),
-                      if (!isMobile)
-                        Text(
-                          'Quản lý cấu hình lương nhân viên',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.8)),
-                        ),
-                    ],
-                  ),
-                ),
-                if (isMobile)
-                  GestureDetector(
-                    onTap: () => setState(
-                        () => _showMobileFilters = !_showMobileFilters),
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Stack(
-                        children: [
-                          Icon(
-                            _showMobileFilters
-                                ? Icons.filter_alt
-                                : Icons.filter_alt_outlined,
-                            size: 18,
-                            color: _showMobileFilters
-                                ? Colors.orange
-                                : Colors.white,
-                          ),
-                          if (_searchQuery.isNotEmpty ||
-                              _filterType != 'all' ||
-                              _filterSalaryType != 'all' ||
-                              _filterInsurance != 'all' ||
-                              _filterAttendance != 'all')
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                    color: Colors.orange,
-                                    shape: BoxShape.circle),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
                 if (isMobile)
                   PopupMenuButton<String>(
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert,
-                          size: 18, color: Colors.white),
-                    ),
+                    icon: const Icon(Icons.more_vert, color: Color(0xFF71717A)),
                     onSelected: (v) {
                       if (v == 'add') _showAddEmployeeDialog();
                       if (v == 'allowance') {
@@ -354,46 +248,40 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     ],
                   )
                 else ...[
-                  _buildHeaderActionBtn(Icons.card_giftcard, 'Thêm phụ cấp',
-                      () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const AllowanceSettingsScreen()),
-                    );
-                  }),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const AllowanceSettingsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.card_giftcard, size: 18),
+                    label: const Text('Phụ cấp'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  _buildHeaderActionBtn(Icons.file_download_outlined, 'Xuất',
-                      () {
-                    appNotification.showInfo(
-                      title: 'Thông báo',
-                      message: 'Chức năng xuất dữ liệu đang được phát triển',
-                    );
-                  }),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      appNotification.showInfo(
+                        title: 'Thông báo',
+                        message: 'Chức năng xuất dữ liệu đang được phát triển',
+                      );
+                    },
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    label: const Text('Xuất'),
+                  ),
                   const SizedBox(width: 8),
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canCreate('SalarySettings'))
-                    Material(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        onTap: () => _showAddEmployeeDialog(),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add, size: 20, color: Colors.white),
-                              SizedBox(width: 6),
-                              Text('Thêm mới',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13)),
-                            ],
-                          ),
-                        ),
+                    FilledButton.icon(
+                      onPressed: () => _showAddEmployeeDialog(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm mới'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: HrmPageChrome.primaryNavy,
                       ),
                     ),
                 ],
@@ -412,8 +300,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       children: [
                         _buildStatisticsRow(),
                         const SizedBox(height: 24),
-                        if (!Responsive.isMobile(context) || _showMobileFilters)
-                          _buildSearchAndFilter(),
+                        _buildSearchAndFilter(),
                         const SizedBox(height: 24),
                         if (_filteredEmployees.isEmpty)
                           const EmptyState(
@@ -432,106 +319,51 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
-  Widget _buildHeaderActionBtn(
-      IconData icon, String tooltip, VoidCallback onPressed) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            child: Icon(icon, size: 20, color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatisticsRow() {
     final isMobile = Responsive.isMobile(context);
+    final cards = [
+      _buildStatCard('Tổng nhân viên', '$_totalEmployees', Icons.groups,
+          HrmPageChrome.primaryNavy, isMobile),
+      _buildStatCard('Đã thiết lập', '$_configuredCount', Icons.check_circle,
+          HrmPageChrome.primaryNavy, isMobile),
+      _buildStatCard('Chưa thiết lập', '$_notConfiguredCount',
+          Icons.warning_amber, const Color(0xFFF59E0B), isMobile),
+    ];
+    if (isMobile) {
+      // Dùng Row trong SingleChildScrollView — KHÔNG dùng Expanded (cần bounded)
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              SizedBox(width: 140, child: cards[i]),
+            ],
+          ],
+        ),
+      );
+    }
     return Row(
       children: [
-        _buildStatCard('Tổng nhân viên', '$_totalEmployees', Icons.groups,
-            const Color(0xFF1E3A5F), isMobile),
-        SizedBox(width: isMobile ? 8 : 16),
-        _buildStatCard('Đã thiết lập', '$_configuredCount', Icons.check_circle,
-            const Color(0xFF1E3A5F), isMobile),
-        SizedBox(width: isMobile ? 8 : 16),
-        _buildStatCard('Chưa thiết lập', '$_notConfiguredCount',
-            Icons.warning_amber, const Color(0xFFF59E0B), isMobile),
+        Expanded(child: cards[0]),
+        const SizedBox(width: 16),
+        Expanded(child: cards[1]),
+        const SizedBox(width: 16),
+        Expanded(child: cards[2]),
       ],
     );
   }
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color, bool isMobile) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 10 : 20, vertical: isMobile ? 10 : 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: isMobile
-            ? Column(
-                children: [
-                  Icon(icon, color: color, size: 20),
-                  const SizedBox(height: 6),
-                  Text(value,
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold)),
-                  Text(label,
-                      style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500),
-                      textAlign: TextAlign.center),
-                ],
-              )
-            : Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: color, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(value,
-                          style: TextStyle(
-                              color: color,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold)),
-                      Text(label,
-                          style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ],
-              ),
-      ),
+    // Không wrap Expanded — ở desktop, caller dùng Expanded riêng;
+    // ở mobile, card nằm trong SizedBox(width:140) trong scrollable Row.
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
+      valueFontSize: isMobile ? 20 : 24,
     );
   }
 
@@ -1131,7 +963,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       Text(
                         employee['employeeCode'] ?? '',
                         style: const TextStyle(
-                            color: Color(0xFF1E3A5F), fontSize: 12),
+                            color: HrmPageChrome.primaryNavy, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1142,7 +974,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: isConfigured
-                        ? const Color(0xFF0F2340).withValues(alpha: 0.1)
+                        ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                         : const Color(0xFF71717A).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1153,7 +985,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         Icons.calendar_today,
                         size: 12,
                         color: isConfigured
-                            ? const Color(0xFF0F2340)
+                            ? HrmPageChrome.primaryNavy
                             : const Color(0xFF71717A),
                       ),
                       const SizedBox(width: 4),
@@ -1161,7 +993,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         isConfigured ? salaryType : 'Chưa TL',
                         style: TextStyle(
                           color: isConfigured
-                              ? const Color(0xFF0F2340)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFF71717A),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -1181,7 +1013,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             child: Column(
               children: [
                 _buildInfoRow(Icons.attach_money, 'Lương cơ bản',
-                    _formatCurrency(baseSalary), const Color(0xFF1E3A5F)),
+                    _formatCurrency(baseSalary), HrmPageChrome.primaryNavy),
                 const SizedBox(height: 8),
                 _buildTappableInfoRow(
                     Icons.card_giftcard,
@@ -1237,7 +1069,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   IconButton(
                     onPressed: () => _showEditDialog(employee),
                     icon: const Icon(Icons.edit_outlined,
-                        color: Color(0xFF1E3A5F), size: 20),
+                        color: HrmPageChrome.primaryNavy, size: 20),
                     tooltip: 'Chỉnh sửa',
                   ),
               ],
@@ -1278,11 +1110,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   Color _getAvatarColor(String name) {
     final colors = [
-      const Color(0xFF1E3A5F),
-      const Color(0xFF1E3A5F),
+      HrmPageChrome.primaryNavy,
+      HrmPageChrome.primaryNavy,
       const Color(0xFFF59E0B),
       const Color(0xFFEF4444),
-      const Color(0xFF0F2340),
+      HrmPageChrome.primaryNavy,
       const Color(0xFFEC4899),
       const Color(0xFF2D5F8B),
     ];
@@ -1419,16 +1251,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 child: const Text('Đóng',
                     style: TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   Navigator.pop(context);
                   _showEditDialog(employee);
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                 ),
                 child: const Text('Chỉnh sửa'),
               ),
@@ -1464,7 +1293,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
-                  const Icon(Icons.person, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.person, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1771,11 +1600,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         color: const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(8),
         border:
-            Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+            Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF1E3A5F)),
+          const Icon(Icons.info_outline, size: 16, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
           Text(label,
               style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
@@ -1883,7 +1712,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   Text(
                     value,
                     style: const TextStyle(
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                       decoration: TextDecoration.underline,
@@ -1891,7 +1720,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.open_in_new,
-                      size: 14, color: Color(0xFF1E3A5F)),
+                      size: 14, color: HrmPageChrome.primaryNavy),
                 ],
               ),
             ),
@@ -1932,12 +1761,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     allowanceType == 0 ? Icons.lock : Icons.calendar_today,
-                    color: const Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     size: 20,
                   ),
                 ),
@@ -2002,14 +1831,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           height: 36,
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
                               '${index + 1}',
                               style: const TextStyle(
-                                color: Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
@@ -2037,13 +1866,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '${_currencyFormat.format(amount)} đ',
                             style: const TextStyle(
-                              color: Color(0xFF1E3A5F),
+                              color: HrmPageChrome.primaryNavy,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2070,7 +1899,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                           color:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2086,7 +1915,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         Text(
                           '${_currencyFormat.format(total)} đ',
                           style: const TextStyle(
-                            color: Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -2110,8 +1939,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Thêm phụ cấp'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E3A5F),
-                            side: const BorderSide(color: Color(0xFF1E3A5F)),
+                            foregroundColor: HrmPageChrome.primaryNavy,
+                            side: const BorderSide(color: HrmPageChrome.primaryNavy),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -2120,14 +1949,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('Đóng'),
                         ),
@@ -3144,15 +2970,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             onPressed: () => Navigator.pop(dialogContext),
                             child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: onSave,
                           icon: const Icon(Icons.save, size: 18),
                           label: const Text('Lưu'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                           ),
                         ),
                       ],
@@ -3168,7 +2991,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                const Icon(Icons.edit, color: Color(0xFF1E3A5F)),
+                const Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 const Text(
                   'Chỉnh sửa thiết lập lương',
@@ -3194,15 +3017,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 child: const Text('Hủy',
                     style: TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onSave,
                 icon: const Icon(Icons.save, size: 18),
                 label: const Text('Lưu'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                 ),
               ),
             ],
@@ -3220,19 +3040,19 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         color: const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(8),
         border:
-            Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+            Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.info_outline, color: Color(0xFF1E3A5F), size: 16),
+              Icon(Icons.info_outline, color: HrmPageChrome.primaryNavy, size: 16),
               SizedBox(width: 8),
               Text(
                 'Mức lương theo ca đã thiết lập',
                 style: TextStyle(
-                    color: Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600,
                     fontSize: 13),
               ),
@@ -3316,7 +3136,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2),
+              borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
             ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -3367,7 +3187,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide:
-                        const BorderSide(color: Color(0xFF1E3A5F), width: 2),
+                        const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -3377,13 +3197,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             const SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
               ),
               child: IconButton(
-                icon: const Icon(Icons.calculate, color: Color(0xFF1E3A5F)),
+                icon: const Icon(Icons.calculate, color: HrmPageChrome.primaryNavy),
                 onPressed: onCalculatePressed,
                 tooltip: 'Chọn phụ cấp từ danh sách',
               ),
@@ -3467,12 +3287,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     allowanceType == 0 ? Icons.lock : Icons.calendar_today,
-                    color: const Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     size: 20,
                   ),
                 ),
@@ -3537,14 +3357,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           height: 36,
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
                               '${index + 1}',
                               style: const TextStyle(
-                                color: Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
@@ -3572,13 +3392,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '${_currencyFormat.format(amount)} đ',
                             style: const TextStyle(
-                              color: Color(0xFF1E3A5F),
+                              color: HrmPageChrome.primaryNavy,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -3604,7 +3424,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                           color:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3620,7 +3440,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         Text(
                           '${_currencyFormat.format(total)} đ',
                           style: const TextStyle(
-                            color: Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -3644,8 +3464,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Thêm phụ cấp'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E3A5F),
-                            side: const BorderSide(color: Color(0xFF1E3A5F)),
+                            foregroundColor: HrmPageChrome.primaryNavy,
+                            side: const BorderSide(color: HrmPageChrome.primaryNavy),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -3654,14 +3474,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('Đóng'),
                         ),
@@ -3751,7 +3568,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               title: Row(
                 children: [
                   const Icon(Icons.add_circle_outline,
-                      color: Color(0xFF1E3A5F), size: 24),
+                      color: HrmPageChrome.primaryNavy, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     allowanceType != null
@@ -3841,7 +3658,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   onPressed: isSubmitting ? null : () => Navigator.pop(context),
                   child: const Text('Hủy'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: isSubmitting
                       ? null
                       : () async {
@@ -3888,9 +3705,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             );
                           }
                         },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
-                    foregroundColor: Colors.white,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
                   ),
                   child: isSubmitting
                       ? const SizedBox(
@@ -4018,7 +3834,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             color: Color(0xFF71717A), fontSize: 12),
                       ),
                       value: isSelected,
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                       onChanged: (value) {
                         setDialogState(() {
                           if (value == true) {
@@ -4037,14 +3853,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               child:
                   const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 Navigator.pop(context);
                 onChanged(selected);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
               ),
               child: const Text('Xác nhận'),
             ),

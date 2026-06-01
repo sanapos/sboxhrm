@@ -1,6 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class MobileAttendanceHistoryScreen extends StatefulWidget {
   const MobileAttendanceHistoryScreen({super.key});
@@ -123,19 +125,23 @@ class _MobileAttendanceHistoryScreenState
       ),
       body: RefreshIndicator(
         onRefresh: _loadRecords,
-        child: Column(
-          children: [
+        child: HrmResponsiveListLayout(
+          headerSections: [
             _buildMonthSelector(),
             _buildCalendarStrip(),
             _buildSummaryCard(),
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator(color: Color(0xFF1E3A5F))),
-              )
-            else
-              Expanded(child: _buildRecordsList()),
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: HrmPageChrome.primaryNavy)),
+              ),
           ],
+          desktopBody: _isLoading
+              ? const SizedBox.shrink()
+              : _buildRecordsList(),
+          mobileSlivers: (_) => _historyMobileSlivers(),
         ),
       ),
     );
@@ -224,13 +230,13 @@ class _MobileAttendanceHistoryScreenState
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF1E3A5F)
+                    ? HrmPageChrome.primaryNavy
                     : isToday
-                        ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                        ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 border: isToday && !isSelected
-                    ? Border.all(color: const Color(0xFF1E3A5F), width: 2)
+                    ? Border.all(color: HrmPageChrome.primaryNavy, width: 2)
                     : null,
               ),
               child: Column(
@@ -266,7 +272,7 @@ class _MobileAttendanceHistoryScreenState
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.white : const Color(0xFF1E3A5F),
+                        color: isSelected ? Colors.white : HrmPageChrome.primaryNavy,
                         shape: BoxShape.circle,
                       ),
                     )
@@ -307,14 +313,14 @@ class _MobileAttendanceHistoryScreenState
             icon: Icons.calendar_today,
             value: '$workDays',
             label: 'Ngày làm',
-            color: const Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
           ),
           _buildSummaryDivider(),
           _buildSummaryItem(
             icon: Icons.login,
             value: '$checkIns',
             label: 'Vào',
-            color: const Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
           ),
           _buildSummaryDivider(),
           _buildSummaryItem(
@@ -374,6 +380,75 @@ class _MobileAttendanceHistoryScreenState
     );
   }
 
+  List<Widget> _historyMobileSlivers() {
+    if (_isLoading) return [];
+    if (_filteredRecords.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text(
+                  'Không có dữ liệu chấm công',
+                  style: TextStyle(color: Color(0xFF71717A)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverToBoxAdapter(
+        child: _buildRecordsListContent(shrinkWrap: true),
+      ),
+    ];
+  }
+
+  Widget _buildRecordsListContent({bool shrinkWrap = false}) {
+    if (_filteredRecords.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final Map<String, List<MobileAttendanceRecord>> grouped = {};
+    for (var record in _filteredRecords) {
+      final key =
+          '${record.punchTime.day}/${record.punchTime.month}/${record.punchTime.year}';
+      grouped.putIfAbsent(key, () => []).add(record);
+    }
+    final groupKeys = grouped.keys.toList();
+    final totalCount = groupKeys.length;
+    final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
+    final page = _currentPage.clamp(1, totalPages);
+    final startIndex = (page - 1) * _pageSize;
+    final endIndex = (page * _pageSize).clamp(0, totalCount);
+    final paginatedKeys =
+        groupKeys.sublist(startIndex.clamp(0, totalCount), endIndex);
+
+    final list = ListView.builder(
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: paginatedKeys.length,
+      itemBuilder: (context, index) {
+        final dateKey = paginatedKeys[index];
+        final records = grouped[dateKey]!;
+        records.sort((a, b) => a.punchTime.compareTo(b.punchTime));
+        return _buildDateGroup(dateKey, records);
+      },
+    );
+
+    if (shrinkWrap) return list;
+    return Column(
+      children: [
+        Expanded(child: list),
+        if (totalPages > 1) _buildHistoryPagination(startIndex, endIndex, totalCount, page, totalPages),
+      ],
+    );
+  }
+
   Widget _buildRecordsList() {
     if (_filteredRecords.isEmpty) {
       return Center(
@@ -390,57 +465,40 @@ class _MobileAttendanceHistoryScreenState
         ),
       );
     }
+    return _buildRecordsListContent();
+  }
 
-    // Group by date
-    final Map<String, List<MobileAttendanceRecord>> grouped = {};
-    for (var record in _filteredRecords) {
-      final key = '${record.punchTime.day}/${record.punchTime.month}/${record.punchTime.year}';
-      grouped.putIfAbsent(key, () => []).add(record);
-    }
-
-    final groupKeys = grouped.keys.toList();
-    final totalCount = groupKeys.length;
-    final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
-    final page = _currentPage.clamp(1, totalPages);
-    final startIndex = (page - 1) * _pageSize;
-    final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedKeys = groupKeys.sublist(startIndex.clamp(0, totalCount), endIndex);
-
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            itemCount: paginatedKeys.length,
-            itemBuilder: (context, index) {
-              final dateKey = paginatedKeys[index];
-              final records = grouped[dateKey]!;
-              records.sort((a, b) => a.punchTime.compareTo(b.punchTime));
-              
-              return _buildDateGroup(dateKey, records);
-            },
-          ),
-        ),
-        if (totalPages > 1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount ngày', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                Row(children: [
-                  IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                  IconButton(icon: const Icon(Icons.chevron_right, size: 20), onPressed: page < totalPages ? () => setState(() => _currentPage++) : null, visualDensity: VisualDensity.compact),
-                ]),
-              ],
-            ),
-          ),
-      ],
+  Widget _buildHistoryPagination(
+      int startIndex, int endIndex, int totalCount, int page, int totalPages) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount ngày',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Row(children: [
+            IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                onPressed:
+                    page > 1 ? () => setState(() => _currentPage--) : null,
+                visualDensity: VisualDensity.compact),
+            Text('$page / $totalPages',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                onPressed: page < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                visualDensity: VisualDensity.compact),
+          ]),
+        ],
+      ),
     );
   }
 
@@ -469,12 +527,12 @@ class _MobileAttendanceHistoryScreenState
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.calendar_today,
-                    color: Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     size: 18,
                   ),
                 ),
@@ -503,7 +561,7 @@ class _MobileAttendanceHistoryScreenState
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -511,7 +569,7 @@ class _MobileAttendanceHistoryScreenState
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E3A5F),
+                        color: HrmPageChrome.primaryNavy,
                       ),
                     ),
                   ),
@@ -540,7 +598,7 @@ class _MobileAttendanceHistoryScreenState
   Widget _buildRecordItem(MobileAttendanceRecord record) {
     final isCheckIn = record.punchType == 0;
     final statusColor = record.status == 'auto_approved' || record.status == 'approved'
-        ? const Color(0xFF1E3A5F)
+        ? HrmPageChrome.primaryNavy
         : const Color(0xFFF59E0B);
     final statusLabel = record.status == 'auto_approved'
         ? 'Tự động'
@@ -560,10 +618,10 @@ class _MobileAttendanceHistoryScreenState
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                color: (isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444)).withValues(alpha: 0.1),
+                color: (isCheckIn ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444)).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(isCheckIn ? Icons.login : Icons.logout, size: 18, color: isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444)),
+              child: Icon(isCheckIn ? Icons.login : Icons.logout, size: 18, color: isCheckIn ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -724,7 +782,7 @@ class _MobileAttendanceHistoryScreenState
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1E3A5F),
+              primary: HrmPageChrome.primaryNavy,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Color(0xFF18181B),
@@ -801,7 +859,7 @@ class _MobileAttendanceHistoryScreenState
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: FilledButton(
                 onPressed: () {
                   Navigator.pop(context);
                   setState(() {
@@ -810,14 +868,11 @@ class _MobileAttendanceHistoryScreenState
                   });
                   _filterRecords();
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
-                child: const Text('Áp dụng', style: TextStyle(color: Colors.white)),
+                child: const Text('Áp dụng'),
               ),
             ),
             const SizedBox(height: 10),
@@ -833,10 +888,10 @@ class _MobileAttendanceHistoryScreenState
       label: Text(label),
       selected: isSelected,
       onSelected: onSelected,
-      selectedColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-      checkmarkColor: const Color(0xFF1E3A5F),
+      selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+      checkmarkColor: HrmPageChrome.primaryNavy,
       labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+        color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
       ),
     );
   }

@@ -15,6 +15,7 @@ import '../services/signalr_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 enum _SyncStatus { starting, deleting, syncing, completed, error }
 
@@ -67,8 +68,6 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
   bool _sortAscending = false;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
-
   // Real-time
   StreamSubscription? _attendanceSub;
   final List<Attendance> _realtimeQueue = [];
@@ -1957,7 +1956,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               if (_showRealtimeBanner) _buildRealtimeBanner(theme),
 
               // ── Filter bar ──
-              if (!Responsive.isMobile(context) || _showMobileFilters)
+              
                 _buildFilterBar(theme),
 
               // ── Data table ──
@@ -2133,42 +2132,6 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
           // Filter toggle (mobile)
           if (Responsive.isMobile(context))
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _showMobileFilters
-                      ? Colors.blue.shade50
-                      : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Stack(
-                  children: [
-                    Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                    if (_selectedDeviceId != null ||
-                        _selectedEmployeePins.isNotEmpty ||
-                        _selectedPreset != 'today')
-                      Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                  color: Colors.orangeAccent,
-                                  shape: BoxShape.circle))),
-                  ],
-                ),
-              ),
-            ),
-
           // Export menu
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -2571,11 +2534,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     decoration: BoxDecoration(
                       color: isNew
                           ? Colors.green.withValues(alpha: 0.15)
-                          : const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(Icons.access_time,
-                        color: isNew ? Colors.green : const Color(0xFF1E3A5F),
+                        color: isNew ? Colors.green : HrmPageChrome.primaryNavy,
                         size: 18),
                   ),
                   const SizedBox(width: 12),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class BiometricsScreen extends StatefulWidget {
   const BiometricsScreen({super.key});
@@ -138,7 +139,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF0F2340), Color(0xFF1E3A5F)]),
+        gradient: LinearGradient(colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
       ),
       child: Row(
         children: [
@@ -184,9 +185,9 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                       final isSelected = id == _selectedDeviceId;
                       return ListTile(
                         selected: isSelected,
-                        selectedTileColor: const Color(0xFF0F2340).withValues(alpha: 0.08),
+                        selectedTileColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                         leading: CircleAvatar(
-                          backgroundColor: isSelected ? const Color(0xFF0F2340) : Colors.grey[200],
+                          backgroundColor: isSelected ? HrmPageChrome.primaryNavy : Colors.grey[200],
                           child: Icon(Icons.router, color: isSelected ? Colors.white : Colors.grey[600], size: 20),
                         ),
                         title: Text(device['deviceName'] ?? device['name'] ?? 'Device', style: TextStyle(fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
@@ -265,9 +266,9 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final narrow = constraints.maxWidth < 450;
       final cards = [
-        _buildMiniStat('Tổng vân tay', '${_summary?['totalFingerprints'] ?? 0}', Icons.fingerprint, const Color(0xFF0F2340), expanded: !narrow),
-        _buildMiniStat('Tổng khuôn mặt', '${_summary?['totalFaces'] ?? 0}', Icons.face, const Color(0xFF1E3A5F), expanded: !narrow),
-        _buildMiniStat('Tổng người dùng', '${_summary?['totalUsers'] ?? 0}', Icons.people, const Color(0xFF0F2340), expanded: !narrow),
+        _buildMiniStat('Tổng vân tay', '${_summary?['totalFingerprints'] ?? 0}', Icons.fingerprint, HrmPageChrome.primaryNavy, expanded: !narrow),
+        _buildMiniStat('Tổng khuôn mặt', '${_summary?['totalFaces'] ?? 0}', Icons.face, HrmPageChrome.primaryNavy, expanded: !narrow),
+        _buildMiniStat('Tổng người dùng', '${_summary?['totalUsers'] ?? 0}', Icons.people, HrmPageChrome.primaryNavy, expanded: !narrow),
       ];
       if (narrow) {
         return Column(children: [
@@ -301,7 +302,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
   Widget _buildBiometricDeckItem(Map<String, dynamic> bio) {
     final bioType = bio['type']?.toString() ?? 'fingerprint';
     final icon = bioType.contains('face') ? Icons.face : Icons.fingerprint;
-    final color = bioType.contains('face') ? const Color(0xFF1E3A5F) : const Color(0xFF0F2340);
+    final color = bioType.contains('face') ? HrmPageChrome.primaryNavy : HrmPageChrome.primaryNavy;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -331,7 +332,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
   Widget _buildBiometricCard(Map<String, dynamic> bio) {
     final bioType = bio['type']?.toString() ?? 'fingerprint';
     final icon = bioType.contains('face') ? Icons.face : Icons.fingerprint;
-    final color = bioType.contains('face') ? const Color(0xFF1E3A5F) : const Color(0xFF0F2340);
+    final color = bioType.contains('face') ? HrmPageChrome.primaryNavy : HrmPageChrome.primaryNavy;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

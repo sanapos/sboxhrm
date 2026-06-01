@@ -9,5 +9,6 @@ public record GetEmployeeMealSummaryQuery(
     Guid StoreId,
     DateTime FromDate,
     DateTime ToDate,
-    Guid? EmployeeUserId
+    Guid? EmployeeUserId,
+    Guid? BranchId = null
 ) : IQuery<AppResponse<List<EmployeeMealSummaryDto>>>;

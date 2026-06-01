@@ -93,18 +93,20 @@ public class ApproveSwapHandler(
             return; // Cannot swap if employees not found
         }
 
-        // Find requester's work schedule for that date
         var requesterSchedule = await workScheduleRepository.GetSingleAsync(
             filter: ws => ws.StoreId == swapRequest.StoreId
-                && ws.EmployeeUserId == requesterEmployee.ApplicationUserId
-                && ws.Date.Date == swapRequest.RequesterDate.Date,
+                && ws.EmployeeUserId == requesterEmployee.Id
+                && ws.Date.Date == swapRequest.RequesterDate.Date
+                && ws.ShiftId == swapRequest.RequesterShiftId
+                && !ws.IsDayOff,
             cancellationToken: cancellationToken);
 
-        // Find target's work schedule for that date
         var targetSchedule = await workScheduleRepository.GetSingleAsync(
             filter: ws => ws.StoreId == swapRequest.StoreId
-                && ws.EmployeeUserId == targetEmployee.ApplicationUserId
-                && ws.Date.Date == swapRequest.TargetDate.Date,
+                && ws.EmployeeUserId == targetEmployee.Id
+                && ws.Date.Date == swapRequest.TargetDate.Date
+                && ws.ShiftId == swapRequest.TargetShiftId
+                && !ws.IsDayOff,
             cancellationToken: cancellationToken);
 
         // Update schedules if they exist, or create new ones
@@ -123,7 +125,7 @@ public class ApproveSwapHandler(
             {
                 Id = Guid.NewGuid(),
                 StoreId = swapRequest.StoreId,
-                EmployeeUserId = requesterEmployee.ApplicationUserId!.Value,
+                EmployeeUserId = requesterEmployee.Id,
                 Date = swapRequest.TargetDate,
                 ShiftId = swapRequest.TargetShiftId,
                 CreatedAt = DateTime.UtcNow
@@ -146,7 +148,7 @@ public class ApproveSwapHandler(
             {
                 Id = Guid.NewGuid(),
                 StoreId = swapRequest.StoreId,
-                EmployeeUserId = targetEmployee.ApplicationUserId!.Value,
+                EmployeeUserId = targetEmployee.Id,
                 Date = swapRequest.RequesterDate,
                 ShiftId = swapRequest.RequesterShiftId,
                 CreatedAt = DateTime.UtcNow

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -25,6 +27,7 @@ public class ExecutiveReportsController(
     // GET /api/reports/executive/monthly-summary?year=&month=&format=excel
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("monthly-summary")]
+    [RequireModulePermission("Report", ModulePermissionAction.View)]
     public async Task<IActionResult> GetMonthlySummary(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -170,7 +173,7 @@ public class ExecutiveReportsController(
 
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
-                return BuildExecutiveExcel(report);
+                return BuildExecutiveExcel(User, report);
             }
 
             return Ok(AppResponse<ExecutiveSummaryDto>.Success(report));
@@ -182,13 +185,11 @@ public class ExecutiveReportsController(
         }
     }
 
-    private static IActionResult BuildExecutiveExcel(ExecutiveSummaryDto r)
+    private static IActionResult BuildExecutiveExcel(System.Security.Claims.ClaimsPrincipal user, ExecutiveSummaryDto r)
     {
         return ReportHelpers.ExcelFile($"Tổng hợp {r.Month:D2}-{r.Year}",
             new[] { "Chỉ số", "Giá trị" },
-            ws =>
-            {
-                int row = 2;
+            (ws, dataStartRow) => { int row = dataStartRow;
                 void AddSection(string title)
                 {
                     ws.Cell(row, 1).Value = title;
@@ -245,7 +246,7 @@ public class ExecutiveReportsController(
 
                 ws.Columns().AdjustToContents();
             },
-            $"executive-summary-{r.Year}-{r.Month:D2}.xlsx");
+            $"executive-summary-{r.Year}-{r.Month:D2}.xlsx", user: user);
     }
 }
 
@@ -299,3 +300,4 @@ public class FinanceBlock
     public decimal MealPayment { get; set; }
     public decimal MealOutstanding { get; set; }
 }
+

@@ -44,6 +44,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<ShiftTemplate> ShiftTemplates => Set<ShiftTemplate>();
     public DbSet<WorkSchedule> WorkSchedules => Set<WorkSchedule>();
     public DbSet<ScheduleRegistration> ScheduleRegistrations => Set<ScheduleRegistration>();
+    public DbSet<ScheduleApprovalRecord> ScheduleApprovalRecords => Set<ScheduleApprovalRecord>();
     public DbSet<ShiftStaffingQuota> ShiftStaffingQuotas => Set<ShiftStaffingQuota>();
     public DbSet<AttendanceCorrectionRequest> AttendanceCorrectionRequests => Set<AttendanceCorrectionRequest>();
     
@@ -107,6 +108,8 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<TaskAssignee> TaskAssignees => Set<TaskAssignee>();
     public DbSet<TaskReminder> TaskReminders => Set<TaskReminder>();
     public DbSet<TaskEvaluation> TaskEvaluations => Set<TaskEvaluation>();
+    public DbSet<TaskTemplate> TaskTemplates => Set<TaskTemplate>();
+    public DbSet<TaskDependency> TaskDependencies => Set<TaskDependency>();
     
     // Assets & Inventory
     public DbSet<Asset> Assets => Set<Asset>();

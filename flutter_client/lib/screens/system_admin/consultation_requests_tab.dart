@@ -92,7 +92,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                 icon: const Icon(Icons.refresh),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: (_loading || _items.isEmpty) ? null : _exportExcel,
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('Xuất Excel'),
@@ -127,7 +127,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _loading ? null : _load,
                 icon: const Icon(Icons.filter_alt_outlined),
                 label: const Text('Lọc'),
@@ -398,7 +398,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Huỷ')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Xoá', style: TextStyle(color: Colors.white)),
@@ -523,7 +523,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
             TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Đóng')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () async {
                 final res = await _api.adminUpdateConsultationRequest(
                   item['id'] as String,

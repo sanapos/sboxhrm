@@ -4,9 +4,12 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class AgentLicenseKeysScreen extends StatefulWidget {
-  const AgentLicenseKeysScreen({super.key});
+  final bool embedded;
+
+  const AgentLicenseKeysScreen({super.key, this.embedded = false});
 
   @override
   State<AgentLicenseKeysScreen> createState() => _AgentLicenseKeysScreenState();
@@ -29,9 +32,8 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   // Mobile UI state
-  bool _showMobileFilters = false;
 
-  static const _primary = Color(0xFF1E3A5F);
+  static const _primary = HrmPageChrome.primaryNavy;
   static const _success = Color(0xFF22C55E);
   static const _danger = Color(0xFFEF4444);
   static const _warning = Color(0xFFF59E0B);
@@ -113,11 +115,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildHeader(),
-          if (!Responsive.isMobile(context) || _showMobileFilters)
+          if (!widget.embedded) _buildHeader(),
+          
             _buildFilters(),
           Expanded(
             child: _isLoading && _keys.isEmpty
@@ -172,34 +174,6 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                 ],
               ),
             ),
-            if (Responsive.isMobile(context))
-              IconButton(
-                onPressed: () =>
-                    setState(() => _showMobileFilters = !_showMobileFilters),
-                icon: Stack(
-                  children: [
-                    Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        size: 20,
-                        color: _primary),
-                    if (_filterUsed != null ||
-                        _filterType != null ||
-                        _searchCtrl.text.isNotEmpty)
-                      Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                  color: Colors.orangeAccent,
-                                  shape: BoxShape.circle))),
-                  ],
-                ),
-                tooltip: 'Bộ lọc',
-              ),
           ]),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 8, children: [
@@ -647,7 +621,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
     final actionButtons = [
       TextButton(
           onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
-      ElevatedButton.icon(
+      FilledButton.icon(
         onPressed: () {
           _copyKey(keyStr);
           Navigator.pop(context);

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Tasks;
@@ -9,13 +10,14 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class TasksController(
+public partial class TasksController(
     ZKTecoDbContext dbContext,
     ISystemNotificationService notificationService
 ) : AuthenticatedControllerBase
@@ -41,6 +43,7 @@ public class TasksController(
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<WorkTaskDto>>>> GetTasks(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -54,11 +57,51 @@ public class TasksController(
         [FromQuery] DateTime? toDate = null,
         [FromQuery] bool? isOverdue = null,
         [FromQuery] Guid? parentTaskId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] bool? onlyAssignedToMe = null,
+        [FromQuery] bool? onlyAssignedByMe = null,
         [FromQuery] string? sortBy = "CreatedAt",
         [FromQuery] bool sortDesc = true)
     {
         var query = _dbContext.WorkTasks
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive);
+
+        if (!TaskWorkflowHelper.IsManagerOrAdmin(User))
+        {
+            var emp = await TaskWorkflowHelper.GetEmployeeForUserAsync(
+                _dbContext, RequiredStoreId, CurrentUserId);
+            if (emp == null)
+                return Ok(AppResponse<PagedResult<WorkTaskDto>>.Success(new PagedResult<WorkTaskDto>()));
+            query = query.Where(t =>
+                t.AssignedById == CurrentUserId ||
+                t.AssigneeId == emp.Id ||
+                t.TaskAssignees!.Any(ta => ta.EmployeeId == emp.Id));
+        }
+
+        if (onlyAssignedToMe == true)
+        {
+            var emp = await TaskWorkflowHelper.GetEmployeeForUserAsync(
+                _dbContext, RequiredStoreId, CurrentUserId);
+            if (emp == null)
+                return Ok(AppResponse<PagedResult<WorkTaskDto>>.Success(new PagedResult<WorkTaskDto>()));
+            query = query.Where(t =>
+                t.AssigneeId == emp.Id ||
+                t.TaskAssignees!.Any(ta => ta.EmployeeId == emp.Id));
+        }
+
+        if (onlyAssignedByMe == true)
+            query = query.Where(t => t.AssignedById == CurrentUserId);
+
+        if (branchId.HasValue)
+        {
+            var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+                _dbContext, RequiredStoreId, branchId, true);
+            query = TaskWorkflowHelper.ApplyBranchFilter(query, branchScope);
+        }
+
+        if (departmentId.HasValue)
+            query = query.Where(t => t.DepartmentId == departmentId.Value);
 
         // Filters
         if (!string.IsNullOrEmpty(search))
@@ -95,7 +138,8 @@ public class TasksController(
         if (isOverdue == true)
             query = query.Where(t => t.DueDate < DateTime.Now && 
                 t.Status != WorkTaskStatus.Completed && 
-                t.Status != WorkTaskStatus.Cancelled);
+                t.Status != WorkTaskStatus.Cancelled &&
+                t.Status != WorkTaskStatus.Assigned);
 
         if (parentTaskId.HasValue)
             query = query.Where(t => t.ParentTaskId == parentTaskId.Value);
@@ -208,6 +252,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<WorkTaskDto>>>> GetMyTasks(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -296,6 +341,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> GetTaskById(Guid id)
     {
         var task = await _dbContext.WorkTasks
@@ -316,6 +362,10 @@ public class TasksController(
             return Ok(AppResponse<WorkTaskDto>.Error("Task not found"));
 
         var dto = MapToDto(task, includeDetails: true);
+        dto.BlockedByTaskIds = await _dbContext.TaskDependencies
+            .Where(d => d.TaskId == id)
+            .Select(d => d.DependsOnTaskId)
+            .ToListAsync();
         return Ok(AppResponse<WorkTaskDto>.Success(dto));
     }
 
@@ -324,11 +374,16 @@ public class TasksController(
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> CreateTask([FromBody] CreateTaskDto request)
     {
-        // Generate task code
-        var taskCount = await _dbContext.WorkTasks.CountAsync(t => t.StoreId == RequiredStoreId);
-        var taskCode = $"TASK-{(taskCount + 1):D4}";
+        var taskCode = await TaskWorkflowHelper.GenerateTaskCodeAsync(_dbContext, RequiredStoreId);
+
+        var assigneeIds = request.AssigneeIds ?? new List<Guid>();
+        Guid? primaryAssignee = request.AssigneeId;
+        if (!primaryAssignee.HasValue && assigneeIds.Count > 0)
+            primaryAssignee = assigneeIds[0];
+        var hasAssignee = primaryAssignee.HasValue || assigneeIds.Count > 0;
 
         var task = new WorkTask
         {
@@ -338,11 +393,18 @@ public class TasksController(
             Description = request.Description,
             TaskType = request.TaskType,
             Priority = request.Priority,
-            Status = WorkTaskStatus.Todo,
+            Status = hasAssignee && request.RequireAcceptance
+                ? WorkTaskStatus.Assigned
+                : WorkTaskStatus.Todo,
             Progress = 0,
             StoreId = RequiredStoreId,
             AssignedById = CurrentUserId,
-            AssigneeId = request.AssigneeId,
+            AssigneeId = primaryAssignee,
+            BranchId = request.BranchId,
+            DepartmentId = request.DepartmentId,
+            TemplateId = request.TemplateId,
+            SlaReminderHours = request.SlaReminderHours ?? 24,
+            AssignmentNote = request.AssignmentNote,
             StartDate = request.StartDate,
             DueDate = request.DueDate,
             EstimatedHours = request.EstimatedHours,
@@ -355,20 +417,11 @@ public class TasksController(
 
         _dbContext.WorkTasks.Add(task);
 
-        // Add multiple assignees if provided
-        if (request.AssigneeIds?.Any() == true)
-        {
-            foreach (var employeeId in request.AssigneeIds)
-            {
-                _dbContext.TaskAssignees.Add(new TaskAssignee
-                {
-                    Id = Guid.NewGuid(),
-                    TaskId = task.Id,
-                    EmployeeId = employeeId,
-                    AssignedAt = DateTime.Now
-                });
-            }
-        }
+        await TaskWorkflowHelper.SyncAssigneesAsync(
+            _dbContext, task.Id, primaryAssignee, assigneeIds);
+
+        if (request.BlockedByTaskIds?.Any() == true)
+            await SyncTaskDependenciesAsync(task.Id, request.BlockedByTaskIds);
 
         // Add history
         _dbContext.TaskHistories.Add(new TaskHistory
@@ -391,11 +444,18 @@ public class TasksController(
 
         try
         {
-            // Resolve Employee.Id → ApplicationUser.Id for notifications
-            if (task.AssigneeId.HasValue)
+            var notifyEmployeeIds = new HashSet<Guid>();
+            if (task.AssigneeId.HasValue) notifyEmployeeIds.Add(task.AssigneeId.Value);
+            if (request.AssigneeIds != null)
             {
-                var userId = await ResolveUserIdFromEmployeeId(task.AssigneeId.Value);
-                if (userId.HasValue)
+                foreach (var id in request.AssigneeIds.Where(id => id != Guid.Empty))
+                    notifyEmployeeIds.Add(id);
+            }
+
+            foreach (var empId in notifyEmployeeIds)
+            {
+                var userId = await ResolveUserIdFromEmployeeId(empId);
+                if (userId.HasValue && userId.Value != CurrentUserId)
                 {
                     await notificationService.CreateAndSendAsync(
                         userId.Value, NotificationType.Info,
@@ -403,22 +463,6 @@ public class TasksController(
                         $"Bạn được giao công việc mới: {task.Title}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
-                }
-            }
-            if (request.AssigneeIds?.Any() == true)
-            {
-                foreach (var empId in request.AssigneeIds.Where(id => id != task.AssigneeId))
-                {
-                    var userId = await ResolveUserIdFromEmployeeId(empId);
-                    if (userId.HasValue)
-                    {
-                        await notificationService.CreateAndSendAsync(
-                            userId.Value, NotificationType.Info,
-                            "Công việc mới",
-                            $"Bạn được giao công việc mới: {task.Title}",
-                            relatedEntityId: task.Id, relatedEntityType: "WorkTask",
-                            fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
-                    }
                 }
             }
         }
@@ -432,6 +476,7 @@ public class TasksController(
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> UpdateTask(Guid id, [FromBody] UpdateTaskDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -440,6 +485,10 @@ public class TasksController(
 
         if (task == null)
             return Ok(AppResponse<WorkTaskDto>.Error("Task not found"));
+
+        if (!await TaskWorkflowHelper.CanModifyTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return Ok(AppResponse<WorkTaskDto>.Error("Bạn không có quyền sửa công việc này"));
 
         var histories = new List<TaskHistory>();
 
@@ -498,6 +547,19 @@ public class TasksController(
         task.Tags = request.Tags ?? task.Tags;
         task.Checklist = request.Checklist ?? task.Checklist;
         task.CompletionNotes = request.CompletionNotes ?? task.CompletionNotes;
+        if (request.BranchId.HasValue) task.BranchId = request.BranchId;
+        if (request.DepartmentId.HasValue) task.DepartmentId = request.DepartmentId;
+        if (request.SlaReminderHours.HasValue) task.SlaReminderHours = request.SlaReminderHours;
+        if (request.AssignmentNote != null) task.AssignmentNote = request.AssignmentNote;
+
+        if (request.AssigneeIds != null || request.AssigneeId.HasValue)
+        {
+            await TaskWorkflowHelper.SyncAssigneesAsync(
+                _dbContext, task.Id, task.AssigneeId, request.AssigneeIds);
+        }
+
+        if (request.BlockedByTaskIds != null)
+            await SyncTaskDependenciesAsync(task.Id, request.BlockedByTaskIds);
 
         task.UpdatedAt = DateTime.Now;
         task.UpdatedBy = CurrentUserEmail;
@@ -510,7 +572,7 @@ public class TasksController(
         // Notify new assignee when task is reassigned
         try
         {
-            if (oldAssigneeId.HasValue && task.AssigneeId.HasValue)
+            if (task.AssigneeId.HasValue && task.AssigneeId != oldAssigneeId)
             {
                 var newAssigneeUserId = await ResolveUserIdFromEmployeeId(task.AssigneeId.Value);
                 if (newAssigneeUserId.HasValue && newAssigneeUserId.Value != CurrentUserId)
@@ -539,6 +601,7 @@ public class TasksController(
     /// </summary>
     [HttpPatch("{id}/status")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> UpdateTaskStatus(Guid id, [FromBody] UpdateTaskStatusDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -547,6 +610,18 @@ public class TasksController(
 
         if (task == null)
             return Ok(AppResponse<WorkTaskDto>.Error("Task not found"));
+
+        if (!await TaskWorkflowHelper.CanModifyTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return Ok(AppResponse<WorkTaskDto>.Error("Bạn không có quyền cập nhật công việc này"));
+
+        if (request.Status == WorkTaskStatus.InProgress || request.Status == WorkTaskStatus.Todo)
+        {
+            var blocked = await GetIncompleteBlockersAsync(task.Id);
+            if (blocked.Count > 0)
+                return Ok(AppResponse<WorkTaskDto>.Error(
+                    $"Công việc bị chặn bởi: {string.Join(", ", blocked)}"));
+        }
 
         var oldStatus = task.Status;
         task.Status = request.Status;
@@ -587,20 +662,22 @@ public class TasksController(
                 WorkTaskStatus.Completed => "Hoàn thành",
                 WorkTaskStatus.Cancelled => "Đã hủy",
                 WorkTaskStatus.OnHold => "Tạm hoãn",
+                WorkTaskStatus.Assigned => "Chờ xác nhận",
                 _ => request.Status.ToString()
             };
-            if (task.AssigneeId.HasValue && task.AssigneeId.Value != CurrentUserId)
+            var notifyUserId = task.AssignedById != CurrentUserId
+                ? task.AssignedById
+                : (task.AssigneeId.HasValue
+                    ? await ResolveUserIdFromEmployeeId(task.AssigneeId.Value)
+                    : null);
+            if (notifyUserId.HasValue && notifyUserId.Value != CurrentUserId)
             {
-                var assigneeUserId = await ResolveUserIdFromEmployeeId(task.AssigneeId.Value);
-                if (assigneeUserId.HasValue && assigneeUserId.Value != CurrentUserId)
-                {
-                    await notificationService.CreateAndSendAsync(
-                        assigneeUserId.Value, NotificationType.Info,
-                        "Trạng thái công việc thay đổi",
-                        $"Công việc \"{task.Title}\" đã chuyển sang: {statusText}",
-                        relatedEntityId: task.Id, relatedEntityType: "WorkTask",
-                        fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
-                }
+                await notificationService.CreateAndSendAsync(
+                    notifyUserId.Value, NotificationType.Info,
+                    "Trạng thái công việc thay đổi",
+                    $"Công việc \"{task.Title}\" đã chuyển sang: {statusText}",
+                    relatedEntityId: task.Id, relatedEntityType: "WorkTask",
+                    fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
             if (request.Status == WorkTaskStatus.Completed && task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
             {
@@ -622,6 +699,7 @@ public class TasksController(
     /// </summary>
     [HttpPatch("{id}/progress")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> UpdateTaskProgress(Guid id, [FromBody] UpdateTaskProgressDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -630,6 +708,10 @@ public class TasksController(
 
         if (task == null)
             return Ok(AppResponse<WorkTaskDto>.Error("Task not found"));
+
+        if (!await TaskWorkflowHelper.CanModifyTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return Ok(AppResponse<WorkTaskDto>.Error("Bạn không có quyền cập nhật tiến độ"));
 
         var oldProgress = task.Progress;
         task.Progress = Math.Clamp(request.Progress, 0, 100);
@@ -700,6 +782,7 @@ public class TasksController(
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTask(Guid id)
     {
         var task = await _dbContext.WorkTasks
@@ -746,6 +829,7 @@ public class TasksController(
     /// </summary>
     [HttpPost("batch/status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> BatchUpdateStatus([FromBody] BatchUpdateStatusDto request)
     {
         var tasks = await _dbContext.WorkTasks
@@ -820,6 +904,7 @@ public class TasksController(
     /// </summary>
     [HttpPost("batch/assign")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> BatchAssign([FromBody] BatchAssignDto request)
     {
         var tasks = await _dbContext.WorkTasks
@@ -827,14 +912,28 @@ public class TasksController(
             .Where(t => request.TaskIds.Contains(t.Id) && t.StoreId == RequiredStoreId && t.IsActive)
             .ToListAsync();
 
+        var coAssignees = request.AssigneeIds?
+            .Where(id => id != request.AssigneeId)
+            .ToList();
+
         foreach (var task in tasks)
         {
             var oldAssignee = task.AssigneeId;
             task.AssigneeId = request.AssigneeId;
+            if (request.DueDate.HasValue) task.DueDate = request.DueDate;
+            if (!string.IsNullOrWhiteSpace(request.AssignmentNote))
+                task.AssignmentNote = request.AssignmentNote;
+            task.Status = WorkTaskStatus.Assigned;
+            task.AcceptedAt = null;
+            task.RejectionReason = null;
             task.UpdatedAt = DateTime.Now;
             task.UpdatedBy = CurrentUserEmail;
 
-            _dbContext.TaskHistories.Add(CreateHistory(task.Id, "AssigneeChanged", oldAssignee?.ToString(), request.AssigneeId.ToString()));
+            await TaskWorkflowHelper.SyncAssigneesAsync(
+                _dbContext, task.Id, request.AssigneeId, coAssignees);
+
+            _dbContext.TaskHistories.Add(CreateHistory(
+                task.Id, "AssigneeChanged", oldAssignee?.ToString(), request.AssigneeId.ToString()));
         }
 
         await _dbContext.SaveChangesAsync();
@@ -866,6 +965,7 @@ public class TasksController(
     /// </summary>
     [HttpPost("batch/delete")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> BatchDelete([FromBody] BatchDeleteDto request)
     {
         var tasks = await _dbContext.WorkTasks
@@ -913,6 +1013,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("{taskId}/comments")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskCommentDto>>>> GetComments(Guid taskId)
     {
         var comments = await _dbContext.TaskComments
@@ -932,11 +1033,16 @@ public class TasksController(
     /// </summary>
     [HttpPost("{taskId}/comments")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<TaskCommentDto>>> AddComment(Guid taskId, [FromBody] CreateCommentDto request)
     {
         var task = await _dbContext.WorkTasks.FindAsync(taskId);
         if (task == null || task.StoreId != RequiredStoreId)
             return Ok(AppResponse<TaskCommentDto>.Error("Task not found"));
+
+        if (!await TaskWorkflowHelper.CanModifyTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return Ok(AppResponse<TaskCommentDto>.Error("Bạn không có quyền bình luận công việc này"));
 
         var comment = new TaskComment
         {
@@ -1041,6 +1147,7 @@ public class TasksController(
     /// </summary>
     [HttpDelete("{taskId}/comments/{commentId}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteComment(Guid taskId, Guid commentId)
     {
         var comment = await _dbContext.TaskComments
@@ -1068,12 +1175,25 @@ public class TasksController(
     /// </summary>
     [HttpGet("statistics")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<TaskStatisticsDto>>> GetStatistics(
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
+        var storeId = RequiredStoreId;
         var query = _dbContext.WorkTasks
-            .Where(t => t.StoreId == RequiredStoreId && t.IsActive);
+            .Where(t => t.StoreId == storeId && t.IsActive);
+
+        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+            _dbContext, storeId, branchId, includeChildBranches);
+        if (branchScope != null)
+        {
+            if (branchScope.IsEmpty)
+                return Ok(AppResponse<TaskStatisticsDto>.Success(new TaskStatisticsDto()));
+            query = TaskWorkflowHelper.ApplyBranchFilter(query, branchScope);
+        }
 
         if (fromDate.HasValue)
             query = query.Where(t => t.CreatedAt >= fromDate.Value);
@@ -1113,6 +1233,7 @@ public class TasksController(
             CompletedCount = completedCount,
             CancelledCount = statusCounts.FirstOrDefault(x => x.Status == WorkTaskStatus.Cancelled)?.Count ?? 0,
             OnHoldCount = statusCounts.FirstOrDefault(x => x.Status == WorkTaskStatus.OnHold)?.Count ?? 0,
+            AssignedCount = statusCounts.FirstOrDefault(x => x.Status == WorkTaskStatus.Assigned)?.Count ?? 0,
             OverdueCount = overdueCount,
             CompletionRate = totalTasks > 0 ? Math.Round((double)completedCount / totalTasks * 100, 1) : 0,
             AverageProgress = Math.Round(avgProgress, 1),
@@ -1120,9 +1241,18 @@ public class TasksController(
             ByType = byType
         };
 
-        // By Assignee - server-side aggregation
+        // By Assignee - server-side aggregation.
+        // Inherit the same fromDate/toDate window as the top-level stats; previously this
+        // ignored the filter, so a "tháng này" dashboard showed historical assignee counts
+        // that didn't add up to the visible TotalTasks.
         var assigneeQuery = _dbContext.WorkTasks
-            .Where(t => t.StoreId == RequiredStoreId && t.IsActive && t.AssigneeId != null);
+            .Where(t => t.StoreId == storeId && t.IsActive && t.AssigneeId != null);
+        if (branchScope != null)
+            assigneeQuery = TaskWorkflowHelper.ApplyBranchFilter(assigneeQuery, branchScope);
+        if (fromDate.HasValue)
+            assigneeQuery = assigneeQuery.Where(t => t.CreatedAt >= fromDate.Value);
+        if (toDate.HasValue)
+            assigneeQuery = assigneeQuery.Where(t => t.CreatedAt <= toDate.Value);
 
         stats.ByAssignee = await assigneeQuery
             .GroupBy(t => new { t.AssigneeId, t.Assignee!.FirstName, t.Assignee!.LastName })
@@ -1147,9 +1277,12 @@ public class TasksController(
     /// </summary>
     [HttpGet("kanban")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<KanbanBoardDto>>> GetKanbanBoard(
         [FromQuery] Guid? assigneeId = null,
-        [FromQuery] TaskPriority? priority = null)
+        [FromQuery] TaskPriority? priority = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool? onlyAssignedToMe = null)
     {
         var query = _dbContext.WorkTasks
             .Include(t => t.Assignee)
@@ -1164,9 +1297,35 @@ public class TasksController(
         if (priority.HasValue)
             query = query.Where(t => t.Priority == priority.Value);
 
+        if (branchId.HasValue)
+        {
+            var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+                _dbContext, RequiredStoreId, branchId, true);
+            query = TaskWorkflowHelper.ApplyBranchFilter(query, branchScope);
+        }
+
+        if (onlyAssignedToMe == true)
+        {
+            var emp = await TaskWorkflowHelper.GetEmployeeForUserAsync(
+                _dbContext, RequiredStoreId, CurrentUserId);
+            if (emp != null)
+                query = query.Where(t =>
+                    t.AssigneeId == emp.Id ||
+                    t.TaskAssignees!.Any(ta => ta.EmployeeId == emp.Id));
+        }
+
         var tasks = await query.OrderByDescending(t => t.Priority).ThenBy(t => t.DueDate).ToListAsync();
 
-        var statuses = new[] { WorkTaskStatus.Todo, WorkTaskStatus.InProgress, WorkTaskStatus.InReview, WorkTaskStatus.Completed };
+        var statuses = new[]
+        {
+            WorkTaskStatus.Assigned,
+            WorkTaskStatus.Todo,
+            WorkTaskStatus.InProgress,
+            WorkTaskStatus.InReview,
+            WorkTaskStatus.OnHold,
+            WorkTaskStatus.Completed,
+            WorkTaskStatus.Cancelled
+        };
 
         var board = new KanbanBoardDto
         {
@@ -1186,6 +1345,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("{taskId}/history")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskHistoryDto>>>> GetTaskHistory(Guid taskId)
     {
         var histories = await _dbContext.TaskHistories
@@ -1220,6 +1380,7 @@ public class TasksController(
     /// </summary>
     [HttpPost("{taskId}/reminders")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<TaskReminderDto>>> SendReminder(Guid taskId, [FromBody] CreateReminderDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -1300,6 +1461,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("{taskId}/reminders")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskReminderDto>>>> GetReminders(Guid taskId)
     {
         var reminders = await _dbContext.TaskReminders
@@ -1331,6 +1493,7 @@ public class TasksController(
     /// </summary>
     [HttpPatch("reminders/{reminderId}/read")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> MarkReminderRead(Guid reminderId)
     {
         var reminder = await _dbContext.TaskReminders.FindAsync(reminderId);
@@ -1353,6 +1516,7 @@ public class TasksController(
     /// </summary>
     [HttpPost("{taskId}/evaluations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<TaskEvaluationDto>>> CreateEvaluation(Guid taskId, [FromBody] CreateEvaluationDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -1439,6 +1603,7 @@ public class TasksController(
     /// </summary>
     [HttpGet("{taskId}/evaluations")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskEvaluationDto>>>> GetEvaluations(Guid taskId)
     {
         var evaluations = await _dbContext.TaskEvaluations
@@ -1473,6 +1638,7 @@ public class TasksController(
     /// </summary>
     [HttpPut("{id}/full")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> UpdateTaskFull(Guid id, [FromBody] UpdateTaskDto request)
     {
         var task = await _dbContext.WorkTasks
@@ -1518,6 +1684,13 @@ public class TasksController(
             oldFullAssigneeId = task.AssigneeId;
             histories.Add(CreateHistory(task.Id, "AssigneeChanged", task.AssigneeId?.ToString(), request.AssigneeId.Value.ToString()));
             task.AssigneeId = request.AssigneeId;
+            if (request.AssigneeIds == null &&
+                task.Status != WorkTaskStatus.Completed &&
+                task.Status != WorkTaskStatus.Cancelled)
+            {
+                task.Status = WorkTaskStatus.Assigned;
+                task.AcceptedAt = null;
+            }
         }
 
         task.StartDate = request.StartDate ?? task.StartDate;
@@ -1527,6 +1700,17 @@ public class TasksController(
         task.Tags = request.Tags ?? task.Tags;
         task.Checklist = request.Checklist ?? task.Checklist;
         task.CompletionNotes = request.CompletionNotes ?? task.CompletionNotes;
+        if (request.BranchId.HasValue) task.BranchId = request.BranchId;
+        if (request.DepartmentId.HasValue) task.DepartmentId = request.DepartmentId;
+        if (request.SlaReminderHours.HasValue) task.SlaReminderHours = request.SlaReminderHours;
+        if (request.AssignmentNote != null) task.AssignmentNote = request.AssignmentNote;
+
+        if (request.AssigneeIds != null || request.AssigneeId.HasValue)
+            await TaskWorkflowHelper.SyncAssigneesAsync(
+                _dbContext, task.Id, task.AssigneeId, request.AssigneeIds);
+
+        if (request.BlockedByTaskIds != null)
+            await SyncTaskDependenciesAsync(task.Id, request.BlockedByTaskIds);
 
         task.UpdatedAt = DateTime.Now;
         task.UpdatedBy = CurrentUserEmail;
@@ -1537,7 +1721,7 @@ public class TasksController(
         // Notify new assignee when task is reassigned
         try
         {
-            if (oldFullAssigneeId.HasValue && task.AssigneeId.HasValue)
+            if (task.AssigneeId.HasValue && task.AssigneeId != oldFullAssigneeId)
             {
                 var newAssigneeUserId = await ResolveUserIdFromEmployeeId(task.AssigneeId.Value);
                 if (newAssigneeUserId.HasValue && newAssigneeUserId.Value != CurrentUserId)
@@ -1579,6 +1763,13 @@ public class TasksController(
             AssignedByName = task.AssignedBy?.UserName,
             AssigneeId = task.AssigneeId,
             AssigneeName = task.Assignee != null ? $"{task.Assignee.LastName} {task.Assignee.FirstName}" : null,
+            BranchId = task.BranchId,
+            DepartmentId = task.DepartmentId,
+            TemplateId = task.TemplateId,
+            SlaReminderHours = task.SlaReminderHours,
+            AcceptedAt = task.AcceptedAt,
+            RejectionReason = task.RejectionReason,
+            AssignmentNote = task.AssignmentNote,
             StartDate = task.StartDate,
             DueDate = task.DueDate,
             ActualStartDate = task.ActualStartDate,
@@ -1663,5 +1854,6 @@ public class TasksController(
 
     #endregion
 }
+
 
 

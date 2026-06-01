@@ -98,6 +98,7 @@ class _ShiftLookups {
     required List<Map<String, dynamic>> shiftTemplates,
     required List<Map<String, dynamic>> shiftSalaryLevels,
     required List<Map<String, dynamic>> salaryProfiles,
+    List<Map<String, dynamic>>? employeesList,
   }) {
     final shiftTemplateMap = <String, Map<String, dynamic>>{};
     final shiftNameToId = <String, String>{};
@@ -158,6 +159,34 @@ class _ShiftLookups {
               }
             }
           }
+        }
+      }
+    }
+
+    // Log chấm công thường dùng PIN (enrollNumber) — alias sang GUID hồ sơ lương.
+    if (employeesList != null) {
+      for (final emp in employeesList) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        final pin = emp['pin']?.toString() ?? '';
+        final guid = emp['id']?.toString() ?? '';
+        if (code.isEmpty || pin.isEmpty || guid.isEmpty) continue;
+        final mappedGuid = employeeCodeToGuid[code];
+        if (mappedGuid == null || mappedGuid.isEmpty) continue;
+        employeeCodeToGuid[pin] = mappedGuid;
+        if (!employeeCodeToWeeklyOffDays.containsKey(pin) &&
+            employeeCodeToWeeklyOffDays.containsKey(code)) {
+          employeeCodeToWeeklyOffDays[pin] =
+              employeeCodeToWeeklyOffDays[code]!;
+        }
+        if (!employeeCodeToHolidayMultiplier.containsKey(pin) &&
+            employeeCodeToHolidayMultiplier.containsKey(code)) {
+          employeeCodeToHolidayMultiplier[pin] =
+              employeeCodeToHolidayMultiplier[code]!;
+        }
+        if (!employeeCodeToHolidayOvertimeType.containsKey(pin) &&
+            employeeCodeToHolidayOvertimeType.containsKey(code)) {
+          employeeCodeToHolidayOvertimeType[pin] =
+              employeeCodeToHolidayOvertimeType[code]!;
         }
       }
     }
@@ -314,6 +343,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
   List<Map<String, dynamic>> shiftTemplates = const [],
   List<Map<String, dynamic>> shiftSalaryLevels = const [],
   List<Map<String, dynamic>> salaryProfiles = const [],
+  List<Map<String, dynamic>>? employeesList,
   List<dynamic> holidays = const [],
   int dayEndHour = 0,
   int dayEndMinute = 0,
@@ -322,6 +352,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
     shiftTemplates: shiftTemplates,
     shiftSalaryLevels: shiftSalaryLevels,
     salaryProfiles: salaryProfiles,
+    employeesList: employeesList,
   );
 
   // Filter by date range first
@@ -588,6 +619,24 @@ List<DailyShiftRecord> computeDailyShiftRecords({
   return records;
 }
 
+/// Tra cứu record ca/ngày theo khóa `employeeKey|yyyy-MM-dd` (cùng khóa nhóm log).
+Map<String, DailyShiftRecord> dailyShiftRecordByAttendanceKey(
+  List<DailyShiftRecord> records,
+) {
+  final map = <String, DailyShiftRecord>{};
+  for (final r in records) {
+    final dk = DateFormat('yyyy-MM-dd').format(r.date);
+    void put(String key) {
+      if (key.isEmpty || key == '-') return;
+      map['$key|$dk'] = r;
+    }
+
+    put(r.employeeId);
+    put(r.employeeCode);
+  }
+  return map;
+}
+
 /// Một dòng đi trễ / về sớm cho riêng từng ca trong ngày của một nhân viên.
 /// Khác với [DailyShiftRecord] (gộp theo ngày), bản ghi này được phát sinh
 /// CHO MỖI CA — phục vụ Dashboard hiển thị chi tiết "đi trễ từng ca không
@@ -689,6 +738,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
   List<Map<String, dynamic>> shiftTemplates = const [],
   List<Map<String, dynamic>> shiftSalaryLevels = const [],
   List<Map<String, dynamic>> salaryProfiles = const [],
+  List<Map<String, dynamic>>? employeesList,
   int dayEndHour = 0,
   int dayEndMinute = 0,
 }) {
@@ -696,6 +746,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
     shiftTemplates: shiftTemplates,
     shiftSalaryLevels: shiftSalaryLevels,
     salaryProfiles: salaryProfiles,
+    employeesList: employeesList,
   );
 
   final fromInclusive = fromDate.subtract(const Duration(seconds: 1));
@@ -812,4 +863,101 @@ List<DailyShiftPair> computeDailyShiftPairs({
     return t2.compareTo(t1);
   });
   return pairs;
+}
+
+/// Công / giờ / trễ-sớm / tăng ca — lấy từ [DailyShiftRecord] (tab Tổng hợp theo ca).
+class PayrollShiftAttendanceStats {
+  final double workDays;
+  final double totalWorkHours;
+  final double standardHours;
+  final double otHoursWeekday;
+  final double otHoursWeekend;
+  final double otHoursHoliday;
+  final int lateCount;
+  final int lateMinutes;
+  final int earlyCount;
+  final int earlyMinutes;
+  final int totalShifts;
+
+  const PayrollShiftAttendanceStats({
+    this.workDays = 0,
+    this.totalWorkHours = 0,
+    this.standardHours = 0,
+    this.otHoursWeekday = 0,
+    this.otHoursWeekend = 0,
+    this.otHoursHoliday = 0,
+    this.lateCount = 0,
+    this.lateMinutes = 0,
+    this.earlyCount = 0,
+    this.earlyMinutes = 0,
+    this.totalShifts = 0,
+  });
+}
+
+/// Gộp records ca/ngày của một NV thành chỉ số dùng cho bảng lương.
+PayrollShiftAttendanceStats aggregatePayrollStatsFromShiftRecords({
+  required List<DailyShiftRecord> records,
+  required double standardDayHours,
+  required List<DailyShiftPair> shiftPairs,
+}) {
+  double workDays = 0;
+  double totalWorkHours = 0;
+  double standardHours = 0;
+  double otHoursWeekday = 0;
+  double otHoursWeekend = 0;
+  double otHoursHoliday = 0;
+  int lateCount = 0;
+  int lateMinutes = 0;
+  int earlyCount = 0;
+  int earlyMinutes = 0;
+
+  for (final r in records) {
+    if (r.lateMinutes > 0) {
+      lateCount++;
+      lateMinutes += r.lateMinutes;
+    }
+    if (r.earlyMinutes > 0) {
+      earlyCount++;
+      earlyMinutes += r.earlyMinutes;
+    }
+
+    final hrs = r.workHours;
+    totalWorkHours += hrs;
+
+    if (r.status.contains('Tăng ca ngày lễ')) {
+      otHoursHoliday += hrs;
+      continue;
+    }
+    if (r.status.contains('Tăng ca ngày nghỉ')) {
+      otHoursWeekend += hrs;
+      continue;
+    }
+
+    if (r.workCount <= 0) continue;
+
+    workDays += r.workCount;
+    if (hrs <= standardDayHours) {
+      standardHours += hrs;
+    } else {
+      standardHours += standardDayHours;
+      otHoursWeekday += hrs - standardDayHours;
+    }
+  }
+
+  final totalShifts =
+      shiftPairs.where((p) => p.checkOut != null).length;
+
+  return PayrollShiftAttendanceStats(
+    workDays: workDays,
+    totalWorkHours: totalWorkHours,
+    standardHours: standardHours,
+    otHoursWeekday: otHoursWeekday,
+    otHoursWeekend: otHoursWeekend,
+    otHoursHoliday: otHoursHoliday,
+    lateCount: lateCount,
+    lateMinutes: lateMinutes,
+    earlyCount: earlyCount,
+    earlyMinutes: earlyMinutes,
+    totalShifts: totalShifts,
+  );
 }

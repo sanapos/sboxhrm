@@ -4,7 +4,15 @@
 // ==========================================
 
 // ============ ENUMS ============
-enum WorkTaskStatus { todo, inProgress, inReview, completed, cancelled, onHold }
+enum WorkTaskStatus {
+  todo,
+  inProgress,
+  inReview,
+  completed,
+  cancelled,
+  onHold,
+  assigned,
+}
 
 enum TaskPriority { low, medium, high, urgent }
 
@@ -25,6 +33,8 @@ String getTaskStatusLabel(WorkTaskStatus status) {
       return 'Đã hủy';
     case WorkTaskStatus.onHold:
       return 'Tạm hoãn';
+    case WorkTaskStatus.assigned:
+      return 'Chờ xác nhận';
   }
 }
 
@@ -42,6 +52,8 @@ String getTaskStatusLabelEn(WorkTaskStatus status) {
       return 'Cancelled';
     case WorkTaskStatus.onHold:
       return 'On Hold';
+    case WorkTaskStatus.assigned:
+      return 'Assigned';
   }
 }
 
@@ -95,6 +107,8 @@ WorkTaskStatus parseTaskStatus(dynamic value) {
         return WorkTaskStatus.cancelled;
       case 'onhold':
         return WorkTaskStatus.onHold;
+      case 'assigned':
+        return WorkTaskStatus.assigned;
     }
   }
   return WorkTaskStatus.todo;
@@ -629,6 +643,53 @@ class TasksByAssignee {
       completedTasks: json['completedTasks'] ?? 0,
       inProgressTasks: json['inProgressTasks'] ?? 0,
       overdueTasks: json['overdueTasks'] ?? 0,
+    );
+  }
+}
+
+/// Dashboard tab Phân công — GET /api/Tasks/assignment-dashboard
+class TaskAssignmentDashboard {
+  final int assignedByMeCount;
+  final int pendingAcceptanceCount;
+  final int overdueAssignedCount;
+  final int myActiveCount;
+  final List<WorkTask> pendingAcceptance;
+  final List<WorkTask> recentlyAssigned;
+  final List<TasksByAssignee>? workloadByAssignee;
+
+  TaskAssignmentDashboard({
+    required this.assignedByMeCount,
+    required this.pendingAcceptanceCount,
+    required this.overdueAssignedCount,
+    required this.myActiveCount,
+    required this.pendingAcceptance,
+    required this.recentlyAssigned,
+    this.workloadByAssignee,
+  });
+
+  factory TaskAssignmentDashboard.fromJson(Map<String, dynamic> json) {
+    List<WorkTask> parseTasks(dynamic list) {
+      if (list is! List) return [];
+      return list
+          .whereType<Map>()
+          .map((e) => WorkTask.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+
+    return TaskAssignmentDashboard(
+      assignedByMeCount: json['assignedByMeCount'] ?? 0,
+      pendingAcceptanceCount: json['pendingAcceptanceCount'] ?? 0,
+      overdueAssignedCount: json['overdueAssignedCount'] ?? 0,
+      myActiveCount: json['myActiveCount'] ?? 0,
+      pendingAcceptance: parseTasks(json['pendingAcceptance']),
+      recentlyAssigned: parseTasks(json['recentlyAssigned']),
+      workloadByAssignee: json['workloadByAssignee'] is List
+          ? (json['workloadByAssignee'] as List)
+              .whereType<Map>()
+              .map((e) =>
+                  TasksByAssignee.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : null,
     );
   }
 }

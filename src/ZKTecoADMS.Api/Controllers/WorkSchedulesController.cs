@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.WorkSchedules;
 using ZKTecoADMS.Application.Queries.WorkSchedules;
@@ -16,6 +17,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<WorkScheduleDto>>>> GetWorkSchedules(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -32,6 +34,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpGet("my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<WorkScheduleDto>>>> GetMyWorkSchedules(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -45,6 +48,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<WorkScheduleDto>>> GetWorkScheduleById(Guid id)
     {
         var query = new GetWorkScheduleByIdQuery(RequiredStoreId, id);
@@ -54,6 +58,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<WorkScheduleDto>>> CreateWorkSchedule([FromBody] CreateWorkScheduleDto request)
     {
         var command = new CreateWorkScheduleCommand(
@@ -72,6 +77,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("bulk")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<List<WorkScheduleDto>>>> BulkCreateWorkSchedules([FromBody] BulkCreateWorkScheduleDto request)
     {
         var command = new BulkCreateWorkSchedulesCommand(
@@ -88,6 +94,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<WorkScheduleDto>>> UpdateWorkSchedule(Guid id, [FromBody] UpdateWorkScheduleDto request)
     {
         var command = new UpdateWorkScheduleCommand(
@@ -105,6 +112,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteWorkSchedule(Guid id)
     {
         var command = new DeleteWorkScheduleCommand(RequiredStoreId, id);
@@ -115,6 +123,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     // Schedule Registrations
     [HttpGet("registrations/my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ScheduleRegistrationDto>>>> GetMyScheduleRegistrations(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -128,21 +137,25 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpGet("registrations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<ScheduleRegistrationDto>>>> GetScheduleRegistrations(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] Guid? employeeUserId = null,
         [FromQuery] ScheduleRegistrationStatus? status = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? pendingForApproverId = null)
     {
-        var query = new GetScheduleRegistrationsQuery(RequiredStoreId, page, pageSize, employeeUserId, status, fromDate, toDate);
+        var query = new GetScheduleRegistrationsQuery(
+            RequiredStoreId, page, pageSize, employeeUserId, status, fromDate, toDate, pendingForApproverId);
         var result = await mediator.Send(query);
         return Ok(result);
     }
 
     [HttpPost("registrations")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ScheduleRegistrationDto>>> CreateScheduleRegistration([FromBody] CreateScheduleRegistrationDto request)
     {
         // Use EmployeeUserId from request if provided (admin submitting on behalf of employee), otherwise use current user
@@ -161,6 +174,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("registrations/{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<ScheduleRegistrationDto>>> ApproveScheduleRegistration(
         Guid id, 
         [FromBody] ApproveScheduleRegistrationDto request)
@@ -178,6 +192,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpDelete("registrations/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteScheduleRegistration(Guid id)
     {
         var command = new DeleteScheduleRegistrationCommand(RequiredStoreId, id);
@@ -187,6 +202,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("registrations/{id}/undo-approval")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<bool>>> UndoScheduleRegistrationApproval(Guid id)
     {
         var command = new UndoScheduleRegistrationApprovalCommand(RequiredStoreId, id);
@@ -197,6 +213,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     // ── Notifications ──
     [HttpPost("send-reminder")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<int>>> SendScheduleReminder([FromBody] SendScheduleReminderDto request)
     {
         var command = new SendScheduleReminderCommand(
@@ -208,6 +225,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("request-coverage")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<int>>> RequestShiftCoverage([FromBody] RequestShiftCoverageDto request)
     {
         var command = new RequestShiftCoverageCommand(
@@ -221,6 +239,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     // ── Staffing Quotas ──
     [HttpGet("staffing-quotas")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ShiftStaffingQuotaDto>>>> GetStaffingQuotas()
     {
         var query = new GetShiftStaffingQuotasQuery(RequiredStoreId);
@@ -230,6 +249,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("staffing-quotas")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftStaffingQuotaDto>>> UpsertStaffingQuota([FromBody] UpsertShiftStaffingQuotaDto request)
     {
         var command = new UpsertShiftStaffingQuotaCommand(
@@ -241,6 +261,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpDelete("staffing-quotas/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteStaffingQuota(Guid id)
     {
         var command = new DeleteShiftStaffingQuotaCommand(RequiredStoreId, id);

@@ -12,15 +12,15 @@ public class GetNextShiftHandler(IRepository<Shift> shiftRepository)
         GetNextShiftQuery request,
         CancellationToken cancellationToken)
     {
-        var now = DateTime.Now;
-        var shifts = await shiftRepository.GetAllAsync(cancellationToken: cancellationToken);
-        
-        var nextShift = shifts
-            .Where(s => s.EmployeeUserId == request.UserId)
-            .Where(s => s.StartTime > now)
-            .Where(s => s.Status == ShiftStatus.Approved)
-            .OrderBy(s => s.StartTime)
-            .FirstOrDefault();
+        // "Now" must be in VN local — Shift.StartTime is stored in VN local too.
+        var nowVn = DateTime.UtcNow.AddHours(7);
+
+        var nextShift = await shiftRepository.GetFirstOrDefaultAsync(
+            s => s.StartTime,
+            filter: s => s.EmployeeUserId == request.UserId
+                && s.Status == ShiftStatus.Approved
+                && s.StartTime > nowVn,
+            cancellationToken: cancellationToken);
 
         if (nextShift == null)
         {

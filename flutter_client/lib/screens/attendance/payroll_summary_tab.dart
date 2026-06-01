@@ -15,6 +15,10 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../utils/responsive_helper.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/report_salary_setup_hint.dart';
+import '../../utils/shift_records_calculator.dart';
+import '../main_layout.dart' show NavigationNotifier;
 
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
@@ -42,6 +46,7 @@ class PayrollSummaryTab extends StatefulWidget {
   final DateTime fromDate;
   final DateTime toDate;
   final String? branchId;
+  final List<Widget>? mobileLeadingSections;
 
   const PayrollSummaryTab({
     super.key,
@@ -50,6 +55,7 @@ class PayrollSummaryTab extends StatefulWidget {
     required this.fromDate,
     required this.toDate,
     this.branchId,
+    this.mobileLeadingSections,
   });
 
   @override
@@ -82,12 +88,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Map<String, dynamic> _commissionSettings = {};
   List<Map<String, dynamic>> _productionSummaries = [];
 
-  // Attendance loaded for selected period (independent of widget.attendances)
+  // Attendance loaded for selected period (from parent screen)
   List<Attendance> _periodAttendances = [];
+
+  int _dayEndHour = 0;
+  int _dayEndMinute = 0;
+  List<DailyShiftRecord>? _cachedShiftRecords;
+  Map<String, List<DailyShiftRecord>>? _shiftRecordsByEmpKey;
 
   // ═══ State ═══
   bool _isLoading = true;
-  bool _showMobileFilters = false;
+  /// NV đang hoạt động nhưng chưa có bảng lương (bị loại khỏi tổng hợp).
+  int _notConfiguredSalaryCount = 0;
   bool _showMobileSummary = false;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
@@ -126,8 +138,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   @override
   void didUpdateWidget(PayrollSummaryTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.branchId != widget.branchId) {
+    if (oldWidget.branchId != widget.branchId ||
+        oldWidget.attendances != widget.attendances) {
       _cachedPayrollData = null;
+      _cachedShiftRecords = null;
+      _shiftRecordsByEmpKey = null;
       if (mounted) setState(() {});
     }
   }
@@ -214,19 +229,67 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   // ──────── Data loading ────────
+  Future<T> _loadWithTimeout<T>(Future<T> future, T fallback,
+      {Duration timeout = const Duration(seconds: 15)}) async {
+    try {
+      return await future.timeout(timeout);
+    } catch (e) {
+      debugPrint('Payroll load timeout/error: $e');
+      return fallback;
+    }
+  }
+
+  Future<void> _loadPeriodAttendances() async {
+    final fromDay = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+    final toEnd = DateTime(
+      _toDate.year,
+      _toDate.month,
+      _toDate.day,
+      23,
+      59,
+      59,
+    );
+
+    // Chỉ dùng log màn cha đã tải — không gọi lại /api/attendances/devices (tránh quay hàng trăm trang).
+    _periodAttendances = widget.attendances.where((a) {
+      final t = a.attendanceTime;
+      return !t.isBefore(fromDay) && !t.isAfter(toEnd);
+    }).toList();
+  }
+
   Future<void> _loadPayrollData() async {
     setState(() => _isLoading = true);
     _cachedPayrollData = null;
+    _cachedShiftRecords = null;
+    _shiftRecordsByEmpKey = null;
     try {
-      // Load employees
-      final empList = await _apiService.getEmployees();
+      try {
+        final dayEndResult =
+            await _loadWithTimeout(_apiService.getAppSetting('day_end_time'), {});
+        if (dayEndResult['isSuccess'] == true && dayEndResult['data'] is Map) {
+          final value = (dayEndResult['data'] as Map)['value']?.toString() ?? '';
+          final parts = value.split(':');
+          if (parts.length >= 2) {
+            _dayEndHour = int.tryParse(parts[0]) ?? 0;
+            _dayEndMinute = int.tryParse(parts[1]) ?? 0;
+          }
+        }
+      } catch (_) {}
+      // Load employees (paged API — request large page)
+      final empList = await _loadWithTimeout(
+        _apiService.getEmployees(pageSize: 1000),
+        <dynamic>[],
+      );
       _employees = empList
           .map((e) => Employee.fromJson(e as Map<String, dynamic>))
           .toList();
 
       // Load salary profiles in batch (single API call)
       _employeeSalaryProfiles = [];
-      final allProfiles = await _apiService.getEmployeeSalaryProfiles();
+      final allProfiles = await _loadWithTimeout(
+        _apiService.getEmployeeSalaryProfiles(),
+        <dynamic>[],
+      );
       final profileMap = <String, dynamic>{};
       for (final p in allProfiles) {
         if (p is Map<String, dynamic>) {
@@ -235,6 +298,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
       }
       // Loại bỏ NV chưa thiết lập bảng lương khỏi tổng hợp lương.
+      _notConfiguredSalaryCount = _employees
+          .where((e) => e.isActive && !profileMap.containsKey(e.id))
+          .length;
       _employees =
           _employees.where((e) => profileMap.containsKey(e.id)).toList();
       for (final emp in _employees) {
@@ -245,16 +311,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         });
       }
 
-      // Load settings in parallel
+      // Load settings in parallel (each call capped — tránh quay mãi)
       final results = await Future.wait([
-        _apiService.getInsuranceSettings(),
-        _apiService.getSalarySettings(),
-        _apiService.getPenaltySettings(),
-        _apiService.getTransactions(fromDate: _fromDate, toDate: _toDate),
-        _apiService.getAdvanceRequests(fromDate: _fromDate, toDate: _toDate),
-        _apiService.getShifts(),
-        _apiService.getAllowanceSettings(),
-        _apiService.getHolidaySettings(_fromDate.year),
+        _loadWithTimeout(_apiService.getInsuranceSettings(), {}),
+        _loadWithTimeout(_apiService.getSalarySettings(), {}),
+        _loadWithTimeout(_apiService.getPenaltySettings(), {}),
+        _loadWithTimeout(
+          _apiService.getTransactions(fromDate: _fromDate, toDate: _toDate),
+          <String, dynamic>{},
+        ),
+        _loadWithTimeout(
+          _apiService.getAdvanceRequests(fromDate: _fromDate, toDate: _toDate),
+          <String, dynamic>{},
+        ),
+        _loadWithTimeout(_apiService.getShifts(), <dynamic>[]),
+        _loadWithTimeout(_apiService.getAllowanceSettings(), <dynamic>[]),
+        _loadWithTimeout(
+            _apiService.getHolidaySettings(_fromDate.year), <dynamic>[]),
       ]);
 
       _insuranceSettings = results[0] is Map<String, dynamic>
@@ -279,105 +352,90 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _allowanceSettings = _extractList(results[6]);
       _holidays = _extractList(results[7]);
 
-      // Load tax settings & shift salary levels & employee tax deductions (optional, may fail)
-      try {
-        _taxSettings = await _apiService.getTaxSettings();
-      } catch (_) {
-        _taxSettings = {};
-      }
-      try {
-        final levels = await _apiService.getShiftSalaryLevels();
-        if (levels['data'] != null && levels['data'] is List) {
-          _shiftSalaryLevels = (levels['data'] as List)
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-        }
-      } catch (_) {
+      // Optional settings (timeout — tránh quay mãi khi API chậm/treo)
+      final taxRes = await _loadWithTimeout(
+        _apiService.getTaxSettings(),
+        <String, dynamic>{},
+      );
+      _taxSettings =
+          taxRes is Map<String, dynamic> ? taxRes : <String, dynamic>{};
+      final levels = await _loadWithTimeout(
+        _apiService.getShiftSalaryLevels(),
+        <String, dynamic>{},
+      );
+      if (levels['data'] is List) {
+        _shiftSalaryLevels = (levels['data'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } else {
         _shiftSalaryLevels = [];
       }
-      try {
-        final deductions = await _apiService.getEmployeeTaxDeductions();
-        _employeeTaxDeductions = deductions
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-      } catch (_) {
-        _employeeTaxDeductions = [];
-      }
-      // Load KPI targets, KPI salaries & commission settings
-      try {
-        _commissionSettings = await _apiService.getCommissionSettings();
-        final periodsRes = await _apiService.getKpiPeriods();
-        if (periodsRes['isSuccess'] == true) {
-          final periods =
-              List<Map<String, dynamic>>.from(periodsRes['data'] ?? []);
-          String? matchPeriodId;
-          for (final p in periods) {
-            final pStart =
-                DateTime.tryParse(p['periodStart']?.toString() ?? '');
-            final pEnd = DateTime.tryParse(p['periodEnd']?.toString() ?? '');
-            if (pStart != null &&
-                pEnd != null &&
-                !_fromDate.isAfter(pEnd) &&
-                !_toDate.isBefore(pStart)) {
-              matchPeriodId = p['id']?.toString();
-              break;
-            }
-          }
-          if (matchPeriodId != null) {
-            final targetsRes = await _apiService.getKpiEmployeeTargets(
-                periodId: matchPeriodId);
-            if (targetsRes['isSuccess'] == true) {
-              _kpiEmployeeTargets =
-                  List<Map<String, dynamic>>.from(targetsRes['data'] ?? []);
-            }
+      final deductions = await _loadWithTimeout(
+        _apiService.getEmployeeTaxDeductions(),
+        <dynamic>[],
+      );
+      _employeeTaxDeductions = deductions
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      _commissionSettings = await _loadWithTimeout(
+        _apiService.getCommissionSettings(),
+        <String, dynamic>{},
+      );
+      final periodsRes = await _loadWithTimeout(
+        _apiService.getKpiPeriods(),
+        <String, dynamic>{'isSuccess': false},
+      );
+      if (periodsRes['isSuccess'] == true) {
+        final periods =
+            List<Map<String, dynamic>>.from(periodsRes['data'] ?? []);
+        String? matchPeriodId;
+        for (final p in periods) {
+          final pStart = DateTime.tryParse(p['periodStart']?.toString() ?? '');
+          final pEnd = DateTime.tryParse(p['periodEnd']?.toString() ?? '');
+          if (pStart != null &&
+              pEnd != null &&
+              !_fromDate.isAfter(pEnd) &&
+              !_toDate.isBefore(pStart)) {
+            matchPeriodId = p['id']?.toString();
+            break;
           }
         }
-      } catch (_) {
+        if (matchPeriodId != null) {
+          final targetsRes = await _loadWithTimeout(
+            _apiService.getKpiEmployeeTargets(periodId: matchPeriodId),
+            <String, dynamic>{'isSuccess': false},
+          );
+          if (targetsRes['isSuccess'] == true) {
+            _kpiEmployeeTargets =
+                List<Map<String, dynamic>>.from(targetsRes['data'] ?? []);
+          }
+        }
+      } else {
         _kpiEmployeeTargets = [];
-        _commissionSettings = {};
       }
 
-      // Load production summaries for payroll
-      try {
-        final prodRes = await _apiService.getProductionSummary(
+      final prodRes = await _loadWithTimeout(
+        _apiService.getProductionSummary(
           fromDate: _fromDate,
           toDate: _toDate,
-        );
-        if (prodRes['isSuccess'] == true) {
-          _productionSummaries =
-              List<Map<String, dynamic>>.from(prodRes['data'] ?? []);
-        }
-      } catch (_) {
+        ),
+        <String, dynamic>{'isSuccess': false},
+      );
+      if (prodRes['isSuccess'] == true) {
+        _productionSummaries =
+            List<Map<String, dynamic>>.from(prodRes['data'] ?? []);
+      } else {
         _productionSummaries = [];
       }
 
-      // Load attendances for the selected date range (not relying on widget.attendances)
-      try {
-        final deviceIds = widget.devices.map((d) => d.id).toList();
-        if (deviceIds.isNotEmpty) {
-          final result = await _apiService.getAttendances(
-            deviceIds: deviceIds,
-            fromDate: _fromDate,
-            toDate: _toDate,
-            page: 1,
-            pageSize: 500,
-          );
-          _periodAttendances = (result['items'] as List?)
-                  ?.map((item) =>
-                      Attendance.fromJson(item as Map<String, dynamic>))
-                  .toList() ??
-              [];
-        } else {
-          _periodAttendances = widget.attendances;
-        }
-      } catch (_) {
-        _periodAttendances = widget.attendances;
-      }
+      await _loadPeriodAttendances();
     } catch (e) {
       debugPrint('Error loading payroll data: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   // ──────── Helper: safely extract list from dynamic response ────────
@@ -399,6 +457,74 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
     return [];
+  }
+
+  List<Map<String, dynamic>> _salaryProfilesForShiftCalc() {
+    final out = <Map<String, dynamic>>[];
+    for (final entry in _employeeSalaryProfiles) {
+      final raw = entry['profile'];
+      if (raw is! Map) continue;
+      final profile = Map<String, dynamic>.from(raw);
+      final benefit = profile['benefit'];
+      if (benefit is Map) {
+        final b = Map<String, dynamic>.from(benefit);
+        profile['shiftsPerDay'] = b['shiftsPerDay'];
+        profile['weeklyOffDays'] = b['weeklyOffDays'];
+        profile['holidayMultiplier'] = b['holidayMultiplier'];
+        profile['holidayOvertimeType'] = b['holidayOvertimeType'];
+        profile['description'] = b['description'] ?? profile['description'];
+      }
+      final empId = entry['employeeId']?.toString() ?? '';
+      final empCode = entry['employeeCode']?.toString() ?? '';
+      profile['employees'] = [
+        {'id': empId, 'employeeCode': empCode},
+      ];
+      out.add(profile);
+    }
+    return out;
+  }
+
+  void _ensureShiftRecordsCache() {
+    if (_cachedShiftRecords != null) return;
+    final attendances =
+        _periodAttendances.isNotEmpty ? _periodAttendances : widget.attendances;
+    _cachedShiftRecords = computeDailyShiftRecords(
+      attendances: attendances,
+      fromDate: _fromDate,
+      toDate: _toDate,
+      shiftTemplates: _shifts,
+      shiftSalaryLevels: _shiftSalaryLevels,
+      salaryProfiles: _salaryProfilesForShiftCalc(),
+      holidays: _holidays,
+      dayEndHour: _dayEndHour,
+      dayEndMinute: _dayEndMinute,
+    );
+    _shiftRecordsByEmpKey = {};
+    for (final r in _cachedShiftRecords!) {
+      for (final key in {r.employeeCode, r.employeeId}) {
+        if (key.isEmpty || key == '-') continue;
+        _shiftRecordsByEmpKey!.putIfAbsent(key, () => []).add(r);
+      }
+    }
+  }
+
+  List<DailyShiftRecord> _shiftRecordsForEmployee(String empCode) {
+    _ensureShiftRecordsCache();
+    final keys = <String>{empCode};
+    final emp = _findEmployee(empCode);
+    if (emp != null) {
+      keys.add(emp.id);
+      keys.add(emp.employeeCode);
+    }
+    final list = <DailyShiftRecord>[];
+    final seenDates = <String>{};
+    for (final k in keys) {
+      for (final r in _shiftRecordsByEmpKey?[k] ?? const []) {
+        final dk = '${r.employeeCode}|${DateFormat('yyyy-MM-dd').format(r.date)}';
+        if (seenDates.add(dk)) list.add(r);
+      }
+    }
+    return list;
   }
 
   // ──────── Helper: check if a date is holiday ────────
@@ -666,11 +792,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double mealAllowancePerDay = _toDouble(benefit?['mealAllowance']);
     final double responsibilityAllowance =
         _toDouble(benefit?['responsibilityAllowance']);
-    final int shiftsPerDay = _toInt(benefit?['shiftsPerDay'], 1);
-    // Chế độ chấm công: 'checkin' = chỉ cần chấm vào, 'checkout' = chỉ cần chấm ra,
-    // 'both' = phải có cả vào và ra mới tính công, 'any' = chỉ cần 1 punch, 'none' = không yêu cầu.
-    final String attendanceMode =
-        (benefit?['attendanceMode'] ?? 'both').toString();
     final String socialInsType =
         (benefit?['socialInsuranceType'] ?? 0).toString();
     final double customInsuranceSalary = _toDouble(benefit?['insuranceSalary']);
@@ -736,152 +857,43 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         salaryTypeLabel = _l10n.monthly;
     }
 
-    // ═══ Calculate attendance stats ═══
-    final attendanceByDate = <String, List<Attendance>>{};
-    for (final att in empAttendances) {
-      final key = DateFormat('yyyy-MM-dd').format(att.attendanceTime);
-      attendanceByDate.putIfAbsent(key, () => []).add(att);
-    }
+    // ═══ Chấm công: cùng nguồn & thuật toán tab "Tổng hợp theo ca" ═══
+    final shiftRecords = _shiftRecordsForEmployee(empCode);
+    final shiftPairs = computeDailyShiftPairs(
+      attendances: empAttendances,
+      fromDate: _fromDate,
+      toDate: _toDate,
+      shiftTemplates: _shifts,
+      shiftSalaryLevels: _shiftSalaryLevels,
+      salaryProfiles: _salaryProfilesForShiftCalc(),
+      dayEndHour: _dayEndHour,
+      dayEndMinute: _dayEndMinute,
+    );
+    final attStats = aggregatePayrollStatsFromShiftRecords(
+      records: shiftRecords,
+      standardDayHours: standardDayHours,
+      shiftPairs: shiftPairs,
+    );
 
-    double totalWorkHours = 0;
-    double standardHours = 0;
-    double otHoursWeekday = 0;
-    double otHoursWeekend = 0;
-    double otHoursHoliday = 0;
-    int workDays = 0;
-    int lateCount = 0;
-    int lateMinutes = 0;
-    int earlyCount = 0;
-    int earlyMinutes = 0;
+    final totalWorkHours = attStats.totalWorkHours;
+    final standardHours = attStats.standardHours;
+    final otHoursWeekday = attStats.otHoursWeekday;
+    final otHoursWeekend = attStats.otHoursWeekend;
+    final otHoursHoliday = attStats.otHoursHoliday;
+    final workDays = attStats.workDays;
+    final lateCount = attStats.lateCount;
+    final lateMinutes = attStats.lateMinutes;
+    final earlyCount = attStats.earlyCount;
+    final earlyMinutes = attStats.earlyMinutes;
+    final totalShifts = attStats.totalShifts;
+
+    final daysWithWork = <String>{
+      for (final r in shiftRecords)
+        if (r.workCount > 0) DateFormat('yyyy-MM-dd').format(r.date),
+    };
+
     int paidLeaveDays = 0;
     int absentDays = 0;
-    int totalShifts = 0;
-
-    for (final entry in attendanceByDate.entries) {
-      final dayAtts = entry.value
-        ..sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
-      if (dayAtts.isEmpty) continue;
-
-      final date = dayAtts.first.attendanceTime;
-      final isHol = _isHoliday(date);
-      final isWkend = _isWeekend(date);
-
-      // Try attendanceState-based IN/OUT first
-      var checkIns = dayAtts.where((a) => a.attendanceState == 0).toList();
-      var checkOuts = dayAtts.where((a) => a.attendanceState == 1).toList();
-
-      // Fallback: if device doesn't distinguish IN/OUT (all same state),
-      // use chronological: first punch = IN, last punch = OUT
-      if ((checkIns.isEmpty || checkOuts.isEmpty) && dayAtts.length >= 2) {
-        checkIns = [dayAtts.first];
-        checkOuts = [dayAtts.last];
-      } else if (checkIns.isEmpty && checkOuts.isEmpty && dayAtts.length == 1) {
-        checkIns = [dayAtts.first];
-        checkOuts = [];
-      }
-
-      if (checkIns.isEmpty && checkOuts.isEmpty) continue;
-
-      // Áp dụng attendanceMode: ngày không thoả điều kiện thì không tính công.
-      bool dayValid;
-      switch (attendanceMode) {
-        case 'checkin':
-          dayValid = checkIns.isNotEmpty;
-          break;
-        case 'checkout':
-          dayValid = checkOuts.isNotEmpty;
-          break;
-        case 'both':
-          dayValid = checkIns.isNotEmpty && checkOuts.isNotEmpty;
-          break;
-        case 'any':
-          dayValid = checkIns.isNotEmpty || checkOuts.isNotEmpty;
-          break;
-        case 'none':
-        default:
-          dayValid = true;
-      }
-      if (!dayValid) continue;
-
-      double dayHours = 0;
-      if (checkIns.isNotEmpty && checkOuts.isNotEmpty) {
-        final firstIn = checkIns.first.attendanceTime;
-        final lastOut = checkOuts.last.attendanceTime;
-        final rawHours = lastOut.difference(firstIn).inMinutes / 60.0;
-        dayHours = rawHours > 5 ? rawHours - 1.0 : rawHours;
-        if (dayHours < 0) dayHours = 0;
-      } else if (checkIns.isNotEmpty) {
-        dayHours = standardDayHours;
-      } else if (checkOuts.isNotEmpty) {
-        dayHours = standardDayHours;
-      }
-
-      totalWorkHours += dayHours;
-
-      if (isHol) {
-        otHoursHoliday += dayHours;
-      } else if (isWkend) {
-        otHoursWeekend += dayHours;
-      } else {
-        workDays++;
-        if (dayHours <= standardDayHours) {
-          standardHours += dayHours;
-        } else {
-          standardHours += standardDayHours;
-          otHoursWeekday += dayHours - standardDayHours;
-        }
-      }
-
-      // Đếm số ca thực tế: mỗi cặp IN-OUT phải đảm bảo >= 2/3 số giờ ca.
-      // Số giờ tối thiểu 1 ca = (standardDayHours / shiftsPerDay) * 2/3
-      if (checkIns.isNotEmpty) {
-        final hoursPerShift = shiftsPerDay > 0
-            ? standardDayHours / shiftsPerDay
-            : standardDayHours;
-        final minHoursForShift = hoursPerShift * (2.0 / 3.0);
-        // Dùng logic pairing: min(checkIns, max(checkOuts, 1)), tối đa shiftsPerDay
-        final pairCount = math.min(
-          checkIns.length,
-          math.max(checkOuts.length, 1),
-        );
-        final actualPairCount = math.min(pairCount, shiftsPerDay);
-        int validShifts = 0;
-        for (int i = 0; i < actualPairCount; i++) {
-          final inTime = checkIns[i].attendanceTime;
-          if (i < checkOuts.length) {
-            final outTime = checkOuts[i].attendanceTime;
-            final pairHours =
-                math.max(0.0, outTime.difference(inTime).inMinutes / 60.0);
-            if (pairHours >= minHoursForShift) validShifts++;
-          } else {
-            // Không có checkout tương ứng: giả sử làm đủ ca (đã qua attendanceMode filter)
-            validShifts++;
-          }
-        }
-        totalShifts += validShifts;
-      }
-
-      // Late/early detection using scheduled times from Benefit
-      if (checkIns.isNotEmpty && !isWkend && !isHol) {
-        final firstIn = checkIns.first.attendanceTime;
-        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day,
-            scheduledInHour, scheduledInMin);
-        if (firstIn.isAfter(scheduledIn.add(const Duration(minutes: 5)))) {
-          lateCount++;
-          lateMinutes += firstIn.difference(scheduledIn).inMinutes;
-        }
-      }
-      if (checkOuts.isNotEmpty && !isWkend && !isHol) {
-        final lastOut = checkOuts.last.attendanceTime;
-        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day,
-            scheduledOutHour, scheduledOutMin);
-        if (lastOut
-            .isBefore(scheduledOut.subtract(const Duration(minutes: 5)))) {
-          earlyCount++;
-          earlyMinutes += scheduledOut.difference(lastOut).inMinutes;
-        }
-      }
-    }
 
     // Count paid leave and absent days
     for (var d = _fromDate;
@@ -923,8 +935,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       if (isPaidOff) {
         paidLeaveDays++;
-      } else if (!attendanceByDate.containsKey(key) &&
-          d.isBefore(DateTime.now())) {
+      } else if (!daysWithWork.contains(key) && d.isBefore(DateTime.now())) {
         absentDays++;
       }
     }
@@ -1144,17 +1155,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _penaltySettings['absentDeduction'], unauthorizedLeavePenalty);
 
     if (late15 > 0 || late30 > 0 || late60 > 0) {
-      // Tiered late penalty (approximate: use average late minutes per incident)
-      for (final entry in attendanceByDate.entries) {
-        final dayAtts = entry.value;
-        final date = dayAtts.first.attendanceTime;
-        if (_isHoliday(date) || _isWeekend(date)) continue;
-        final checkIns = dayAtts.where((a) => a.attendanceState == 0).toList();
-        if (checkIns.isEmpty) continue;
-        final firstIn = checkIns.first.attendanceTime;
-        final scheduledIn = DateTime(firstIn.year, firstIn.month, firstIn.day,
-            scheduledInHour, scheduledInMin);
-        final lateMins = firstIn.difference(scheduledIn).inMinutes;
+      for (final r in shiftRecords) {
+        if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
+        final lateMins = r.lateMinutes;
         if (lateMins > 5) {
           if (lateMins >= 60) {
             latePenaltyTotal += late60 > 0 ? late60 : penaltyPerLate;
@@ -1165,17 +1168,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           }
         }
       }
-      // Tiered early leave penalty
-      for (final entry in attendanceByDate.entries) {
-        final dayAtts = entry.value;
-        final date = dayAtts.first.attendanceTime;
-        if (_isHoliday(date) || _isWeekend(date)) continue;
-        final checkOuts = dayAtts.where((a) => a.attendanceState == 1).toList();
-        if (checkOuts.isEmpty) continue;
-        final lastOut = checkOuts.last.attendanceTime;
-        final scheduledOut = DateTime(lastOut.year, lastOut.month, lastOut.day,
-            scheduledOutHour, scheduledOutMin);
-        final earlyMins = scheduledOut.difference(lastOut).inMinutes;
+      for (final r in shiftRecords) {
+        if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
+        final earlyMins = r.earlyMinutes;
         if (earlyMins > 5) {
           if (earlyMins >= 60) {
             latePenaltyTotal += earlyL60 > 0 ? earlyL60 : penaltyPerEarly;
@@ -1460,6 +1455,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // ──────── Build payroll rows ────────
   List<Map<String, dynamic>> _buildPayrollData() {
     if (_cachedPayrollData != null) return _cachedPayrollData!;
+    _ensureShiftRecordsCache();
 
     // Filter employees by branch if specified
     final employees = widget.branchId == null
@@ -1794,7 +1790,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final bytes = wb.encode();
       if (bytes != null) {
         final fn =
-            'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+            'tong_hop_lương_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
         await file_saver.saveAndOpenFileBytes(
             bytes,
             fn,
@@ -1992,7 +1988,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
 
       final fileName =
-          'tong_hop_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
+          'tong_hop_lương_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
 
       final dataUrl = web_canvas.renderToPngDataUrl(
         width: totalWidth.toInt(),
@@ -2036,9 +2032,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _toDate = now;
           break;
         case 'lastMonth':
-          final lastMonth = DateTime(now.year, now.month - 1, 1);
-          _fromDate = lastMonth;
-          _toDate = DateTime(now.year, now.month, 0);
+          final firstThis = DateTime(now.year, now.month, 1);
+          final lastDayPrev = firstThis.subtract(const Duration(days: 1));
+          _fromDate = DateTime(lastDayPrev.year, lastDayPrev.month, 1);
+          _toDate = DateTime(lastDayPrev.year, lastDayPrev.month,
+              lastDayPrev.day, 23, 59, 59);
           break;
         case 'thisWeek':
           // Monday of current week
@@ -2330,12 +2328,25 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     final payrollData = _buildPayrollData();
 
-    return Padding(
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(Responsive.isMobile(context) ? 10 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (Responsive.isMobile(context) &&
+              widget.mobileLeadingSections != null) ...[
+            ...widget.mobileLeadingSections!,
+            const SizedBox(height: 12),
+          ],
           _buildToolbar(),
+          if (_notConfiguredSalaryCount > 0)
+            ReportSalarySetupBanner(
+              notConfiguredCount: _notConfiguredSalaryCount,
+              dense: Responsive.isMobile(context),
+              onOpenSalarySettings: () =>
+                  NavigationNotifier.goToSalarySettings(),
+            ),
           const SizedBox(height: 12),
           if (Responsive.isMobile(context)) ...[
             InkWell(
@@ -2378,9 +2389,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             _buildSummaryCards(payrollData),
           ],
           const SizedBox(height: 12),
-          Expanded(
-            child: payrollData.isEmpty
-                ? Center(
+          if (payrollData.isEmpty)
+            (_notConfiguredSalaryCount > 0
+                ? ReportSalarySetupEmptyState(
+                    notConfiguredCount: _notConfiguredSalaryCount,
+                    onOpenSalarySettings: () =>
+                        NavigationNotifier.goToSalarySettings(),
+                  )
+                : Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2391,17 +2407,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                             style: TextStyle(
                                 color: Colors.grey.shade500, fontSize: 15)),
                         const SizedBox(height: 4),
-                        Text('Hãy kiểm tra khoảng thời gian đã chọn',
+                        Text(
+                            'Hãy kiểm tra khoảng thời gian hoặc bộ lọc nhân viên',
                             style: TextStyle(
                                 color: Colors.grey.shade400, fontSize: 12)),
                       ],
                     ),
-                  )
-                : RepaintBoundary(
-                    key: _tableKey,
-                    child: _buildCrossTabPayroll(payrollData),
-                  ),
-          ),
+                  ))
+          else
+            RepaintBoundary(
+              key: _tableKey,
+              child: _buildCrossTabPayroll(payrollData),
+            ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -2612,54 +2630,41 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ),
     );
 
-    final fromDate = InkWell(
-      onTap: () => _pickSingleDate(isFrom: true),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+    Widget _datePill(DateTime date, bool isFrom) => InkWell(
+          onTap: () => _pickSingleDate(isFrom: isFrom),
           borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.calendar_today, size: 13, color: Colors.grey.shade600),
-            const SizedBox(width: 6),
-            Text(DateFormat('dd/MM/yyyy').format(_fromDate),
-                style: const TextStyle(fontSize: 13)),
-          ],
-        ),
-      ),
-    );
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAFA),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_today,
+                    size: 13, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                // full format for desktop, compact for mobile
+                Text(
+                  isMobile
+                      ? DateFormat('dd/MM/yy').format(date)
+                      : DateFormat('dd/MM/yyyy').format(date),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        );
+
+    final fromDate = _datePill(_fromDate, true);
 
     final dateSep =
         Text('—', style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
 
-    final toDate = InkWell(
-      onTap: () => _pickSingleDate(isFrom: false),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.calendar_today, size: 13, color: Colors.grey.shade600),
-            const SizedBox(width: 6),
-            Text(DateFormat('dd/MM/yyyy').format(_toDate),
-                style: const TextStyle(fontSize: 13)),
-          ],
-        ),
-      ),
-    );
+    final toDate = _datePill(_toDate, false);
 
     final employeeFilter = InkWell(
       onTap: _showEmployeeFilterDialog,
@@ -2755,14 +2760,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final recordCount = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         '${_buildPayrollData().length} NV',
         style: const TextStyle(
             fontSize: 12,
-            color: Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
             fontWeight: FontWeight.w600),
       ),
     );
@@ -2781,83 +2786,37 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ),
       child: isMobile
           ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Row 1: search + count
                 Row(
                   children: [
                     Expanded(child: searchField),
                     const SizedBox(width: 8),
                     recordCount,
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: () => setState(
-                          () => _showMobileFilters = !_showMobileFilters),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 36,
-                        width: 36,
-                        decoration: BoxDecoration(
-                          color: _showMobileFilters
-                              ? Theme.of(context)
-                                  .primaryColor
-                                  .withValues(alpha: 0.1)
-                              : const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: _showMobileFilters
-                                  ? Theme.of(context)
-                                      .primaryColor
-                                      .withValues(alpha: 0.3)
-                                  : const Color(0xFFE4E4E7)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Center(
-                                child: Icon(
-                                    _showMobileFilters
-                                        ? Icons.filter_alt
-                                        : Icons.filter_alt_outlined,
-                                    size: 18,
-                                    color: _showMobileFilters
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade600)),
-                            if (_selectedPeriod != 'thisMonth' ||
-                                _selectedEmployeeIds.isNotEmpty)
-                              Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                      width: 7,
-                                      height: 7,
-                                      decoration: const BoxDecoration(
-                                          color: Colors.orange,
-                                          shape: BoxShape.circle))),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-                if (_showMobileFilters) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Flexible(child: periodDropdown),
-                      const SizedBox(width: 6),
-                      Expanded(child: fromDate),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: dateSep,
-                      ),
-                      Expanded(child: toDate),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      employeeFilter,
-                    ],
-                  ),
-                ],
+                const SizedBox(height: 8),
+                // Row 2: period preset + employee filter
+                Row(
+                  children: [
+                    Expanded(child: periodDropdown),
+                    const SizedBox(width: 8),
+                    employeeFilter,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Row 3: date range — each side gets equal Expanded space
+                Row(
+                  children: [
+                    Expanded(child: fromDate),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: dateSep,
+                    ),
+                    Expanded(child: toDate),
+                  ],
+                ),
               ],
             )
           : Row(
@@ -2939,7 +2898,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     final items = [
       _SummaryItem('Tổng lương CB', _currencyFmt.format(totalBase.round()),
-          const Color(0xFF1E3A5F), Icons.account_balance_wallet_outlined),
+          HrmPageChrome.primaryNavy, Icons.account_balance_wallet_outlined),
       _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()),
           const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
       _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()),
@@ -2949,7 +2908,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()),
           const Color(0xFFF59E0B), Icons.health_and_safety_outlined),
       _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()),
-          const Color(0xFF0F2340), Icons.payments_outlined),
+          HrmPageChrome.primaryNavy, Icons.payments_outlined),
       _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
           const Color(0xFFEC4899), Icons.flag_outlined),
       _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6),
@@ -3220,7 +3179,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             Text('$totalRows dòng',
                 style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600)),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -3266,13 +3225,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text('$totalRows dòng',
                 style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 16),
@@ -3990,7 +3949,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: const BoxDecoration(
-                        color: Color(0xFF1E3A5F),
+                        color: HrmPageChrome.primaryNavy,
                         border: Border(
                           right: BorderSide(color: Colors.white24),
                           bottom: BorderSide(color: Colors.white24, width: 0.5),
@@ -4024,7 +3983,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                       height: hdrH,
                                       alignment: Alignment.center,
                                       decoration: const BoxDecoration(
-                                        color: Color(0xFF1E3A5F),
+                                        color: HrmPageChrome.primaryNavy,
                                         border: Border(
                                           right: BorderSide(
                                               color: Colors.white24,
@@ -4099,11 +4058,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           buildSection(
             title: 'BẢNG CHẤM CÔNG',
             titleColor: const Color(0xFF16A34A),
@@ -4189,7 +4147,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
           const SizedBox(height: 20),
         ],
-      ),
     );
   }
 }

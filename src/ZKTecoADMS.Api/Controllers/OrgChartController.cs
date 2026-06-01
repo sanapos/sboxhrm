@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -11,7 +12,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// API Controller quản lý sơ đồ tổ chức & luồng duyệt
+/// API Controller quáº£n lÃ½ sÆ¡ Ä‘á»“ tá»• chá»©c & luá»“ng duyá»‡t
 /// </summary>
 [ApiController]
 [Route("api/orgchart")]
@@ -23,14 +24,15 @@ public class OrgChartController(
     : AuthenticatedControllerBase
 #pragma warning restore CS9113
 {
-    // ═══════════════════════════════════════════════════════════════
-    // CHỨC VỤ (OrgPosition) CRUD
-    // ═══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // CHá»¨C Vá»¤ (OrgPosition) CRUD
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Lấy danh sách chức vụ
+    /// Láº¥y danh sÃ¡ch chá»©c vá»¥
     /// </summary>
     [HttpGet("positions")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<OrgPositionDto>>>> GetPositions()
     {
         var storeId = CurrentStoreId;
@@ -62,10 +64,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Tạo chức vụ mới
+    /// Táº¡o chá»©c vá»¥ má»›i
     /// </summary>
     [HttpPost("positions")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<OrgPositionDto>>> CreatePosition([FromBody] CreateOrgPositionRequest request)
     {
         var storeId = RequiredStoreId;
@@ -74,7 +77,7 @@ public class OrgChartController(
         var exists = await dbContext.OrgPositions
             .AnyAsync(p => p.StoreId == storeId && p.Code == request.Code && p.Deleted == null);
         if (exists)
-            return Ok(AppResponse<OrgPositionDto>.Error($"Mã chức vụ '{request.Code}' đã tồn tại"));
+            return Ok(AppResponse<OrgPositionDto>.Error($"MÃ£ chá»©c vá»¥ '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
 
         var position = new OrgPosition
         {
@@ -115,10 +118,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cập nhật chức vụ
+    /// Cáº­p nháº­t chá»©c vá»¥
     /// </summary>
     [HttpPut("positions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<OrgPositionDto>>> UpdatePosition(Guid id, [FromBody] UpdateOrgPositionRequest request)
     {
         var storeId = RequiredStoreId;
@@ -127,13 +131,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
 
         if (position == null)
-            return Ok(AppResponse<OrgPositionDto>.Error("Không tìm thấy chức vụ"));
+            return Ok(AppResponse<OrgPositionDto>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
 
         // Check duplicate code
         var exists = await dbContext.OrgPositions
             .AnyAsync(p => p.StoreId == storeId && p.Code == request.Code && p.Id != id && p.Deleted == null);
         if (exists)
-            return Ok(AppResponse<OrgPositionDto>.Error($"Mã chức vụ '{request.Code}' đã tồn tại"));
+            return Ok(AppResponse<OrgPositionDto>.Error($"MÃ£ chá»©c vá»¥ '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
 
         position.Code = request.Code;
         position.Name = request.Name;
@@ -170,10 +174,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Xóa chức vụ
+    /// XÃ³a chá»©c vá»¥
     /// </summary>
     [HttpDelete("positions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeletePosition(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -182,13 +187,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
 
         if (position == null)
-            return Ok(AppResponse<bool>.Error("Không tìm thấy chức vụ"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
 
         // Check if position is used in assignments
         var hasAssignments = await dbContext.OrgAssignments
             .AnyAsync(a => a.PositionId == id && a.Deleted == null);
         if (hasAssignments)
-            return Ok(AppResponse<bool>.Error("Không thể xóa chức vụ đang được gán cho nhân viên"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a chá»©c vá»¥ Ä‘ang Ä‘Æ°á»£c gÃ¡n cho nhÃ¢n viÃªn"));
 
         position.Deleted = DateTime.Now;
         position.DeletedBy = CurrentUserId.ToString();
@@ -197,14 +202,15 @@ public class OrgChartController(
         return Ok(AppResponse<bool>.Success(true));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // GÁN CHỨC VỤ (OrgAssignment) CRUD
-    // ═══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // GÃN CHá»¨C Vá»¤ (OrgAssignment) CRUD
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Lấy danh sách gán chức vụ (có filter theo phòng ban)
+    /// Láº¥y danh sÃ¡ch gÃ¡n chá»©c vá»¥ (cÃ³ filter theo phÃ²ng ban)
     /// </summary>
     [HttpGet("assignments")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<OrgAssignmentDto>>>> GetAssignments(
         [FromQuery] Guid? departmentId = null,
         [FromQuery] Guid? positionId = null,
@@ -253,7 +259,7 @@ public class OrgChartController(
                 ReportToEmployeeName = a.ReportToAssignment != null && a.ReportToAssignment.Employee != null
                     ? a.ReportToAssignment.Employee.LastName + " " + a.ReportToAssignment.Employee.FirstName
                     : null,
-                IsActive = a.IsActive,
+                IsActive = a.Deleted == null && (!a.EndDate.HasValue || a.EndDate.Value.Date >= DateTime.UtcNow.Date),
                 DirectReportsCount = a.DirectReports.Count(d => d.Deleted == null && d.IsActive)
             })
             .ToListAsync();
@@ -262,10 +268,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Tạo gán chức vụ mới
+    /// Táº¡o gÃ¡n chá»©c vá»¥ má»›i
     /// </summary>
     [HttpPost("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<OrgAssignmentDto>>> CreateAssignment([FromBody] CreateOrgAssignmentRequest request)
     {
         var storeId = RequiredStoreId;
@@ -274,31 +281,51 @@ public class OrgChartController(
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId && e.Deleted == null);
         if (employee == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy nhân viên"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn"));
 
         // Validate department exists
         var department = await dbContext.Departments
             .FirstOrDefaultAsync(d => d.Id == request.DepartmentId && d.StoreId == storeId && d.Deleted == null);
         if (department == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy phòng ban"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y phÃ²ng ban"));
 
         // Validate position exists
         var position = await dbContext.OrgPositions
             .FirstOrDefaultAsync(p => p.Id == request.PositionId && p.StoreId == storeId && p.Deleted == null);
         if (position == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy chức vụ"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
 
-        // Check duplicate
-        var exists = await dbContext.OrgAssignments
+        // Chỉ chặn trùng khi còn một gán đang hiệu lực (chưa có ngày kết thúc)
+        var existsActive = await dbContext.OrgAssignments
             .AnyAsync(a => a.EmployeeId == request.EmployeeId
                 && a.DepartmentId == request.DepartmentId
                 && a.PositionId == request.PositionId
-                && a.Deleted == null);
-        if (exists)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("Nhân viên đã được gán chức vụ này trong phòng ban"));
+                && a.Deleted == null
+                && a.EndDate == null);
+        if (existsActive)
+            return Ok(AppResponse<OrgAssignmentDto>.Error("Nhân viên đang giữ chức vụ này tại phòng ban (chưa kết thúc). Hãy kết thúc bản ghi cũ trước khi thêm mới."));
 
-        // If this is primary, unset other primary assignments
-        if (request.IsPrimary)
+        var today = DateTime.UtcNow.Date;
+        var isCurrentlyHeld = !request.EndDate.HasValue || request.EndDate.Value.Date >= today;
+
+        // Kết thúc các chức vụ chính cũ khi gán chính mới
+        if (request.IsPrimary && isCurrentlyHeld)
+        {
+            var endOn = request.StartDate?.Date ?? today;
+            var otherPrimaries = await dbContext.OrgAssignments
+                .AsTracking()
+                .Where(a => a.EmployeeId == request.EmployeeId && a.IsPrimary && a.Deleted == null && a.EndDate == null)
+                .ToListAsync();
+            foreach (var op in otherPrimaries)
+            {
+                op.IsPrimary = false;
+                op.EndDate = endOn;
+                op.IsActive = false;
+                op.UpdatedAt = DateTime.UtcNow;
+                op.UpdatedBy = CurrentUserId.ToString();
+            }
+        }
+        else if (request.IsPrimary)
         {
             var otherPrimaries = await dbContext.OrgAssignments
                 .AsTracking()
@@ -315,13 +342,18 @@ public class OrgChartController(
             PositionId = request.PositionId,
             IsPrimary = request.IsPrimary,
             StartDate = request.StartDate,
+            EndDate = request.EndDate,
             ReportToAssignmentId = request.ReportToAssignmentId,
             StoreId = storeId,
-            IsActive = true,
+            IsActive = isCurrentlyHeld,
             CreatedBy = CurrentUserId.ToString()
         };
 
         dbContext.OrgAssignments.Add(assignment);
+
+        if (request.IsPrimary && isCurrentlyHeld)
+            employee.DepartmentId = request.DepartmentId;
+
         await dbContext.SaveChangesAsync();
 
         var dto = new OrgAssignmentDto
@@ -339,8 +371,9 @@ public class OrgChartController(
             PositionColor = position.Color,
             IsPrimary = assignment.IsPrimary,
             StartDate = assignment.StartDate,
+            EndDate = assignment.EndDate,
             ReportToAssignmentId = assignment.ReportToAssignmentId,
-            IsActive = assignment.IsActive,
+            IsActive = assignment.Deleted == null && (!assignment.EndDate.HasValue || assignment.EndDate.Value.Date >= DateTime.UtcNow.Date),
             DirectReportsCount = 0
         };
 
@@ -348,10 +381,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cập nhật gán chức vụ
+    /// Cáº­p nháº­t gÃ¡n chá»©c vá»¥
     /// </summary>
     [HttpPut("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<OrgAssignmentDto>>> UpdateAssignment(Guid id, [FromBody] UpdateOrgAssignmentRequest request)
     {
         var storeId = RequiredStoreId;
@@ -363,7 +397,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy bản ghi gán chức vụ"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y báº£n ghi gÃ¡n chá»©c vá»¥"));
 
         // If setting as primary, unset others
         if (request.IsPrimary && !assignment.IsPrimary)
@@ -380,9 +414,14 @@ public class OrgChartController(
         assignment.ReportToAssignmentId = request.ReportToAssignmentId;
         assignment.StartDate = request.StartDate;
         assignment.EndDate = request.EndDate;
-        assignment.IsActive = request.IsActive;
-        assignment.UpdatedAt = DateTime.Now;
+        var today = DateTime.UtcNow.Date;
+        assignment.IsActive = request.IsActive
+            && (!assignment.EndDate.HasValue || assignment.EndDate.Value.Date >= today);
+        assignment.UpdatedAt = DateTime.UtcNow;
         assignment.UpdatedBy = CurrentUserId.ToString();
+
+        if (assignment.IsPrimary && assignment.IsActive && assignment.Employee != null)
+            assignment.Employee.DepartmentId = assignment.DepartmentId;
 
         await dbContext.SaveChangesAsync();
 
@@ -403,7 +442,7 @@ public class OrgChartController(
             StartDate = assignment.StartDate,
             EndDate = assignment.EndDate,
             ReportToAssignmentId = assignment.ReportToAssignmentId,
-            IsActive = assignment.IsActive,
+            IsActive = assignment.Deleted == null && (!assignment.EndDate.HasValue || assignment.EndDate.Value.Date >= today),
             DirectReportsCount = await dbContext.OrgAssignments.CountAsync(d => d.ReportToAssignmentId == id && d.Deleted == null && d.IsActive)
         };
 
@@ -411,10 +450,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Xóa gán chức vụ
+    /// XÃ³a gÃ¡n chá»©c vá»¥
     /// </summary>
     [HttpDelete("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAssignment(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -423,13 +463,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return Ok(AppResponse<bool>.Error("Không tìm thấy bản ghi gán chức vụ"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y báº£n ghi gÃ¡n chá»©c vá»¥"));
 
         // Check if anyone reports to this assignment
         var hasReports = await dbContext.OrgAssignments
             .AnyAsync(a => a.ReportToAssignmentId == id && a.Deleted == null);
         if (hasReports)
-            return Ok(AppResponse<bool>.Error("Không thể xóa - có nhân viên đang báo cáo cho chức vụ này"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a - cÃ³ nhÃ¢n viÃªn Ä‘ang bÃ¡o cÃ¡o cho chá»©c vá»¥ nÃ y"));
 
         assignment.Deleted = DateTime.Now;
         assignment.DeletedBy = CurrentUserId.ToString();
@@ -438,14 +478,15 @@ public class OrgChartController(
         return Ok(AppResponse<bool>.Success(true));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // SƠ ĐỒ TỔ CHỨC (OrgChart Tree)
-    // ═══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // SÆ  Äá»’ Tá»” CHá»¨C (OrgChart Tree)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Lấy sơ đồ tổ chức dạng cây (theo phòng ban + chức vụ + nhân viên)
+    /// Láº¥y sÆ¡ Ä‘á»“ tá»• chá»©c dáº¡ng cÃ¢y (theo phÃ²ng ban + chá»©c vá»¥ + nhÃ¢n viÃªn)
     /// </summary>
     [HttpGet("tree")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<OrgChartNodeDto>>>> GetOrgChartTree()
     {
         var storeId = CurrentStoreId;
@@ -517,9 +558,10 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Lấy thống kê sơ đồ tổ chức
+    /// Láº¥y thá»‘ng kÃª sÆ¡ Ä‘á»“ tá»• chá»©c
     /// </summary>
     [HttpGet("stats")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<OrgChartStatsDto>>> GetOrgChartStats()
     {
         var storeId = CurrentStoreId;
@@ -556,14 +598,15 @@ public class OrgChartController(
         }));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // LUỒNG DUYỆT (ApprovalFlow) CRUD
-    // ═══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // LUá»’NG DUYá»†T (ApprovalFlow) CRUD
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Lấy danh sách luồng duyệt
+    /// Láº¥y danh sÃ¡ch luá»“ng duyá»‡t
     /// </summary>
     [HttpGet("approval-flows")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ApprovalFlowDto>>>> GetApprovalFlows()
     {
         var storeId = CurrentStoreId;
@@ -617,10 +660,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Tạo luồng duyệt mới (kèm các bước)
+    /// Táº¡o luá»“ng duyá»‡t má»›i (kÃ¨m cÃ¡c bÆ°á»›c)
     /// </summary>
     [HttpPost("approval-flows")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ApprovalFlowDto>>> CreateApprovalFlow([FromBody] CreateApprovalFlowRequest request)
     {
         var storeId = RequiredStoreId;
@@ -629,7 +673,7 @@ public class OrgChartController(
         var exists = await dbContext.ApprovalFlows
             .AnyAsync(f => f.StoreId == storeId && f.Code == request.Code && f.Deleted == null);
         if (exists)
-            return Ok(AppResponse<ApprovalFlowDto>.Error($"Mã luồng duyệt '{request.Code}' đã tồn tại"));
+            return Ok(AppResponse<ApprovalFlowDto>.Error($"MÃ£ luá»“ng duyá»‡t '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
 
         var flow = new ApprovalFlow
         {
@@ -702,10 +746,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cập nhật luồng duyệt (kèm cập nhật các bước)
+    /// Cáº­p nháº­t luá»“ng duyá»‡t (kÃ¨m cáº­p nháº­t cÃ¡c bÆ°á»›c)
     /// </summary>
     [HttpPut("approval-flows/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ApprovalFlowDto>>> UpdateApprovalFlow(Guid id, [FromBody] UpdateApprovalFlowRequest request)
     {
         var storeId = RequiredStoreId;
@@ -715,7 +760,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
 
         if (flow == null)
-            return Ok(AppResponse<ApprovalFlowDto>.Error("Không tìm thấy luồng duyệt"));
+            return Ok(AppResponse<ApprovalFlowDto>.Error("KhÃ´ng tÃ¬m tháº¥y luá»“ng duyá»‡t"));
 
         flow.Code = request.Code;
         flow.Name = request.Name;
@@ -790,10 +835,11 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Xóa luồng duyệt
+    /// XÃ³a luá»“ng duyá»‡t
     /// </summary>
     [HttpDelete("approval-flows/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteApprovalFlow(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -803,7 +849,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
 
         if (flow == null)
-            return Ok(AppResponse<bool>.Error("Không tìm thấy luồng duyệt"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y luá»“ng duyá»‡t"));
 
         flow.Deleted = DateTime.Now;
         flow.DeletedBy = CurrentUserId.ToString();
@@ -819,9 +865,10 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Lấy danh sách nhân viên chưa được gán chức vụ
+    /// Láº¥y danh sÃ¡ch nhÃ¢n viÃªn chÆ°a Ä‘Æ°á»£c gÃ¡n chá»©c vá»¥
     /// </summary>
     [HttpGet("unassigned-employees")]
+    [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<UnassignedEmployeeDto>>>> GetUnassignedEmployees()
     {
         var storeId = CurrentStoreId;
@@ -852,9 +899,9 @@ public class OrgChartController(
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // DTOs
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 public class OrgPositionDto
 {
@@ -928,6 +975,7 @@ public class CreateOrgAssignmentRequest
     public Guid PositionId { get; set; }
     public bool IsPrimary { get; set; } = true;
     public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
     public Guid? ReportToAssignmentId { get; set; }
 }
 
@@ -1055,3 +1103,4 @@ public class UnassignedEmployeeDto
     public string? Position { get; set; }
     public string CompanyEmail { get; set; } = string.Empty;
 }
+

@@ -109,8 +109,6 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
   String _filterStatus = 'all'; // all, approved, rejected
   DateTime? _filterDateFrom;
   DateTime? _filterDateTo;
-  bool _showMobileFilters = false;
-
   // Tab visibility
   bool _showPending = true;
   bool _showProcessed = true;
@@ -341,27 +339,6 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            InkWell(
-                              onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                height: 32,
-                                width: 32,
-                                decoration: BoxDecoration(
-                                  color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: _showMobileFilters ? Theme.of(context).primaryColor.withValues(alpha: 0.3) : Colors.grey[600]!),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Center(child: Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, size: 16, color: _showMobileFilters ? Theme.of(context).primaryColor : Colors.grey.shade600)),
-                                    if (hasActiveFilters)
-                                      Positioned(top: 3, right: 3, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle))),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             FilledButton.icon(
                               onPressed: _showCreateRequestDialog,
                               icon: const Icon(Icons.add, size: 16),
@@ -373,7 +350,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                             ),
                           ],
                         ),
-                        if (_showMobileFilters) ...[
+                        ...[
                           const SizedBox(height: 8),
                           Row(children: [searchField]),
                           const SizedBox(height: 8),

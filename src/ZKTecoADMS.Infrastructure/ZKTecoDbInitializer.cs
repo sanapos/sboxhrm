@@ -49,7 +49,7 @@ public class ZKTecoDbInitializer(
                     "ALTER TABLE \"Leaves\" ADD COLUMN IF NOT EXISTS \"EmployeeId\" uuid NULL;");
 
                 await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE \"AspNetUsers\" ADD COLUMN IF NOT EXISTS \"PlainTextPassword\" TEXT;");
+                    "ALTER TABLE \"Employees\" ADD COLUMN IF NOT EXISTS \"ContractEndDate\" timestamp without time zone NULL;");
 
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Departments\" ADD COLUMN IF NOT EXISTS \"Positions\" VARCHAR(2000);");
@@ -254,6 +254,454 @@ public class ZKTecoDbInitializer(
                     END $$;
                 ");
 
+                // ===== Bootstrap for migrations from AddBranchPermissions onwards =====
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DO $$ BEGIN
+                        -- PlainTextPassword was removed by AddBranchPermissions migration
+                        ALTER TABLE ""AspNetUsers"" DROP COLUMN IF EXISTS ""PlainTextPassword"";
+
+                        -- TaskComments new columns
+                        ALTER TABLE ""TaskComments"" ADD COLUMN IF NOT EXISTS ""CommentType"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""TaskComments"" ADD COLUMN IF NOT EXISTS ""ImageUrls"" character varying(4000);
+                        ALTER TABLE ""TaskComments"" ADD COLUMN IF NOT EXISTS ""LinkUrls"" character varying(4000);
+                        ALTER TABLE ""TaskComments"" ADD COLUMN IF NOT EXISTS ""ProgressSnapshot"" integer;
+
+                        -- Payslips insurance/tax columns
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""Allowances"" numeric;
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""HealthInsurance"" numeric;
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""SocialInsurance"" numeric;
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""Tax"" numeric;
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""UnemploymentInsurance"" numeric;
+
+                        -- Leaves approval columns
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 0;
+
+                        -- AttendanceCorrectionRequests approval columns
+                        ALTER TABLE ""AttendanceCorrectionRequests"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""AttendanceCorrectionRequests"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 0;
+
+                        -- Assets new columns
+                        ALTER TABLE ""Assets"" ADD COLUMN IF NOT EXISTS ""Color"" text;
+                        ALTER TABLE ""Assets"" ADD COLUMN IF NOT EXISTS ""QrCode"" text;
+                        ALTER TABLE ""Assets"" ADD COLUMN IF NOT EXISTS ""Size"" text;
+
+                        -- AssetInventoryItems
+                        ALTER TABLE ""AssetInventoryItems"" ADD COLUMN IF NOT EXISTS ""StoredExpectedQuantity"" integer NOT NULL DEFAULT 0;
+
+                        -- AdvanceRequests approval columns
+                        ALTER TABLE ""AdvanceRequests"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""AdvanceRequests"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 0;
+
+                        -- Employees.BranchId
+                        ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+
+                        -- InternalCommunications public share
+                        ALTER TABLE ""InternalCommunications"" ADD COLUMN IF NOT EXISTS ""IsPublicShareEnabled"" boolean NOT NULL DEFAULT false;
+                        ALTER TABLE ""InternalCommunications"" ADD COLUMN IF NOT EXISTS ""PublicShareToken"" character varying(64);
+
+                        -- ScheduleRegistrations approval columns
+                        ALTER TABLE ""ScheduleRegistrations"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""ScheduleRegistrations"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 1;
+
+                        -- WorkTasks assignment enhancement
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""DepartmentId"" uuid;
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""TemplateId"" uuid;
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""SlaReminderHours"" integer;
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""AcceptedAt"" timestamp without time zone;
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""RejectionReason"" character varying(500);
+                        ALTER TABLE ""WorkTasks"" ADD COLUMN IF NOT EXISTS ""AssignmentNote"" character varying(1000);
+
+                        -- AttendanceCorrectionRequests.NewPunchType
+                        ALTER TABLE ""AttendanceCorrectionRequests"" ADD COLUMN IF NOT EXISTS ""NewPunchType"" character varying(20);
+                    END $$;
+                ");
+
+                // Create tables from migrations if not existing
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""AdvanceApprovalRecords"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""AdvanceRequestId"" uuid NOT NULL,
+                        ""StepOrder"" integer NOT NULL,
+                        ""StepName"" character varying(200),
+                        ""AssignedUserId"" uuid,
+                        ""AssignedUserName"" character varying(200),
+                        ""ActualUserId"" uuid,
+                        ""ActualUserName"" character varying(200),
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Note"" character varying(1000),
+                        ""ActionDate"" timestamp without time zone,
+                        ""StoreId"" uuid,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""FK_AdvanceApprovalRecords_AdvanceRequests""
+                            FOREIGN KEY (""AdvanceRequestId"") REFERENCES ""AdvanceRequests""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_AdvanceApprovalRecords_AdvanceRequestId"" ON ""AdvanceApprovalRecords""(""AdvanceRequestId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_AdvanceApprovalRecords_AssignedUserId"" ON ""AdvanceApprovalRecords""(""AssignedUserId"");
+
+                    CREATE TABLE IF NOT EXISTS ""AppBugReports"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""UserId"" character varying(100),
+                        ""UserName"" character varying(200),
+                        ""UserEmail"" character varying(100),
+                        ""StoreName"" character varying(200),
+                        ""Type"" character varying(30) NOT NULL DEFAULT 'Bug',
+                        ""Title"" character varying(300) NOT NULL DEFAULT '',
+                        ""Content"" character varying(5000) NOT NULL DEFAULT '',
+                        ""AppVersion"" character varying(50),
+                        ""DeviceInfo"" character varying(200),
+                        ""Status"" character varying(30) NOT NULL DEFAULT 'Open',
+                        ""AdminNote"" character varying(2000),
+                        ""ResolvedAt"" timestamp without time zone,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text
+                    );
+
+                    CREATE TABLE IF NOT EXISTS ""AppPages"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""Type"" character varying(30) NOT NULL DEFAULT '',
+                        ""Title"" character varying(200) NOT NULL DEFAULT '',
+                        ""Content"" character varying(100000),
+                        ""IsPublished"" boolean NOT NULL DEFAULT false,
+                        ""UpdatedByName"" character varying(200),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_AppPages_Type"" ON ""AppPages""(""Type"");
+
+                    CREATE TABLE IF NOT EXISTS ""ApprovalRecords"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""CorrectionRequestId"" uuid NOT NULL,
+                        ""StepOrder"" integer NOT NULL,
+                        ""StepName"" character varying(200),
+                        ""AssignedUserId"" uuid,
+                        ""AssignedUserName"" character varying(200),
+                        ""ActualUserId"" uuid,
+                        ""ActualUserName"" character varying(200),
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Note"" character varying(1000),
+                        ""ActionDate"" timestamp without time zone,
+                        ""StoreId"" uuid,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""FK_ApprovalRecords_AttendanceCorrectionRequests""
+                            FOREIGN KEY (""CorrectionRequestId"") REFERENCES ""AttendanceCorrectionRequests""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_ApprovalRecords_CorrectionRequestId"" ON ""ApprovalRecords""(""CorrectionRequestId"");
+
+                    CREATE TABLE IF NOT EXISTS ""BranchPermissions"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""UserId"" uuid NOT NULL,
+                        ""BranchId"" uuid,
+                        ""IncludeChildren"" boolean NOT NULL DEFAULT false,
+                        ""StoreId"" uuid,
+                        ""CanView"" boolean NOT NULL DEFAULT false,
+                        ""CanCreate"" boolean NOT NULL DEFAULT false,
+                        ""CanEdit"" boolean NOT NULL DEFAULT false,
+                        ""CanDelete"" boolean NOT NULL DEFAULT false,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""GrantedBy"" character varying(100),
+                        ""Note"" character varying(500),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""FK_BranchPermissions_AspNetUsers_UserId""
+                            FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_BranchPermissions_UserId"" ON ""BranchPermissions""(""UserId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_BranchPermissions_StoreId"" ON ""BranchPermissions""(""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""DeviceChangeRequests"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""EmployeeId"" character varying(100) NOT NULL DEFAULT '',
+                        ""EmployeeName"" character varying(200) NOT NULL DEFAULT '',
+                        ""OldDeviceRecordId"" uuid NOT NULL DEFAULT gen_random_uuid(),
+                        ""OldDeviceName"" character varying(200) NOT NULL DEFAULT '',
+                        ""OldDeviceModel"" character varying(200) NOT NULL DEFAULT '',
+                        ""NewDeviceId"" character varying(200) NOT NULL DEFAULT '',
+                        ""NewDeviceName"" character varying(200) NOT NULL DEFAULT '',
+                        ""NewDeviceModel"" character varying(200) NOT NULL DEFAULT '',
+                        ""NewOsVersion"" character varying(50),
+                        ""NewWifiBssid"" character varying(50),
+                        ""NewFaceImagesJson"" text NOT NULL DEFAULT '[]',
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Reason"" character varying(500),
+                        ""RequestedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""ApprovedBy"" uuid,
+                        ""ApprovedAt"" timestamp without time zone,
+                        ""RejectReason"" character varying(500),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_DeviceChangeRequests_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+
+                    CREATE TABLE IF NOT EXISTS ""EmployeeLiveLocations"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""EmployeeId"" character varying(100) NOT NULL DEFAULT '',
+                        ""Latitude"" double precision NOT NULL DEFAULT 0,
+                        ""Longitude"" double precision NOT NULL DEFAULT 0,
+                        ""Accuracy"" double precision,
+                        ""UpdatedAt"" timestamp without time zone NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_EmployeeLiveLocations_StoreId_EmployeeId"" ON ""EmployeeLiveLocations""(""StoreId"", ""EmployeeId"");
+
+                    CREATE TABLE IF NOT EXISTS ""FieldLocations"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(300) NOT NULL DEFAULT '',
+                        ""Address"" character varying(500),
+                        ""ContactName"" character varying(200),
+                        ""ContactPhone"" character varying(50),
+                        ""ContactEmail"" character varying(200),
+                        ""Note"" character varying(1000),
+                        ""Latitude"" double precision NOT NULL DEFAULT 0,
+                        ""Longitude"" double precision NOT NULL DEFAULT 0,
+                        ""Radius"" integer NOT NULL DEFAULT 100,
+                        ""PhotoUrlsJson"" text,
+                        ""RegisteredByEmployeeId"" character varying(100),
+                        ""RegisteredByEmployeeName"" character varying(200),
+                        ""Category"" character varying(50),
+                        ""IsApproved"" boolean NOT NULL DEFAULT false,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_FieldLocations_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_FieldLocations_StoreId"" ON ""FieldLocations""(""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""ScheduleApprovalRecords"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""ScheduleRegistrationId"" uuid NOT NULL,
+                        ""StepOrder"" integer NOT NULL,
+                        ""StepName"" character varying(200),
+                        ""AssignedUserId"" uuid,
+                        ""AssignedUserName"" character varying(200),
+                        ""ActualUserId"" uuid,
+                        ""ActualUserName"" character varying(200),
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Note"" character varying(1000),
+                        ""ActionDate"" timestamp without time zone,
+                        ""StoreId"" uuid,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""FK_ScheduleApprovalRecords_ScheduleRegistrations""
+                            FOREIGN KEY (""ScheduleRegistrationId"") REFERENCES ""ScheduleRegistrations""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_ScheduleApprovalRecords_ScheduleRegistrationId"" ON ""ScheduleApprovalRecords""(""ScheduleRegistrationId"");
+
+                    CREATE TABLE IF NOT EXISTS ""TaskTemplates"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(120) NOT NULL DEFAULT '',
+                        ""Title"" character varying(200) NOT NULL DEFAULT '',
+                        ""Description"" character varying(2000),
+                        ""TaskType"" integer NOT NULL DEFAULT 0,
+                        ""Priority"" integer NOT NULL DEFAULT 0,
+                        ""EstimatedHours"" numeric,
+                        ""DefaultSlaReminderHours"" integer,
+                        ""Tags"" character varying(500),
+                        ""Checklist"" character varying(4000),
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""CreatedBy"" text,
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_TaskTemplates_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_TaskTemplates_StoreId"" ON ""TaskTemplates""(""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""TaskDependencies"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""TaskId"" uuid NOT NULL,
+                        ""DependsOnTaskId"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        CONSTRAINT ""FK_TaskDependencies_WorkTasks_TaskId""
+                            FOREIGN KEY (""TaskId"") REFERENCES ""WorkTasks""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_TaskDependencies_WorkTasks_DependsOnTaskId""
+                            FOREIGN KEY (""DependsOnTaskId"") REFERENCES ""WorkTasks""(""Id"") ON DELETE RESTRICT
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_TaskDependencies_TaskId_DependsOnTaskId"" ON ""TaskDependencies""(""TaskId"", ""DependsOnTaskId"");
+                ");
+
+                // WorkSchedules: ensure per-shift unique index
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DROP INDEX IF EXISTS ""IX_WorkSchedules_Employee_Date"";
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_WorkSchedules_Employee_Date_Shift""
+                        ON ""WorkSchedules"" (""EmployeeId"", ""Date"", ""ShiftId"");
+                ");
+
+                // OrgAssignments: fix index to allow multiple assignments per person as long as one is active
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DO $$ BEGIN
+                        DROP INDEX IF EXISTS ""IX_OrgAssignments_Emp_Dept_Pos"";
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_indexes WHERE indexname = 'IX_OrgAssignments_Emp_Dept_Pos_Active'
+                        ) THEN
+                            CREATE UNIQUE INDEX ""IX_OrgAssignments_Emp_Dept_Pos_Active""
+                                ON ""OrgAssignments"" (""EmployeeId"", ""DepartmentId"", ""PositionId"")
+                                WHERE ""Deleted"" IS NULL AND ""EndDate"" IS NULL;
+                        END IF;
+                    END $$;
+                ");
+
+                // AttendanceLogs: unique index on (DeviceId, PIN, AttendanceTime)
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""UX_Attendance_Device_Pin_Time""
+                        ON ""AttendanceLogs"" (""DeviceId"", ""PIN"", ""AttendanceTime"");
+                ");
+
+                // FK → AttendanceLogs: ON DELETE SET NULL (xóa chấm công / phiếu duyệt xóa)
+                try
+                {
+                    await context.Database.ExecuteSqlRawAsync(@"
+                        DO $$
+                        DECLARE r RECORD;
+                        DECLARE att_oid oid;
+                        BEGIN
+                            SELECT c.oid INTO att_oid
+                            FROM pg_class c
+                            JOIN pg_namespace n ON n.oid = c.relnamespace
+                            WHERE n.nspname = 'public' AND c.relname = 'AttendanceLogs';
+                            IF att_oid IS NULL THEN
+                                RETURN;
+                            END IF;
+
+                            FOR r IN
+                                SELECT c.conname, t.relname AS tbl
+                                FROM pg_constraint c
+                                JOIN pg_class t ON c.conrelid = t.oid
+                                WHERE c.contype = 'f'
+                                  AND c.confrelid = att_oid
+                                  AND t.relname IN (
+                                      'AttendanceCorrectionRequests','PenaltyTickets',
+                                      'MealRecords','Shifts')
+                            LOOP
+                                EXECUTE format(
+                                    'ALTER TABLE %I DROP CONSTRAINT %I',
+                                    r.tbl, r.conname);
+                            END LOOP;
+
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint
+                                WHERE conname = 'FK_AttendanceCorrectionRequests_AttendanceLogs_AttendanceId')
+                            THEN
+                                ALTER TABLE ""AttendanceCorrectionRequests""
+                                    ADD CONSTRAINT ""FK_AttendanceCorrectionRequests_AttendanceLogs_AttendanceId""
+                                    FOREIGN KEY (""AttendanceId"") REFERENCES ""AttendanceLogs""(""Id"")
+                                    ON DELETE SET NULL;
+                            END IF;
+
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint
+                                WHERE conname = 'FK_PenaltyTickets_AttendanceLogs_AttendanceId')
+                            THEN
+                                ALTER TABLE ""PenaltyTickets""
+                                    ADD CONSTRAINT ""FK_PenaltyTickets_AttendanceLogs_AttendanceId""
+                                    FOREIGN KEY (""AttendanceId"") REFERENCES ""AttendanceLogs""(""Id"")
+                                    ON DELETE SET NULL;
+                            END IF;
+
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint
+                                WHERE conname = 'FK_MealRecords_AttendanceLogs_AttendanceId')
+                            THEN
+                                ALTER TABLE ""MealRecords""
+                                    ADD CONSTRAINT ""FK_MealRecords_AttendanceLogs_AttendanceId""
+                                    FOREIGN KEY (""AttendanceId"") REFERENCES ""AttendanceLogs""(""Id"")
+                                    ON DELETE SET NULL;
+                            END IF;
+
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint WHERE conname = 'FK_Shifts_AttendanceLogs_CheckIn')
+                            THEN
+                                ALTER TABLE ""Shifts""
+                                    ADD CONSTRAINT ""FK_Shifts_AttendanceLogs_CheckIn""
+                                    FOREIGN KEY (""CheckInAttendanceId"") REFERENCES ""AttendanceLogs""(""Id"")
+                                    ON DELETE SET NULL;
+                            END IF;
+
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint WHERE conname = 'FK_Shifts_AttendanceLogs_CheckOut')
+                            THEN
+                                ALTER TABLE ""Shifts""
+                                    ADD CONSTRAINT ""FK_Shifts_AttendanceLogs_CheckOut""
+                                    FOREIGN KEY (""CheckOutAttendanceId"") REFERENCES ""AttendanceLogs""(""Id"")
+                                    ON DELETE SET NULL;
+                            END IF;
+                        END $$;
+                    ");
+                }
+                catch (Exception fkEx)
+                {
+                    logger.LogWarning(fkEx,
+                        "AttendanceLogs FK repair skipped (non-fatal). Delete-unlink still uses AttendanceDeletePreparer SQL.");
+                }
+
+                // InternalCommunications: public share token index
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InternalCommunications_PublicShareToken""
+                        ON ""InternalCommunications"" (""PublicShareToken"")
+                        WHERE ""PublicShareToken"" IS NOT NULL;
+                ");
+
+                // MaintenanceWindows table
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""MaintenanceWindows"" (
+                        ""Id""                     uuid         NOT NULL PRIMARY KEY,
+                        ""Title""                  varchar(200) NOT NULL DEFAULT '',
+                        ""Message""                text         NOT NULL DEFAULT '',
+                        ""StartAt""                timestamp    NOT NULL DEFAULT NOW(),
+                        ""EndAt""                  timestamp    NOT NULL DEFAULT NOW(),
+                        ""AffectedModulesJson""    jsonb        NULL,
+                        ""IsActive""               boolean      NOT NULL DEFAULT false,
+                        ""BlockAccess""            boolean      NOT NULL DEFAULT true,
+                        ""NotifyBeforeMinutesCsv"" varchar(100) NULL,
+                        ""NotifiedMinutesCsv""     varchar(100) NULL,
+                        ""StartNotified""          boolean      NOT NULL DEFAULT false,
+                        ""EndNotified""            boolean      NOT NULL DEFAULT false,
+                        ""CreatedByUserId""        uuid         NOT NULL DEFAULT gen_random_uuid(),
+                        ""CreatedAt""              timestamp    NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                        ""CreatedBy""              text         NULL,
+                        ""UpdatedAt""              timestamp    NULL,
+                        ""UpdatedBy""              text         NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_MaintenanceWindows_Active_Range""
+                        ON ""MaintenanceWindows"" (""IsActive"", ""StartAt"", ""EndAt"");
+                ");
+
                 // Fix EmployeeTaxDeductions column names (lowercase → PascalCase)
                 await context.Database.ExecuteSqlRawAsync(@"
                     DO $$
@@ -378,6 +826,74 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_NotificationPreferences_User_Category_Store"" ON ""NotificationPreferences"" (""UserId"", ""CategoryCode"", ""StoreId"");
                     CREATE INDEX IF NOT EXISTS ""IX_NotificationPreferences_UserId"" ON ""NotificationPreferences"" (""UserId"");
+                ");
+
+                // =============== System Announcements (banner / renewal reminders) ===============
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""SystemAnnouncements"" (
+                        ""Id"" uuid NOT NULL,
+                        ""Title"" character varying(200) NOT NULL,
+                        ""Content"" text NOT NULL,
+                        ""Kind"" integer NOT NULL,
+                        ""Severity"" integer NOT NULL,
+                        ""Status"" integer NOT NULL,
+                        ""Channels"" integer NOT NULL,
+                        ""AudienceJson"" jsonb NOT NULL DEFAULT '{{}}',
+                        ""ScheduleAt"" timestamp without time zone,
+                        ""ExpiresAt"" timestamp without time zone,
+                        ""RequireAck"" boolean NOT NULL DEFAULT false,
+                        ""AllowDismiss"" boolean NOT NULL DEFAULT true,
+                        ""ImageUrl"" character varying(500),
+                        ""ActionUrl"" character varying(500),
+                        ""ActionLabel"" character varying(100),
+                        ""RecipientCount"" integer NOT NULL DEFAULT 0,
+                        ""DeliveredCount"" integer NOT NULL DEFAULT 0,
+                        ""SeenCount"" integer NOT NULL DEFAULT 0,
+                        ""ClickedCount"" integer NOT NULL DEFAULT 0,
+                        ""AckedCount"" integer NOT NULL DEFAULT 0,
+                        ""SentAt"" timestamp without time zone,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""PK_SystemAnnouncements"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_SystemAnnouncements_Status"" ON ""SystemAnnouncements"" (""Status"");
+                    CREATE INDEX IF NOT EXISTS ""IX_SystemAnnouncements_ScheduleAt"" ON ""SystemAnnouncements"" (""ScheduleAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_SystemAnnouncements_ExpiresAt"" ON ""SystemAnnouncements"" (""ExpiresAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_SystemAnnouncements_Status_Expires"" ON ""SystemAnnouncements"" (""Status"", ""ExpiresAt"");
+
+                    CREATE TABLE IF NOT EXISTS ""AnnouncementDeliveries"" (
+                        ""Id"" uuid NOT NULL,
+                        ""AnnouncementId"" uuid NOT NULL,
+                        ""UserId"" uuid NOT NULL,
+                        ""StoreId"" uuid,
+                        ""Channel"" integer NOT NULL,
+                        ""Status"" integer NOT NULL,
+                        ""DeliveredAt"" timestamp without time zone,
+                        ""SeenAt"" timestamp without time zone,
+                        ""ClickedAt"" timestamp without time zone,
+                        ""AckedAt"" timestamp without time zone,
+                        ""DismissedAt"" timestamp without time zone,
+                        ""ErrorMessage"" character varying(500),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        CONSTRAINT ""PK_AnnouncementDeliveries"" PRIMARY KEY (""Id""),
+                        CONSTRAINT ""FK_AnnouncementDeliveries_AspNetUsers_UserId""
+                            FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_AnnouncementDeliveries_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores"" (""Id"") ON DELETE SET NULL,
+                        CONSTRAINT ""FK_AnnouncementDeliveries_SystemAnnouncements_AnnouncementId""
+                            FOREIGN KEY (""AnnouncementId"") REFERENCES ""SystemAnnouncements"" (""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_AnnouncementDeliveries_AnnId"" ON ""AnnouncementDeliveries"" (""AnnouncementId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_AnnouncementDeliveries_UserId"" ON ""AnnouncementDeliveries"" (""UserId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_AnnouncementDeliveries_StoreId"" ON ""AnnouncementDeliveries"" (""StoreId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_AnnouncementDeliveries_User_Status"" ON ""AnnouncementDeliveries"" (""UserId"", ""Status"");
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""UX_AnnouncementDeliveries_Ann_User_Channel""
+                        ON ""AnnouncementDeliveries"" (""AnnouncementId"", ""UserId"", ""Channel"");
                 ");
 
                 // Seed notification categories
@@ -810,8 +1326,17 @@ public class ZKTecoDbInitializer(
             // ══════════ TỔNG QUAN ══════════
             ("Home", "Trang chủ", "Màn hình tổng quan menu", 1),
             ("Notification", "Thông báo", "Hệ thống thông báo", 2),
+            ("DashboardAttendanceOverview", "Tổng quan chấm công", "KPI chấm công trên Dashboard", 4),
+            ("DashboardHrInsights", "Chỉ số nhân sự & vận hành", "Chip chỉ số HR trên Dashboard", 5),
+            ("DashboardTodaySchedule", "Lịch làm việc hôm nay", "Lịch ca hôm nay trên Dashboard", 6),
+            ("DashboardRealtimeAttendance", "Chấm công thời gian thực", "Danh sách chấm công realtime", 7),
+            ("DashboardAbsent", "Nhân viên vắng mặt", "Khối vắng mặt trên Dashboard", 8),
+            ("DashboardLateEarly", "Đi trễ / về sớm", "Khối trễ sớm trên Dashboard", 9),
+            ("DashboardKpiPanel", "KPI (Dashboard)", "Khối KPI trên Dashboard", 10),
+            ("DashboardInternalNews", "Bản tin nội bộ", "Tin truyền thông trên Dashboard", 11),
+            // Legacy — giữ để tương thích role cũ (ẩn trên UI Flutter)
+            ("Dashboard", "Tổng quan (cũ)", "Bảng điều khiển — dùng các quyền widget bên trên", 3),
             // ══════════ HỒ SƠ NHÂN SỰ ══════════
-            ("Dashboard", "Tổng quan", "Bảng điều khiển tổng quan", 3),
             ("Employee", "Hồ sơ nhân sự", "Thông tin nhân viên, chức vụ", 4),
             ("DeviceUser", "Nhân sự chấm công", "Nhân sự trên máy chấm công", 5),
             ("Department", "Phòng ban", "Quản lý phòng ban", 6),
@@ -820,7 +1345,7 @@ public class ZKTecoDbInitializer(
             // ══════════ CHẤM CÔNG ══════════
             ("Attendance", "Chấm công", "Dữ liệu chấm công", 9),
             ("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", 10),
-            ("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp chấm công", 11),
+            ("AttendanceSummary", "Tổng hợp chấm công thô", "Bảng tổng hợp chấm công thô", 11),
             ("AttendanceByShift", "Tổng hợp theo ca", "Chấm công theo ca làm việc", 12),
             ("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", 13),
             ("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", 14),
@@ -868,6 +1393,7 @@ public class ZKTecoDbInitializer(
             ("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", 51),
             ("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", 52),
             ("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", 53),
+            ("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", 55),
             // ══════════ CÀI ĐẶT (bổ sung) ══════════
             ("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", 54),
         };

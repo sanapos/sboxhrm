@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 class ServicePackagesTab extends StatefulWidget {
   const ServicePackagesTab({super.key});
@@ -107,7 +108,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               'Hoạt động',
               _packages.where((p) => p['isActive'] == true).length,
               AdminHelpers.success),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showCreateEditDialog(null),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Tạo gói mới'),
@@ -138,8 +139,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.inventory_2, color: Color(0xFF1E3A5F), size: 18),
+            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -505,7 +506,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: const Text('Hủy')),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () {
                   if (nameCtrl.text.trim().isEmpty) {
                     AdminHelpers.showError(ctx, 'Vui lòng nhập tên gói');

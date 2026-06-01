@@ -1,4 +1,4 @@
-// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+﻿// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import '../utils/file_saver.dart' as file_saver;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -17,6 +17,8 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/image_source_picker.dart';
@@ -56,7 +58,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final bool _groupByBranch = true;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
   List<String> _departments = ['Tất cả'];
   List<String> _positions = [];
@@ -73,7 +74,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     'ACB - NH TMCP Á Châu',
     'VPBank - NH TMCP Việt Nam Thịnh Vượng',
     'Sacombank - NH TMCP Sài Gòn Thương Tín',
-    'TPBank - NH TMCP Tiên Phong',
+    'TPBank - NH TMCP Tiên Phơng',
     'HDBank - NH TMCP Phát triển TP.HCM',
     'SHB - NH TMCP Sài Gòn - Hà Nội',
     'VIB - NH TMCP Quốc tế Việt Nam',
@@ -298,7 +299,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final normalizedAddr = _removeAccents(lowerAddr);
     const provinceNoAccent = <String, String>{
       'ha noi': 'Hà Nội',
-      'hai phong': 'Hải Phòng',
+      'hai phơng': 'Hải Phòng',
       'da nang': 'Đà Nẵng',
       'hue': 'Huế',
       'can tho': 'Cần Thơ',
@@ -547,7 +548,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.upload_file, color: Color(0xFF1E3A5F)),
+            Icon(Icons.upload_file, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
             Text('Import nhân viên từ Excel', style: TextStyle(fontSize: 16)),
           ],
@@ -744,7 +745,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         .length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           // Gradient header
@@ -805,41 +806,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         ),
                         onPressed: () => _showEmployeeForm(null),
                         tooltip: _l10n.addEmployee,
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(
-                            () => _showMobileFilters = !_showMobileFilters),
-                        child: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(
-                                alpha: _showMobileFilters ? 0.25 : 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Stack(
-                            children: [
-                              Icon(
-                                  _showMobileFilters
-                                      ? Icons.filter_alt
-                                      : Icons.filter_alt_outlined,
-                                  size: 18,
-                                  color: Colors.white),
-                              if (_searchQuery.isNotEmpty ||
-                                  _filterDepartment != 'Tất cả' ||
-                                  _filterStatus != 'Tất cả' ||
-                                  _filterBranchId != null)
-                                Positioned(
-                                    right: 0,
-                                    top: 0,
-                                    child: Container(
-                                        width: 7,
-                                        height: 7,
-                                        decoration: const BoxDecoration(
-                                            color: Colors.orangeAccent,
-                                            shape: BoxShape.circle))),
-                            ],
-                          ),
-                        ),
                       ),
                       const SizedBox(width: 2),
                       PopupMenuButton<String>(
@@ -940,137 +906,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
 
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16,
-                  isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
-              child: Column(
-                children: [
-                  // Stats cards
-                  if (isMobile) ...[
-                    InkWell(
-                      onTap: () => setState(
-                          () => _showMobileSummary = !_showMobileSummary),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.analytics_outlined,
-                                size: 16, color: Colors.blue.shade700),
-                            const SizedBox(width: 6),
-                            Text('Tổng quan',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Colors.blue.shade700)),
-                            const Spacer(),
-                            Icon(
-                                _showMobileSummary
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 20,
-                                color: Colors.blue.shade700),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_showMobileSummary) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: _buildStatCard(
-                                  'Tổng NV',
-                                  '${_employees.length}',
-                                  Icons.people_outline,
-                                  const Color(0xFF1E3A5F))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _buildStatCard(
-                                  'Đang làm',
-                                  '$activeCount',
-                                  Icons.check_circle_outline,
-                                  const Color(0xFF1E3A5F))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _buildStatCard(
-                                  'Thử việc',
-                                  '$probationCount',
-                                  Icons.hourglass_bottom,
-                                  const Color(0xFFF59E0B))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _buildStatCard(
-                                  _l10n.department,
-                                  '$deptCount',
-                                  Icons.business_outlined,
-                                  const Color(0xFF0F2340))),
-                        ],
-                      ),
-                    ],
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _buildStatCard(
-                                'Tổng NV',
-                                '${_employees.length}',
-                                Icons.people_outline,
-                                const Color(0xFF1E3A5F))),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _buildStatCard(
-                                'Đang làm',
-                                '$activeCount',
-                                Icons.check_circle_outline,
-                                const Color(0xFF1E3A5F))),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _buildStatCard(
-                                'Thử việc',
-                                '$probationCount',
-                                Icons.hourglass_bottom,
-                                const Color(0xFFF59E0B))),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _buildStatCard(
-                                _l10n.department,
-                                '$deptCount',
-                                Icons.business_outlined,
-                                const Color(0xFF0F2340))),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-
-                  // Filters
-                  if (!isMobile || _showMobileFilters) ...[
-                    _buildFilters(),
-                    const SizedBox(height: 12),
-                  ],
-
-                  // Content
-                  Expanded(
-                    child: _isLoading
-                        ? const LoadingWidget(message: 'Đang tải nhân viên...')
-                        : _filteredEmployees.isEmpty
-                            ? EmptyState(
-                                icon: Icons.people,
-                                title: 'Không có nhân viên',
-                                description: _searchQuery.isNotEmpty
-                                    ? 'No matching employees found'
-                                    : _l10n.addFirstEmployee,
-                                actionLabel: _l10n.addEmployee,
-                                onAction: () => _showEmployeeForm(null),
-                              )
-                            : _buildEmployeesList(),
-                  ),
-                ],
+            child: RefreshIndicator(
+              onRefresh: () => _loadEmployees(showLoading: false),
+              child: HrmResponsiveListLayout(
+                padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16,
+                    isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
+                headerSections: _buildEmployeesPageHeaderSections(
+                    activeCount, probationCount, deptCount),
+                desktopBody: _buildEmployeesDesktopBody(),
+                mobileSlivers: (_) => _buildEmployeesMobileSlivers(),
               ),
             ),
           ),
@@ -1385,7 +1229,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               onPressed: () => Navigator.pop(ctx),
                               child: Text(_l10n.cancel)),
                           const SizedBox(width: 12),
-                          ElevatedButton.icon(
+                          FilledButton.icon(
                               icon: const Icon(Icons.add, size: 18),
                               label: const Text('Tạo mới'),
                               onPressed: onSave),
@@ -1398,7 +1242,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           return AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.business, color: Color(0xFF1E3A5F)),
+                Icon(Icons.business, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Thêm phòng ban mới', style: TextStyle(fontSize: 16)),
               ],
@@ -2010,9 +1854,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Đang làm việc':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Đang thử việc':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Nghỉ phép':
         return const Color(0xFFF59E0B);
       case 'Đã nghỉ việc':
@@ -2022,8 +1866,237 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  List<Widget> _buildEmployeesPageHeaderSections(
+      int activeCount, int probationCount, int deptCount) {
+    final isMobile = Responsive.isMobile(context);
+    return [
+      if (isMobile) ...[
+        InkWell(
+          onTap: () =>
+              setState(() => _showMobileSummary = !_showMobileSummary),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    size: 16, color: Colors.blue.shade700),
+                const SizedBox(width: 6),
+                Text('Tổng quan',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.blue.shade700)),
+                const Spacer(),
+                Icon(
+                    _showMobileSummary
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    size: 20,
+                    color: Colors.blue.shade700),
+              ],
+            ),
+          ),
+        ),
+        if (_showMobileSummary) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                SizedBox(
+                    width: 100,
+                    child: _buildStatCard(
+                        'Tổng NV',
+                        '${_employees.length}',
+                        Icons.people_outline,
+                        HrmPageChrome.primaryNavy)),
+                const SizedBox(width: 8),
+                SizedBox(
+                    width: 100,
+                    child: _buildStatCard(
+                        'Đang làm',
+                        '$activeCount',
+                        Icons.check_circle_outline,
+                        HrmPageChrome.primaryNavy)),
+                const SizedBox(width: 8),
+                SizedBox(
+                    width: 100,
+                    child: _buildStatCard(
+                        'Thử việc',
+                        '$probationCount',
+                        Icons.hourglass_bottom,
+                        const Color(0xFFF59E0B))),
+                const SizedBox(width: 8),
+                SizedBox(
+                    width: 100,
+                    child: _buildStatCard(
+                        _l10n.department,
+                        '$deptCount',
+                        Icons.business_outlined,
+                        HrmPageChrome.primaryNavy)),
+              ],
+            ),
+          ),
+        ],
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+                child: _buildStatCard(
+                    'Tổng NV',
+                    '${_employees.length}',
+                    Icons.people_outline,
+                    HrmPageChrome.primaryNavy)),
+            const SizedBox(width: 8),
+            Expanded(
+                child: _buildStatCard(
+                    'Đang làm',
+                    '$activeCount',
+                    Icons.check_circle_outline,
+                    HrmPageChrome.primaryNavy)),
+            const SizedBox(width: 8),
+            Expanded(
+                child: _buildStatCard(
+                    'Thử việc',
+                    '$probationCount',
+                    Icons.hourglass_bottom,
+                    const Color(0xFFF59E0B))),
+            const SizedBox(width: 8),
+            Expanded(
+                child: _buildStatCard(
+                    _l10n.department,
+                    '$deptCount',
+                    Icons.business_outlined,
+                    HrmPageChrome.primaryNavy)),
+          ],
+        ),
+      ],
+      const SizedBox(height: 12),
+      _buildFilters(),
+      const SizedBox(height: 12),
+    ];
+  }
+
+  Widget _buildEmployeesDesktopBody() {
+    if (_isLoading) {
+      return const LoadingWidget(message: 'Đang tải nhân viên...');
+    }
+    if (_filteredEmployees.isEmpty) {
+      return EmptyState(
+        icon: Icons.people,
+        title: 'Không có nhân viên',
+        description: _searchQuery.isNotEmpty
+            ? 'No matching employees found'
+            : _l10n.addFirstEmployee,
+        actionLabel: _l10n.addEmployee,
+        onAction: () => _showEmployeeForm(null),
+      );
+    }
+    return _buildEmployeesList();
+  }
+
+  List<Widget> _buildEmployeesMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const LoadingWidget(message: 'Đang tải nhân viên...')),
+      ];
+    }
+    if (_filteredEmployees.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: EmptyState(
+            icon: Icons.people,
+            title: 'Không có nhân viên',
+            description: _searchQuery.isNotEmpty
+                ? 'No matching employees found'
+                : _l10n.addFirstEmployee,
+            actionLabel: _l10n.addEmployee,
+            onAction: () => _showEmployeeForm(null),
+          ),
+        ),
+      ];
+    }
+    return _employeesMobileListSlivers();
+  }
+
+  List<Widget> _employeesMobileListSlivers() {
+    const pad = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+
+    Widget cardWrap(Employee emp) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _buildEmployeeCard(emp),
+          ),
+        );
+
+    if (_groupByBranch && _branches.isNotEmpty) {
+      final Map<String, List<Employee>> groupMap = {};
+      for (final e in _filteredEmployees) {
+        final key = e.branchId ?? '__none__';
+        groupMap.putIfAbsent(key, () => []).add(e);
+      }
+      final branchOrder =
+          _branches.map((b) => b['id']?.toString() ?? '').toList();
+      final sortedKeys = groupMap.keys.toList()
+        ..sort((a, b) {
+          if (a == '__none__') return 1;
+          if (b == '__none__') return -1;
+          final ai = branchOrder.indexOf(a);
+          final bi = branchOrder.indexOf(b);
+          if (ai == -1 && bi == -1) return a.compareTo(b);
+          if (ai == -1) return 1;
+          if (bi == -1) return -1;
+          return ai.compareTo(bi);
+        });
+      String branchName(String key) {
+        if (key == '__none__') return 'Ch\u01b0a c\u00f3 chi nh\u00e1nh';
+        return _branches
+                .firstWhere((b) => b['id']?.toString() == key,
+                    orElse: () => {'name': key})['name']
+                ?.toString() ??
+            key;
+      }
+      final children = <Widget>[];
+      for (final key in sortedKeys) {
+        final emps = groupMap[key]!;
+        children.add(_buildBranchGroupHeader(branchName(key), emps.length));
+        for (final emp in emps) {
+          children.add(cardWrap(emp));
+        }
+      }
+      return [HrmScrollSlivers.childList(children: children, padding: pad)];
+    }
+
+    return HrmScrollSlivers.fromListViewBuilder(
+      itemCount: _filteredEmployees.length,
+      padding: pad,
+      itemBuilder: (_, i) => cardWrap(_filteredEmployees[i]),
+    );
+  }
+
   Widget _buildEmployeesList() {
     final isMobile = Responsive.isMobile(context);
+    if (isMobile) {
+      return const SizedBox.shrink();
+    }
 
     // ── Grouped mode ─────────────────────────────────────────────
     if (_groupByBranch && _branches.isNotEmpty) {
@@ -2673,8 +2746,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     icon: const Icon(Icons.qr_code_scanner, size: 20),
                     label: const Text('Quét QR căn cước công dân'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0C56D0),
-                      side: const BorderSide(color: Color(0xFF0C56D0)),
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
@@ -2916,7 +2989,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               return ListTile(
                                 dense: true,
                                 leading: const Icon(Icons.location_on,
-                                    size: 16, color: Color(0xFF1E3A5F)),
+                                    size: 16, color: HrmPageChrome.primaryNavy),
                                 title: Text(option,
                                     style: const TextStyle(fontSize: 13)),
                                 onTap: () => onSelected(option),
@@ -3106,7 +3179,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       const SizedBox(width: 4),
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline,
-                            color: Color(0xFF1E3A5F)),
+                            color: HrmPageChrome.primaryNavy),
                         tooltip: 'Thêm phòng ban mới',
                         onPressed: () => _showQuickAddDepartmentDialog(
                             setDialogState, departmentController),
@@ -3181,7 +3254,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       // Quick add department button
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline,
-                            color: Color(0xFF1E3A5F)),
+                            color: HrmPageChrome.primaryNavy),
                         tooltip: 'Thêm phòng ban mới',
                         onPressed: () => _showQuickAddDepartmentDialog(
                             setDialogState, departmentController),
@@ -3719,7 +3792,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               'temporaryAddress': temporaryAddressController.text.isNotEmpty
                   ? temporaryAddressController.text
                   : null,
-              'emergencyContactPhone':
+              'emergencyContactphone':
                   emergencyContactController.text.isNotEmpty
                       ? emergencyContactController.text
                       : null,
@@ -3803,7 +3876,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               onPressed: () => Navigator.pop(context),
                               child: Text(_l10n.cancel)),
                           const SizedBox(width: 12),
-                          ElevatedButton(
+                          FilledButton(
                               onPressed: onSave,
                               child: Text(
                                   isEditing ? _l10n.save : _l10n.addEmployee)),
@@ -3955,15 +4028,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             child:
                 Text(_l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => cropController.crop(),
             icon: const Icon(Icons.check, size: 18),
             label: const Text('Xác nhận'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
             ),
           ),
         ];
@@ -3999,7 +4069,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           backgroundColor: Colors.white,
           title: Row(
             children: [
-              const Icon(Icons.crop, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.crop, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               const Text('Cắt ảnh',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -4130,7 +4200,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         onPressed: () => Navigator.pop(ctx, null),
                         child: Text(_l10n.cancel)),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                         onPressed: () => Navigator.pop(ctx, ctrl.text),
                         child: const Text('Thêm')),
                   ]),
@@ -4358,7 +4428,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         child: const Text('Đóng'),
       ),
       if (_perm.canEdit(_module))
-        ElevatedButton.icon(
+        FilledButton.icon(
           onPressed: () {
             Navigator.pop(context);
             _showEmployeeForm(employee);
@@ -4555,7 +4625,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                color: Color(0xFF0C56D0),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(
@@ -4757,13 +4827,12 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
               style: TextStyle(color: Color(0xFF586064), fontSize: 11),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => setState(() => _showManualInput = true),
               icon: const Icon(Icons.keyboard, size: 16),
               label: const Text('Nhập mã thủ công'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0C56D0),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
               ),
             ),
           ],
@@ -4778,7 +4847,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.qr_code, color: Color(0xFF0C56D0), size: 40),
+          const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
           const Text(
             'Nhập dữ liệu QR CCCD',
@@ -4808,16 +4877,15 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                 child: const Text('Quay lại camera'),
               ),
               const Spacer(),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final text = _manualController.text.trim();
                   if (text.isNotEmpty && text.contains('|')) {
                     Navigator.pop(context, text);
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0C56D0),
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                 ),
                 child: const Text('Xác nhận'),
               ),

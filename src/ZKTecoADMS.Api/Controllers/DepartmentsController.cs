@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Departments.CreateDepartment;
 using ZKTecoADMS.Application.Commands.Departments.UpdateDepartment;
@@ -20,10 +21,11 @@ namespace ZKTecoADMS.Api.Controllers;
 public class DepartmentsController(IMediator mediator, ICacheService cacheService) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Lấy danh sách phòng ban có phân trang
+    /// Láº¥y danh sÃ¡ch phÃ²ng ban cÃ³ phÃ¢n trang
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Department", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<DepartmentDto>>>> GetAllDepartments(
         [FromQuery] PaginationRequest request,
         [FromQuery] string? searchTerm = null,
@@ -35,10 +37,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Lấy cây phòng ban (tree view)
+    /// Láº¥y cÃ¢y phÃ²ng ban (tree view)
     /// </summary>
     [HttpGet("tree")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Department", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<DepartmentTreeNodeDto>>>> GetDepartmentTree(
         [FromQuery] bool includeInactive = false)
     {
@@ -48,10 +51,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Lấy danh sách phòng ban cho dropdown
+    /// Láº¥y danh sÃ¡ch phÃ²ng ban cho dropdown
     /// </summary>
     [HttpGet("select")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Department", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<DepartmentSelectDto>>>> GetDepartmentsForSelect()
     {
         var storeId = RequiredStoreId;
@@ -67,10 +71,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Lấy thông tin chi tiết phòng ban
+    /// Láº¥y thÃ´ng tin chi tiáº¿t phÃ²ng ban
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Department", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DepartmentDto>>> GetDepartmentById(Guid id)
     {
         var query = new GetDepartmentByIdQuery(RequiredStoreId, id);
@@ -79,10 +84,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Tạo phòng ban mới
+    /// Táº¡o phÃ²ng ban má»›i
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Department", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<DepartmentDto>>> CreateDepartment([FromBody] CreateDepartmentDto request)
     {
         var command = new CreateDepartmentCommand(
@@ -101,10 +107,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Cập nhật phòng ban
+    /// Cáº­p nháº­t phÃ²ng ban
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Department", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<DepartmentDto>>> UpdateDepartment(Guid id, [FromBody] UpdateDepartmentDto request)
     {
         var command = new UpdateDepartmentCommand(
@@ -125,10 +132,11 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Xóa phòng ban
+    /// XÃ³a phÃ²ng ban
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Department", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteDepartment(Guid id)
     {
         var command = new DeleteDepartmentCommand(RequiredStoreId, id);
@@ -137,3 +145,4 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
         return Ok(result);
     }
 }
+

@@ -38,10 +38,24 @@ public class CreateDeviceCmdHandler(
             Status = CommandStatus.Created // Explicitly set status
         };
         
+        if (commandType == DeviceCommandTypes.SyncAttendances)
+        {
+            await CancelStaleSyncAttendanceCommandsAsync(device.Id, cancellationToken);
+            AttendanceBulkDeleteGuard.ClearAutoSyncSuppress(device.Id);
+            AttendanceBulkSyncTracker.ClearUploadActivity(device.Id);
+        }
+
         logger.LogWarning("[CreateDeviceCmd] Creating command: DeviceId={DeviceId}, Command={Command}, Status={Status}, CommandType={CommandType}", 
             command.DeviceId, command.Command, command.Status, command.CommandType);
         
         var created = await deviceCmdRepository.AddAsync(command, cancellationToken);
+
+        if (commandType == DeviceCommandTypes.SyncAttendances)
+        {
+            logger.LogInformation(
+                "[CreateDeviceCmd] SyncAttendances queued for {DeviceId} — reset sync tracker",
+                device.Id);
+        }
         
         logger.LogWarning("[CreateDeviceCmd] Command created successfully: Id={Id}, CommandId={CommandId}, Status={Status}", 
             created.Id, created.CommandId, created.Status);
@@ -57,13 +71,32 @@ public class CreateDeviceCmdHandler(
             DeviceCommandTypes.ClearDeviceUsers => "CLEAR ALL USERINFO",
             DeviceCommandTypes.ClearData => "CLEAR DATA",
             DeviceCommandTypes.RestartDevice => "REBOOT",
-            DeviceCommandTypes.SyncAttendances => ClockCommandBuilder.BuildGetAttendanceCommand(DateTime.Now.AddYears(-5), DateTime.Now),
-            // SyncDeviceUsers: Dùng CHECK USERINFO để yêu cầu máy gửi lại toàn bộ danh sách user
-            // Device sẽ POST data với table=OPERLOG chứa USER PIN=xxx\tName=xxx\t...
-            DeviceCommandTypes.SyncDeviceUsers => "CHECK USERINFO",
+            DeviceCommandTypes.SyncAttendances => ClockCommandBuilder.BuildDefaultSyncAttendancesCommand(),
+            DeviceCommandTypes.SyncDeviceUsers => ClockCommandBuilder.BuildGetAllUsersCommand(),
             // SyncFingerprints: Query fingerprint templates
             DeviceCommandTypes.SyncFingerprints => ClockCommandBuilder.BuildGetFingerprintsCommand(),
             _ => "NOT IMPLEMENTED"
         };
+    }
+
+    /// <summary>Hủy lệnh SyncAttendances cũ (Created/Sent) trước khi xếp lệnh mới — tránh kẹt nhiều lệnh Sent.</summary>
+    private async Task CancelStaleSyncAttendanceCommandsAsync(Guid deviceId, CancellationToken cancellationToken)
+    {
+        var stale = await deviceCmdRepository.GetAllAsync(
+            c => c.DeviceId == deviceId
+                 && c.CommandType == DeviceCommandTypes.SyncAttendances
+                 && (c.Status == CommandStatus.Created || c.Status == CommandStatus.Sent),
+            cancellationToken: cancellationToken);
+
+        foreach (var cmd in stale)
+        {
+            var previous = cmd.Status;
+            cmd.Status = CommandStatus.Failed;
+            cmd.SentAt = null;
+            await deviceCmdRepository.UpdateAsync(cmd, cancellationToken);
+            logger.LogInformation(
+                "[CreateDeviceCmd] Cancelled stale SyncAttendances {CommandId} (was {Status}) for {DeviceId}",
+                cmd.CommandId, previous, deviceId);
+        }
     }
 }

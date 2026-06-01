@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 
@@ -51,7 +53,6 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   bool _isSelectMode = false;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
@@ -117,10 +118,12 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             start: DateTime(now.year, now.month, 1),
             end: DateTime(now.year, now.month + 1, 0, 23, 59, 59));
       case 'lastMonth':
-        final lastMonth = DateTime(now.year, now.month - 1, 1);
+        final firstThis = DateTime(now.year, now.month, 1);
+        final lastDayPrev = firstThis.subtract(const Duration(days: 1));
         return DateTimeRange(
-            start: lastMonth,
-            end: DateTime(now.year, now.month, 0, 23, 59, 59));
+            start: DateTime(lastDayPrev.year, lastDayPrev.month, 1),
+            end: DateTime(lastDayPrev.year, lastDayPrev.month, lastDayPrev.day,
+                23, 59, 59));
       case 'custom':
         if (_customDateRange != null) return _customDateRange!;
         return DateTimeRange(
@@ -273,11 +276,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
       body: Column(
         children: [
-          // Row 1: Tabs (ẩn khi bonusOnly)
-          if (!_bonusOnly)
+          if (!_bonusOnly && !isMobile)
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -299,70 +302,76 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 ],
               ),
             ),
-          // Row 2: Filters
-          if (Responsive.isMobile(context)) ...[
-            _buildMobileFilterToggle(),
-            if (_showMobileFilters) _buildFilterBar(),
-          ] else
-            _buildFilterBar(),
-          if (Responsive.isMobile(context)) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: InkWell(
-                onTap: () =>
-                    setState(() => _showMobileSummary = !_showMobileSummary),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics_outlined,
-                          size: 16, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
-                      Text('Tổng quan',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: Colors.blue.shade700)),
-                      const Spacer(),
-                      Icon(
-                          _showMobileSummary
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                          size: 20,
-                          color: Colors.blue.shade700),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (_showMobileSummary) _buildSummaryCards(),
-          ] else ...[
-            _buildSummaryCards(),
-          ],
-          // Row 3: Batch action bar (when in select mode)
-          if (_isSelectMode) _buildBatchActionBar(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _bonusOnly
-                    ? _buildTransactionList(_bonusTransactions, isBonus: true)
-                    : TabBarView(
-                        controller: _tabController,
+            child: _bonusOnly
+                ? HrmResponsiveListLayout(
+                    headerSections: _bonusPenaltyHeaderSections(isMobile),
+                    desktopBody: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildTransactionList(_bonusTransactions,
+                            isBonus: true),
+                    mobileSlivers: (_) => _bonusPenaltyMobileSlivers(
+                        _bonusTransactions, isBonus: true),
+                  )
+                : isMobile
+                    ? HrmMobileNestedTabLayout(
+                        headerSections: _bonusPenaltyHeaderSections(isMobile),
+                        tabBar: TabBar(
+                          controller: _tabController,
+                          labelColor: Theme.of(context).primaryColor,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorWeight: 3,
+                          tabs: [
+                            Tab(
+                                icon: const Icon(Icons.card_giftcard),
+                                text:
+                                    '${_l10n.bonus} (${_bonusTransactions.length})'),
+                            Tab(
+                                icon: const Icon(Icons.gavel),
+                                text:
+                                    '${_l10n.penalty} (${_penaltyTransactions.length})'),
+                          ],
+                        ),
+                        tabBarView: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator())
+                                : _buildNestedTransactionTab(
+                                    _bonusTransactions, isBonus: true),
+                            _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator())
+                                : _buildNestedTransactionTab(
+                                    _penaltyTransactions, isBonus: false),
+                          ],
+                        ),
+                      )
+                    : Column(
                         children: [
-                          _buildTransactionList(_bonusTransactions,
-                              isBonus: true),
-                          _buildTransactionList(_penaltyTransactions,
-                              isBonus: false),
+                          ..._bonusPenaltyHeaderSections(false),
+                          if (_isSelectMode) _buildBatchActionBar(),
+                          Expanded(
+                            child: _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator())
+                                : TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      _buildTransactionList(_bonusTransactions,
+                                          isBonus: true),
+                                      _buildTransactionList(
+                                          _penaltyTransactions,
+                                          isBonus: false),
+                                    ],
+                                  ),
+                          ),
+                          _buildPaginationControls(),
                         ],
                       ),
           ),
-          if (!Responsive.isMobile(context)) _buildPaginationControls(),
+          if (_bonusOnly && !isMobile) _buildPaginationControls(),
         ],
       ),
       floatingActionButton:
@@ -380,75 +389,166 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     );
   }
 
+  List<Widget> _bonusPenaltyHeaderSections(bool isMobile) => [
+        _buildFilterBar(),
+        if (isMobile) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
+                    const SizedBox(width: 6),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
+                    const Spacer(),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_showMobileSummary) _buildSummaryCards(),
+        ] else
+          _buildSummaryCards(),
+        if (_isSelectMode) _buildBatchActionBar(),
+      ];
+
+  Widget _buildNestedTransactionTab(List<Map<String, dynamic>> items,
+      {required bool isBonus}) {
+    if (items.isEmpty) {
+      return HrmScrollSlivers.nestedTabList(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
+                  size: 48, color: Colors.grey.shade400),
+              const SizedBox(height: 12),
+              Text(
+                isBonus
+                    ? 'Chưa có khoản thưởng nào'
+                    : 'Chưa có khoản phạt nào',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return CustomScrollView(
+      slivers: [
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (_, i) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildTxDeckItem(items[i], isBonus: isBonus),
+                ),
+              ),
+              childCount: items.length,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _bonusPenaltyMobileSlivers(List<Map<String, dynamic>> items,
+      {required bool isBonus}) {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const Center(child: CircularProgressIndicator())),
+      ];
+    }
+    if (items.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
+                    size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                Text(
+                  isBonus
+                      ? 'Chưa có khoản thưởng nào'
+                      : 'Chưa có khoản phạt nào',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+    return HrmScrollSlivers.fromListViewBuilder(
+      itemCount: items.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE4E4E7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: _buildTxDeckItem(items[i], isBonus: isBonus),
+        ),
+      ),
+    );
+  }
+
   bool _hasActiveFilters() {
     return _datePreset != 'thisMonth' ||
         _filterType != 'all' ||
         _searchQuery.isNotEmpty ||
         _selectedBranchId != null;
-  }
-
-  Widget _buildMobileFilterToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () =>
-                setState(() => _showMobileFilters = !_showMobileFilters),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _showMobileFilters
-                    ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                    : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _showMobileFilters
-                        ? Icons.filter_alt
-                        : Icons.filter_alt_outlined,
-                    size: 16,
-                    color: _showMobileFilters
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _showMobileFilters ? 'Ẩn bộ lọc' : 'Bộ lọc',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _showMobileFilters
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.shade600,
-                    ),
-                  ),
-                  if (_hasActiveFilters()) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                          color: Colors.orangeAccent, shape: BoxShape.circle),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '${_currentTabItems.length} bản ghi',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildFilterBar() {
@@ -736,16 +836,15 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           if (pendingSelected.isNotEmpty &&
               Provider.of<PermissionProvider>(context, listen: false)
                   .canApprove('BonusPenalty'))
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => _batchApprove(pendingSelected),
               icon: const Icon(Icons.check_circle, size: 16),
               label: Text('Duyệt (${pendingSelected.length})'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
             ),
           // Batch pay
           if (approvedSelected.isNotEmpty)
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showPaymentDialog(approvedSelected),
               icon: Icon(
                   _tabController.index == 1
@@ -755,10 +854,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               label: Text(_tabController.index == 1
                   ? 'Thu tiền phạt (${approvedSelected.length})'
                   : 'Thanh toán (${approvedSelected.length})'),
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor:
                     _tabController.index == 1 ? Colors.teal : Colors.blue,
-                foregroundColor: Colors.white,
               ),
             ),
         ],
@@ -1046,11 +1144,14 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             const SizedBox(height: 8),
             if (Provider.of<PermissionProvider>(context, listen: false)
                 .canCreate('BonusPenalty'))
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () => _showCreateEditDialog(
                     presetType: isBonus ? 'Bonus' : 'Penalty'),
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(isBonus ? 'Thêm thưởng' : 'Thêm phạt'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
               ),
           ],
         ),
@@ -1458,9 +1559,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(_l10n.cancel)),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            style: FilledButton.styleFrom(backgroundColor: Colors.green),
             child: Text(_l10n.approveAll),
           ),
         ],
@@ -1604,11 +1705,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onPressed: () => Navigator.pop(ctx),
                               child: Text(_l10n.cancel)),
                           const SizedBox(width: 12),
-                          ElevatedButton.icon(
+                          FilledButton.icon(
                             onPressed: onPay,
                             icon: const Icon(Icons.check),
                             label: Text(btnLabel),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
                                 backgroundColor:
                                     isPenaltyTab ? Colors.teal : Colors.blue),
                           ),
@@ -1635,11 +1736,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: Text(_l10n.cancel)),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onPay,
                 icon: const Icon(Icons.check),
                 label: Text(btnLabel),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                     backgroundColor: isPenaltyTab ? Colors.teal : Colors.blue),
               ),
             ],
@@ -1709,9 +1810,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(_l10n.cancel)),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                style: FilledButton.styleFrom(backgroundColor: Colors.green),
                 child: Text(_l10n.approveLabel),
               ),
             ],
@@ -1739,9 +1840,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(_l10n.cancel)),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                style: FilledButton.styleFrom(backgroundColor: Colors.orange),
                 child: Text(_l10n.reverseApproval),
               ),
             ],
@@ -1768,9 +1869,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(_l10n.cancel)),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                style: FilledButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Hủy phiếu'),
               ),
             ],
@@ -1797,9 +1898,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: Text(_l10n.cancel)),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 child: Text(_l10n.delete),
               ),
             ],
@@ -1850,7 +1951,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     'Đi trễ',
     'Về sớm',
     'Nghỉ không phép',
-    'Vi phạm tác phong',
+    'Vi phạm tác phơng',
     'Vi phạm nội quy',
     'Vi phạm an toàn lao động',
     'Không hoàn thành công việc',
@@ -2248,7 +2349,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                             ),
                             const SizedBox(width: 8),
                           ],
-                          ElevatedButton.icon(
+                          FilledButton.icon(
                             onPressed: onSave,
                             icon: isSaving
                                 ? const SizedBox(
@@ -2263,7 +2364,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                                     ? 'Đang lưu...'
                                     : (isEdit ? 'Cập nhật' : 'Tạo phiếu'),
                                 style: const TextStyle(fontSize: 13)),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
+                                backgroundColor: HrmPageChrome.primaryNavy,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                                 visualDensity: VisualDensity.compact),
@@ -2312,10 +2414,13 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 ),
                 const SizedBox(width: 4),
               ],
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onSave,
                 icon: saveIcon,
                 label: saveLabel,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
               ),
             ],
           );

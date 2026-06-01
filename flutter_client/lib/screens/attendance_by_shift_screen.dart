@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
@@ -9,9 +10,13 @@ import 'attendance/attendance_summary_tab.dart'
     show AttendanceCorrectionRequest;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
+import '../utils/attendance_load_utils.dart';
+import '../utils/attendance_date_range_presets.dart';
+import '../utils/report_screen_helpers.dart';
+import '../utils/attendance_correction_privilege.dart';
+import '../utils/vietnamese_font.dart';
 
-/// Màn hình tổng hợp theo ca - standalone wrapper cho AttendanceByShiftTab
-/// Tự load dữ liệu (attendances + devices) và nhúng AttendanceByShiftTab
+/// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
 class AttendanceByShiftScreen extends StatefulWidget {
   const AttendanceByShiftScreen({super.key});
 
@@ -29,8 +34,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<Map<String, dynamic>> _shiftTemplates = [];
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   String? _selectedBranchId;
-  List<Map<String, dynamic>> _branches = [];
-  List<Map<String, dynamic>> _employeesList = [];
+  final _branchFilter = ReportBranchFilter();
   List<Map<String, dynamic>> _salaryProfiles = [];
   List<dynamic> _holidays = [];
   List<dynamic> _approvedLeaves = [];
@@ -40,8 +44,15 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   // ignore: unused_field
   bool _allowManualCorrection = true;
 
-  final DateTime _fromDate = DateTime.now().subtract(const Duration(days: 30));
-  final DateTime _toDate = DateTime.now();
+  String _loadPreset = 'month';
+  late DateTime _fromDate;
+  late DateTime _toDate;
+
+  _AttendanceByShiftScreenState() {
+    final range = AttendanceDateRangePresets.resolve('month');
+    _fromDate = range.start;
+    _toDate = range.end;
+  }
 
   @override
   void initState() {
@@ -54,30 +65,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   }
 
   Future<void> _loadEmployeesAndBranches() async {
-    try {
-      final emps = await _apiService.getEmployees(pageSize: 1000);
-      if (mounted) {
-        setState(() => _employeesList =
-            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
-      }
-    } catch (_) {}
-    try {
-      final br = await _apiService.getBranchesForSelect();
-      final bd = br['data'];
-      if (bd is List && mounted) {
-        setState(() => _branches =
-            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
-      }
-    } catch (_) {}
+    await _branchFilter.loadBranches(_apiService);
+    if (mounted) setState(() {});
   }
 
   List<Attendance> get _filteredAttendances {
     if (_selectedBranchId == null) return _attendances;
-    final branchCodes = _employeesList
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['employeeCode']?.toString() ?? '')
-        .where((c) => c.isNotEmpty)
-        .toSet();
+    final branchCodes = _branchFilter.codesForBranch(_selectedBranchId);
+    if (branchCodes.isEmpty) return [];
     return _attendances
         .where((a) => branchCodes.contains(a.employeeId))
         .toList();
@@ -89,67 +84,37 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
     }
   }
 
+  void _onDatePresetChanged(String preset) {
+    _loadPreset = preset;
+    _loadData();
+  }
+
   @override
   void dispose() {
     ScreenRefreshNotifier.attendanceByShift.removeListener(_onExternalRefresh);
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  /// [silent] true khi sửa/xóa/thêm chấm công — không overlay loading (giữ vị trí cuộn).
+  Future<void> _loadData({bool silent = false}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    if (!silent) {
+      setState(() => _isLoading = true);
+    }
 
     try {
-      // Load devices - dùng getDevices(storeOnly: true) để lấy thiết bị trong store
+      await _branchFilter.ensureEmployees(_apiService);
+      // Load devices \u2014 d\u00f9ng getDevices(storeOnly: true) \u0111\u1ec3 l\u1ea5y thi\u1ebft b\u1ecb trong store
       final devicesRaw = await _apiService.getDevices(storeOnly: true);
       final devices = (devicesRaw)
           .map((d) => Device.fromJson(d as Map<String, dynamic>))
           .toList();
 
-      // Load attendances from all devices
       final deviceIds = devices.map((d) => d.id).toList();
 
-      List<Attendance> attendances = [];
-      if (deviceIds.isNotEmpty) {
-        final result = await _apiService.getAttendances(
-          deviceIds: deviceIds,
-          fromDate: _fromDate,
-          toDate: _toDate,
-          page: 1,
-          pageSize: 500,
-        );
-        attendances = (result['items'] as List?)
-                ?.map((item) => Attendance.fromJson(item))
-                .toList() ??
-            [];
-      }
-
-      // Load shift templates, shift salary levels, salary profiles, holidays, day_end_time in parallel
-      final shiftsFuture = _apiService.getShifts();
-      final salaryLevelsFuture = _apiService.getShiftSalaryLevels();
-      final salaryProfilesFuture = _apiService.getSalaryProfiles();
-      final holidaysFuture = _apiService.getHolidaySettings(0);
-      final dayEndFuture = _apiService.getAppSetting('day_end_time');
-      final allowManualFuture =
-          _apiService.getAppSetting('allow_manual_correction');
-
-      final shiftsResult = await shiftsFuture;
-      final salaryLevelsResult = await salaryLevelsFuture;
-      final salaryProfilesResult = await salaryProfilesFuture;
-      final holidaysResult = await holidaysFuture;
-
-      final shiftTemplates =
-          shiftsResult.map((s) => s as Map<String, dynamic>).toList();
-      final shiftSalaryLevels = ((salaryLevelsResult['data']?['items'] ??
-              salaryLevelsResult['data'] ??
-              []) as List)
-          .map((s) => s as Map<String, dynamic>)
-          .toList();
-      final salaryProfiles =
-          salaryProfilesResult.map((s) => s as Map<String, dynamic>).toList();
-
-      // Parse day_end_time
-      final dayEndResult = await dayEndFuture;
+      final dayEndResult = await _apiService
+          .getAppSetting('day_end_time')
+          .catchError((_) => <String, dynamic>{});
       int deh = 0, dem = 0;
       if (dayEndResult['isSuccess'] == true && dayEndResult['data'] is Map) {
         final data = dayEndResult['data'] as Map;
@@ -161,36 +126,86 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         }
       }
 
-      // Parse allow_manual_correction
-      final allowManualResult = await allowManualFuture;
+      final range = AttendanceDateRangePresets.resolve(_loadPreset);
+      _fromDate = range.start;
+      _toDate = range.end;
+      final fetchFrom = AttendanceDateRangePresets.fetchFromDate(
+        _fromDate,
+        dayEndHour: deh,
+        dayEndMinute: dem,
+      );
+      final fromStr = fetchFrom.toIso8601String().substring(0, 10);
+      final toStr = _toDate.toIso8601String().substring(0, 10);
+
+      AttendanceLoadResult? attLoad;
+      if (deviceIds.isNotEmpty) {
+        attLoad = await loadAttendancesForPeriodResult(
+          _apiService,
+          deviceIds: deviceIds,
+          fromDate: _fromDate,
+          toDate: _toDate,
+          dayEndHour: deh,
+          dayEndMinute: dem,
+          pageSize: 1000,
+        );
+      }
+      final attendances = attLoad?.items ?? <Attendance>[];
+
+      final p2 = await Future.wait([
+        _apiService.getShifts().catchError((_) => <dynamic>[]),
+        _apiService
+            .getShiftSalaryLevels()
+            .catchError((_) => <String, dynamic>{}),
+        _apiService.getSalaryProfiles().catchError((_) => <dynamic>[]),
+        _apiService.getHolidaySettings(0).catchError((_) => <dynamic>[]),
+        _apiService
+            .getAppSetting('allow_manual_correction')
+            .catchError((_) => <String, dynamic>{}),
+        _apiService
+            .getAllLeaves(
+                fromDate: fromStr,
+                toDate: toStr,
+                status: 'Approved',
+                pageSize: 1000)
+            .catchError((_) => <String, dynamic>{}),
+        _apiService
+            .getAllLeaves(
+                fromDate: fromStr,
+                toDate: toStr,
+                status: 'Pending',
+                pageSize: 1000)
+            .catchError((_) => <String, dynamic>{}),
+      ]);
+
+      final shiftsRaw = p2[0] as List;
+      final shiftTemplates =
+          shiftsRaw.map((s) => s as Map<String, dynamic>).toList();
+
+      final salaryLevelsResult = p2[1] as Map<String, dynamic>;
+      final shiftSalaryLevels = ((salaryLevelsResult['data']?['items'] ??
+              salaryLevelsResult['data'] ??
+              []) as List)
+          .map((s) => s as Map<String, dynamic>)
+          .toList();
+
+      final salaryProfilesRaw = p2[2] as List;
+      final salaryProfiles =
+          salaryProfilesRaw.map((s) => s as Map<String, dynamic>).toList();
+
+      final holidaysResult = p2[3] as List<dynamic>;
+
       bool allowManual = true;
+      final allowManualResult = p2[4] as Map<String, dynamic>;
       if (allowManualResult['isSuccess'] == true &&
           allowManualResult['data'] is Map) {
         allowManual =
             (allowManualResult['data'] as Map)['value']?.toString() != 'false';
       }
 
-      // Load approved leaves
-      List<dynamic> approvedLeaves = [];
-      try {
-        final fromStr = _fromDate.toIso8601String().substring(0, 10);
-        final toStr = _toDate.toIso8601String().substring(0, 10);
-        final leavesResult = await _apiService.getAllLeaves(
-            fromDate: fromStr,
-            toDate: toStr,
-            status: 'Approved',
-            pageSize: 1000);
-        if (leavesResult['isSuccess'] == true) {
-          final data = leavesResult['data'];
-          if (data is Map) {
-            approvedLeaves = (data['items'] as List?) ?? [];
-          } else if (data is List) {
-            approvedLeaves = data;
-          }
-        }
-      } catch (e) {
-        debugPrint('Load approved leaves error: $e');
-      }
+      List<dynamic> approvedLeaves = [
+        ..._parseLeaveItems(p2[5] as Map<String, dynamic>),
+        ..._parseLeaveItems(p2[6] as Map<String, dynamic>),
+      ];
 
       if (mounted) {
         setState(() {
@@ -204,29 +219,26 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _dayEndHour = deh;
           _dayEndMinute = dem;
           _allowManualCorrection = allowManual;
-          _isLoading = false;
+          if (!silent) _isLoading = false;
         });
+        if (attLoad?.truncated == true && mounted) {
+          appNotification.showWarning(
+            title: 'Dữ liệu có thể chưa đủ',
+            message:
+                'Đã tải ${attendances.length} log. Thu hẹp khoảng ngày nếu thiếu ngày gần đây.',
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error loading data: $e');
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.primaryColor;
-    final isMobile = Responsive.isMobile(context);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: Column(
-        children: [
-          // Gradient header
-          Container(
+  List<Widget> _byShiftPageChromeSections(bool isMobile, Color primary) => [
+        Container(
             padding: EdgeInsets.fromLTRB(
                 isMobile ? 14 : 24, 18, isMobile ? 14 : 24, 18),
             decoration: BoxDecoration(
@@ -261,17 +273,17 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tổng hợp chấm công theo ca',
-                        style: TextStyle(
+                        'T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca',
+                        style: vietnameseTextStyle(TextStyle(
                             fontSize: isMobile ? 16 : 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white),
+                            color: Colors.white)),
                       ),
                       Text(
-                        'Tổng hợp chấm công theo ca · ${_attendances.length} bản ghi',
-                        style: TextStyle(
+                        'T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u00b7 ${_attendances.length} b\u1ea3n ghi',
+                        style: vietnameseTextStyle(TextStyle(
                             fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.8)),
+                            color: Colors.white.withValues(alpha: 0.8))),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -289,19 +301,19 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'excel',
                           child: Row(children: [
-                            Icon(Icons.table_chart_outlined, size: 18),
-                            SizedBox(width: 8),
-                            Text('Xuất Excel')
+                            const Icon(Icons.table_chart_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Xu\u1ea5t Excel', style: vietnameseTextStyle())
                           ])),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'png',
                           child: Row(children: [
-                            Icon(Icons.image_outlined, size: 18),
-                            SizedBox(width: 8),
-                            Text('Xuất PNG')
+                            const Icon(Icons.image_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Xu\u1ea5t PNG', style: vietnameseTextStyle())
                           ])),
                     ],
                   )
@@ -315,7 +327,33 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
               ],
             ),
           ),
-          if (_branches.isNotEmpty)
+          if (_salaryProfiles.isEmpty && !_isLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+              child: Material(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 18, color: Colors.blue.shade800),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Ch\u01b0a c\u00f3 b\u1ea3ng l\u01b0\u01a1ng c\u1ea5u h\u00ecnh \u2014 h\u1ec7 s\u1ed1 ca/l\u01b0\u01a1ng c\u00f3 th\u1ec3 kh\u00f4ng ch\u00ednh x\u00e1c. '
+                          'V\u00e0o Thi\u1ebft l\u1eadp l\u01b0\u01a1ng \u0111\u1ec3 c\u1ea5u h\u00ecnh.',
+                          style: vietnameseTextStyle(TextStyle(
+                              fontSize: 12, color: Colors.blue.shade900)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (_branchFilter.branches.isNotEmpty)
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -344,18 +382,23 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                           icon: const Icon(Icons.keyboard_arrow_down,
                               size: 18, color: Color(0xFF9CA3AF)),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text('Tất cả chi nhánh',
-                                    style: TextStyle(fontSize: 13))),
-                            ..._branches.map((b) => DropdownMenuItem<String?>(
+                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                    style: vietnameseTextStyle(
+                                        const TextStyle(fontSize: 13)))),
+                            ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
                                 value: b['id']?.toString(),
                                 child: Text(b['name']?.toString() ?? '',
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13)))),
                           ],
-                          onChanged: (v) =>
-                              setState(() => _selectedBranchId = v),
+                          onChanged: (v) async {
+                            if (v != null) {
+                              await _branchFilter.ensureEmployees(_apiService);
+                            }
+                            if (mounted) setState(() => _selectedBranchId = v);
+                          },
                         ),
                       ),
                     ),
@@ -373,31 +416,78 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                 ),
               ),
             ),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).primaryColor;
+    final isMobile = Responsive.isMobile(context);
+    final chrome = _byShiftPageChromeSections(isMobile, primary);
+
+    return Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      body: Column(
+        children: [
+          ...chrome,
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : AttendanceByShiftTab(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  child: AttendanceByShiftTab(
                     key: _tabKey,
                     attendances: _filteredAttendances,
                     devices: _devices,
                     fromDate: _fromDate,
                     toDate: _toDate,
+                    dateRangePreset: _loadPreset,
                     shiftTemplates: _shiftTemplates,
                     shiftSalaryLevels: _shiftSalaryLevels,
                     salaryProfiles: _salaryProfiles,
                     holidays: _holidays,
                     approvedLeaves: _approvedLeaves,
+                    employeesList: _branchFilter.employees,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
-                    onDataChanged: _loadData,
+                    onDataChanged: () => _loadData(silent: true),
+                    onDateRangeChanged: _onDatePresetChanged,
                   ),
+                ),
+                if (_isLoading)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        child: Center(
+                          child: Card(
+                            elevation: 4,
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(),
+                                  const SizedBox(height: 12),
+                                  Text('Đang tải dữ liệu…',
+                                      style: vietnameseTextStyle(
+                                          const TextStyle(fontSize: 13))),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Gửi yêu cầu chấm công lên backend → Xử lý yêu cầu CC
+  /// G\u1eedi y\u00eau c\u1ea7u ch\u1ea5m c\u00f4ng l\u00ean backend \u2014 x\u1eed l\u00fd y\u00eau c\u1ea7u CC
   // ignore: unused_element
   Future<void> _handleCorrectionRequest(
       AttendanceCorrectionRequest request) async {
@@ -459,21 +549,30 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           await _loadData();
           if (mounted) {
             NotificationOverlayManager().showSuccess(
-                title: 'Thành công',
-                message: 'Đã gửi yêu cầu chấm công thành công');
+                title: 'Th\u00e0nh c\u00f4ng',
+                message: '\u0110\u00e3 g\u1eedi y\u00eau c\u1ea7u ch\u1ea5m c\u00f4ng th\u00e0nh c\u00f4ng');
           }
         } else {
           NotificationOverlayManager().showError(
-              title: 'Lỗi', message: 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
+              title: 'L\u1ed7i',
+              message: attendanceCorrectionErrorMessage(success));
         }
       }
     } catch (e) {
       debugPrint('Error creating correction request: $e');
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'L\u1ed7i', message: 'L\u1ed7i: $e');
       }
     }
+  }
+
+  static List<dynamic> _parseLeaveItems(Map<String, dynamic> result) {
+    if (result['isSuccess'] != true) return [];
+    final data = result['data'];
+    if (data is Map) return (data['items'] as List?) ?? [];
+    if (data is List) return data;
+    return [];
   }
 
   Widget _buildHeaderActionBtn(
@@ -492,10 +591,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
               Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
               Text(label,
-                  style: const TextStyle(
+                  style: vietnameseTextStyle(const TextStyle(
                       fontSize: 12,
                       color: Colors.white,
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w600))),
             ],
           ),
         ),

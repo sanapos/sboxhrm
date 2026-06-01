@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 /// SuperAdmin – Tab quản lý nội dung: Điều khoản, Chính sách, Trợ giúp + Báo lỗi
 class ContentPagesTab extends StatefulWidget {
@@ -80,7 +81,7 @@ class _PagesSubTabState extends State<_PagesSubTab> {
       'type': 'terms',
       'label': 'Điều khoản sử dụng',
       'icon': Icons.gavel,
-      'color': Color(0xFF0F2340)
+      'color': HrmPageChrome.primaryNavy
     },
     {
       'type': 'privacy',
@@ -162,7 +163,7 @@ class _PagesSubTabState extends State<_PagesSubTab> {
                           style: const TextStyle(fontSize: 12))
                       : const Text('Chưa có nội dung',
                           style: TextStyle(fontSize: 12, color: Colors.orange)),
-                  trailing: ElevatedButton.icon(
+                  trailing: FilledButton.icon(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: color,
                         foregroundColor: Colors.white,
@@ -302,7 +303,7 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Huỷ')),
             const SizedBox(width: 12),
-            ElevatedButton.icon(
+            FilledButton.icon(
               style: ElevatedButton.styleFrom(
                   backgroundColor: widget.color, foregroundColor: Colors.white),
               onPressed: _saving ? null : _save,

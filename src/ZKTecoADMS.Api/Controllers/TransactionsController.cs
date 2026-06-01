@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Transactions;
 using ZKTecoADMS.Application.Queries.Transactions;
@@ -20,6 +21,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PagedResult<PaymentTransactionDto>>>> GetTransactions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -38,6 +40,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> GetTransactionById(Guid id)
     {
         var query = new GetTransactionByIdQuery(id);
@@ -47,6 +50,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<TransactionSummaryDto>>> GetTransactionSummary(
         [FromQuery] Guid? employeeUserId = null,
         [FromQuery] int? forMonth = null,
@@ -59,6 +63,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> CreateTransaction([FromBody] CreatePaymentTransactionDto request)
     {
         var command = new CreatePaymentTransactionCommand(
@@ -84,11 +89,11 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
             var empUserId = request.EmployeeUserId;
             if (empUserId != Guid.Empty && empUserId != CurrentUserId)
             {
-                var typeLabel = request.Type == "Bonus" ? "thưởng" : request.Type == "Penalty" ? "phạt" : request.Type;
+                var typeLabel = request.Type == "Bonus" ? "thÆ°á»Ÿng" : request.Type == "Penalty" ? "pháº¡t" : request.Type;
                 await notificationService.CreateAndSendAsync(
                     empUserId, NotificationType.Info,
-                    $"Phiếu {typeLabel} mới",
-                    $"Bạn có phiếu {typeLabel}: {request.Amount:N0}đ - {request.Description}",
+                    $"Phiáº¿u {typeLabel} má»›i",
+                    $"Báº¡n cÃ³ phiáº¿u {typeLabel}: {request.Amount:N0}Ä‘ - {request.Description}",
                     relatedEntityType: "PaymentTransaction",
                     fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
             }
@@ -100,6 +105,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpPut("{id}/status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> UpdateTransactionStatus(
         Guid id, 
         [FromBody] UpdateTransactionStatusDto request)
@@ -115,14 +121,14 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
             {
                 var statusLabel = request.Status switch
                 {
-                    "Completed" => "đã duyệt",
-                    "Cancelled" => "đã hủy",
-                    _ => $"cập nhật: {request.Status}"
+                    "Completed" => "Ä‘Ã£ duyá»‡t",
+                    "Cancelled" => "Ä‘Ã£ há»§y",
+                    _ => $"cáº­p nháº­t: {request.Status}"
                 };
                 await notificationService.CreateAndSendAsync(
                     tx.EmployeeUserId, NotificationType.Info,
-                    "Phiếu thưởng/phạt cập nhật",
-                    $"Phiếu {tx.Type} {statusLabel}",
+                    "Phiáº¿u thÆ°á»Ÿng/pháº¡t cáº­p nháº­t",
+                    $"Phiáº¿u {tx.Type} {statusLabel}",
                     relatedEntityType: "PaymentTransaction", relatedEntityId: id,
                     fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
             }
@@ -134,6 +140,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> UpdateTransaction(
         Guid id,
         [FromBody] UpdatePaymentTransactionDto request)
@@ -153,6 +160,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
         // Load transaction info before deletion for notification
@@ -184,11 +192,11 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
         {
             if (txInfo != null && txInfo.EmployeeUserId != Guid.Empty && txInfo.EmployeeUserId != CurrentUserId)
             {
-                var typeLabel = txInfo.Type == "Bonus" ? "thưởng" : txInfo.Type == "Penalty" ? "phạt" : txInfo.Type;
+                var typeLabel = txInfo.Type == "Bonus" ? "thÆ°á»Ÿng" : txInfo.Type == "Penalty" ? "pháº¡t" : txInfo.Type;
                 await notificationService.CreateAndSendAsync(
                     txInfo.EmployeeUserId, NotificationType.Warning,
-                    $"Phiếu {typeLabel} đã xóa",
-                    $"Phiếu {typeLabel} {txInfo.Amount:N0}đ đã bị xóa",
+                    $"Phiáº¿u {typeLabel} Ä‘Ã£ xÃ³a",
+                    $"Phiáº¿u {typeLabel} {txInfo.Amount:N0}Ä‘ Ä‘Ã£ bá»‹ xÃ³a",
                     relatedEntityType: "PaymentTransaction",
                     fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
             }
@@ -200,6 +208,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpPost("bulk-approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BulkTransactionResultDto>>> BulkApprove([FromBody] BulkTransactionApproveDto request)
     {
         int success = 0, failed = 0;
@@ -228,11 +237,11 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                 {
                     if (t.EmployeeUserId != Guid.Empty && t.EmployeeUserId != CurrentUserId)
                     {
-                        var typeLabel = t.Type == "Bonus" ? "thưởng" : t.Type == "Penalty" ? "phạt" : t.Type;
+                        var typeLabel = t.Type == "Bonus" ? "thÆ°á»Ÿng" : t.Type == "Penalty" ? "pháº¡t" : t.Type;
                         await notificationService.CreateAndSendAsync(
                             t.EmployeeUserId, NotificationType.Success,
-                            $"Phiếu {typeLabel} đã duyệt",
-                            $"Phiếu {typeLabel} {Math.Abs(t.Amount):N0}đ đã được duyệt",
+                            $"Phiáº¿u {typeLabel} Ä‘Ã£ duyá»‡t",
+                            $"Phiáº¿u {typeLabel} {Math.Abs(t.Amount):N0}Ä‘ Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t",
                             relatedEntityType: "PaymentTransaction", relatedEntityId: t.Id,
                             fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
                     }
@@ -246,6 +255,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
 
     [HttpPost("bulk-pay")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BulkTransactionResultDto>>> BulkPay([FromBody] BulkTransactionPayDto request)
     {
         var storeId = RequiredStoreId;
@@ -289,7 +299,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                 var isPenalty = transaction.Type == "Penalty";
                 var cashType = isPenalty ? CashTransactionType.Income : CashTransactionType.Expense;
                 var codePrefix = isPenalty ? "TH" : "CH";
-                var categoryName = isPenalty ? "Phạt nhân viên" : "Thưởng nhân viên";
+                var categoryName = isPenalty ? "Pháº¡t nhÃ¢n viÃªn" : "ThÆ°á»Ÿng nhÃ¢n viÃªn";
 
                 var category = categories.FirstOrDefault(c => c.Name == categoryName && c.Type == cashType);
                 if (category == null)
@@ -315,7 +325,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                     CategoryId = category.Id,
                     Amount = Math.Abs(transaction.Amount),
                     TransactionDate = today,
-                    Description = $"{(isPenalty ? "Thu tiền phạt" : "Thưởng")} - {empName} - {transaction.Description}",
+                    Description = $"{(isPenalty ? "Thu tiá»n pháº¡t" : "ThÆ°á»Ÿng")} - {empName} - {transaction.Description}",
                     PaymentMethod = paymentMethod,
                     Status = CashTransactionStatus.Completed,
                     IsPaid = true,
@@ -323,8 +333,8 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                     CreatedByUserId = CurrentUserId,
                     StoreId = storeId,
                     InternalNote = !string.IsNullOrEmpty(transaction.Note)
-                        ? $"{transaction.Note} | Tự động tạo từ phiếu thưởng/phạt #{transaction.Id}"
-                        : $"Tự động tạo từ phiếu thưởng/phạt #{transaction.Id}",
+                        ? $"{transaction.Note} | Tá»± Ä‘á»™ng táº¡o tá»« phiáº¿u thÆ°á»Ÿng/pháº¡t #{transaction.Id}"
+                        : $"Tá»± Ä‘á»™ng táº¡o tá»« phiáº¿u thÆ°á»Ÿng/pháº¡t #{transaction.Id}",
                     IsActive = true
                 };
 
@@ -350,11 +360,11 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                 var t = kvp.Value;
                 if (t.EmployeeUserId != Guid.Empty && t.EmployeeUserId != CurrentUserId)
                 {
-                    var typeLabel = t.Type == "Bonus" ? "thưởng" : t.Type == "Penalty" ? "phạt" : t.Type;
+                    var typeLabel = t.Type == "Bonus" ? "thÆ°á»Ÿng" : t.Type == "Penalty" ? "pháº¡t" : t.Type;
                     await notificationService.CreateAndSendAsync(
                         t.EmployeeUserId, NotificationType.Success,
-                        $"Phiếu {typeLabel} đã thanh toán",
-                        $"Phiếu {typeLabel} {Math.Abs(t.Amount):N0}đ đã được thanh toán",
+                        $"Phiáº¿u {typeLabel} Ä‘Ã£ thanh toÃ¡n",
+                        $"Phiáº¿u {typeLabel} {Math.Abs(t.Amount):N0}Ä‘ Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n",
                         relatedEntityType: "PaymentTransaction", relatedEntityId: t.Id,
                         fromUserId: CurrentUserId, categoryCode: "transaction", storeId: storeId);
                 }
@@ -365,3 +375,4 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
         return Ok(AppResponse<BulkTransactionResultDto>.Success(new BulkTransactionResultDto(success, failed)));
     }
 }
+

@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Text;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
-using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
@@ -19,8 +18,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class AiAssistantController(
     ZKTecoDbContext db,
+    IModulePermissionService modulePermissionService,
     IGeminiAiService geminiAiService,
-    IDeepSeekAiService deepSeekAiService,
     ILogger<AiAssistantController> logger) : AuthenticatedControllerBase
 {
     public class ChatMessage
@@ -32,7 +31,7 @@ public class AiAssistantController(
     public class ChatRequest
     {
         public List<ChatMessage> Messages { get; set; } = new();
-        public string? Provider { get; set; } // "gemini" | "deepseek"
+        public string? Provider { get; set; } // "gemini" (only supported provider)
     }
 
     public class ChatResponse
@@ -46,7 +45,7 @@ public class AiAssistantController(
 
     /// <summary>
     /// Chat với trợ lý ảo. Server nạp context cá nhân (profile, leave balance, attendance, payslip gần đây)
-    /// rồi chuyển tới Gemini/DeepSeek. AI có thể trả về text + tag ACTION gợi ý Flutter điều hướng.
+    /// rồi chuyển tới Gemini. AI có thể trả về text + tag ACTION gợi ý Flutter điều hướng.
     /// </summary>
     [HttpPost("chat")]
     public async Task<IActionResult> Chat([FromBody] ChatRequest dto, CancellationToken ct)
@@ -61,43 +60,63 @@ public class AiAssistantController(
             if (lastUserMessage == null || string.IsNullOrWhiteSpace(lastUserMessage.Content))
                 return BadRequest(AppResponse<ChatResponse>.Fail("Tin nhắn trống"));
 
-            // Load user context
-            var contextText = await BuildUserContextAsync(ct);
+            var role = CurrentUserRole;
+            var permMap = await modulePermissionService.GetEffectivePermissionsAsync(
+                CurrentUserId, role, CurrentStoreId, ct);
+            var isSuperUser = ModulePermissionDefaults.IsSuperRole(role);
+            var allowedActions = AiAssistantPermissionRules.AllowedActionTags(permMap, isSuperUser);
+            var allowedCreates = AiAssistantPermissionRules.AllowedCreateExamples(permMap, isSuperUser);
 
-            // Build system prompt
-            var systemPrompt = BuildSystemPrompt(contextText);
+            var contextText = await AiAssistantContextBuilder.BuildAsync(
+                db, CurrentUserId, RequiredStoreId, role, logger, ct);
+            contextText += "\n\n=== QUYỀN TÀI KHOẢN ===\n";
+            contextText += AiAssistantPermissionRules.BuildPermissionsSummary(permMap, isSuperUser, role);
 
-            // Combine history into a single user prompt (keep last 10 turns)
-            var history = dto.Messages
-                .TakeLast(20)
-                .Select(m => $"[{(m.Role == "assistant" ? "Trợ lý" : "Người dùng")}]: {m.Content}")
+            var systemPrompt = AiAssistantPromptBuilder.Build(contextText, allowedActions, allowedCreates);
+            logger.LogInformation(
+                "AI assistant context for {UserId}: {Length} chars, digest: {Digest}",
+                CurrentUserId,
+                contextText.Length,
+                AiAssistantContextBuilder.BuildDigest(contextText));
+
+            var chatTurns = dto.Messages
+                .Where(m => !string.IsNullOrWhiteSpace(m.Content))
+                .Where(m => !IsBoilerplateAssistantMessage(m))
+                .TakeLast(16)
+                .Select(m => (
+                    Role: string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase)
+                        ? "assistant" : "user",
+                    Content: m.Content.Trim()))
                 .ToList();
-            var combined = string.Join("\n", history);
 
-            // Pick provider
-            var wantGemini = string.Equals(dto.Provider, "gemini", StringComparison.OrdinalIgnoreCase);
-            var wantDeepSeek = string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase);
-            string reply;
-            string usedProvider;
-            if (wantDeepSeek)
+            // Ghim tóm tắt dữ liệu vào câu hỏi cuối — tránh model bỏ qua system instruction dài.
+            if (chatTurns.Count > 0)
             {
-                reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                usedProvider = "deepseek";
-            }
-            else
-            {
-                try
+                var digest = AiAssistantContextBuilder.BuildDigest(contextText);
+                var last = chatTurns[^1];
+                if (last.Role == "user")
                 {
-                    reply = await geminiAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                    usedProvider = "gemini";
-                }
-                catch (Exception geminiEx) when (!wantGemini)
-                {
-                    logger.LogWarning(geminiEx, "Gemini failed, fallback to DeepSeek");
-                    reply = await deepSeekAiService.GeneratePlainTextAsync(systemPrompt, combined, 1500);
-                    usedProvider = "deepseek";
+                    chatTurns[^1] = (
+                        "user",
+                        $"[Dữ liệu hệ thống đã nạp]\n{digest}\n\n[Câu hỏi]\n{last.Content}");
                 }
             }
+
+            if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
+            {
+                return BadRequest(AppResponse<ChatResponse>.Fail(
+                    "Gemini AI chưa được bật hoặc chưa cấu hình API key. Vào Cài đặt → Thiết lập AI (Gemini) để kích hoạt trợ lý."));
+            }
+
+            if (string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(AppResponse<ChatResponse>.Fail(
+                    "DeepSeek đã ngừng hỗ trợ. Hệ thống chỉ dùng Google Gemini cho trợ lý ảo."));
+            }
+
+            var reply = await geminiAiService.GenerateAssistantChatAsync(
+                systemPrompt, chatTurns, 2048, ct);
+            const string usedProvider = "gemini";
 
             // Extract [[ACTION:xxx]] tags
             var actions = new List<string>();
@@ -125,10 +144,21 @@ public class AiAssistantController(
                 var cj = cleaned.IndexOf("]]", ci, StringComparison.Ordinal);
                 if (cj < 0) break;
                 var ctag = cleaned.Substring(ci + 9, cj - (ci + 9)).Trim();
-                if (!string.IsNullOrWhiteSpace(ctag)) creates.Add(ctag);
+                if (!string.IsNullOrWhiteSpace(ctag))
+                {
+                    var validated = AiAssistantCreateValidator.ExtractAndValidate(
+                        ctag, permMap, isSuperUser, out _);
+                    creates.AddRange(validated);
+                }
                 cleaned = cleaned.Remove(ci, cj - ci + 2);
                 cStart = ci;
             }
+
+            actions = actions
+                .Where(a => AiAssistantPermissionRules.CanAction(a, permMap, isSuperUser))
+                .Distinct()
+                .ToList();
+            creates = creates.Distinct().ToList();
 
             return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
             {
@@ -145,10 +175,21 @@ public class AiAssistantController(
         }
     }
 
-    /// <summary>
-    /// Lấy context tóm tắt của người dùng đang đăng nhập để gắn vào system prompt.
-    /// </summary>
-    private async Task<string> BuildUserContextAsync(CancellationToken ct)
+    private static bool IsBoilerplateAssistantMessage(ChatMessage m)
+    {
+        if (!string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+            return false;
+        var c = m.Content.Trim();
+        return c.StartsWith("Xin chào! Tôi là trợ lý", StringComparison.Ordinal)
+               || c.StartsWith("⚠️", StringComparison.Ordinal)
+               || c.StartsWith("❌", StringComparison.Ordinal)
+               || c.StartsWith("✅ Đã tạo", StringComparison.Ordinal)
+               || c.StartsWith("📋 Đã mở", StringComparison.Ordinal);
+    }
+
+}
+#if false // removed legacy context — see AiAssistantContextBuilder
+    private async Task<string> BuildUserContextAsync_Legacy(CancellationToken ct)
     {
         var userId = CurrentUserId;
         var storeId = CurrentStoreId;
@@ -393,16 +434,28 @@ public class AiAssistantController(
         return buf.ToString();
     }
 
-    private static string BuildSystemPrompt(string userContext)
+    private static string BuildSystemPrompt(
+        string userContext,
+        IReadOnlyList<string> allowedActions,
+        IReadOnlyList<string> allowedCreates)
     {
+        var actionLines = allowedActions.Count > 0
+            ? string.Join("\n", allowedActions.Select(a => $"- [[ACTION:{a}]]"))
+            : "- (Không có thẻ ACTION — chỉ trả lời câu hỏi, không điều hướng)";
+        var createList = allowedCreates.Count > 0
+            ? string.Join(", ", allowedCreates)
+            : "(không có)";
+
         return $@"Bạn là Trợ lý ảo HRM của hệ thống SBOX HRM, chuyên hỗ trợ nhân viên và quản lý bằng tiếng Việt.
 
 NGUYÊN TẮC:
 - Luôn trả lời BẰNG TIẾNG VIỆT, ngắn gọn, thân thiện, chuyên nghiệp.
 - Chỉ trả lời dựa trên DỮ LIỆU CÁ NHÂN của chính người dùng được cung cấp bên dưới.
 - KHÔNG bịa số liệu. Nếu không đủ thông tin, nói thẳng ""Tôi không thể truy cập dữ liệu này"".
-- Tôn trọng phân quyền: nếu user là nhân viên (Employee) thì chỉ nói về dữ liệu CỦA HỌ. Nếu là quản lý/admin thì có thể nói về số đơn chờ duyệt toàn cửa hàng (đã cung cấp ở context).
-- Khi người dùng muốn thực hiện tác vụ (tạo/sửa/xem), hãy hướng dẫn ngắn gọn VÀ kèm thẻ hành động ở cuối tin nhắn.
+- Tôn trọng phân quyền: CHỈ gợi ý thao tác/tạo phiếu mà tài khoản ĐƯỢC PHÉP (danh sách thẻ ACTION/CREATE bên dưới).
+- Nếu người dùng yêu cầu chức năng KHÔNG có trong danh sách được phép → trả lời: ""Tài khoản của bạn không có quyền thực hiện thao tác này."" — KHÔNG gắn thẻ ACTION/CREATE.
+- Nếu user là nhân viên (Employee) thì chỉ nói về dữ liệu CỦA HỌ. Nếu là quản lý/admin thì có thể nói về số đơn chờ duyệt toàn cửa hàng (đã cung cấp ở context).
+- Khi người dùng muốn thực hiện tác vụ (tạo/sửa/xem) VÀ có quyền, hãy hướng dẫn ngắn gọn VÀ kèm thẻ hành động ở cuối tin nhắn.
 
 XỬ LÝ CÂU HỎI DỮ LIỆU TỔ CHỨC (quan trọng):
 - Nếu trong phần ""Tình hình nhân sự hôm nay"" ở context có dữ liệu → DÙNG DỮ LIỆU ĐÓ để trả lời trực tiếp khi người dùng hỏi ""hôm nay ai nghỉ"", ""ai vắng không phép"", ""danh sách vắng mặt"" v.v. Đây là dữ liệu thật, không bịa.
@@ -418,37 +471,8 @@ XỬ LÝ ĐẦU VÀO GIỌNG NÓI:
 - VD đoán: ""chấm cong""→""chấm công""; ""nghi phep""→""nghỉ phép""; ""ung luong""→""ứng lương""; ""tang ca""→""tăng ca""; ""di cong tac""→""đi công tác"".
 - KHÔNG nhắc lại lỗi nhận dạng.
 
-CÁC THẺ HÀNH ĐỘNG HỢP LỆ (đặt CUỐI tin nhắn, mỗi thẻ 1 dòng riêng, KHÔNG giải thích):
-
-— XEM DỮ LIỆU —
-- [[ACTION:nav_dashboard]]               → Tổng quan
-- [[ACTION:nav_attendance_history]]      → Lịch sử chấm công cá nhân
-- [[ACTION:nav_payroll]]                 → Phiếu lương cá nhân
-- [[ACTION:nav_kpi]]                     → KPI cá nhân
-- [[ACTION:nav_communication]]           → Bảng tin / truyền thông
-- [[ACTION:nav_meal]]                    → Đăng ký ăn / báo cơm
-- [[ACTION:nav_tasks]]                   → Danh sách công việc
-- [[ACTION:nav_assets]]                  → Tài sản đang giữ
-- [[ACTION:nav_bonus_penalty]]           → Lịch sử thưởng / phạt
-
-— TẠO PHIẾU MỚI (gợi ý dùng các thẻ ""_create"" khi user muốn THÊM/TẠO/ĐĂNG KÝ MỚI) —
-- [[ACTION:nav_leave_create]]            → Thêm phiếu xin nghỉ phép
-- [[ACTION:nav_advance_create]]          → Thêm phiếu ứng lương
-- [[ACTION:nav_overtime_create]]         → Đăng ký tăng ca / OT
-- [[ACTION:nav_field_checkin_create]]    → Tạo phiếu đi công tác / chấm công ngoài
-- [[ACTION:nav_attendance_correction_create]] → Tạo phiếu sửa giờ / báo quên chấm công
-- [[ACTION:nav_shift_change]]            → Đổi ca / đăng ký lịch làm
-- [[ACTION:nav_feedback_create]]         → Gửi phản ánh / ý kiến
-
-— XEM/SỬA DANH SÁCH (cho quản lý) —
-- [[ACTION:nav_leave]]                   → Danh sách phiếu nghỉ
-- [[ACTION:nav_advance]]                 → Danh sách phiếu ứng lương
-- [[ACTION:nav_attendance_correction]]   → Danh sách phiếu sửa giờ
-- [[ACTION:nav_overtime]]                → Danh sách phiếu OT
-- [[ACTION:nav_field_checkin]]           → Danh sách phiếu công tác
-- [[ACTION:nav_employees]]               → Quản lý nhân viên
-- [[ACTION:nav_departments]]             → Phòng ban
-- [[ACTION:nav_cash]]                    → Giao dịch quỹ
+THẺ ACTION ĐƯỢC PHÉP DÙNG (CHỈ các thẻ sau — đặt CUỐI tin nhắn, mỗi thẻ 1 dòng):
+{actionLines}
 
 QUY TẮC DÙNG THẺ:
 - Người dùng nói ""thêm"", ""tạo"", ""đăng ký"", ""xin"", ""gửi"" → ưu tiên thẻ ""_create"".
@@ -460,8 +484,11 @@ QUY TẮC DÙNG THẺ:
 Khi người dùng muốn TẠO một phiếu VÀ đã cung cấp đầy đủ dữ liệu bắt buộc → dùng thẻ [[CREATE:...]] thay cho [[ACTION:...]].
 Hệ thống sẽ tạo phiếu trực tiếp khi người dùng nhấn xác nhận, KHÔNG cần mở màn hình.
 
-LOẠI TẠO HỖ TRỢ:
-1. Phiếu sửa giờ / báo quên chấm công:
+LOẠI CREATE ĐƯỢC PHÉP: {createList}
+(Chỉ hướng dẫn / gắn thẻ CREATE cho các loại trên.)
+
+LOẠI TẠO HỖ TRỢ (chi tiết — chỉ dùng nếu loại đó nằm trong danh sách được phép):
+1. Phiếu sửa giờ / báo quên chấm công (attendance_correction):
    Dữ liệu bắt buộc: ngày + giờ + lý do
    Thẻ: [[CREATE:attendance_correction,date=YYYY-MM-DD,time=HH:MM,action=add,reason=lý do không có dấu phẩy]]
    - action=add (thêm lần chấm mới / quên chấm) hoặc action=edit (sửa giờ chấm sai)
@@ -470,9 +497,39 @@ LOẠI TẠO HỖ TRỢ:
    - reason: KHÔNG dùng dấu phẩy trong lý do; thay bằng dấu gạch ngang hoặc chữ khác
    Ví dụ: [[CREATE:attendance_correction,date=2026-05-07,time=13:00,action=add,reason=quên chấm công buổi chiều]]
 
-2. Nếu thiếu dữ liệu → hỏi lại thông tin còn thiếu, KHÔNG phát thẻ CREATE.
-3. Nếu người dùng chưa xác nhận → mô tả ngắn gọn thông tin sẽ tạo + kèm thẻ CREATE để họ nhấn xác nhận.
-4. Chỉ 1 thẻ CREATE mỗi câu trả lời.
+2. Phiếu nghỉ phép (mở form, user chọn ca):
+   Thẻ: [[CREATE:leave,date=YYYY-MM-DD,reason=lý do,type=0]]
+   - date: ngày nghỉ; type: 0=phép năm, 1=ốm, 2=việc riêng (mặc định 0)
+   - Thiếu ngày hoặc lý do → hỏi lại hoặc dùng [[ACTION:nav_leave_create]]
+
+3. Ứng lương:
+   Nếu có số tiền + lý do: [[CREATE:advance,amount=5000000,reason=lý do]]
+   Nếu thiếu số tiền: [[ACTION:nav_advance_create]] hoặc [[CREATE:advance,reason=lý do]] (mở form)
+   - amount: số VNĐ, không dấu phẩy/chấm phân cách
+
+4. Phản ánh / ý kiến:
+   Nếu đủ tiêu đề + nội dung: [[CREATE:feedback,title=tiêu đề,content=nội dung,category=General]]
+   - category: General | Complaint | Suggestion | Other
+   - Thiếu → [[ACTION:nav_feedback_create]]
+
+5. Chấm cơm / báo ăn (mở form):
+   [[CREATE:meal,date=YYYY-MM-DD,time=HH:MM,session=trưa]]
+   - session: tên buổi (sáng/trưa/tối) — hệ thống khớp gần đúng
+   - Thiếu → [[ACTION:nav_meal_register]]
+
+6. Giao điểm công tác (quản lý, mở form):
+   [[CREATE:field_assignment,employeeId=...,locationId=...,dayOfWeek=1]]
+   - dayOfWeek: 1=T2 … 7=CN; bỏ trống = tất cả ngày
+   - Thiếu → [[ACTION:nav_field_checkin_create]]
+
+7. Đổi ca:
+   [[CREATE:shift_swap,date=YYYY-MM-DD,note=ghi chú]]
+   - date: ngày ca muốn đổi; hệ thống mở form đổi ca nếu tìm được ca đã duyệt
+   - Thiếu ngày → [[ACTION:nav_shift_change]]
+
+8. Nếu thiếu dữ liệu → hỏi lại thông tin còn thiếu, KHÔNG phát thẻ CREATE.
+9. Nếu người dùng chưa xác nhận → mô tả ngắn gọn thông tin sẽ tạo + kèm thẻ CREATE để họ nhấn xác nhận.
+10. Chỉ 1 thẻ CREATE mỗi câu trả lời.
 
 === THÔNG TIN NGƯỜI DÙNG ===
 {userContext}
@@ -480,4 +537,4 @@ LOẠI TẠO HỖ TRỢ:
 
 Bắt đầu trả lời câu hỏi của người dùng.";
     }
-}
+#endif

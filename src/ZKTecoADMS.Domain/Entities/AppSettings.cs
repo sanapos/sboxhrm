@@ -107,4 +107,7 @@ public static class AppSettingKeys
     public const string GoogleDriveFolderId = "google_drive_folder_id";
     public const string GoogleDriveFolderName = "google_drive_folder_name";
     public const string GoogleDriveImpersonateEmail = "google_drive_impersonate_email";
+
+    /// <summary>Số ngày lưu chấm công thô trước khi tự động xóa (mặc định 180).</summary>
+    public const string RawAttendanceRetentionDays = "raw_attendance_retention_days";
 }

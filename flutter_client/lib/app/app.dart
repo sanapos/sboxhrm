@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
+import '../utils/app_text_scaler.dart';
+import '../utils/vietnamese_font.dart';
 import '../screens/main_layout.dart';
 import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
@@ -42,21 +43,15 @@ class ZKTecoApp extends StatelessWidget {
           locale: themeProvider.locale,
           builder: (context, child) {
             final mediaQuery = MediaQuery.of(context);
-            final screenWidth = mediaQuery.size.width;
-            // Base design width: 375 (iPhone SE/small phone)
-            // Scale factor: clamp between 0.8 and 1.3
-            // On small screens (<375): scale down
-            // On medium phones (375-414): ~1.0x
-            // On large phones/tablets: scale up slightly
-            final scaleFactor = (screenWidth / 375).clamp(0.82, 1.3);
-            // Combine with user's accessibility text scale
-            final userScale = mediaQuery.textScaler.scale(1.0);
-            final combinedScale = min(scaleFactor * userScale, 1.5);
+            // Web/desktop: giữ cỡ thiết kế (14px body). Chỉ điện thoại hẹp thu nhỏ nhẹ.
             return MediaQuery(
               data: mediaQuery.copyWith(
-                textScaler: TextScaler.linear(combinedScale),
+                textScaler: AppTextScaler.resolve(context),
               ),
-              child: child!,
+              child: DefaultTextStyle(
+                style: kDefaultVietnameseTextStyle,
+                child: child!,
+              ),
             );
           },
           routes: {

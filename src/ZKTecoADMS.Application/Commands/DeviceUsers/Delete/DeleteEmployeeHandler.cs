@@ -1,36 +1,57 @@
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Domain.Enums;
-using Microsoft.AspNetCore.Identity;
 
 namespace ZKTecoADMS.Application.Commands.DeviceUsers.Delete;
 
 public class DeleteDeviceUserHandler(
-    IRepository<DeviceUser> employeeRepository,
-    IRepository<DeviceCommand> deviceCmdRepository) : ICommandHandler<DeleteDeviceUserCommand, AppResponse<Guid>>
+    IRepository<DeviceUser> deviceUserRepository,
+    IRepository<DeviceCommand> deviceCmdRepository,
+    IRepository<Attendance> attendanceRepository) : ICommandHandler<DeleteDeviceUserCommand, AppResponse<Guid>>
 {
     public async Task<AppResponse<Guid>> Handle(DeleteDeviceUserCommand request, CancellationToken cancellationToken)
     {
-        var employee = await employeeRepository.GetByIdAsync(request.EmployeeId, cancellationToken: cancellationToken);
-        
-        if (employee == null)
+        var deviceUser = await deviceUserRepository.GetByIdAsync(request.EmployeeId, cancellationToken: cancellationToken);
+
+        if (deviceUser == null)
         {
-            return AppResponse<Guid>.Fail("Employee not found");
+            return AppResponse<Guid>.Fail("Không tìm thấy nhân sự chấm công");
         }
 
-        employee.IsActive = false;
-        await employeeRepository.UpdateAsync(employee, cancellationToken);
-        
-        var cmd = new DeviceCommand
+        var deviceUserId = deviceUser.Id;
+        var pin = deviceUser.Pin;
+        var deviceId = deviceUser.DeviceId;
+
+        // Giữ lịch sử chấm công thô — chỉ gỡ liên kết DeviceUser, không xóa AttendanceLog.
+        var linkedAttendances = await attendanceRepository.GetAllAsync(
+            a => a.EmployeeId == deviceUserId,
+            cancellationToken: cancellationToken);
+        if (linkedAttendances.Count > 0)
         {
-            DeviceId = employee.DeviceId,
-            Command = ClockCommandBuilder.BuildDeleteEmployeeCommand(employee.Pin),
-            Status = CommandStatus.Created,
-            CommandType = DeviceCommandTypes.DeleteDeviceUser,
-            ObjectReferenceId = employee.Id
-        };
-        
-        await deviceCmdRepository.AddAsync(cmd, cancellationToken);
-        
-        return AppResponse<Guid>.Success(employee.Id);
+            foreach (var attendance in linkedAttendances)
+                attendance.EmployeeId = null;
+            await attendanceRepository.UpdateRangeAsync(linkedAttendances, cancellationToken);
+        }
+
+        if (request.SyncToDevice)
+        {
+            var cmd = new DeviceCommand
+            {
+                DeviceId = deviceId,
+                Command = ClockCommandBuilder.BuildDeleteEmployeeCommand(pin),
+                Status = CommandStatus.Created,
+                CommandType = DeviceCommandTypes.DeleteDeviceUser,
+                ObjectReferenceId = deviceUserId
+            };
+
+            await deviceCmdRepository.AddAsync(cmd, cancellationToken);
+        }
+
+        var deleted = await deviceUserRepository.DeleteAsync(deviceUser, cancellationToken);
+        if (!deleted)
+        {
+            return AppResponse<Guid>.Fail("Không thể xóa nhân sự chấm công khỏi server");
+        }
+
+        return AppResponse<Guid>.Success(deviceUserId);
     }
 }

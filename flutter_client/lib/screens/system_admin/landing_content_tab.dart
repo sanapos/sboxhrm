@@ -200,7 +200,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -390,7 +390,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
               const Text('Danh sách tính năng',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _addItem,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm'),
@@ -472,7 +472,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -708,7 +708,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                   child: Text('Gói dịch vụ & Bảng giá',
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _addPlan,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm gói'),
@@ -896,7 +896,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -1043,7 +1043,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
               const Text('Các bước hướng dẫn',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _addStep,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm bước'),
@@ -1133,7 +1133,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -1181,7 +1181,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
   bool _loading = false;
   bool _saving = false;
 
-  // Video 1: Gi?i thi?u
+  // Video 1: Giời thiểu
   final _introUrlCtrl = TextEditingController();
   final _introTitleCtrl = TextEditingController(text: 'Video giới thiệu');
   final _introSubtitleCtrl = TextEditingController(
@@ -1332,7 +1332,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -1711,7 +1711,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -2104,7 +2104,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -2297,7 +2297,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(
-              child: ElevatedButton(
+              child: FilledButton(
                 onPressed: () => Navigator.pop(context, _getDelta()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary,

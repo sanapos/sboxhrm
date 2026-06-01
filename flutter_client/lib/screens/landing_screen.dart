@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -105,7 +105,7 @@ class _LandingScreenState extends State<LandingScreen> {
         _heroTitle = pick('landingHeroTitle', _heroTitle);
         _heroSubtext = pick('landingHeroSubtext', _heroSubtext);
         _phoneNumber =
-            pick('technicalSupportPhone', pick('salesPhone', _phoneNumber));
+            pick('technicalSupportphone', pick('salesphone', _phoneNumber));
         _zaloNumber = pick('zaloUrl', _zaloNumber)
             .replaceAll('https://zalo.me/', '')
             .replaceAll(' ', '');
@@ -357,7 +357,7 @@ class _LandingScreenState extends State<LandingScreen> {
                         const SizedBox(width: 8),
                         Padding(
                           padding: const EdgeInsets.only(right: 16),
-                          child: ElevatedButton(
+                          child: FilledButton(
                             onPressed: _goToLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kBlue,
@@ -551,7 +551,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton(
+                          child: FilledButton(
                             onPressed: onRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _kBlue,
@@ -800,7 +800,7 @@ class _HeroSection extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        ElevatedButton.icon(
+        FilledButton.icon(
           onPressed: onGetStarted,
           icon: const Icon(Icons.rocket_launch_rounded, size: 17),
           label: const Text('Bắt đầu miễn phí',
@@ -1566,7 +1566,7 @@ class _PricingCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: plan.price == '0'
                         ? () => onRegister(plan.name)
                         : (plan.contactOnly
@@ -2015,7 +2015,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: () async => onOpenYoutube(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFDC2626),
@@ -2114,7 +2114,7 @@ class _GuideSection extends StatefulWidget {
         'Hỗ trợ nhiều máy cùng lúc – không giới hạn (gói Enterprise)',
       ],
       tip:
-          'Chưa biết cách cấu hình? Đội kỹ thuật hỗ trợ từ xa qua Zalo trong 30 phút.',
+          'Chưa biết cách cấu hìnhệ Đội kỹ thuật hỗ trợ từ xa qua Zalo trong 30 phút.',
       accent: Color(0xFF1565C0),
       screenGradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
       screenItems: [
@@ -2677,7 +2677,7 @@ class _ContactSection extends StatelessWidget {
   }
 
   Widget _quickBtn(IconData icon, String label, VoidCallback onTap) {
-    return ElevatedButton.icon(
+    return FilledButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 16),
       label: Text(label,
@@ -2929,7 +2929,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _isSubmitting ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0C56D0),
@@ -3766,7 +3766,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                         if (p.link.isNotEmpty) ...[
                           const SizedBox(width: 12),
                           Expanded(
-                            child: ElevatedButton(
+                            child: FilledButton(
                               onPressed: () async {
                                 final uri =
                                     Uri.parse(_normalizePublicUrl(p.link));

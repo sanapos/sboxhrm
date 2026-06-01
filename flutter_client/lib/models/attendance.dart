@@ -139,7 +139,7 @@ class Attendance {
     // local time, stored as-is in timestamp without time zone column).
     // The API returns bare ISO strings (no 'Z' suffix, no offset) — these are already
     // VN local time values. Parse them directly without any timezone conversion.
-    // If the string has explicit timezone info (Z or +offset), honor it.
+    // If the string has explicit timezone info (Z or +offset), hơnor it.
     DateTime? parsedTime;
     for (final field in [
       'attendanceTime',

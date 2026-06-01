@@ -206,7 +206,7 @@ class LicensesTabState extends State<LicensesTab> {
                 _applyFilters();
               },
             ),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: _showCreateLicenseDialog,
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Tạo key'),
@@ -703,7 +703,7 @@ class LicensesTabState extends State<LicensesTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               final res = await _apiService.createLicenseKey(
                 licenseType: licenseType,
@@ -828,7 +828,7 @@ class LicensesTabState extends State<LicensesTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               final res = await _apiService.createBatchLicenseKeys(
                 count: int.tryParse(countCtrl.text),
@@ -982,7 +982,7 @@ class LicensesTabState extends State<LicensesTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () async {
               if (selectedAgentId == null) {
                 AdminHelpers.showError(context, 'Vui lòng chọn đại lý');

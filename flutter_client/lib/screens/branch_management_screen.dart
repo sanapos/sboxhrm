@@ -4,6 +4,8 @@ import '../models/branch.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 /// Màn hình Quản lý Chi nhánh
@@ -31,8 +33,6 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   String _searchQuery = '';
   bool? _filterActive;
   bool _isManager = false;
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -127,17 +127,21 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    final embedded = HrmPageChrome.isEmbedded;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text('Quản lý Chi nhánh',
-            style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1),
+        toolbarHeight: embedded ? 0 : kToolbarHeight,
+        title: embedded
+            ? null
+            : const Text('Quản lý Chi nhánh',
+                style: TextStyle(
+                    color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -211,61 +215,39 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       color: theme.colorScheme.surface,
       child: Column(
         children: [
-          // Title row
           Row(
             children: [
-              Icon(Icons.business, color: theme.colorScheme.primary, size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Quản lý Chi nhánh',
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('${_branches.length} chi nhánh',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey)),
-                  ],
+              if (!HrmPageChrome.isEmbedded) ...[
+                Icon(Icons.business,
+                    color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Quản lý Chi nhánh',
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('${_branches.length} chi nhánh',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey)),
+                    ],
+                  ),
                 ),
-              ),
+              ] else
+                Text('${_branches.length} chi nhánh',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey)),
+              const Spacer(),
               if (_isManager)
                 FilledButton.icon(
                   onPressed: () => _showBranchDialog(),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Thêm mới'),
                 ),
-              if (Responsive.isMobile(context))
-                IconButton(
-                  icon: Stack(
-                    children: [
-                      Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        color: _showMobileFilters
-                            ? Colors.orange
-                            : Colors.grey[600],
-                      ),
-                      if (_searchQuery.isNotEmpty || _filterActive != null)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: Colors.orange, shape: BoxShape.circle),
-                          ),
-                        ),
-                    ],
-                  ),
-                  onPressed: () =>
-                      setState(() => _showMobileFilters = !_showMobileFilters),
-                ),
             ],
           ),
-          if (!Responsive.isMobile(context) || _showMobileFilters) ...[
+          ...[ 
             const SizedBox(height: 8),
             // Search & filter
             Row(
@@ -310,7 +292,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
               ],
             ),
-          ], // end _showMobileFilters
+          ],
         ],
       ),
     );
@@ -705,26 +687,47 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tổng quan Chi nhánh',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            // Stats cards
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                _buildStatCardLarge('Tổng chi nhánh', s.totalBranches,
-                    Icons.business, Colors.blue),
-                _buildStatCardLarge('Đang hoạt động', s.activeBranches,
-                    Icons.check_circle, Colors.green),
-                _buildStatCardLarge('Ngừng hoạt động', s.inactiveBranches,
-                    Icons.block, Colors.red),
-                _buildStatCardLarge('Trụ sở chính', s.headquarterCount,
-                    Icons.domain, Colors.amber.shade700),
-                _buildStatCardLarge('Tổng nhân viên', s.totalEmployees,
-                    Icons.people, Colors.purple),
-              ],
+            if (!HrmPageChrome.isEmbedded)
+              Text('Tổng quan Chi nhánh',
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            if (!HrmPageChrome.isEmbedded) const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = constraints.maxWidth >= 720
+                    ? 180.0
+                    : (constraints.maxWidth - 12) / 2;
+                final stats = [
+                  ('Tổng chi nhánh', '${s.totalBranches}', Icons.business,
+                      HrmPageChrome.primaryNavy),
+                  ('Đang hoạt động', '${s.activeBranches}', Icons.check_circle,
+                      HrmPageChrome.primaryNavy),
+                  ('Ngừng hoạt động', '${s.inactiveBranches}', Icons.block,
+                      const Color(0xFFEF4444)),
+                  ('Trụ sở chính', '${s.headquarterCount}', Icons.domain,
+                      const Color(0xFFF59E0B)),
+                  ('Tổng nhân viên', '${s.totalEmployees}', Icons.people,
+                      HrmPageChrome.primaryNavy),
+                ];
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: stats
+                      .map(
+                        (e) => SizedBox(
+                          width: cardWidth,
+                          child: HrmStatSummaryCard(
+                            icon: e.$3,
+                            value: e.$2,
+                            label: e.$1,
+                            color: e.$4,
+                            valueFontSize: 20,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
             const SizedBox(height: 24),
             // Ratio chart
@@ -766,40 +769,6 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatCardLarge(
-      String label, int value, IconData icon, Color color) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 12),
-          Text('$value',
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 4),
-          Text(label,
-              style:
-                  TextStyle(fontSize: 13, color: color.withValues(alpha: 0.8))),
-        ],
       ),
     );
   }
@@ -1257,7 +1226,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     maxLines: 2,
                   ),
                   const SizedBox(height: 12),
-                  // Phone & email
+                  // phone & email
                   Row(
                     children: [
                       Expanded(

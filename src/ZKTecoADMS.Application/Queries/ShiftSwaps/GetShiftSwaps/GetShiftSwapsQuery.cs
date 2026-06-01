@@ -8,4 +8,5 @@ public record GetShiftSwapsQuery(
     Guid UserId,
     bool IsManager,
     PaginationRequest PaginationRequest,
-    ShiftSwapStatus? Status = null) : IQuery<AppResponse<PagedResult<ShiftSwapRequestDto>>>;
+    ShiftSwapStatus? Status = null,
+    bool TargetUserIdOnly = false) : IQuery<AppResponse<PagedResult<ShiftSwapRequestDto>>>;

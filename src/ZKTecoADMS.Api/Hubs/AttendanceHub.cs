@@ -21,11 +21,22 @@ public class AttendanceHub : Hub
         _logger.LogWarning("📡 Client connected: {ConnectionId}, User: {UserId}, Transport: {Transport}",
             Context.ConnectionId, userId ?? "anonymous", transport?.ToString() ?? "unknown");
 
-        // NOTE: Do NOT auto-join the user group here.
-        // The client explicitly invokes JoinUserGroup(userId) right after connecting.
-        // Auto-joining here used to race with that call and double-registered the
-        // connection in some reconnect scenarios, contributing to duplicate
-        // NewNotification deliveries on the device.
+        // Auto-join the user's personal group as early as possible to close the
+        // race window where a NewNotification fires AFTER connect but BEFORE the
+        // client gets to invoke JoinUserGroup explicitly. Groups.AddToGroupAsync
+        // is idempotent so the explicit client call is harmless.
+        if (!string.IsNullOrEmpty(userId))
+        {
+            try
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
+                _logger.LogWarning("📡 Auto-joined user group: user_{UserId}", userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "📡 Auto-join user group failed for {UserId}", userId);
+            }
+        }
 
         await base.OnConnectedAsync();
     }

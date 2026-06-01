@@ -7,7 +7,7 @@ namespace ZKTecoADMS.Application.Commands.ShiftSwaps.CreateShiftSwap;
 
 public class CreateShiftSwapHandler(
     IRepository<ShiftSwapRequest> shiftSwapRepository,
-    IRepository<Shift> shiftRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
 ) : ICommandHandler<CreateShiftSwapCommand, AppResponse<ShiftSwapRequestDto>>
@@ -24,19 +24,20 @@ public class CreateShiftSwapHandler(
                 return AppResponse<ShiftSwapRequestDto>.Error("Không thể đổi ca với chính mình");
             }
 
-            // Validate shifts exist
-            var requesterShift = await shiftRepository.GetByIdAsync(
-                request.RequesterShiftId, cancellationToken: cancellationToken);
+            var requesterShift = await shiftTemplateRepository.GetSingleAsync(
+                filter: s => s.Id == request.RequesterShiftId,
+                cancellationToken: cancellationToken);
             if (requesterShift == null)
             {
                 return AppResponse<ShiftSwapRequestDto>.Error("Ca làm việc của bạn không tồn tại");
             }
 
-            var targetShift = await shiftRepository.GetByIdAsync(
-                request.TargetShiftId, cancellationToken: cancellationToken);
+            var targetShift = await shiftTemplateRepository.GetSingleAsync(
+                filter: s => s.Id == request.TargetShiftId,
+                cancellationToken: cancellationToken);
             if (targetShift == null)
             {
-                return AppResponse<ShiftSwapRequestDto>.Error("Ca làm việc của đồng nghiệp không tồn tại");
+                return AppResponse<ShiftSwapRequestDto>.Error("Ca làm việc muốn đổi không tồn tại");
             }
 
             // Check for existing pending swap request
@@ -132,10 +133,10 @@ public class CreateShiftSwapHandler(
         };
     }
 
-    private static string FormatShiftName(Shift shift)
+    private static string FormatShiftName(ShiftTemplate shift)
     {
-        if (shift.Description != null)
-            return shift.Description;
-        return $"{shift.StartTime:HH:mm} - {shift.EndTime:HH:mm}";
+        if (!string.IsNullOrWhiteSpace(shift.Name))
+            return shift.Name;
+        return $"{shift.StartTime:hh\\:mm} - {shift.EndTime:hh\\:mm}";
     }
 }

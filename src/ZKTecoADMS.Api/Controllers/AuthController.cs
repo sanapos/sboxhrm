@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -21,7 +23,7 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userManager, ZKTecoDbContext _dbContext) : ControllerBase
+public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userManager, ZKTecoDbContext _dbContext, IWebHostEnvironment _env) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -211,6 +213,9 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<string>>> DevResetPassword([FromBody] DevResetRequest request)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         var user = await _userManager.FindByNameAsync(request.UserName);
         if (user == null)
             return NotFound(AppResponse<string>.Error("User not found"));

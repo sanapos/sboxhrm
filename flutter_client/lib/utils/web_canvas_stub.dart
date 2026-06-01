@@ -81,12 +81,14 @@ class _MobileCanvasAdapter {
   void fillText(dynamic text, dynamic x, dynamic y) {
     final fontSize = _parseFontSize(_font);
     final isBold = _font.contains('bold');
+    final useBeVietnam = _font.contains('BeVietnamPro');
     final tp = TextPainter(
       text: TextSpan(
         text: text.toString(),
         style: TextStyle(
           color: _parseColor(_fillStyle),
           fontSize: fontSize,
+          fontFamily: useBeVietnam ? 'BeVietnamPro' : null,
           fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
         ),
       ),

@@ -199,11 +199,13 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IDeviceUserService, DeviceUserService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
+        services.AddScoped<IAttendanceDeletePreparer, AttendanceDeletePreparer>();
         services.AddScoped<IDeviceCmdService, DeviceCmdService>();
         services.AddScoped<IDeviceUserOperationService, EmployeeOperationService>();
         services.AddScoped<IAttendanceOperationService, AttendanceOperationService>();
         services.AddScoped<IShiftService, ShiftService>();
         services.AddScoped<IDataScopeService, DataScopeService>();
+        services.AddScoped<IModulePermissionService, ModulePermissionService>();
         services.AddScoped<IMealRecordService, MealRecordService>();
         
         // Repository registration
@@ -217,8 +219,8 @@ public static class DependencyInjectionExtensions
 
         // File Storage
         services.AddScoped<LocalFileStorageService>();
-        services.AddScoped<GoogleDriveStorageService>();
-        services.AddScoped<IFileStorageService, FileStorageResolver>();
+        services.AddScoped<FileStorageResolver>();
+        services.AddScoped<IFileStorageService>(sp => sp.GetRequiredService<FileStorageResolver>());
         services.AddHttpContextAccessor();
 
         // Multi-tenant provider — resolves StoreId from JWT on each request

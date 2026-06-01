@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Text.Json;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Models.Responses;
@@ -13,6 +14,7 @@ using ZKTecoADMS.Application.Commands.Communications.DeleteCommunication;
 using ZKTecoADMS.Application.Commands.Communications.ToggleReaction;
 using ZKTecoADMS.Application.Commands.Communications.UpdateCommunication;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.DTOs.Communications;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -33,6 +35,8 @@ public class CommunicationController(
     IDeepSeekAiService deepSeekAiService,
     IFileStorageService fileStorageService,
     ISystemNotificationService notificationService,
+    IModulePermissionService modulePermissionService,
+    IConfiguration configuration,
     ILogger<CommunicationController> logger
 ) : AuthenticatedControllerBase
 {
@@ -42,6 +46,7 @@ public class CommunicationController(
     [HttpGet]
     [Authorize]
     [ProducesResponseType(typeof(AppResponse<object>), StatusCodes.Status200OK)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetCommunications([FromQuery] CommunicationFilterDto filter)
     {
         try
@@ -57,10 +62,14 @@ public class CommunicationController(
             
             if (filter.Status.HasValue)
                 query = query.Where(c => c.Status == filter.Status.Value);
-            else if (IsManager)
-                query = query; // managers/admin see all posts regardless of status
-            else
-                query = query.Where(c => c.Status == CommunicationStatus.Published || c.AuthorId == CurrentUserId);
+            else if (!IsManager)
+            {
+                var now = DateTime.UtcNow;
+                query = query.Where(c =>
+                    c.AuthorId == CurrentUserId
+                    || (c.Status == CommunicationStatus.Published
+                        && (c.ExpiresAt == null || c.ExpiresAt > now)));
+            }
             
             if (filter.Priority.HasValue)
                 query = query.Where(c => c.Priority == filter.Priority.Value);
@@ -78,7 +87,15 @@ public class CommunicationController(
                 query = query.Where(c => c.CreatedAt <= filter.ToDate.Value);
             
             if (!string.IsNullOrEmpty(filter.SearchTerm))
-                query = query.Where(c => c.Title.Contains(filter.SearchTerm) || c.Content.Contains(filter.SearchTerm));
+            {
+                var term = filter.SearchTerm;
+                query = query.Where(c =>
+                    c.Title.Contains(term)
+                    || c.Content.Contains(term)
+                    || (c.Summary != null && c.Summary.Contains(term))
+                    || (c.Tags != null && c.Tags.Contains(term))
+                    || (c.AuthorName != null && c.AuthorName.Contains(term)));
+            }
             
             if (filter.IsPinned.HasValue)
                 query = query.Where(c => c.IsPinned == filter.IsPinned.Value);
@@ -139,6 +156,8 @@ public class CommunicationController(
                     c.Tags,
                     c.CreatedAt,
                     c.UpdatedAt,
+                    c.IsPublicShareEnabled,
+                    c.PublicShareToken,
                     HasUserReacted = c.Reactions.Any(r => r.UserId == CurrentUserId),
                     UserReactionType = c.Reactions.Where(r => r.UserId == CurrentUserId).Select(r => (ReactionType?)r.ReactionType).FirstOrDefault()
                 })
@@ -172,7 +191,10 @@ public class CommunicationController(
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,
                 HasUserReacted = c.HasUserReacted,
-                UserReactionType = c.UserReactionType
+                UserReactionType = c.UserReactionType,
+                IsPublicShareEnabled = c.IsPublicShareEnabled,
+                PublicShareToken = c.PublicShareToken,
+                PublicShareUrl = BuildPublicShareUrl(c.PublicShareToken)
             }).ToList();
 
             var result = new
@@ -189,7 +211,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communications");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách bài truyền thông"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch bÃ i truyá»n thÃ´ng"));
         }
     }
 
@@ -198,7 +220,8 @@ public class CommunicationController(
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize]
-    public async Task<IActionResult> GetCommunication(Guid id)
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetCommunication(Guid id, [FromQuery] bool countView = false)
     {
         try
         {
@@ -233,6 +256,8 @@ public class CommunicationController(
                     c.Tags,
                     c.CreatedAt,
                     c.UpdatedAt,
+                    c.IsPublicShareEnabled,
+                    c.PublicShareToken,
                     HasUserReacted = c.Reactions.Any(r => r.UserId == CurrentUserId),
                     UserReactionType = c.Reactions.Where(r => r.UserId == CurrentUserId).Select(r => (ReactionType?)r.ReactionType).FirstOrDefault()
                 })
@@ -241,6 +266,11 @@ public class CommunicationController(
             if (entity == null)
             {
                 return NotFound(AppResponse<object>.Fail("Không tìm thấy bài truyền thông"));
+            }
+
+            if (!CanAccessCommunication(entity.Status, entity.AuthorId, entity.ExpiresAt))
+            {
+                return StatusCode(403, AppResponse<object>.Fail("Bạn không có quyền xem bài viết này"));
             }
 
             var communication = new InternalCommunicationDto
@@ -272,20 +302,26 @@ public class CommunicationController(
                 CreatedAt = entity.CreatedAt,
                 UpdatedAt = entity.UpdatedAt,
                 HasUserReacted = entity.HasUserReacted,
-                UserReactionType = entity.UserReactionType
+                UserReactionType = entity.UserReactionType,
+                IsPublicShareEnabled = entity.IsPublicShareEnabled,
+                PublicShareToken = entity.PublicShareToken,
+                PublicShareUrl = BuildPublicShareUrl(entity.PublicShareToken)
             };
 
-            // Increment view count atomically to avoid race conditions
-            await dbContext.InternalCommunications
-                .Where(c => c.Id == id)
-                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ViewCount, c => c.ViewCount + 1));
+            if (countView)
+            {
+                await dbContext.InternalCommunications
+                    .Where(c => c.Id == id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.ViewCount, c => c.ViewCount + 1));
+                communication.ViewCount += 1;
+            }
 
             return Ok(AppResponse<InternalCommunicationDto>.Success(communication));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communication {Id}", id);
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy bài truyền thông"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y bÃ i truyá»n thÃ´ng"));
         }
     }
 
@@ -294,10 +330,15 @@ public class CommunicationController(
     /// </summary>
     [HttpPost]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateCommunication([FromBody] CreateCommunicationDto dto)
     {
         try
         {
+            var canApprove = await HasCommunicationApproveAsync();
+            var submitForApproval = dto.SubmitForApproval
+                || (!dto.PublishImmediately && !canApprove && !IsManager);
+
             var command = new CreateCommunicationCommand(
                 RequiredStoreId,
                 CurrentUserId,
@@ -315,6 +356,8 @@ public class CommunicationController(
                 dto.IsPinned,
                 dto.Tags,
                 dto.PublishImmediately,
+                submitForApproval,
+                dto.IsPublicShareEnabled,
                 dto.IsAiGenerated,
                 dto.AiPrompt
             );
@@ -342,8 +385,8 @@ public class CommunicationController(
                             if (uid != CurrentUserId)
                                 await notificationService.CreateAndSendAsync(
                                     uid, NotificationType.Info,
-                                    "Bài truyền thông mới",
-                                    $"Bài viết \"{dto.Title}\" đã được đăng",
+                                    "BÃ i truyá»n thÃ´ng má»›i",
+                                    $"BÃ i viáº¿t \"{dto.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
                                     relatedEntityType: "Communication", relatedEntityId: result.Data,
                                     fromUserId: CurrentUserId, categoryCode: "communication", storeId: RequiredStoreId);
                         }
@@ -357,7 +400,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating communication");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi tạo bài truyền thông"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi táº¡o bÃ i truyá»n thÃ´ng"));
         }
     }
 
@@ -366,11 +409,30 @@ public class CommunicationController(
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateCommunication(Guid id, [FromBody] UpdateCommunicationDto dto)
     {
         try
         {
             dto.Id = id;
+
+            var access = await dbContext.InternalCommunications.AsNoTracking()
+                .Where(c => c.Id == id)
+                .Select(c => new { c.StoreId, c.AuthorId })
+                .FirstOrDefaultAsync();
+            if (access == null)
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy bài truyền thông"));
+            if (access.StoreId != RequiredStoreId)
+                return StatusCode(403, AppResponse<bool>.Fail("Bạn không có quyền chỉnh sửa bài viết này"));
+            if (!IsManager && access.AuthorId != CurrentUserId)
+                return StatusCode(403, AppResponse<bool>.Fail("Bạn chỉ có thể sửa bài viết của mình"));
+
+            if (dto.Status == CommunicationStatus.Published)
+            {
+                var canApprovePublish = await HasCommunicationApproveAsync();
+                if (!canApprovePublish && !IsManager && access.AuthorId != CurrentUserId)
+                    return StatusCode(403, AppResponse<bool>.Fail("Bạn không có quyền xuất bản bài viết này"));
+            }
 
             // Check if this update is publishing a draft
             var oldEntity = await dbContext.InternalCommunications.AsNoTracking()
@@ -394,7 +456,8 @@ public class CommunicationController(
                 dto.PublishedAt,
                 dto.ExpiresAt,
                 dto.IsPinned,
-                dto.Tags
+                dto.Tags,
+                dto.IsPublicShareEnabled
             );
 
             var result = await mediator.Send(command);
@@ -418,8 +481,8 @@ public class CommunicationController(
                         if (uid != CurrentUserId)
                             await notificationService.CreateAndSendAsync(
                                 uid, NotificationType.Info,
-                                "Bài truyền thông mới",
-                                $"Bài viết \"{dto.Title}\" đã được đăng",
+                                "BÃ i truyá»n thÃ´ng má»›i",
+                                $"BÃ i viáº¿t \"{dto.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
                                 relatedEntityType: "Communication", relatedEntityId: id,
                                 fromUserId: CurrentUserId, categoryCode: "communication", storeId: oldEntity.StoreId);
                     }
@@ -432,7 +495,52 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật bài truyền thông"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t bÃ i truyá»n thÃ´ng"));
+        }
+    }
+
+    /// <summary>
+    /// Bật/tắt link chia sẻ công khai (không cần đăng nhập).
+    /// </summary>
+    [HttpPut("{id:guid}/public-share")]
+    [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
+    public async Task<IActionResult> SetPublicShare(Guid id, [FromBody] CommunicationPublicShareDto dto)
+    {
+        try
+        {
+            var entity = await dbContext.InternalCommunications
+                .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
+            if (entity == null)
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy bài truyền thông"));
+            if (!IsManager && entity.AuthorId != CurrentUserId)
+                return StatusCode(403, AppResponse<object>.Fail("Bạn chỉ có thể cấu hình chia sẻ bài viết của mình"));
+
+            entity.IsPublicShareEnabled = dto.Enabled;
+            if (dto.Enabled)
+            {
+                if (dto.RegenerateToken || string.IsNullOrEmpty(entity.PublicShareToken))
+                    entity.PublicShareToken = CommunicationShareTokenHelper.Generate();
+            }
+            else
+            {
+                entity.PublicShareToken = null;
+            }
+
+            entity.UpdatedAt = DateTime.UtcNow;
+            await dbContext.SaveChangesAsync();
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                isPublicShareEnabled = entity.IsPublicShareEnabled,
+                publicShareToken = entity.PublicShareToken,
+                publicShareUrl = BuildPublicShareUrl(entity.PublicShareToken)
+            }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error setting public share for communication {Id}", id);
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi cấu hình chia sẻ link"));
         }
     }
 
@@ -441,10 +549,22 @@ public class CommunicationController(
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteCommunication(Guid id)
     {
         try
         {
+            var access = await dbContext.InternalCommunications.AsNoTracking()
+                .Where(c => c.Id == id)
+                .Select(c => new { c.StoreId, c.AuthorId })
+                .FirstOrDefaultAsync();
+            if (access == null)
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy bài truyền thông"));
+            if (access.StoreId != RequiredStoreId)
+                return StatusCode(403, AppResponse<bool>.Fail("Bạn không có quyền xóa bài viết này"));
+            if (!IsManager && access.AuthorId != CurrentUserId)
+                return StatusCode(403, AppResponse<bool>.Fail("Bạn chỉ có thể xóa bài viết của mình"));
+
             var command = new DeleteCommunicationCommand(id, RequiredStoreId, CurrentUserId);
             var result = await mediator.Send(command);
             return Ok(result);
@@ -452,7 +572,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xóa bài truyền thông"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xÃ³a bÃ i truyá»n thÃ´ng"));
         }
     }
 
@@ -461,6 +581,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("{id:guid}/publish")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> PublishCommunication(Guid id)
     {
         try
@@ -475,10 +596,21 @@ public class CommunicationController(
             if (CurrentStoreId.HasValue && entity.StoreId != CurrentStoreId.Value)
                 return StatusCode(403, AppResponse<bool>.Fail("Bạn không có quyền xuất bản bài viết này"));
 
+            var canApprove = await HasCommunicationApproveAsync();
+            if (entity.Status == CommunicationStatus.PendingApproval)
+            {
+                if (!canApprove && !IsManager)
+                    return StatusCode(403, AppResponse<bool>.Fail("Bài đang chờ duyệt — cần quyền duyệt truyền thông"));
+            }
+            else if (!canApprove && !IsManager && entity.AuthorId != CurrentUserId)
+            {
+                return StatusCode(403, AppResponse<bool>.Fail("Bạn chỉ có thể xuất bản bài viết của mình"));
+            }
+
             var now = DateTime.UtcNow;
             var publishedAt = entity.PublishedAt ?? now;
 
-            // Use ExecuteUpdateAsync for direct SQL UPDATE – bypasses all EF change tracking
+            // Use ExecuteUpdateAsync for direct SQL UPDATE â€“ bypasses all EF change tracking
             var affected = await dbContext.InternalCommunications
                 .Where(c => c.Id == id)
                 .ExecuteUpdateAsync(s => s
@@ -489,7 +621,7 @@ public class CommunicationController(
             logger.LogInformation("PublishCommunication: id={Id} affected={Affected}", id, affected);
 
             if (affected == 0)
-                return StatusCode(500, AppResponse<bool>.Fail("Không thể cập nhật trạng thái bài viết"));
+                return StatusCode(500, AppResponse<bool>.Fail("KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i bÃ i viáº¿t"));
 
             // Broadcast published communication via SignalR
             _ = hubContext.Clients.Group($"store_{entity.StoreId}")
@@ -508,8 +640,8 @@ public class CommunicationController(
                     if (uid != CurrentUserId)
                         await notificationService.CreateAndSendAsync(
                             uid, NotificationType.Info,
-                            "Bài truyền thông mới",
-                            $"Bài viết \"{entity.Title}\" đã được đăng",
+                            "BÃ i truyá»n thÃ´ng má»›i",
+                            $"BÃ i viáº¿t \"{entity.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
                             relatedEntityType: "Communication", relatedEntityId: entity.Id,
                             fromUserId: CurrentUserId, categoryCode: "communication", storeId: entity.StoreId);
                 }
@@ -521,7 +653,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error publishing communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xuất bản bài truyền thông"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xuáº¥t báº£n bÃ i truyá»n thÃ´ng"));
         }
     }
 
@@ -530,6 +662,7 @@ public class CommunicationController(
     /// </summary>
     [HttpGet("{id:guid}/comments")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetComments(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
         try
@@ -586,7 +719,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting comments for communication {Id}", id);
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy bình luận"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y bÃ¬nh luáº­n"));
         }
     }
 
@@ -595,6 +728,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("{id:guid}/comments")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentDto dto)
     {
         try
@@ -637,11 +771,11 @@ public class CommunicationController(
                                 .FirstOrDefaultAsync();
                             if (authorUserId != Guid.Empty && authorUserId != CurrentUserId)
                             {
-                                var commenterName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Ai đó";
+                                var commenterName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Ai Ä‘Ã³";
                                 await notificationService.CreateAndSendAsync(
                                     authorUserId, NotificationType.Info,
-                                    "Bình luận mới",
-                                    $"{commenterName} đã bình luận bài viết \"{comm.Title}\"",
+                                    "BÃ¬nh luáº­n má»›i",
+                                    $"{commenterName} Ä‘Ã£ bÃ¬nh luáº­n bÃ i viáº¿t \"{comm.Title}\"",
                                     relatedEntityType: "Communication", relatedEntityId: id,
                                     fromUserId: CurrentUserId, categoryCode: "communication", storeId: comm.StoreId);
                             }
@@ -656,7 +790,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error adding comment");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi thêm bình luận"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi thÃªm bÃ¬nh luáº­n"));
         }
     }
 
@@ -665,6 +799,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("{id:guid}/reactions")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> ToggleReaction(Guid id, [FromBody] CommunicationReactionDto dto)
     {
         try
@@ -696,7 +831,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error toggling reaction");
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật reaction"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t reaction"));
         }
     }
 
@@ -705,6 +840,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("ai/generate-stream")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task StreamAiContent([FromBody] AiContentGenerationDto dto, CancellationToken cancellationToken)
     {
         Response.Headers.Append("Content-Type", "text/event-stream");
@@ -716,60 +852,40 @@ public class CommunicationController(
             var useDeepSeek = string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase);
             var useGemini = string.Equals(dto.Provider, "gemini", StringComparison.OrdinalIgnoreCase);
 
-            // Auto-select provider if not specified
-            if (string.IsNullOrEmpty(dto.Provider))
-            {
-                if (geminiAiService.IsConfigured && geminiAiService.IsEnabled) useGemini = true;
-                else if (deepSeekAiService.IsConfigured && deepSeekAiService.IsEnabled) useDeepSeek = true;
-            }
+            // Auto-select: chỉ Gemini (DeepSeek đã ngừng hỗ trợ)
+            if (string.IsNullOrEmpty(dto.Provider) || useDeepSeek)
+                useGemini = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
 
-            if (useDeepSeek && deepSeekAiService.IsConfigured && deepSeekAiService.IsEnabled)
+            if (!useGemini || !geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
-                // Use DeepSeek
-            }
-            else if (useGemini && geminiAiService.IsConfigured && geminiAiService.IsEnabled)
-            {
-                // Use Gemini
-            }
-            else
-            {
-                await WriteSseEvent("error", "Không có AI provider nào được cấu hình và bật");
+                await WriteSseEvent("error", "Gemini AI chưa được bật hoặc chưa cấu hình API key");
                 return;
             }
 
             var typeLabel = dto.Type switch
             {
-                CommunicationType.News => "tin tức nội bộ",
-                CommunicationType.Announcement => "thông báo",
-                CommunicationType.Event => "sự kiện",
-                CommunicationType.Policy => "chính sách",
-                CommunicationType.Training => "đào tạo",
-                CommunicationType.Culture => "văn hóa công ty",
-                CommunicationType.Recruitment => "tuyển dụng",
-                CommunicationType.Regulation => "nội quy công ty",
-                _ => "bài viết"
+                CommunicationType.News => "tin tá»©c ná»™i bá»™",
+                CommunicationType.Announcement => "thÃ´ng bÃ¡o",
+                CommunicationType.Event => "sá»± kiá»‡n",
+                CommunicationType.Policy => "chÃ­nh sÃ¡ch",
+                CommunicationType.Training => "Ä‘Ã o táº¡o",
+                CommunicationType.Culture => "vÄƒn hÃ³a cÃ´ng ty",
+                CommunicationType.Recruitment => "tuyá»ƒn dá»¥ng",
+                CommunicationType.Regulation => "ná»™i quy cÃ´ng ty",
+                _ => "bÃ i viáº¿t"
             };
 
             var toneLabel = dto.Tone?.ToLower() switch
             {
-                "formal" => "trang trọng, chuyên nghiệp",
-                "friendly" => "thân thiện, gần gũi",
-                "creative" => "sáng tạo, hấp dẫn",
-                "inspirational" => "truyền cảm hứng, động lực",
-                _ => "chuyên nghiệp"
+                "formal" => "trang trá»ng, chuyÃªn nghiá»‡p",
+                "friendly" => "thÃ¢n thiá»‡n, gáº§n gÅ©i",
+                "creative" => "sÃ¡ng táº¡o, háº¥p dáº«n",
+                "inspirational" => "truyá»n cáº£m há»©ng, Ä‘á»™ng lá»±c",
+                _ => "chuyÃªn nghiá»‡p"
             };
 
-            IAsyncEnumerable<string> stream;
-            if (useDeepSeek)
-            {
-                stream = deepSeekAiService.StreamGenerateCommunicationContentAsync(
-                    dto.Prompt, typeLabel, toneLabel, dto.Context, dto.MaxLength, cancellationToken);
-            }
-            else
-            {
-                stream = geminiAiService.StreamGenerateCommunicationContentAsync(
-                    dto.Prompt, typeLabel, toneLabel, dto.Context, dto.MaxLength, cancellationToken);
-            }
+            var stream = geminiAiService.StreamGenerateCommunicationContentAsync(
+                dto.Prompt, typeLabel, toneLabel, dto.Context, dto.MaxLength, cancellationToken);
 
             await foreach (var chunk in stream)
             {
@@ -792,7 +908,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error streaming AI content");
-            await WriteSseEvent("error", $"Lỗi khi tạo nội dung AI: {ex.Message}");
+            await WriteSseEvent("error", $"Lá»—i khi táº¡o ná»™i dung AI: {ex.Message}");
         }
     }
 
@@ -808,30 +924,31 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("ai/generate")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> GenerateAiContent([FromBody] AiContentGenerationDto dto)
     {
         try
         {
             var typeLabel = dto.Type switch
             {
-                CommunicationType.News => "tin tức nội bộ",
-                CommunicationType.Announcement => "thông báo",
-                CommunicationType.Event => "sự kiện",
-                CommunicationType.Policy => "chính sách",
-                CommunicationType.Training => "đào tạo",
-                CommunicationType.Culture => "văn hóa công ty",
-                CommunicationType.Recruitment => "tuyển dụng",
-                CommunicationType.Regulation => "nội quy công ty",
-                _ => "bài viết"
+                CommunicationType.News => "tin tá»©c ná»™i bá»™",
+                CommunicationType.Announcement => "thÃ´ng bÃ¡o",
+                CommunicationType.Event => "sá»± kiá»‡n",
+                CommunicationType.Policy => "chÃ­nh sÃ¡ch",
+                CommunicationType.Training => "Ä‘Ã o táº¡o",
+                CommunicationType.Culture => "vÄƒn hÃ³a cÃ´ng ty",
+                CommunicationType.Recruitment => "tuyá»ƒn dá»¥ng",
+                CommunicationType.Regulation => "ná»™i quy cÃ´ng ty",
+                _ => "bÃ i viáº¿t"
             };
 
             var toneLabel = dto.Tone?.ToLower() switch
             {
-                "formal" => "trang trọng, chuyên nghiệp",
-                "friendly" => "thân thiện, gần gũi",
-                "creative" => "sáng tạo, hấp dẫn",
-                "inspirational" => "truyền cảm hứng, động lực",
-                _ => "chuyên nghiệp"
+                "formal" => "trang trá»ng, chuyÃªn nghiá»‡p",
+                "friendly" => "thÃ¢n thiá»‡n, gáº§n gÅ©i",
+                "creative" => "sÃ¡ng táº¡o, háº¥p dáº«n",
+                "inspirational" => "truyá»n cáº£m há»©ng, Ä‘á»™ng lá»±c",
+                _ => "chuyÃªn nghiá»‡p"
             };
 
             AiGeneratedContentDto result;
@@ -839,28 +956,10 @@ public class CommunicationController(
             var useDeepSeek = string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase);
             var useGemini = string.Equals(dto.Provider, "gemini", StringComparison.OrdinalIgnoreCase);
 
-            // Auto-select provider if not specified
-            if (string.IsNullOrEmpty(dto.Provider))
-            {
-                if (geminiAiService.IsConfigured && geminiAiService.IsEnabled) useGemini = true;
-                else if (deepSeekAiService.IsConfigured && deepSeekAiService.IsEnabled) useDeepSeek = true;
-            }
+            if (string.IsNullOrEmpty(dto.Provider) || useDeepSeek)
+                useGemini = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
 
-            if (useDeepSeek && deepSeekAiService.IsConfigured && deepSeekAiService.IsEnabled)
-            {
-                var generated = await deepSeekAiService.GenerateCommunicationContentAsync(
-                    dto.Prompt, typeLabel, toneLabel, dto.Context, dto.MaxLength);
-
-                result = new AiGeneratedContentDto
-                {
-                    Title = generated.Title,
-                    Content = generated.Content,
-                    Summary = generated.Summary,
-                    SuggestedTags = generated.Tags,
-                    Prompt = dto.Prompt
-                };
-            }
-            else if (useGemini && geminiAiService.IsConfigured && geminiAiService.IsEnabled)
+            if (useGemini && geminiAiService.IsConfigured && geminiAiService.IsEnabled)
             {
                 var generated = await geminiAiService.GenerateCommunicationContentAsync(
                     dto.Prompt, typeLabel, toneLabel, dto.Context, dto.MaxLength);
@@ -893,7 +992,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error generating AI content");
-            return StatusCode(500, AppResponse<AiGeneratedContentDto>.Fail($"Lỗi khi tạo nội dung AI: {ex.Message}"));
+            return StatusCode(500, AppResponse<AiGeneratedContentDto>.Fail($"Lá»—i khi táº¡o ná»™i dung AI: {ex.Message}"));
         }
     }
 
@@ -903,19 +1002,20 @@ public class CommunicationController(
     [HttpPost("upload-image")]
     [Authorize]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> UploadImage(IFormFile file)
     {
         try
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest(AppResponse<string>.Fail("Vui lòng chọn file ảnh"));
+                return BadRequest(AppResponse<string>.Fail("Vui lÃ²ng chá»n file áº£nh"));
             }
 
             var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
             if (!allowedTypes.Contains(file.ContentType.ToLower()))
             {
-                return BadRequest(AppResponse<string>.Fail("Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP"));
+                return BadRequest(AppResponse<string>.Fail("Chá»‰ há»— trá»£ Ä‘á»‹nh dáº¡ng JPEG, PNG, GIF, WebP"));
             }
 
             using var stream = file.OpenReadStream();
@@ -924,7 +1024,7 @@ public class CommunicationController(
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!ValidateImageMagicBytes(stream, ext))
             {
-                return BadRequest(AppResponse<string>.Fail("Nội dung file không khớp với định dạng khai báo"));
+                return BadRequest(AppResponse<string>.Fail("Ná»™i dung file khÃ´ng khá»›p vá»›i Ä‘á»‹nh dáº¡ng khai bÃ¡o"));
             }
             stream.Position = 0;
 
@@ -937,7 +1037,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error uploading image");
-            return StatusCode(500, AppResponse<string>.Fail("Lỗi khi upload ảnh"));
+            return StatusCode(500, AppResponse<string>.Fail("Lá»—i khi upload áº£nh"));
         }
     }
 
@@ -947,20 +1047,21 @@ public class CommunicationController(
     [HttpPost("upload-image-base64")]
     [Authorize]
     [RequestSizeLimit(15_000_000)] // 15MB limit for base64 overhead
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> UploadImageBase64([FromBody] ImageBase64UploadDto dto)
     {
         try
         {
             if (string.IsNullOrEmpty(dto.Base64Data) || string.IsNullOrEmpty(dto.FileName))
             {
-                return BadRequest(AppResponse<string>.Fail("Vui lòng chọn file ảnh"));
+                return BadRequest(AppResponse<string>.Fail("Vui lÃ²ng chá»n file áº£nh"));
             }
 
             var extension = Path.GetExtension(dto.FileName).ToLower();
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
             if (!allowedExtensions.Contains(extension))
             {
-                return BadRequest(AppResponse<string>.Fail("Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP"));
+                return BadRequest(AppResponse<string>.Fail("Chá»‰ há»— trá»£ Ä‘á»‹nh dáº¡ng JPEG, PNG, GIF, WebP"));
             }
 
             // Remove data URI prefix if present (e.g., "data:image/png;base64,")
@@ -974,7 +1075,7 @@ public class CommunicationController(
             var estimatedSize = (long)(base64.Length * 3.0 / 4.0);
             if (estimatedSize > 10 * 1024 * 1024)
             {
-                return BadRequest(AppResponse<string>.Fail("Kích thước ảnh tối đa 10MB"));
+                return BadRequest(AppResponse<string>.Fail("KÃ­ch thÆ°á»›c áº£nh tá»‘i Ä‘a 10MB"));
             }
 
             byte[] fileBytes;
@@ -984,19 +1085,19 @@ public class CommunicationController(
             }
             catch
             {
-                return BadRequest(AppResponse<string>.Fail("Dữ liệu ảnh không hợp lệ"));
+                return BadRequest(AppResponse<string>.Fail("Dá»¯ liá»‡u áº£nh khÃ´ng há»£p lá»‡"));
             }
 
             if (fileBytes.Length > 10 * 1024 * 1024)
             {
-                return BadRequest(AppResponse<string>.Fail("Kích thước ảnh tối đa 10MB"));
+                return BadRequest(AppResponse<string>.Fail("KÃ­ch thÆ°á»›c áº£nh tá»‘i Ä‘a 10MB"));
             }
 
             // Validate magic bytes
             using var checkStream = new MemoryStream(fileBytes);
             if (!ValidateImageMagicBytes(checkStream, extension))
             {
-                return BadRequest(AppResponse<string>.Fail("Nội dung file không khớp với định dạng khai báo"));
+                return BadRequest(AppResponse<string>.Fail("Ná»™i dung file khÃ´ng khá»›p vá»›i Ä‘á»‹nh dáº¡ng khai bÃ¡o"));
             }
 
             using var stream = new MemoryStream(fileBytes);
@@ -1009,7 +1110,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error uploading base64 image");
-            return StatusCode(500, AppResponse<string>.Fail("Lỗi khi upload ảnh"));
+            return StatusCode(500, AppResponse<string>.Fail("Lá»—i khi upload áº£nh"));
         }
     }
 
@@ -1018,6 +1119,7 @@ public class CommunicationController(
     /// </summary>
     [HttpGet("stats")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetStats()
     {
         try
@@ -1026,11 +1128,20 @@ public class CommunicationController(
             var baseQuery = storeId.HasValue
                 ? dbContext.InternalCommunications.Where(c => c.StoreId == storeId.Value)
                 : dbContext.InternalCommunications.AsQueryable();
+            if (!IsManager)
+            {
+                var now = DateTime.UtcNow;
+                baseQuery = baseQuery.Where(c =>
+                    c.AuthorId == CurrentUserId
+                    || (c.Status == CommunicationStatus.Published
+                        && (c.ExpiresAt == null || c.ExpiresAt > now)));
+            }
             var stats = new
             {
                 totalPosts = await baseQuery.CountAsync(),
                 publishedPosts = await baseQuery.CountAsync(c => c.Status == CommunicationStatus.Published),
                 draftPosts = await baseQuery.CountAsync(c => c.Status == CommunicationStatus.Draft),
+                pendingPosts = await baseQuery.CountAsync(c => c.Status == CommunicationStatus.PendingApproval),
                 aiGeneratedPosts = await baseQuery.CountAsync(c => c.IsAiGenerated),
                 totalViews = await baseQuery.SumAsync(c => c.ViewCount),
                 totalLikes = await baseQuery.SumAsync(c => c.LikeCount),
@@ -1047,11 +1158,44 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communication stats");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy thống kê"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y thá»‘ng kÃª"));
         }
     }
 
     #region Private Helpers
+
+    private async Task<bool> HasCommunicationApproveAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsManager) return true;
+        return await modulePermissionService.HasPermissionAsync(
+            CurrentUserId,
+            CurrentUserRole,
+            CurrentStoreId,
+            "Communication",
+            ModulePermissionAction.Approve,
+            cancellationToken);
+    }
+
+    private bool CanAccessCommunication(
+        CommunicationStatus status,
+        Guid authorId,
+        DateTime? expiresAt)
+    {
+        if (IsManager) return true;
+        if (authorId == CurrentUserId) return true;
+        if (status != CommunicationStatus.Published) return false;
+        if (expiresAt.HasValue && expiresAt.Value < DateTime.UtcNow) return false;
+        return true;
+    }
+
+    private string? BuildPublicShareUrl(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var webBase = configuration["App:PublicWebBaseUrl"];
+        if (string.IsNullOrWhiteSpace(webBase))
+            webBase = $"{Request.Scheme}://{Request.Host}";
+        return $"{webBase.TrimEnd('/')}/share/{token}";
+    }
 
     private static bool ValidateImageMagicBytes(Stream stream, string extension)
     {
@@ -1090,99 +1234,99 @@ public class CommunicationController(
         string summary;
         var tags = new List<string>();
 
-        if (promptLower.Contains("sự kiện") || promptLower.Contains("event"))
+        if (promptLower.Contains("sá»± kiá»‡n") || promptLower.Contains("event"))
         {
-            title = $"📢 {prompt}";
-            summary = $"Thông tin chi tiết về sự kiện {prompt} tại công ty.";
-            content = $@"<h2>🎉 {prompt}</h2>
-<p><strong>Kính gửi toàn thể nhân viên,</strong></p>
-<p>Ban lãnh đạo công ty trân trọng thông báo về sự kiện <strong>{prompt}</strong> sắp được tổ chức.</p>
-<h3>📋 Chi tiết sự kiện:</h3>
+            title = $"ðŸ“¢ {prompt}";
+            summary = $"ThÃ´ng tin chi tiáº¿t vá» sá»± kiá»‡n {prompt} táº¡i cÃ´ng ty.";
+            content = $@"<h2>ðŸŽ‰ {prompt}</h2>
+<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ nhÃ¢n viÃªn,</strong></p>
+<p>Ban lÃ£nh Ä‘áº¡o cÃ´ng ty trÃ¢n trá»ng thÃ´ng bÃ¡o vá» sá»± kiá»‡n <strong>{prompt}</strong> sáº¯p Ä‘Æ°á»£c tá»• chá»©c.</p>
+<h3>ðŸ“‹ Chi tiáº¿t sá»± kiá»‡n:</h3>
 <ul>
-<li><strong>Thời gian:</strong> [Cập nhật thời gian cụ thể]</li>
-<li><strong>Địa điểm:</strong> [Cập nhật địa điểm]</li>
-<li><strong>Đối tượng tham gia:</strong> Toàn thể nhân viên</li>
+<li><strong>Thá»i gian:</strong> [Cáº­p nháº­t thá»i gian cá»¥ thá»ƒ]</li>
+<li><strong>Äá»‹a Ä‘iá»ƒm:</strong> [Cáº­p nháº­t Ä‘á»‹a Ä‘iá»ƒm]</li>
+<li><strong>Äá»‘i tÆ°á»£ng tham gia:</strong> ToÃ n thá»ƒ nhÃ¢n viÃªn</li>
 </ul>
-{(context != null ? $"<p><em>Bối cảnh:</em> {context}</p>" : "")}
-<h3>🎯 Mục đích:</h3>
-<p>Sự kiện nhằm tạo cơ hội giao lưu, kết nối giữa các phòng ban và nâng cao tinh thần đoàn kết trong tập thể.</p>
-<p><em>Ngày tạo: {dateStr}</em></p>
-<p>Trân trọng,<br/><strong>Ban Truyền thông Nội bộ</strong></p>";
-            tags.AddRange(new[] { "sự kiện", "team-building", typeLabel });
+{(context != null ? $"<p><em>Bá»‘i cáº£nh:</em> {context}</p>" : "")}
+<h3>ðŸŽ¯ Má»¥c Ä‘Ã­ch:</h3>
+<p>Sá»± kiá»‡n nháº±m táº¡o cÆ¡ há»™i giao lÆ°u, káº¿t ná»‘i giá»¯a cÃ¡c phÃ²ng ban vÃ  nÃ¢ng cao tinh tháº§n Ä‘oÃ n káº¿t trong táº­p thá»ƒ.</p>
+<p><em>NgÃ y táº¡o: {dateStr}</em></p>
+<p>TrÃ¢n trá»ng,<br/><strong>Ban Truyá»n thÃ´ng Ná»™i bá»™</strong></p>";
+            tags.AddRange(new[] { "sá»± kiá»‡n", "team-building", typeLabel });
         }
-        else if (promptLower.Contains("thông báo") || promptLower.Contains("announcement"))
+        else if (promptLower.Contains("thÃ´ng bÃ¡o") || promptLower.Contains("announcement"))
         {
-            title = $"📋 Thông báo: {prompt}";
-            summary = $"Thông báo quan trọng về {prompt}.";
-            content = $@"<h2>📋 THÔNG BÁO</h2>
-<p><strong>Kính gửi toàn thể CBNV,</strong></p>
-<p>Ban lãnh đạo công ty xin thông báo về nội dung: <strong>{prompt}</strong></p>
-<h3>📌 Nội dung chính:</h3>
+            title = $"ðŸ“‹ ThÃ´ng bÃ¡o: {prompt}";
+            summary = $"ThÃ´ng bÃ¡o quan trá»ng vá» {prompt}.";
+            content = $@"<h2>ðŸ“‹ THÃ”NG BÃO</h2>
+<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
+<p>Ban lÃ£nh Ä‘áº¡o cÃ´ng ty xin thÃ´ng bÃ¡o vá» ná»™i dung: <strong>{prompt}</strong></p>
+<h3>ðŸ“Œ Ná»™i dung chÃ­nh:</h3>
 <p>{prompt}</p>
-{(context != null ? $"<p><strong>Chi tiết bổ sung:</strong> {context}</p>" : "")}
-<h3>⏰ Thời gian áp dụng:</h3>
-<p>Có hiệu lực từ ngày {dateStr}</p>
-<p>Mọi thắc mắc vui lòng liên hệ Phòng Nhân sự hoặc quản lý trực tiếp.</p>
-<p>Trân trọng,<br/><strong>Ban Giám đốc</strong></p>";
-            tags.AddRange(new[] { "thông báo", "quan trọng", typeLabel });
+{(context != null ? $"<p><strong>Chi tiáº¿t bá»• sung:</strong> {context}</p>" : "")}
+<h3>â° Thá»i gian Ã¡p dá»¥ng:</h3>
+<p>CÃ³ hiá»‡u lá»±c tá»« ngÃ y {dateStr}</p>
+<p>Má»i tháº¯c máº¯c vui lÃ²ng liÃªn há»‡ PhÃ²ng NhÃ¢n sá»± hoáº·c quáº£n lÃ½ trá»±c tiáº¿p.</p>
+<p>TrÃ¢n trá»ng,<br/><strong>Ban GiÃ¡m Ä‘á»‘c</strong></p>";
+            tags.AddRange(new[] { "thÃ´ng bÃ¡o", "quan trá»ng", typeLabel });
         }
-        else if (promptLower.Contains("chính sách") || promptLower.Contains("policy"))
+        else if (promptLower.Contains("chÃ­nh sÃ¡ch") || promptLower.Contains("policy"))
         {
-            title = $"📜 Chính sách: {prompt}";
-            summary = $"Cập nhật chính sách mới về {prompt}.";
-            content = $@"<h2>📜 CẬP NHẬT CHÍNH SÁCH</h2>
-<p><strong>Kính gửi toàn thể CBNV,</strong></p>
-<p>Nhằm hoàn thiện hệ thống quản lý và nâng cao hiệu quả làm việc, công ty ban hành chính sách mới về: <strong>{prompt}</strong></p>
-<h3>📋 Nội dung chính sách:</h3>
+            title = $"ðŸ“œ ChÃ­nh sÃ¡ch: {prompt}";
+            summary = $"Cáº­p nháº­t chÃ­nh sÃ¡ch má»›i vá» {prompt}.";
+            content = $@"<h2>ðŸ“œ Cáº¬P NHáº¬T CHÃNH SÃCH</h2>
+<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
+<p>Nháº±m hoÃ n thiá»‡n há»‡ thá»‘ng quáº£n lÃ½ vÃ  nÃ¢ng cao hiá»‡u quáº£ lÃ m viá»‡c, cÃ´ng ty ban hÃ nh chÃ­nh sÃ¡ch má»›i vá»: <strong>{prompt}</strong></p>
+<h3>ðŸ“‹ Ná»™i dung chÃ­nh sÃ¡ch:</h3>
 <ol>
-<li>Phạm vi áp dụng: Toàn thể CBNV</li>
-<li>Nội dung: {prompt}</li>
-<li>Thời gian áp dụng: Từ ngày {dateStr}</li>
+<li>Pháº¡m vi Ã¡p dá»¥ng: ToÃ n thá»ƒ CBNV</li>
+<li>Ná»™i dung: {prompt}</li>
+<li>Thá»i gian Ã¡p dá»¥ng: Tá»« ngÃ y {dateStr}</li>
 </ol>
-{(context != null ? $"<h3>💡 Lưu ý:</h3><p>{context}</p>" : "")}
-<p>Đề nghị các phòng ban phổ biến đến từng nhân viên để đảm bảo thực hiện đúng quy định.</p>
-<p>Trân trọng,<br/><strong>Phòng Nhân sự</strong></p>";
-            tags.AddRange(new[] { "chính sách", "quy định", typeLabel });
+{(context != null ? $"<h3>ðŸ’¡ LÆ°u Ã½:</h3><p>{context}</p>" : "")}
+<p>Äá» nghá»‹ cÃ¡c phÃ²ng ban phá»• biáº¿n Ä‘áº¿n tá»«ng nhÃ¢n viÃªn Ä‘á»ƒ Ä‘áº£m báº£o thá»±c hiá»‡n Ä‘Ãºng quy Ä‘á»‹nh.</p>
+<p>TrÃ¢n trá»ng,<br/><strong>PhÃ²ng NhÃ¢n sá»±</strong></p>";
+            tags.AddRange(new[] { "chÃ­nh sÃ¡ch", "quy Ä‘á»‹nh", typeLabel });
         }
-        else if (promptLower.Contains("tuyển dụng") || promptLower.Contains("recruit"))
+        else if (promptLower.Contains("tuyá»ƒn dá»¥ng") || promptLower.Contains("recruit"))
         {
-            title = $"🔍 Tuyển dụng: {prompt}";
-            summary = $"Thông tin tuyển dụng {prompt}.";
-            content = $@"<h2>🔍 THÔNG BÁO TUYỂN DỤNG</h2>
-<p><strong>Công ty đang tìm kiếm ứng viên cho vị trí:</strong></p>
-<h3>💼 {prompt}</h3>
-<h3>📋 Yêu cầu:</h3>
+            title = $"ðŸ” Tuyá»ƒn dá»¥ng: {prompt}";
+            summary = $"ThÃ´ng tin tuyá»ƒn dá»¥ng {prompt}.";
+            content = $@"<h2>ðŸ” THÃ”NG BÃO TUYá»‚N Dá»¤NG</h2>
+<p><strong>CÃ´ng ty Ä‘ang tÃ¬m kiáº¿m á»©ng viÃªn cho vá»‹ trÃ­:</strong></p>
+<h3>ðŸ’¼ {prompt}</h3>
+<h3>ðŸ“‹ YÃªu cáº§u:</h3>
 <ul>
-<li>Kinh nghiệm: [Cập nhật yêu cầu]</li>
-<li>Trình độ: [Cập nhật trình độ]</li>
-<li>Kỹ năng: [Cập nhật kỹ năng]</li>
+<li>Kinh nghiá»‡m: [Cáº­p nháº­t yÃªu cáº§u]</li>
+<li>TrÃ¬nh Ä‘á»™: [Cáº­p nháº­t trÃ¬nh Ä‘á»™]</li>
+<li>Ká»¹ nÄƒng: [Cáº­p nháº­t ká»¹ nÄƒng]</li>
 </ul>
-<h3>🎁 Quyền lợi:</h3>
+<h3>ðŸŽ Quyá»n lá»£i:</h3>
 <ul>
-<li>Mức lương cạnh tranh</li>
-<li>Môi trường làm việc chuyên nghiệp</li>
-<li>Cơ hội phát triển nghề nghiệp</li>
+<li>Má»©c lÆ°Æ¡ng cáº¡nh tranh</li>
+<li>MÃ´i trÆ°á»ng lÃ m viá»‡c chuyÃªn nghiá»‡p</li>
+<li>CÆ¡ há»™i phÃ¡t triá»ƒn nghá» nghiá»‡p</li>
 </ul>
-{(context != null ? $"<p><strong>Thông tin thêm:</strong> {context}</p>" : "")}
-<p>Ứng viên quan tâm vui lòng gửi CV về Phòng Nhân sự hoặc giới thiệu ứng viên phù hợp.</p>
-<p><em>Hạn nộp hồ sơ: [Cập nhật deadline]</em></p>";
-            tags.AddRange(new[] { "tuyển dụng", "việc làm", typeLabel });
+{(context != null ? $"<p><strong>ThÃ´ng tin thÃªm:</strong> {context}</p>" : "")}
+<p>á»¨ng viÃªn quan tÃ¢m vui lÃ²ng gá»­i CV vá» PhÃ²ng NhÃ¢n sá»± hoáº·c giá»›i thiá»‡u á»©ng viÃªn phÃ¹ há»£p.</p>
+<p><em>Háº¡n ná»™p há»“ sÆ¡: [Cáº­p nháº­t deadline]</em></p>";
+            tags.AddRange(new[] { "tuyá»ƒn dá»¥ng", "viá»‡c lÃ m", typeLabel });
         }
         else
         {
-            title = $"📰 {prompt}";
-            summary = $"Bài viết truyền thông nội bộ về {prompt}.";
-            content = $@"<h2>📰 {prompt}</h2>
-<p><strong>Kính gửi toàn thể CBNV,</strong></p>
+            title = $"ðŸ“° {prompt}";
+            summary = $"BÃ i viáº¿t truyá»n thÃ´ng ná»™i bá»™ vá» {prompt}.";
+            content = $@"<h2>ðŸ“° {prompt}</h2>
+<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
 <p>{prompt}</p>
 {(context != null ? $"<p>{context}</p>" : "")}
-<h3>📋 Chi tiết:</h3>
-<p>Nội dung bài viết về chủ đề trên sẽ được cập nhật chi tiết tại đây. Bài viết nhằm mục đích chia sẻ thông tin, kết nối và xây dựng văn hóa doanh nghiệp.</p>
-<h3>💡 Kết luận:</h3>
-<p>Cảm ơn sự quan tâm và đồng hành của toàn thể CBNV. Mọi góp ý xin gửi về Phòng Truyền thông.</p>
-<p><em>Ngày đăng: {dateStr}</em></p>
-<p>Trân trọng,<br/><strong>Ban Truyền thông Nội bộ</strong></p>";
-            tags.AddRange(new[] { "truyền thông", "nội bộ", typeLabel });
+<h3>ðŸ“‹ Chi tiáº¿t:</h3>
+<p>Ná»™i dung bÃ i viáº¿t vá» chá»§ Ä‘á» trÃªn sáº½ Ä‘Æ°á»£c cáº­p nháº­t chi tiáº¿t táº¡i Ä‘Ã¢y. BÃ i viáº¿t nháº±m má»¥c Ä‘Ã­ch chia sáº» thÃ´ng tin, káº¿t ná»‘i vÃ  xÃ¢y dá»±ng vÄƒn hÃ³a doanh nghiá»‡p.</p>
+<h3>ðŸ’¡ Káº¿t luáº­n:</h3>
+<p>Cáº£m Æ¡n sá»± quan tÃ¢m vÃ  Ä‘á»“ng hÃ nh cá»§a toÃ n thá»ƒ CBNV. Má»i gÃ³p Ã½ xin gá»­i vá» PhÃ²ng Truyá»n thÃ´ng.</p>
+<p><em>NgÃ y Ä‘Äƒng: {dateStr}</em></p>
+<p>TrÃ¢n trá»ng,<br/><strong>Ban Truyá»n thÃ´ng Ná»™i bá»™</strong></p>";
+            tags.AddRange(new[] { "truyá»n thÃ´ng", "ná»™i bá»™", typeLabel });
         }
 
         return (title, content, summary, tags);
@@ -1193,10 +1337,11 @@ public class CommunicationController(
     #region AI Config (Multi-provider)
 
     /// <summary>
-    /// Lấy danh sách tất cả AI providers với trạng thái
+    /// Láº¥y danh sÃ¡ch táº¥t cáº£ AI providers vá»›i tráº¡ng thÃ¡i
     /// </summary>
     [HttpGet("ai/providers")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAiProviders()
     {
         try
@@ -1208,7 +1353,6 @@ public class CommunicationController(
                 .ToDictionaryAsync(s => s.Key, s => s.Value);
 
             var geminiConfig = geminiAiService.GetCurrentConfig();
-            var deepSeekConfig = deepSeekAiService.GetCurrentConfig();
 
             var providers = new[]
             {
@@ -1220,15 +1364,6 @@ public class CommunicationController(
                     enabled = geminiConfig.Enabled,
                     isConfigured = geminiConfig.IsConfigured,
                     model = geminiConfig.Model
-                },
-                new
-                {
-                    id = "deepseek",
-                    name = "DeepSeek",
-                    icon = "psychology",
-                    enabled = deepSeekConfig.Enabled,
-                    isConfigured = deepSeekConfig.IsConfigured,
-                    model = deepSeekConfig.Model
                 }
             };
 
@@ -1239,36 +1374,53 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting AI providers");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách AI"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch AI"));
         }
     }
 
     /// <summary>
-    /// Lấy cấu hình Gemini AI hiện tại
+    /// Láº¥y cáº¥u hÃ¬nh Gemini AI hiá»‡n táº¡i
     /// </summary>
     [HttpGet("ai/config")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetGeminiConfig()
     {
         try
         {
-            // Đọc config từ DB trước (batch load), nếu không có thì lấy từ service
+            // Äá»c config tá»« DB trÆ°á»›c (batch load), náº¿u khÃ´ng cÃ³ thÃ¬ láº¥y tá»« service
             var storeId = RequiredStoreId;
             var geminiKeys = new[] { "gemini_api_key", "gemini_model", "gemini_max_tokens", "gemini_temperature", "gemini_enabled" };
             var geminiSettings = await dbContext.AppSettings
                 .Where(s => s.StoreId == storeId && geminiKeys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key, s => s.Value);
 
-            var currentConfig = geminiAiService.GetCurrentConfig();
+            var dbConfig = await GeminiStoreConfigLoader.LoadFromDbAsync(dbContext, storeId);
+            var runtime = geminiAiService.GetCurrentConfig();
+
+            var apiKeyRaw = geminiSettings.GetValueOrDefault("gemini_api_key")
+                ?? dbConfig?.ApiKey
+                ?? runtime.ApiKey;
+            var enabledRaw = geminiSettings.GetValueOrDefault("gemini_enabled");
+            var enabled = dbConfig?.Enabled
+                ?? (bool.TryParse(enabledRaw, out var e) ? e : runtime.Enabled);
 
             var config = new
             {
-                apiKey = MaskApiKey(geminiSettings.GetValueOrDefault("gemini_api_key") ?? currentConfig.ApiKey),
-                model = geminiSettings.GetValueOrDefault("gemini_model") ?? currentConfig.Model,
-                maxOutputTokens = int.TryParse(geminiSettings.GetValueOrDefault("gemini_max_tokens"), out var t) ? t : currentConfig.MaxOutputTokens,
-                temperature = double.TryParse(geminiSettings.GetValueOrDefault("gemini_temperature"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var temp) ? temp : currentConfig.Temperature,
-                isConfigured = geminiAiService.IsConfigured,
-                enabled = currentConfig.Enabled
+                apiKey = MaskApiKey(apiKeyRaw),
+                model = geminiSettings.GetValueOrDefault("gemini_model") ?? dbConfig?.Model ?? runtime.Model,
+                maxOutputTokens = int.TryParse(geminiSettings.GetValueOrDefault("gemini_max_tokens"), out var t)
+                    ? t
+                    : dbConfig?.MaxOutputTokens ?? runtime.MaxOutputTokens,
+                temperature = double.TryParse(
+                    geminiSettings.GetValueOrDefault("gemini_temperature"),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var temp)
+                    ? temp
+                    : dbConfig?.Temperature ?? runtime.Temperature,
+                isConfigured = !string.IsNullOrWhiteSpace(apiKeyRaw),
+                enabled
             };
 
             return Ok(AppResponse<object>.Success(config));
@@ -1276,20 +1428,21 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting Gemini config");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy cấu hình AI"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y cáº¥u hÃ¬nh AI"));
         }
     }
 
     /// <summary>
-    /// Cập nhật cấu hình Gemini AI
+    /// Cáº­p nháº­t cáº¥u hÃ¬nh Gemini AI
     /// </summary>
     [HttpPost("ai/config")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateGeminiConfig([FromBody] UpdateGeminiConfigDto dto)
     {
         try
         {
-            // Lưu vào DB - pre-load existing settings to avoid N+1
+            // LÆ°u vÃ o DB - pre-load existing settings to avoid N+1
             var storeId = RequiredStoreId;
             var settings = new Dictionary<string, string?>
             {
@@ -1344,51 +1497,60 @@ public class CommunicationController(
 
             await dbContext.SaveChangesAsync();
 
-            // Cập nhật runtime config
-            geminiAiService.UpdateConfig(
-                dto.ApiKey,
-                dto.Model,
-                dto.MaxOutputTokens,
-                dto.Temperature,
-                dto.Enabled
-            );
+            var reloaded = await GeminiStoreConfigLoader.LoadFromDbAsync(dbContext, storeId);
+            if (reloaded != null)
+                GeminiStoreConfigLoader.Apply(geminiAiService, reloaded);
+            else
+            {
+                geminiAiService.UpdateConfig(
+                    dto.ApiKey,
+                    dto.Model,
+                    dto.MaxOutputTokens,
+                    dto.Temperature,
+                    dto.Enabled);
+            }
 
-            logger.LogInformation("User {UserId} updated Gemini AI config", CurrentUserId);
+            logger.LogInformation(
+                "User {UserId} updated Gemini AI config for store {StoreId}",
+                CurrentUserId,
+                storeId);
 
             return Ok(AppResponse<object>.Success(new
             {
                 isConfigured = geminiAiService.IsConfigured,
+                enabled = geminiAiService.IsEnabled,
                 message = "Cập nhật cấu hình AI thành công"
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating Gemini config");
-            return StatusCode(500, AppResponse<object>.Fail($"Lỗi khi cập nhật cấu hình AI: {ex.Message}"));
+            return StatusCode(500, AppResponse<object>.Fail($"Lá»—i khi cáº­p nháº­t cáº¥u hÃ¬nh AI: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Kiểm tra kết nối Gemini AI
+    /// Kiá»ƒm tra káº¿t ná»‘i Gemini AI
     /// </summary>
     [HttpPost("ai/test")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> TestGeminiConnection()
     {
         try
         {
             if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
-                return Ok(AppResponse<object>.Fail("Gemini AI chưa được bật hoặc chưa cấu hình API Key"));
+                return Ok(AppResponse<object>.Fail("Gemini AI chÆ°a Ä‘Æ°á»£c báº­t hoáº·c chÆ°a cáº¥u hÃ¬nh API Key"));
             }
 
             var result = await geminiAiService.GenerateCommunicationContentAsync(
-                "Viết một câu chào ngắn gọn", "tin tức", "thân thiện", null, 200);
+                "Viáº¿t má»™t cÃ¢u chÃ o ngáº¯n gá»n", "tin tá»©c", "thÃ¢n thiá»‡n", null, 200);
 
             return Ok(AppResponse<object>.Success(new
             {
                 success = true,
-                message = "Kết nối Gemini AI thành công!",
+                message = "Káº¿t ná»‘i Gemini AI thÃ nh cÃ´ng!",
                 sampleTitle = result.Title,
                 sampleContent = result.Content.Length > 200 ? result.Content[..200] + "..." : result.Content
             }));
@@ -1400,32 +1562,33 @@ public class CommunicationController(
             {
                 success = true,
                 isQuotaError = true,
-                message = "✅ API Key hợp lệ! Tuy nhiên quota miễn phí đã tạm hết.",
+                message = "âœ… API Key há»£p lá»‡! Tuy nhiÃªn quota miá»…n phÃ­ Ä‘Ã£ táº¡m háº¿t.",
                 detail = ex.Message
             }));
         }
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("Gemini AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"❌ API Key không hợp lệ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"âŒ API Key khÃ´ng há»£p lá»‡: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
             logger.LogError(ex, "Gemini AI test failed with API error");
-            return Ok(AppResponse<object>.Fail($"Lỗi API: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lá»—i API: {ex.Message}"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Gemini AI test failed");
-            return Ok(AppResponse<object>.Fail($"Kết nối thất bại: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Káº¿t ná»‘i tháº¥t báº¡i: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Lấy cấu hình DeepSeek AI hiện tại
+    /// Láº¥y cáº¥u hÃ¬nh DeepSeek AI hiá»‡n táº¡i
     /// </summary>
     [HttpGet("ai/deepseek/config")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetDeepSeekConfig()
     {
         try
@@ -1453,15 +1616,16 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting DeepSeek config");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy cấu hình DeepSeek"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y cáº¥u hÃ¬nh DeepSeek"));
         }
     }
 
     /// <summary>
-    /// Cập nhật cấu hình DeepSeek AI
+    /// Cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek AI
     /// </summary>
     [HttpPost("ai/deepseek/config")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateDeepSeekConfig([FromBody] UpdateDeepSeekConfigDto dto)
     {
         try
@@ -1533,37 +1697,38 @@ public class CommunicationController(
             return Ok(AppResponse<object>.Success(new
             {
                 isConfigured = deepSeekAiService.IsConfigured,
-                message = "Cập nhật cấu hình DeepSeek thành công"
+                message = "Cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek thÃ nh cÃ´ng"
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating DeepSeek config");
-            return StatusCode(500, AppResponse<object>.Fail($"Lỗi khi cập nhật cấu hình DeepSeek: {ex.Message}"));
+            return StatusCode(500, AppResponse<object>.Fail($"Lá»—i khi cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Kiểm tra kết nối DeepSeek AI
+    /// Kiá»ƒm tra káº¿t ná»‘i DeepSeek AI
     /// </summary>
     [HttpPost("ai/deepseek/test")]
     [Authorize]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
     public async Task<IActionResult> TestDeepSeekConnection()
     {
         try
         {
             if (!deepSeekAiService.IsConfigured || !deepSeekAiService.IsEnabled)
             {
-                return Ok(AppResponse<object>.Fail("DeepSeek AI chưa được bật hoặc chưa cấu hình API Key"));
+                return Ok(AppResponse<object>.Fail("DeepSeek AI chÆ°a Ä‘Æ°á»£c báº­t hoáº·c chÆ°a cáº¥u hÃ¬nh API Key"));
             }
 
             var result = await deepSeekAiService.GenerateCommunicationContentAsync(
-                "Viết một câu chào ngắn gọn", "tin tức", "thân thiện", null, 200);
+                "Viáº¿t má»™t cÃ¢u chÃ o ngáº¯n gá»n", "tin tá»©c", "thÃ¢n thiá»‡n", null, 200);
 
             return Ok(AppResponse<object>.Success(new
             {
                 success = true,
-                message = "Kết nối DeepSeek AI thành công!",
+                message = "Káº¿t ná»‘i DeepSeek AI thÃ nh cÃ´ng!",
                 sampleTitle = result.Title,
                 sampleContent = result.Content.Length > 200 ? result.Content[..200] + "..." : result.Content
             }));
@@ -1575,24 +1740,24 @@ public class CommunicationController(
             {
                 success = true,
                 isQuotaError = true,
-                message = "✅ API Key hợp lệ! Tuy nhiên quota đã tạm hết.",
+                message = "âœ… API Key há»£p lá»‡! Tuy nhiÃªn quota Ä‘Ã£ táº¡m háº¿t.",
                 detail = ex.Message
             }));
         }
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("DeepSeek AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"❌ API Key không hợp lệ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"âŒ API Key khÃ´ng há»£p lá»‡: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
             logger.LogError(ex, "DeepSeek AI test failed with API error");
-            return Ok(AppResponse<object>.Fail($"Lỗi API: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lá»—i API: {ex.Message}"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "DeepSeek AI test failed");
-            return Ok(AppResponse<object>.Fail($"Kết nối thất bại: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Káº¿t ná»‘i tháº¥t báº¡i: {ex.Message}"));
         }
     }
 
@@ -1621,3 +1786,4 @@ public class CommunicationController(
         return subfolder;
     }
 }
+

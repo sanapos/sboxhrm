@@ -16,9 +16,9 @@ public static class ClockCommandBuilder
 
     public static string BuildGetAllUsersCommand()
     {
-        // CHECK USERINFO - yêu cầu máy gửi lại toàn bộ danh sách user
-        // Máy sẽ trả về qua POST /iclock/cdata?table=OPERLOG
-        return "CHECK USERINFO";
+        // DATA QUERY USERINFO — chuẩn ADMS (CHECK USERINFO hay lỗi trên firmware mới)
+        // Máy POST /iclock/cdata?table=USERINFO (hoặc OPERLOG) với PIN=...\tName=...
+        return "DATA QUERY USERINFO";
     }
 
     /// <summary>
@@ -73,14 +73,25 @@ public static class ClockCommandBuilder
         return $"DATA DELETE FINGERTMP PIN={pin}\tFID=50";
     }
 
+    /// <summary>End of current Vietnam calendar day (attendance times are VN local).</summary>
+    public static DateTime VietnamEndOfToday()
+    {
+        var vnNow = DateTime.UtcNow.AddHours(7);
+        return vnNow.Date.AddDays(1).AddSeconds(-1);
+    }
+
+    /// <summary>Default sync window: 5 years ago through end of today (VN).</summary>
+    public static string BuildDefaultSyncAttendancesCommand() =>
+        BuildGetAttendanceCommand(DateTime.UtcNow.AddHours(7).AddYears(-5), VietnamEndOfToday());
+
     /// <summary>
     /// Builds a command to query attendance logs within a time period.
-    /// Default: Last 2 years up to today.
+    /// Default: Last 2 years up to end of today (VN).
     /// Time format: YYYY-MM-DDThh:mm:ss
     /// </summary>
     public static string BuildGetAttendanceCommand(DateTime? startTime = null, DateTime? endTime = null)
     {
-        var end = endTime ?? DateTime.Now;
+        var end = endTime ?? VietnamEndOfToday();
         var start = startTime ?? end.AddYears(-2);
 
         // Format: YYYY-MM-DDThh:mm:ss (ISO 8601)

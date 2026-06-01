@@ -1,13 +1,21 @@
 {
-    "name": "zkteco_flutter_client",
-    "short_name": "zkteco_flutter_client",
-    "start_url": ".",
+    "name": "SBOX HRM – Quản lý nhân sự",
+    "short_name": "SBOX HRM",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0C56D0",
+    "theme_color": "#0C56D0",
+    "description": "Phần mềm quản lý nhân sự: chấm công khuôn mặt, ZKTeco, ca làm, bảng lương, báo cáo realtime.",
+    "lang": "vi",
     "orientation": "portrait-primary",
-    "prefer_related_applications": false,
+    "prefer_related_applications": true,
+    "related_applications": [
+        {
+            "platform": "play",
+            "url": "https://play.google.com/store/apps/details?id=sbox.sana.vn",
+            "id": "sbox.sana.vn"
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",

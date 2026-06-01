@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/dashboard.dart';
@@ -179,6 +180,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

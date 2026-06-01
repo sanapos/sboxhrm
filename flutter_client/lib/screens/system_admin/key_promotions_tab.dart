@@ -103,7 +103,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           AdminHelpers.countBadge(
               'Tổng CT', _promotions.length, AdminHelpers.info),
           AdminHelpers.countBadge('Đang hoạt động', active, AdminHelpers.success),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showCreateEditDialog(null),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Tạo CT mới'),
@@ -492,7 +492,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (nameCtrl.text.isEmpty || selectedPackageId == null) {
                   NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập đầy đủ thông tin');

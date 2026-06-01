@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
@@ -95,7 +96,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF059669), Color(0xFF1E3A5F)]),
+        gradient: LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
       ),
       child: Row(
         children: [
@@ -166,7 +167,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
     final monthDisplay = month != null && year != null ? 'T${month.toString().padLeft(2, '0')}/$year' : (payslip['payPeriod'] ?? '');
     final status = payslip['statusName']?.toString() ?? payslip['status']?.toString() ?? 'Draft';
     final isPaid = status == 'Paid';
-    final statusColor = isPaid ? const Color(0xFF1E3A5F) : const Color(0xFFF59E0B);
+    final statusColor = isPaid ? HrmPageChrome.primaryNavy : const Color(0xFFF59E0B);
     return InkWell(
       onTap: () => _loadPayslipDetail(payslip['id']?.toString() ?? ''),
       child: Padding(
@@ -176,7 +177,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF059669), Color(0xFF1E3A5F)]),
+                gradient: const LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.receipt, color: Colors.white, size: 18),
@@ -230,7 +231,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF059669), Color(0xFF1E3A5F)]),
+              gradient: const LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -244,7 +245,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
             ),
           ),
           const SizedBox(height: 20),
-          _buildDetailSection('Thu nhập', Icons.add_circle, const Color(0xFF1E3A5F), [
+          _buildDetailSection('Thu nhập', Icons.add_circle, HrmPageChrome.primaryNavy, [
             _detailRow('Lương cơ bản', p['baseSalary']),
             _detailRow('Phụ cấp', p['allowances']),
             _detailRow('Thưởng', p['bonus']),

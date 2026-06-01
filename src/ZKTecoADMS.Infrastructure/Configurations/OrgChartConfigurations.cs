@@ -40,10 +40,11 @@ public class OrgAssignmentConfiguration : IEntityTypeConfiguration<OrgAssignment
     {
         builder.HasKey(e => e.Id);
 
-        // Unique: 1 nhân viên chỉ giữ 1 chức vụ trong 1 phòng ban tại 1 thời điểm
+        // Chỉ một gán đang hiệu lực (chưa kết thúc) cho mỗi tổ hợp NV + phòng ban + chức vụ
         builder.HasIndex(e => new { e.EmployeeId, e.DepartmentId, e.PositionId })
             .IsUnique()
-            .HasDatabaseName("IX_OrgAssignments_Emp_Dept_Pos");
+            .HasFilter("\"Deleted\" IS NULL AND \"EndDate\" IS NULL")
+            .HasDatabaseName("IX_OrgAssignments_Emp_Dept_Pos_Active");
 
         builder.HasIndex(e => e.EmployeeId)
             .HasDatabaseName("IX_OrgAssignments_EmployeeId");

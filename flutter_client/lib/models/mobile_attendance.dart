@@ -233,6 +233,7 @@ class MobileAttendanceRecord {
   final String? note;
   final String? wifiSsid;
   final String? wifiIpAddress;
+  final String? employeePhotoUrl;
 
   MobileAttendanceRecord({
     required this.id,
@@ -256,6 +257,7 @@ class MobileAttendanceRecord {
     this.note,
     this.wifiSsid,
     this.wifiIpAddress,
+    this.employeePhotoUrl,
   });
 
   factory MobileAttendanceRecord.fromJson(Map<String, dynamic> json) {
@@ -283,6 +285,7 @@ class MobileAttendanceRecord {
       note: json['note'],
       wifiSsid: json['wifiSsid'],
       wifiIpAddress: json['wifiIpAddress'],
+      employeePhotoUrl: json['employeePhotoUrl'],
     );
   }
 
@@ -309,8 +312,12 @@ class MobileAttendanceRecord {
       'note': note,
       'wifiSsid': wifiSsid,
       'wifiIpAddress': wifiIpAddress,
+      'employeePhotoUrl': employeePhotoUrl,
     };
   }
+
+  bool get hasGpsLocation =>
+      latitude != null && longitude != null;
 
   bool get isInRange =>
       distanceFromLocation != null && distanceFromLocation! <= 100;

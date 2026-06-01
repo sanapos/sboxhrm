@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Models;
@@ -59,7 +60,9 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
             {
                 RoleName = g.Key.RoleName,
                 RoleDisplayName = g.Key.RoleDisplayName,
-                PermissionCount = g.Count(),
+                PermissionCount = g.Count(rp =>
+                    rp.CanView || rp.CanCreate || rp.CanEdit || rp.CanDelete ||
+                    rp.CanExport || rp.CanApprove),
                 StoreId = g.Key.StoreId,
                 StoreName = g.Key.StoreName
             })
@@ -151,29 +154,33 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
                 .ToListAsync();
         }
 
+        var modulePermissions = permissions.Select(p =>
+        {
+            var rp = rolePermissions.FirstOrDefault(x => x.PermissionId == p.Id);
+            return new ModulePermissionDto
+            {
+                PermissionId = p.Id,
+                Module = p.Module,
+                ModuleDisplayName = p.ModuleDisplayName,
+                DisplayOrder = p.DisplayOrder,
+                CanView = rp?.CanView ?? false,
+                CanCreate = rp?.CanCreate ?? false,
+                CanEdit = rp?.CanEdit ?? false,
+                CanDelete = rp?.CanDelete ?? false,
+                CanExport = rp?.CanExport ?? false,
+                CanApprove = rp?.CanApprove ?? false
+            };
+        }).ToList();
+
         var result = new RolePermissionGroupDto
         {
             RoleName = roleName,
             RoleDisplayName = rolePermissions.FirstOrDefault()?.RoleDisplayName ?? GetDefaultRoleDisplayName(roleName),
             StoreId = storeId,
             StoreName = rolePermissions.FirstOrDefault()?.Store?.Name,
-            Permissions = permissions.Select(p =>
-            {
-                var rp = rolePermissions.FirstOrDefault(x => x.PermissionId == p.Id);
-                return new ModulePermissionDto
-                {
-                    PermissionId = p.Id,
-                    Module = p.Module,
-                    ModuleDisplayName = p.ModuleDisplayName,
-                    DisplayOrder = p.DisplayOrder,
-                    CanView = rp?.CanView ?? false,
-                    CanCreate = rp?.CanCreate ?? false,
-                    CanEdit = rp?.CanEdit ?? false,
-                    CanDelete = rp?.CanDelete ?? false,
-                    CanExport = rp?.CanExport ?? false,
-                    CanApprove = rp?.CanApprove ?? false
-                };
-            }).ToList()
+            Permissions = modulePermissions,
+            GrantedModuleCount = modulePermissions.Count(p =>
+                p.CanView || p.CanCreate || p.CanEdit || p.CanDelete || p.CanExport || p.CanApprove)
         };
 
         return Ok(AppResponse<RolePermissionGroupDto>.Success(result));
@@ -321,71 +328,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     };
 
     private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove)
-        GetDefaultPermissions(string roleName, string module)
-    {
-        return roleName.ToLower() switch
-        {
-            "admin" => (true, true, true, true, true, true),
-
-            "director" => module.ToLower() switch
-            {
-                "settings" or "device" or "geofence" or "deviceuser" => (true, false, false, false, false, false),
-                "store" or "role" or "usermanagement" or "departmentpermission" => (true, false, false, false, true, false),
-                _ => (true, true, true, true, true, true)
-            },
-
-            "accountant" => module.ToLower() switch
-            {
-                "salary" or "payslip" or "allowance" or "insurance" or "tax" or "advance"
-                    or "transaction" or "cashtransaction" or "bankaccount" or "benefit"
-                    => (true, true, true, true, true, false),
-                "report" => (true, false, false, false, true, false),
-                "employee" or "attendance" => (true, false, false, false, true, false),
-                "dashboard" or "leave" or "shift" or "holiday" or "overtime" or "notification"
-                    => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-
-            "departmenthead" => module.ToLower() switch
-            {
-                "employee" or "attendance" or "leave" or "shift" or "overtime"
-                    or "attendancecorrection" or "workshedule" or "shiftswap"
-                    or "task" or "kpi" or "hrdocument"
-                    => (true, true, true, false, true, true),
-                "notification" or "communication" => (true, true, false, false, false, false),
-                "report" or "salary" or "payslip" => (true, false, false, false, true, false),
-                "dashboard" or "allowance" or "holiday" or "insurance" or "advance"
-                    or "shifttemplate" or "shiftsalarylevel" or "benefit" or "asset"
-                    or "orgchart" or "department"
-                    => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-
-            "manager" => module.ToLower() switch
-            {
-                "settings" or "store" or "role" => (true, false, false, false, false, false),
-                _ => (true, true, true, false, true, true)
-            },
-
-            "employee" => module.ToLower() switch
-            {
-                "dashboard" or "attendance" or "payslip" or "shift" or "notification"
-                    => (true, false, false, false, false, false),
-                "leave" or "shiftswap" or "attendancecorrection" or "overtime"
-                    => (true, true, false, false, false, false),
-                "task" => (true, false, true, false, false, false),
-                "fieldcheckin" => (true, true, true, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-
-            "user" => module.ToLower() switch
-            {
-                "dashboard" => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-
-            _ => (false, false, false, false, false, false)
-        };
-    }
+        GetDefaultPermissions(string roleName, string module) =>
+        ModulePermissionDefaults.Get(roleName, module);
 
 }

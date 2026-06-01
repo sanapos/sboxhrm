@@ -12,15 +12,17 @@ public class GetTodayShiftHandler(IRepository<Shift> shiftRepository)
         GetTodayShiftQuery request,
         CancellationToken cancellationToken)
     {
-        var today = DateTime.Now.Date;
-        var shifts = await shiftRepository.GetAllAsync(cancellationToken: cancellationToken);
-        
-        var todayShift = shifts
-            .Where(s => s.EmployeeUserId == request.UserId)
-            .Where(s => s.StartTime.Date == today)
-            .Where(s => s.Status == ShiftStatus.Approved)
-            .OrderBy(s => s.StartTime)
-            .FirstOrDefault();
+        // "Today" must always be VN-local date — server may run in UTC.
+        var todayLocal = DateTime.UtcNow.AddHours(7).Date;
+        var tomorrowLocal = todayLocal.AddDays(1);
+
+        var todayShift = await shiftRepository.GetFirstOrDefaultAsync(
+            s => s.StartTime,
+            filter: s => s.EmployeeUserId == request.UserId
+                && s.Status == ShiftStatus.Approved
+                && s.StartTime >= todayLocal
+                && s.StartTime < tomorrowLocal,
+            cancellationToken: cancellationToken);
 
         if (todayShift == null)
         {

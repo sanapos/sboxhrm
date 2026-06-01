@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -8,6 +9,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -27,6 +29,7 @@ public class OvertimesController(
     /// </summary>
     [HttpGet("my-overtimes")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<OvertimeDto>>>> GetMyOvertimes(
         [FromQuery] int? month = null,
         [FromQuery] int? year = null)
@@ -71,6 +74,7 @@ public class OvertimesController(
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<OvertimeDto>>> CreateOvertime([FromBody] CreateOvertimeRequest request)
     {
         try
@@ -174,6 +178,7 @@ public class OvertimesController(
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<OvertimeDto>>> UpdateOvertime(
         Guid id,
         [FromBody] UpdateOvertimeRequest request)
@@ -248,6 +253,7 @@ public class OvertimesController(
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelOvertime(Guid id)
     {
         try
@@ -299,6 +305,7 @@ public class OvertimesController(
     /// </summary>
     [HttpGet("pending")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<OvertimeDto>>>> GetPendingOvertimes()
     {
         try
@@ -336,6 +343,7 @@ public class OvertimesController(
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<OvertimeDto>>>> GetAllOvertimes(
         [FromQuery] PaginationRequest request,
         [FromQuery] int? month = null,
@@ -399,6 +407,7 @@ public class OvertimesController(
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> ApproveOvertime(Guid id)
     {
         try
@@ -452,6 +461,7 @@ public class OvertimesController(
     /// </summary>
     [HttpPost("{id}/reject")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> RejectOvertime(
         Guid id,
         [FromBody] RejectOvertimeRequest request)
@@ -507,6 +517,7 @@ public class OvertimesController(
     /// </summary>
     [HttpPost("{id}/complete")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> CompleteOvertime(
         Guid id,
         [FromBody] CompleteOvertimeRequest request)
@@ -567,16 +578,21 @@ public class OvertimesController(
     /// </summary>
     [HttpGet("statistics")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Overtime", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<OvertimeStatisticsDto>>> GetOvertimeStatistics(
         [FromQuery] int? month = null,
-        [FromQuery] int? year = null)
+        [FromQuery] int? year = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
             var storeId = RequiredStoreId;
             var userId = CurrentUserId;
-            var targetMonth = month ?? DateTime.Now.Month;
-            var targetYear = year ?? DateTime.Now.Year;
+            // VN-local current month/year — server may run in UTC.
+            var nowVn = DateTime.UtcNow.AddHours(7);
+            var targetMonth = month ?? nowVn.Month;
+            var targetYear = year ?? nowVn.Year;
 
             var query = dbContext.Overtimes
                 .Where(o => o.StoreId == storeId
@@ -587,6 +603,23 @@ public class OvertimesController(
             if (!IsManager)
             {
                 query = query.Where(o => o.EmployeeUserId == userId);
+            }
+            else
+            {
+                var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+                    dbContext, storeId, branchId, includeChildBranches);
+                if (branchScope != null)
+                {
+                    if (branchScope.ApplicationUserIds.Count == 0)
+                    {
+                        return Ok(AppResponse<OvertimeStatisticsDto>.Success(new OvertimeStatisticsDto
+                        {
+                            Month = targetMonth,
+                            Year = targetYear
+                        }));
+                    }
+                    query = query.Where(o => branchScope.ApplicationUserIds.Contains(o.EmployeeUserId));
+                }
             }
 
             // Server-side aggregation: avoid loading all records into memory

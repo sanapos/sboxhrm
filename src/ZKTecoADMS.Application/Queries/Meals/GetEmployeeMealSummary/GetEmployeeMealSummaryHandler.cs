@@ -19,8 +19,14 @@ public class GetEmployeeMealSummaryHandler(
         var records = await mealRecordRepository.GetAllWithIncludeAsync(
             filter: r => r.StoreId == request.StoreId &&
                          r.Date >= from && r.Date <= to &&
-                         (!request.EmployeeUserId.HasValue || r.EmployeeUserId == request.EmployeeUserId.Value),
-            includes: q => q.Include(r => r.EmployeeUser).Include(r => r.MealSession),
+                         (!request.EmployeeUserId.HasValue || r.EmployeeUserId == request.EmployeeUserId.Value) &&
+                         (!request.BranchId.HasValue ||
+                          (r.EmployeeUser != null &&
+                           r.EmployeeUser.Employee != null &&
+                           r.EmployeeUser.Employee.BranchId == request.BranchId.Value)),
+            includes: q => q.Include(r => r.EmployeeUser)
+                .ThenInclude(u => u!.Employee)
+                .Include(r => r.MealSession),
             cancellationToken: cancellationToken);
 
         var grouped = records

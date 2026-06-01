@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -25,6 +27,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/headcount-movement?year=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("headcount-movement")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetHeadcountMovement(
         [FromQuery] int? year = null,
         [FromQuery] string? department = null,
@@ -86,9 +89,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"Biến động NS {y}",
                     new[] { "Tháng", "Tuyển mới", "Nghỉ việc", "HC cuối kỳ", "Net" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in months)
                         {
                             ws.Cell(row, 1).Value = $"{i.Month:D2}/{i.Year}";
@@ -99,7 +100,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    $"headcount-movement-{y}.xlsx");
+                    $"headcount-movement-{y}.xlsx", user: User);
             }
 
             return Ok(AppResponse<HeadcountMovementReportDto>.Success(report));
@@ -116,6 +117,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/turnover?year=&groupBy=department|branch
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("turnover")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetTurnover(
         [FromQuery] int? year = null,
         [FromQuery] string groupBy = "department",
@@ -179,9 +181,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"Turnover {y}",
                     new[] { "Nhóm", "HC đầu năm", "HC cuối năm", "Nghỉ việc", "Tỷ lệ %" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = i.GroupName;
@@ -192,7 +192,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    $"turnover-{y}.xlsx");
+                    $"turnover-{y}.xlsx", user: User);
             }
 
             return Ok(AppResponse<TurnoverReportDto>.Success(report));
@@ -209,6 +209,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/tenure-distribution?department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("tenure-distribution")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetTenureDistribution(
         [FromQuery] string? department = null,
         [FromQuery] string? format = null,
@@ -264,9 +265,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Tenure",
                     new[] { "Bậc thâm niên", "Số NV", "Tỷ lệ %" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var b in buckets)
                         {
                             ws.Cell(row, 1).Value = b.Bucket;
@@ -275,7 +274,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    "tenure-distribution.xlsx");
+                    "tenure-distribution.xlsx", user: User);
             }
 
             return Ok(AppResponse<TenureDistributionReportDto>.Success(report));
@@ -292,6 +291,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/demographics?department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("demographics")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetDemographics(
         [FromQuery] string? department = null,
         [FromQuery] string? format = null,
@@ -362,9 +362,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Demographics",
                     new[] { "Phòng ban", "Tổng", "Nam", "Nữ", "Khác", "< 25", "25–34", "35–44", "45–54", "≥ 55", "Tuổi TB" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in perDept)
                         {
                             ws.Cell(row, 1).Value = i.Department;
@@ -381,7 +379,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    "demographics.xlsx");
+                    "demographics.xlsx", user: User);
             }
 
             return Ok(AppResponse<DemographicsReportDto>.Success(report));
@@ -398,6 +396,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/contract-expiry?days=90&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("contract-expiry")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetContractExpiry(
         [FromQuery] int days = 90,
         [FromQuery] string? department = null,
@@ -450,9 +449,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Contract expiry",
                     new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Chức danh", "Loại HĐ", "Vào làm", "Hết hạn", "Còn (ngày)" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -467,7 +464,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    $"contract-expiry-{days}d.xlsx");
+                    $"contract-expiry-{days}d.xlsx", user: User);
             }
 
             return Ok(AppResponse<ContractExpiryReportDto>.Success(report));
@@ -484,6 +481,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/birthdays?days=30&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("birthdays")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetBirthdays(
         [FromQuery] int days = 30,
         [FromQuery] string? department = null,
@@ -535,9 +533,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Sinh nhật",
                     new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Ngày sinh", "SN sắp tới", "Còn (ngày)", "Tròn tuổi" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -551,7 +547,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    $"birthdays-{days}d.xlsx");
+                    $"birthdays-{days}d.xlsx", user: User);
             }
 
             return Ok(AppResponse<BirthdayReportDto>.Success(report));
@@ -568,6 +564,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/retirement?years=5
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("retirement")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetRetirement(
         [FromQuery] int years = 5,
         [FromQuery] string? format = null,
@@ -615,9 +612,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Nghỉ hưu",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Giới tính", "Sinh nhật", "Ngày hưu", "Còn (năm)" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -630,7 +625,7 @@ public class HrAnalyticsController(
                             row++;
                         }
                     },
-                    $"retirement-{years}y.xlsx");
+                    $"retirement-{years}y.xlsx", user: User);
             }
 
             return Ok(AppResponse<RetirementReportDto>.Success(report));
@@ -647,6 +642,7 @@ public class HrAnalyticsController(
     // GET /api/reports/hr/org-headcount
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("org-headcount")]
+    [RequireModulePermission("HrReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetOrgHeadcount(
         [FromQuery] string? format = null,
         CancellationToken ct = default)
@@ -693,9 +689,7 @@ public class HrAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Org headcount",
                     new[] { "Nhóm", "Tên", "Số người" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var list in new[] { byDept, byBranch, byLevel })
                             foreach (var i in list)
                             {
@@ -705,7 +699,7 @@ public class HrAnalyticsController(
                                 row++;
                             }
                     },
-                    "org-headcount.xlsx");
+                    "org-headcount.xlsx", user: User);
             }
 
             return Ok(AppResponse<OrgHeadcountReportDto>.Success(report));
@@ -858,3 +852,4 @@ public class OrgHeadcountItemDto
     public string Name { get; set; } = string.Empty;
     public int Count { get; set; }
 }
+

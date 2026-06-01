@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
@@ -20,19 +21,22 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
     private readonly IRepository<NotificationPreference> _preferenceRepository;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<DeviceStatusNotificationService> _logger;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
     public DeviceStatusNotificationService(
         IHubContext<AttendanceHub> hubContext,
         IRepository<Notification> notificationRepository,
         IRepository<NotificationPreference> preferenceRepository,
         UserManager<ApplicationUser> userManager,
-        ILogger<DeviceStatusNotificationService> logger)
+        ILogger<DeviceStatusNotificationService> logger,
+        IServiceScopeFactory serviceScopeFactory)
     {
         _hubContext = hubContext;
         _notificationRepository = notificationRepository;
         _preferenceRepository = preferenceRepository;
         _userManager = userManager;
         _logger = logger;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public async Task NotifyDeviceOnlineAsync(Device device)
@@ -234,23 +238,33 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
 
             await _notificationRepository.AddRangeAsync(notifications);
 
+            // FCM push (app background/closed). Per-user so each device's tray entry
+            // carries its own notificationId — tapping it can then mark the right row
+            // as read on the server, which keeps the icon badge correct.
+            try
+            {
+                using var pushScope = _serviceScopeFactory.CreateScope();
+                var push = pushScope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService>();
+                if (push != null)
+                {
+                    foreach (var n in notifications)
+                    {
+                        var pushData = NotificationDtoMapper.ToFcmData(n);
+                        await push.PushToUserAsync(n.TargetUserId!.Value, title, message,
+                            actionUrl: "/adms-devices", data: pushData);
+                    }
+                }
+            }
+            catch (Exception pushEx)
+            {
+                _logger.LogWarning(pushEx, "FCM push for device-status notification failed (non-fatal)");
+            }
+
             foreach (var n in notifications)
             {
                 try
                 {
-                    var dto = new
-                    {
-                        id = n.Id,
-                        title = n.Title,
-                        message = n.Message,
-                        type = (int)n.Type,
-                        timestamp = n.Timestamp,
-                        isRead = false,
-                        relatedUrl = n.RelatedUrl,
-                        relatedEntityId = n.RelatedEntityId,
-                        relatedEntityType = n.RelatedEntityType,
-                        categoryCode = n.CategoryCode
-                    };
+                    var dto = NotificationDtoMapper.ToSignalRPayload(n);
                     await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
                 }
                 catch (Exception perUserEx)

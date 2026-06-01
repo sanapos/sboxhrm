@@ -22,6 +22,9 @@ public class GetHrDocumentsHandler(
                 filter: d => d.StoreId == request.StoreId
                     && d.IsActive
                     && (!request.EmployeeUserId.HasValue || d.EmployeeUserId == request.EmployeeUserId.Value)
+                    && (!request.EmployeeId.HasValue
+                        || (d.EmployeeUser != null && d.EmployeeUser.Employee != null && d.EmployeeUser.Employee.Id == request.EmployeeId.Value)
+                        || d.EmployeeUserId == request.EmployeeId.Value)
                     && (!request.DocumentType.HasValue || d.DocumentType == request.DocumentType.Value)
                     && (!request.ExpiredOnly.HasValue || !request.ExpiredOnly.Value || (d.ExpiryDate.HasValue && d.ExpiryDate.Value < today))
                     && (!request.ExpiringOnly.HasValue || !request.ExpiringOnly.Value || (d.ExpiryDate.HasValue && d.ExpiryDate.Value >= today && d.ExpiryDate.Value <= thirtyDaysFromNow))
@@ -39,6 +42,9 @@ public class GetHrDocumentsHandler(
                 filter: d => d.StoreId == request.StoreId
                     && d.IsActive
                     && (!request.EmployeeUserId.HasValue || d.EmployeeUserId == request.EmployeeUserId.Value)
+                    && (!request.EmployeeId.HasValue
+                        || (d.EmployeeUser != null && d.EmployeeUser.Employee != null && d.EmployeeUser.Employee.Id == request.EmployeeId.Value)
+                        || d.EmployeeUserId == request.EmployeeId.Value)
                     && (!request.DocumentType.HasValue || d.DocumentType == request.DocumentType.Value)
                     && (!request.ExpiredOnly.HasValue || !request.ExpiredOnly.Value || (d.ExpiryDate.HasValue && d.ExpiryDate.Value < today))
                     && (!request.ExpiringOnly.HasValue || !request.ExpiringOnly.Value || (d.ExpiryDate.HasValue && d.ExpiryDate.Value >= today && d.ExpiryDate.Value <= thirtyDaysFromNow))

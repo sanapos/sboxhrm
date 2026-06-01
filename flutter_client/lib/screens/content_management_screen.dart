@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/image_source_picker.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 /// Màn hình quản lý nội dung (Nội quy / Đào tạo)
 class ContentManagementScreen extends StatefulWidget {
@@ -53,7 +54,6 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   String _searchQuery = '';
   String? _selectedCategoryId;
   int _selectedStatusFilter = -1;
-  bool _showMobileFilters = false;
 
   @override
   void initState() {
@@ -172,28 +172,6 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                   horizontal: isMobile ? 10 : 16, vertical: 8),
             ),
           ),
-          if (isMobile)
-            IconButton(
-              icon: Stack(
-                children: [
-                  Icon(
-                    _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                    color: _showMobileFilters ? Colors.orange : const Color(0xFF71717A),
-                  ),
-                  if (_searchQuery.isNotEmpty || _selectedCategoryId != null || _selectedStatusFilter >= 0)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                      ),
-                    ),
-                ],
-              ),
-              onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-            ),
           const SizedBox(width: 12),
         ],
         bottom: TabBar(
@@ -226,7 +204,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   Widget _buildArticlesTab() {
     final filtered = _filteredArticles;
     return Column(children: [
-      if (!Responsive.isMobile(context) || _showMobileFilters)
+      
       Container(
         padding: const EdgeInsets.all(12),
         color: Colors.white,
@@ -289,10 +267,10 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: Colors.white,
         child: Row(children: [
-          _stat('Tổng', _articles.length, const Color(0xFF1E3A5F)),
+          _stat('Tổng', _articles.length, HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
           _stat('Xuất bản', _articles.where((a) => _parseStatus(a['status']) == 2).length,
-              const Color(0xFF1E3A5F)),
+              HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
           _stat('Nháp', _articles.where((a) => _parseStatus(a['status']) == 0).length,
               const Color(0xFFF59E0B)),
@@ -392,7 +370,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                if (ai) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.auto_awesome, size: 12, color: Color(0xFF0F2340))),
+                if (ai) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.auto_awesome, size: 12, color: HrmPageChrome.primaryNavy)),
               ]),
               const SizedBox(height: 2),
               Text(
@@ -429,7 +407,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
 
   Widget _statusBadge(bool pub, bool draft) {
     final c = pub
-        ? const Color(0xFF1E3A5F)
+        ? HrmPageChrome.primaryNavy
         : draft
             ? const Color(0xFFF59E0B)
             : const Color(0xFF71717A);
@@ -624,7 +602,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             child: const Text('Hủy',
                 style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (nameC.text.trim().isEmpty) {
                 appNotification.showWarning(
@@ -686,7 +664,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -731,7 +709,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -905,7 +883,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -925,7 +903,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           IconButton(
             icon: Icon(Icons.auto_awesome,
                 color: _showAiPanel
-                    ? const Color(0xFF0F2340)
+                    ? HrmPageChrome.primaryNavy
                     : const Color(0xFFA1A1AA)),
             tooltip: 'AI Gemini',
             onPressed: () =>
@@ -939,7 +917,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           const SizedBox(width: 4),
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _isSaving ? null : () => _save(publish: true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.themeColor,
@@ -1165,8 +1143,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
-            const Color(0xFF0F2340).withValues(alpha: 0.05),
-            const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+            HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
+            HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
           ]),
           border: const Border(
               bottom: BorderSide(color: Color(0xFFE4E4E7))),
@@ -1178,11 +1156,11 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F2340).withValues(alpha: 0.12),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.auto_awesome,
-                    size: 16, color: Color(0xFF0F2340)),
+                    size: 16, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 8),
               const Expanded(
@@ -1197,12 +1175,12 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F2340).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text('Đã dùng AI',
                       style: TextStyle(
-                          color: Color(0xFF0F2340),
+                          color: HrmPageChrome.primaryNavy,
                           fontSize: 10,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -1237,7 +1215,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                   ),
                   const SizedBox(width: 10),
                   if (_isGeneratingAi)
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: _cancelAiGeneration,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade400,
@@ -1257,10 +1235,10 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       ),
                     )
                   else
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: _generateWithAi,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F2340),
+                        backgroundColor: HrmPageChrome.primaryNavy,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1307,7 +1285,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF0F2340).withValues(alpha: 0.3)),
+                  border: Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
                 ),
                 child: SingleChildScrollView(
                   reverse: true,
@@ -1320,7 +1298,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                             width: 14, height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: const Color(0xFF0F2340).withValues(alpha: 0.6),
+                              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1328,7 +1306,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                             _aiStreamedText.isEmpty ? 'AI đang suy nghĩ...' : 'AI đang viết...',
                             style: TextStyle(
                               fontSize: 11,
-                              color: const Color(0xFF0F2340).withValues(alpha: 0.7),
+                              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.7),
                               fontWeight: FontWeight.w600,
                             ),
                           ),

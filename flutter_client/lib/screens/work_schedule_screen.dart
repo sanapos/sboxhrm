@@ -17,6 +17,8 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import 'main_layout.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/shift_swap_ui.dart';
 
 class WorkScheduleScreen extends StatefulWidget {
   const WorkScheduleScreen({super.key});
@@ -46,8 +48,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   String? _selectedDepartment;
   String? _selectedBranchId;
   bool _isLoading = true;
-  bool _showMobileFilters = false;
-
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
   String? _selectedEmployeeId;
 
@@ -72,6 +72,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   // Staffing quotas loaded from server
   List<Map<String, dynamic>> _staffingQuotas = [];
+  List<Map<String, dynamic>> _swapColleagues = [];
 
   // Focused day index for single-day detail view in manager grid (null = show all 7 days)
   int? _focusedDayIndex;
@@ -106,11 +107,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     try {
       _pendingRegistrations.clear();
       if (_isEmployee) {
-        // Employee: load shifts, own schedules and own registrations
         await Future.wait([
           _loadShifts(),
           _loadSchedules(),
           _loadRegistrations(),
+          _loadSwapColleagues(),
         ]);
       } else {
         await Future.wait([
@@ -121,6 +122,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           _loadSchedules(),
           _loadRegistrations(),
           _loadStaffingQuotas(),
+          _loadSwapColleagues(),
         ]);
       }
     } finally {
@@ -194,6 +196,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       }
     } catch (e) {
       debugPrint('Load staffing quotas error: $e');
+    }
+  }
+
+  Future<void> _loadSwapColleagues() async {
+    try {
+      final result = await _apiService.getShiftSwapColleagues();
+      if (!mounted) return;
+      if (result['isSuccess'] == true && result['data'] is List) {
+        setState(() {
+          _swapColleagues = List<Map<String, dynamic>>.from(result['data']);
+        });
+      }
+    } catch (e) {
+      debugPrint('Load swap colleagues error: $e');
     }
   }
 
@@ -327,18 +343,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF1F5F9),
+        backgroundColor: HrmPageChrome.background,
         body: LoadingWidget(),
       );
     }
     if (_isEmployee) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: HrmPageChrome.background,
         body: _buildEmployeeCalendarView(),
         floatingActionButton: _pendingRegistrations.isNotEmpty
             ? FloatingActionButton.extended(
                 onPressed: _submitAllRegistrations,
-                backgroundColor: const Color(0xFF1E3A5F),
+                backgroundColor: HrmPageChrome.primaryNavy,
                 icon: const Icon(Icons.send, size: 18),
                 label: Text('Gửi đăng ký (${_pendingRegistrations.length})',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -347,7 +363,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           _buildWeekSelector(),
@@ -367,7 +383,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       floatingActionButton: _pendingRegistrations.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _submitAllRegistrations,
-              backgroundColor: const Color(0xFF1E3A5F),
+              backgroundColor: HrmPageChrome.primaryNavy,
               icon: const Icon(Icons.send, size: 18),
               label: Text('Gửi (${_pendingRegistrations.length})',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -386,9 +402,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ),
       child: TabBar(
         controller: _tabController,
-        labelColor: const Color(0xFF1E3A5F),
+        labelColor: HrmPageChrome.primaryNavy,
         unselectedLabelColor: const Color(0xFF71717A),
-        indicatorColor: const Color(0xFF1E3A5F),
+        indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
         isScrollable: Responsive.isMobile(context),
         tabAlignment: Responsive.isMobile(context)
@@ -488,7 +504,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               spacing: 12,
               runSpacing: 6,
               children: [
-                _buildLegendDot(const Color(0xFF1E3A5F), 'Đã xếp lịch'),
+                _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
                 _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
                 _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
                 _buildLegendDot(const Color(0xFF8B5CF6), 'Chưa gửi'),
@@ -579,7 +595,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildExportHeader(
-                        'LỊCH LÀM VIỆC ĐÃ DUYỆT', const Color(0xFF1E3A5F)),
+                        'LỊCH LÀM VIỆC ĐÃ DUYỆT', HrmPageChrome.primaryNavy),
                     _buildApprovedGrid(),
                     _buildCompactLegend(),
                   ]),
@@ -617,8 +633,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               icon: const Icon(Icons.image_outlined, size: 14),
               label: const Text('PNG', style: TextStyle(fontSize: 11)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1E3A5F),
-                side: const BorderSide(color: Color(0xFF1E3A5F)),
+                foregroundColor: HrmPageChrome.primaryNavy,
+                side: const BorderSide(color: HrmPageChrome.primaryNavy),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
@@ -643,9 +659,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     return Column(
       children: [
-        // Week navigation
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: ShiftSwapFlowHelpBanner(
+            compact: true,
+            onTapDetail: () {
+              NavigationNotifier.scheduleApprovalTab.value = 2;
+              NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+            },
+          ),
+        ),
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -674,7 +699,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       borderRadius: BorderRadius.circular(8)),
                   child: const Icon(Icons.today, size: 18, color: Colors.white),
                 ),
@@ -739,7 +764,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       Container(
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(12)),
                         ),
@@ -758,7 +783,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1E3A5F)),
+                                      color: HrmPageChrome.primaryNavy),
                                   textAlign: TextAlign.center),
                             ),
                             // Day columns
@@ -774,7 +799,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                       const EdgeInsets.symmetric(vertical: 6),
                                   decoration: BoxDecoration(
                                     color: isToday
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                             .withValues(alpha: 0.1)
                                         : null,
                                     border: di < 6
@@ -790,7 +815,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
                                             color: isToday
-                                                ? const Color(0xFF1E3A5F)
+                                                ? HrmPageChrome.primaryNavy
                                                 : (isSun
                                                     ? const Color(0xFFEF4444)
                                                     : const Color(0xFF71717A)),
@@ -799,7 +824,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           style: TextStyle(
                                             fontSize: 10,
                                             color: isToday
-                                                ? const Color(0xFF1E3A5F)
+                                                ? HrmPageChrome.primaryNavy
                                                 : const Color(0xFF71717A),
                                           )),
                                     ],
@@ -891,7 +916,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     spacing: 12,
                     runSpacing: 6,
                     children: [
-                      _buildLegendDot(const Color(0xFF1E3A5F), 'Đã xếp lịch'),
+                      _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
                       _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
                       _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
                       _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
@@ -963,9 +988,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     Widget? icon;
 
     if (hasSchedule) {
-      bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.12);
-      borderColor = const Color(0xFF1E3A5F);
-      icon = const Icon(Icons.check, size: 18, color: Color(0xFF1E3A5F));
+      bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.12);
+      borderColor = HrmPageChrome.primaryNavy;
+      icon = const Icon(Icons.check, size: 18, color: HrmPageChrome.primaryNavy);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.approved) {
       bgColor = const Color(0xFF059669).withValues(alpha: 0.12);
@@ -1193,7 +1218,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Row(children: [
               Icon(isScheduled ? Icons.check : Icons.check_circle,
                   color: isScheduled
-                      ? const Color(0xFF1E3A5F)
+                      ? HrmPageChrome.primaryNavy
                       : const Color(0xFF059669),
                   size: 20),
               const SizedBox(width: 8),
@@ -1205,7 +1230,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: isScheduled
-                      ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                      ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                       : const Color(0xFFD1FAE5),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1214,7 +1239,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: isScheduled
-                            ? const Color(0xFF1E3A5F)
+                            ? HrmPageChrome.primaryNavy
                             : const Color(0xFF059669))),
               ),
             ]),
@@ -1231,7 +1256,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Icons.swap_horiz,
                 'Đổi ca',
                 'Yêu cầu đổi ca với nhân viên khác',
-                const Color(0xFF1E3A5F), () {
+                HrmPageChrome.primaryNavy, () {
               Navigator.pop(ctx);
               _showSwapDialog(shift, day);
             }),
@@ -1313,26 +1338,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   // === SHIFT SWAP DIALOG ===
   void _showSwapDialog(Shift shift, DateTime day) {
-    String? targetEmployeeId;
-    String? targetShiftId;
+    String? targetUserId;
+    String? targetShiftId = shift.id;
     final noteCtrl = TextEditingController();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Employees in same department (exclude self)
-    final myDept = _employees
-        .cast<Employee?>()
-        .firstWhere(
-          (e) =>
-              e!.id == authProvider.user?.id ||
-              _effectiveUserId(e) == authProvider.user?.id,
-          orElse: () => null,
-        )
-        ?.department;
-    final availableEmployees = _employees.where((e) {
-      final uid = _effectiveUserId(e);
-      return uid != authProvider.user?.id &&
-          (myDept == null || e.department == myDept);
-    }).toList();
+    final colleagues = _swapColleagues.isNotEmpty
+        ? _swapColleagues
+        : _employees
+            .where((e) =>
+                (e.applicationUserId ?? '').isNotEmpty &&
+                e.applicationUserId != Provider.of<AuthProvider>(context, listen: false).user?.id)
+            .map((e) => {
+                  'userId': e.applicationUserId,
+                  'fullName': e.fullName,
+                  'employeeCode': e.employeeCode,
+                })
+            .toList();
 
     showDialog(
       context: context,
@@ -1341,7 +1362,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
-            Icon(Icons.swap_horiz, color: Color(0xFF1E3A5F)),
+            Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
             Expanded(child: Text('Đổi ca', style: TextStyle(fontSize: 16))),
           ]),
@@ -1349,7 +1370,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             width: 400,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                // Current shift info
+                const ShiftSwapFlowHelpBanner(compact: true),
+                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
@@ -1375,23 +1397,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const SizedBox(height: 14),
                 // Target employee
                 DropdownButtonFormField<String>(
-                  initialValue: targetEmployeeId,
+                  initialValue: targetUserId,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Nhân viên muốn đổi',
+                    labelText: 'Đồng nghiệp muốn đổi *',
+                    helperText: colleagues.isEmpty
+                        ? 'Chưa có danh sách — thử tải lại trang'
+                        : 'Cùng phòng ban với bạn',
                     prefixIcon: const Icon(Icons.person, size: 18),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
-                  items: availableEmployees
-                      .map((e) => DropdownMenuItem(
-                            value: _effectiveUserId(e),
-                            child: Text('${e.fullName} (${e.employeeCode})',
+                  items: colleagues
+                      .map((c) => DropdownMenuItem(
+                            value: c['userId']?.toString(),
+                            child: Text(
+                                '${c['fullName'] ?? ''} (${c['employeeCode'] ?? ''})',
                                 overflow: TextOverflow.ellipsis),
                           ))
                       .toList(),
-                  onChanged: (v) => setDialogState(() => targetEmployeeId = v),
+                  onChanged: (v) => setDialogState(() => targetUserId = v),
                 ),
                 const SizedBox(height: 12),
                 // Target shift (optional - can swap for a different shift)
@@ -1399,21 +1425,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   initialValue: targetShiftId,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Ca muốn nhận (tùy chọn)',
+                    labelText: 'Ca muốn nhận *',
+                    helperText: 'Thường chọn cùng ca hoặc ca đồng nghiệp đang giữ',
                     prefixIcon: const Icon(Icons.schedule, size: 18),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                     isDense: true,
                   ),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Cùng ca')),
-                    ..._shifts.map((s) => DropdownMenuItem(
-                          value: s.id,
-                          child: Text(
-                              '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
-                        )),
-                  ],
-                  onChanged: (v) => setDialogState(() => targetShiftId = v),
+                  items: _shifts
+                      .map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(
+                                '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => targetShiftId = v ?? shift.id),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -1433,22 +1459,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             FilledButton.icon(
-              onPressed: targetEmployeeId == null
+              onPressed: targetUserId == null || targetShiftId == null
                   ? null
                   : () async {
                       Navigator.pop(ctx);
                       await _submitShiftSwap(
                         shift: shift,
                         day: day,
-                        targetEmployeeId: targetEmployeeId!,
-                        targetShiftId: targetShiftId,
+                        targetUserId: targetUserId!,
+                        targetShiftId: targetShiftId!,
                         note: noteCtrl.text.trim(),
                       );
                     },
               icon: const Icon(Icons.send, size: 16),
               label: const Text('Gửi yêu cầu'),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+                  backgroundColor: HrmPageChrome.primaryNavy),
             ),
           ],
         );
@@ -1456,29 +1482,32 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
-  Future<void> _submitShiftSwap(
-      {required Shift shift,
-      required DateTime day,
-      required String targetEmployeeId,
-      String? targetShiftId,
-      required String note}) async {
-    final data = {
-      'sourceShiftId': shift.id,
-      'sourceDate': DateTime(day.year, day.month, day.day).toIso8601String(),
-      'targetEmployeeUserId': targetEmployeeId,
-      if (targetShiftId != null) 'targetShiftId': targetShiftId,
-      'targetDate': DateTime(day.year, day.month, day.day).toIso8601String(),
-      if (note.isNotEmpty) 'note': note,
-    };
-
-    final result = await _apiService.createShiftSwap(data);
+  Future<void> _submitShiftSwap({
+    required Shift shift,
+    required DateTime day,
+    required String targetUserId,
+    required String targetShiftId,
+    required String note,
+  }) async {
+    final result = await _apiService.createShiftSwap(
+      targetUserId: targetUserId,
+      requesterShiftId: shift.id,
+      requesterDate: day,
+      targetShiftId: targetShiftId,
+      targetDate: day,
+      reason: note,
+    );
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Đã gửi', message: 'Yêu cầu đổi ca đã được gửi đến nhân viên');
+        title: 'Đã gửi',
+        message:
+            'Đồng nghiệp cần đồng ý, sau đó quản lý duyệt. Xem tiến độ tại Duyệt lịch → Đổi ca.',
+      );
     } else {
       appNotification.showError(
-          title: 'Lỗi',
-          message: result['message'] ?? 'Không thể gửi yêu cầu đổi ca');
+        title: 'Lỗi',
+        message: result['message']?.toString() ?? 'Không thể gửi yêu cầu đổi ca',
+      );
     }
   }
 
@@ -1735,10 +1764,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.swap_horiz,
-                            size: 14, color: Color(0xFF1E3A5F)),
+                            size: 14, color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -1799,12 +1828,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
         ),
         const SizedBox(width: 6),
-        ElevatedButton.icon(
+        FilledButton.icon(
           onPressed: _goToThisWeek,
           icon: const Icon(Icons.today, size: 16),
           label: isMobile ? const SizedBox.shrink() : Text(_l10n.thisWeek),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1E3A5F),
+            backgroundColor: HrmPageChrome.primaryNavy,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 8 : 16, vertical: 8),
@@ -1976,54 +2005,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Row(
                   children: [
                     Expanded(child: navRow),
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: () => setState(
-                          () => _showMobileFilters = !_showMobileFilters),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 36,
-                        width: 36,
-                        decoration: BoxDecoration(
-                          color: _showMobileFilters
-                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
-                              : const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: _showMobileFilters
-                                  ? const Color(0xFF1E3A5F)
-                                      .withValues(alpha: 0.3)
-                                  : const Color(0xFFE4E4E7)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Center(
-                                child: Icon(
-                                    _showMobileFilters
-                                        ? Icons.filter_alt
-                                        : Icons.filter_alt_outlined,
-                                    size: 18,
-                                    color: _showMobileFilters
-                                        ? const Color(0xFF1E3A5F)
-                                        : Colors.grey.shade600)),
-                            if (_selectedDepartment != null ||
-                                _selectedEmployeeId != null)
-                              Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                      width: 7,
-                                      height: 7,
-                                      decoration: const BoxDecoration(
-                                          color: Colors.orange,
-                                          shape: BoxShape.circle))),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-                if (_showMobileFilters) ...[
+                ...[
                   const SizedBox(height: 8),
                   if (branchDropdown != null) ...[
                     branchDropdown,
@@ -2059,17 +2043,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       _buildCopyButton(
           icon: Icons.today,
           label: _l10n.copyDay,
-          color: const Color(0xFF1E3A5F),
+          color: HrmPageChrome.primaryNavy,
           onTap: _showCopyDayDialog),
       _buildCopyButton(
           icon: Icons.date_range,
           label: _l10n.copyWeek,
-          color: const Color(0xFF1E3A5F),
+          color: HrmPageChrome.primaryNavy,
           onTap: _showCopyWeekDialog),
       _buildCopyButton(
           icon: Icons.calendar_month,
           label: _l10n.copyMonth,
-          color: const Color(0xFF0F2340),
+          color: HrmPageChrome.primaryNavy,
           onTap: _showCopyMonthDialog),
     ];
     final helpBtn = InkWell(
@@ -2111,7 +2095,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child: Row(
                 children: [
                   const Icon(Icons.copy_all,
-                      size: 16, color: Color(0xFF1E3A5F)),
+                      size: 16, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
                   ...buttons.expand((b) => [b, const SizedBox(width: 6)]),
                   helpBtn,
@@ -2120,7 +2104,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             )
           : Row(
               children: [
-                const Icon(Icons.copy_all, size: 18, color: Color(0xFF1E3A5F)),
+                const Icon(Icons.copy_all, size: 18, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 Text(_l10n.copySchedule,
                     style: const TextStyle(
@@ -2172,7 +2156,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child: Row(
                 children: [
                   const Icon(Icons.manage_accounts,
-                      size: 16, color: Color(0xFF1E3A5F)),
+                      size: 16, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
                   ...actionButtons.expand((b) => [b, const SizedBox(width: 6)]),
                 ],
@@ -2181,7 +2165,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           : Row(
               children: [
                 const Icon(Icons.manage_accounts,
-                    size: 18, color: Color(0xFF1E3A5F)),
+                    size: 18, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 const Text('Quản lý',
                     style: TextStyle(
@@ -2244,7 +2228,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.today, color: Color(0xFF1E3A5F)),
+                Icon(Icons.today, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Sao chép lịch ngày',
                     style: TextStyle(
@@ -2353,7 +2337,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     _buildEmployeeMultiSelect(
                       applyToAll: applyToAllEmployees,
                       selectedIds: selectedEmployeeIds,
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                       onToggleAll: (v) => setDialogState(() {
                         applyToAllEmployees = v;
                         if (v) selectedEmployeeIds.clear();
@@ -2382,7 +2366,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 child: Text(_l10n.cancel,
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: targetDates.isEmpty ||
                         (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
@@ -2393,9 +2377,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
-                    foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
           );
@@ -2452,11 +2434,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 margin: const EdgeInsets.all(1),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF1E3A5F)
+                      ? HrmPageChrome.primaryNavy
                       : (isToday ? const Color(0xFFEFF6FF) : null),
                   borderRadius: BorderRadius.circular(6),
                   border: isToday && !isSelected
-                      ? Border.all(color: const Color(0xFF1E3A5F), width: 1)
+                      ? Border.all(color: HrmPageChrome.primaryNavy, width: 1)
                       : null,
                 ),
                 alignment: Alignment.center,
@@ -2744,7 +2726,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.date_range, color: Color(0xFF1E3A5F)),
+                Icon(Icons.date_range, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Sao chép lịch tuần',
                     style: TextStyle(
@@ -2793,14 +2775,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
                           border: Border.all(
-                              color: const Color(0xFF1E3A5F)
+                              color: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.3)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.date_range,
-                                size: 16, color: Color(0xFF1E3A5F)),
+                                size: 16, color: HrmPageChrome.primaryNavy),
                             const SizedBox(width: 8),
                             Text(
                               'Tuần ${_getWeekNumber(sourceWeekStart)}: ${DateFormat('dd/MM').format(sourceWeekStart)} - ${DateFormat('dd/MM/yyyy').format(sourceWeekEnd)}',
@@ -2868,7 +2850,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               ? () => setDialogState(() => numberOfWeeks--)
                               : null,
                           icon: const Icon(Icons.remove_circle_outline),
-                          color: const Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -2888,7 +2870,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               ? () => setDialogState(() => numberOfWeeks++)
                               : null,
                           icon: const Icon(Icons.add_circle_outline),
-                          color: const Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                         ),
                       ],
                     ),
@@ -2919,7 +2901,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     'Tuần ${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}',
                                     style: const TextStyle(
                                         fontSize: 10,
-                                        color: Color(0xFF1E3A5F))),
+                                        color: HrmPageChrome.primaryNavy)),
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
@@ -2934,7 +2916,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     _buildEmployeeMultiSelect(
                       applyToAll: applyToAllEmployees,
                       selectedIds: selectedEmployeeIds,
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                       onToggleAll: (v) => setDialogState(() {
                         applyToAllEmployees = v;
                         if (v) selectedEmployeeIds.clear();
@@ -2963,7 +2945,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 child: Text(_l10n.cancel,
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
                     : () {
@@ -2976,9 +2958,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
-                    foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
           );
@@ -3121,7 +3101,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.calendar_month, color: Color(0xFF0F2340)),
+                Icon(Icons.calendar_month, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Sao chép lịch tháng',
                     style: TextStyle(
@@ -3208,7 +3188,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
                           child: Icon(Icons.arrow_forward,
-                              color: Color(0xFF0F2340)),
+                              color: HrmPageChrome.primaryNavy),
                         ),
                         Expanded(
                           child: Column(
@@ -3279,7 +3259,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     _buildEmployeeMultiSelect(
                       applyToAll: applyToAllEmployees,
                       selectedIds: selectedEmployeeIds,
-                      activeColor: const Color(0xFF0F2340),
+                      activeColor: HrmPageChrome.primaryNavy,
                       onToggleAll: (v) => setDialogState(() {
                         applyToAllEmployees = v;
                         if (v) selectedEmployeeIds.clear();
@@ -3308,7 +3288,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 child: Text(_l10n.cancel,
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
                     ? null
                     : () {
@@ -3322,9 +3302,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
                 label: const Text('Sao chép'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F2340),
-                    foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
           );
@@ -3476,7 +3454,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '1. Đăng ký ca làm việc',
                   Icons.edit_calendar,
-                  const Color(0xFF1E3A5F),
+                  HrmPageChrome.primaryNavy,
                   [
                     'Click vào ô trống trong bảng lịch để đăng ký ca cho nhân viên.',
                     'Chọn ca làm việc hoặc loại nghỉ phép trong hộp thoại.',
@@ -3488,7 +3466,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '2. Sao chép lịch ngày',
                   Icons.today,
-                  const Color(0xFF1E3A5F),
+                  HrmPageChrome.primaryNavy,
                   [
                     'Chọn ngày nguồn có lịch làm việc.',
                     'Chọn một hoặc nhiều ngày đích muốn sao chép đến.',
@@ -3500,7 +3478,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '3. Sao chép lịch tuần',
                   Icons.date_range,
-                  const Color(0xFF1E3A5F),
+                  HrmPageChrome.primaryNavy,
                   [
                     'Chọn tuần nguồn chứa lịch muốn sao chép.',
                     'Chọn tuần đích bắt đầu và số tuần muốn sao chép.',
@@ -3512,7 +3490,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '4. Sao chép lịch tháng',
                   Icons.calendar_month,
-                  const Color(0xFF0F2340),
+                  HrmPageChrome.primaryNavy,
                   [
                     'Chọn tháng nguồn và tháng đích.',
                     'Lịch ngày 1→1, ngày 2→2,... sẽ được sao chép tương ứng.',
@@ -3549,11 +3527,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
         ),
         actions: [
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             child: const Text('Đã hiểu'),
           ),
         ],
@@ -3827,7 +3803,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     // Build status dots
     final dots = <Widget>[];
-    if (schedules.isNotEmpty) dots.add(_statusDot(const Color(0xFF1E3A5F)));
+    if (schedules.isNotEmpty) dots.add(_statusDot(HrmPageChrome.primaryNavy));
     if (approvedRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFF059669)));
     if (pendingRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFFD97706)));
     if (localPending.isNotEmpty) dots.add(_statusDot(const Color(0xFF8B5CF6)));
@@ -3840,8 +3816,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       borderColor = const Color(0xFFD97706);
       bgColor = const Color(0xFFFEF3C7);
     } else if (schedules.isNotEmpty) {
-      borderColor = const Color(0xFF1E3A5F);
-      bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+      borderColor = HrmPageChrome.primaryNavy;
+      bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
     } else if (approvedRegs.isNotEmpty) {
       borderColor = const Color(0xFF059669);
       bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
@@ -3859,7 +3835,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       labels.add(Text('$confirmedCount ca',
           style: const TextStyle(
               fontSize: 9,
-              color: Color(0xFF1E3A5F),
+              color: HrmPageChrome.primaryNavy,
               fontWeight: FontWeight.w600)));
     }
     if (dayOffCount > 0) {
@@ -3984,7 +3960,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           isActive: true,
                           createdAt: DateTime.now()));
                   chips.add(_empChip(
-                      shift.name, const Color(0xFF1E3A5F), Icons.check_circle));
+                      shift.name, HrmPageChrome.primaryNavy, Icons.check_circle));
                 }
               }
               for (final r in submittedRegs) {
@@ -4160,7 +4136,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           // Header
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -4177,7 +4153,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E3A5F)),
+                          color: HrmPageChrome.primaryNavy),
                       textAlign: TextAlign.center),
                 ),
                 ...List.generate(7, (di) {
@@ -4193,7 +4169,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: isToday
-                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.12)
+                              ? HrmPageChrome.primaryNavy.withValues(alpha: 0.12)
                               : null,
                           border: di < 6
                               ? const Border(
@@ -4207,7 +4183,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     color: isToday
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                         : (isSun
                                             ? const Color(0xFFEF4444)
                                             : const Color(0xFF71717A)))),
@@ -4215,7 +4191,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isToday
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                         : const Color(0xFF71717A))),
                           ],
                         ),
@@ -4327,7 +4303,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       labels.add(Text('$totalShifts ca',
           style: const TextStyle(
               fontSize: 10,
-              color: Color(0xFF1E3A5F),
+              color: HrmPageChrome.primaryNavy,
               fontWeight: FontWeight.w700)));
     }
 
@@ -4337,11 +4313,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       decoration: BoxDecoration(
         color: hasDayOff && totalShifts == 0
             ? const Color(0xFF71717A).withValues(alpha: 0.06)
-            : const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+            : HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
         border: Border.all(
             color: hasDayOff && totalShifts == 0
                 ? const Color(0xFF71717A)
-                : const Color(0xFF1E3A5F),
+                : HrmPageChrome.primaryNavy,
             width: 1.2),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -4374,7 +4350,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -4390,7 +4366,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFE4E4E7))),
                     child: const Icon(Icons.arrow_back,
-                        size: 18, color: Color(0xFF1E3A5F)),
+                        size: 18, color: HrmPageChrome.primaryNavy),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -4399,7 +4375,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E3A5F)))),
+                            color: HrmPageChrome.primaryNavy))),
               ],
             ),
           ),
@@ -4431,7 +4407,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     orElse: () => Employee.empty());
                 names.add({
                   'name': emp.fullName,
-                  'color': const Color(0xFF1E3A5F),
+                  'color': HrmPageChrome.primaryNavy,
                   'icon': Icons.check_circle,
                   'isDayOff': ws.isDayOff
                 });
@@ -4466,14 +4442,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F)
+                                color: HrmPageChrome.primaryNavy
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(shift.name,
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1E3A5F))),
+                                    color: HrmPageChrome.primaryNavy)),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -4486,7 +4462,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1E3A5F))),
+                                  color: HrmPageChrome.primaryNavy)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -4673,7 +4649,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               dayNames[i],
                               style: TextStyle(
                                 color: isToday
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : const Color(0xFF18181B),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -4683,7 +4659,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               dateFormat.format(day),
                               style: TextStyle(
                                 color: isToday
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : const Color(0xFF71717A),
                                 fontSize: 11,
                               ),
@@ -5190,7 +5166,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                       _effectiveUserId(e) == ws.employeeUserId,
                                   orElse: () => Employee.empty());
                               return _empChip(emp.fullName,
-                                  const Color(0xFF1E3A5F), Icons.check);
+                                  HrmPageChrome.primaryNavy, Icons.check);
                             }),
                             // Submitted registrations
                             ...uniqueRegs.map((reg) {
@@ -5306,8 +5282,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     } else {
       // Primary color by highest-priority status present
       if (confirmedCount > 0) {
-        bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
-        borderColor = const Color(0xFF1E3A5F);
+        bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
+        borderColor = HrmPageChrome.primaryNavy;
       } else if (approvedCount > 0) {
         bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
         borderColor = const Color(0xFF059669);
@@ -5364,7 +5340,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (confirmedCount > 0) _statusDot(const Color(0xFF1E3A5F)),
+              if (confirmedCount > 0) _statusDot(HrmPageChrome.primaryNavy),
               if (approvedCount > 0) _statusDot(const Color(0xFF059669)),
               if (pendingCount > 0) _statusDot(const Color(0xFFD97706)),
               if (localCount > 0) _statusDot(const Color(0xFF8B5CF6)),
@@ -5438,14 +5414,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
-                          color: Color(0xFF1E3A5F))),
+                          color: HrmPageChrome.primaryNavy)),
                   const SizedBox(height: 4),
                   ...schedules.map((ws) {
                     final emp = _employees.firstWhere(
                         (e) => _effectiveUserId(e) == ws.employeeUserId,
                         orElse: () => Employee.empty());
                     return _detailEmpRow(
-                        emp.fullName, const Color(0xFF1E3A5F), Icons.check);
+                        emp.fullName, HrmPageChrome.primaryNavy, Icons.check);
                   }),
                   const SizedBox(height: 8),
                 ],
@@ -5903,7 +5879,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A5F), Color(0xFF059669)],
+                colors: [HrmPageChrome.primaryNavy, Color(0xFF059669)],
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -5991,7 +5967,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A5F), Color(0xFF1E3A5F)],
+                colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -6029,7 +6005,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             break;
           default:
             bgColor = const Color(0xFFD1FAE5);
-            borderColor = const Color(0xFF1E3A5F);
+            borderColor = HrmPageChrome.primaryNavy;
             statusText = 'Đã duyệt';
         }
 
@@ -6182,7 +6158,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   isDayOff = value;
                   if (value) selectedShiftIds.clear();
                 }),
-                activeThumbColor: const Color(0xFF1E3A5F),
+                activeThumbColor: HrmPageChrome.primaryNavy,
               ),
               if (isDayOff) ...[
                 const SizedBox(height: 8),
@@ -6202,7 +6178,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       // ignore: deprecated_member_use
                       onChanged: (value) =>
                           setDialogState(() => leaveType = value!),
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                       dense: true,
                     )),
               ],
@@ -6226,7 +6202,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           selectedShiftIds.remove(shift.id);
                         }
                       }),
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                       controlAffinity: ListTileControlAffinity.leading,
                     )),
               ],
@@ -6238,7 +6214,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child:
                   const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 if (!isDayOff && selectedShiftIds.isEmpty) {
                   appNotification.showWarning(
@@ -6258,8 +6234,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 }
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               child: const Text('Thêm vào danh sách chờ'),
             ),
           ],
@@ -6370,14 +6345,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       side: const BorderSide(color: Color(0xFF856404)),
                     ),
                   ),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: _submitAllRegistrations,
                     icon: const Icon(Icons.send, size: 18),
                     label: const Text('Gửi tất cả đăng ký'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
-                      foregroundColor: Colors.white,
-                    ),
+                    style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                   ),
                 ],
               ),
@@ -6523,7 +6495,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.list_alt, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.list_alt, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Text(
                 'Danh sách yêu cầu đã gửi (${weekRegs.length})',
@@ -6545,7 +6517,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 8),
               _buildStatusBadge(
                   'Đã duyệt',
-                  const Color(0xFF1E3A5F),
+                  HrmPageChrome.primaryNavy,
                   weekRegs
                       .where((r) =>
                           r.status == ScheduleRegistrationStatus.approved)
@@ -6583,7 +6555,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             String statusText;
             switch (reg.status) {
               case ScheduleRegistrationStatus.approved:
-                statusColor = const Color(0xFF1E3A5F);
+                statusColor = HrmPageChrome.primaryNavy;
                 statusIcon = Icons.check_circle;
                 statusText = 'Đã duyệt';
                 break;
@@ -6755,7 +6727,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(
-                      const Color(0xFF1E3A5F).withValues(alpha: 0.08)),
+                      HrmPageChrome.primaryNavy.withValues(alpha: 0.08)),
                   dataRowColor: WidgetStateProperty.all(Colors.white),
                   dataRowMinHeight: 56,
                   dataRowMaxHeight: 140,
@@ -6767,7 +6739,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Text('NHÂN VIÊN',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0xFF1E3A5F),
+                                  color: HrmPageChrome.primaryNavy,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12))),
                     ),
@@ -6783,7 +6755,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             Text(dayNames[i],
                                 style: TextStyle(
                                   color: isToday
-                                      ? const Color(0xFF1E3A5F)
+                                      ? HrmPageChrome.primaryNavy
                                       : const Color(0xFF18181B),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -6791,7 +6763,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             Text(dateFormat.format(day),
                                 style: TextStyle(
                                   color: isToday
-                                      ? const Color(0xFF1E3A5F)
+                                      ? HrmPageChrome.primaryNavy
                                       : const Color(0xFF71717A),
                                   fontSize: 11,
                                 )),
@@ -6804,7 +6776,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Text('TỔNG CA',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0xFF1E3A5F),
+                                  color: HrmPageChrome.primaryNavy,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12))),
                     ),
@@ -7006,7 +6978,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 borderRadius: BorderRadius.circular(4))),
                         const SizedBox(width: 4),
                         Text(
@@ -7015,7 +6987,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 11, color: Color(0xFF71717A))),
                       ],
                     )),
-                _buildCompactLegendDot(const Color(0xFF1E3A5F), 'Đã duyệt'),
+                _buildCompactLegendDot(HrmPageChrome.primaryNavy, 'Đã duyệt'),
                 _buildCompactLegendDot(const Color(0xFFF59E0B), 'Chờ duyệt'),
                 _buildCompactLegendDot(const Color(0xFFEF4444), 'Từ chối'),
                 _buildCompactLegendDot(const Color(0xFFFFC107), 'Chờ gửi'),
@@ -7091,7 +7063,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -7100,7 +7072,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             borderRadius: BorderRadius.circular(4)),
                       ),
                       const SizedBox(width: 8),
@@ -7134,12 +7106,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             children: [
               _buildLegendItem(
                 const LinearGradient(
-                    colors: [Color(0xFF1E3A5F), Color(0xFF1E3A5F)]),
+                    colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
                 'Ca đã đăng ký',
               ),
               _buildLegendItem(
                 const LinearGradient(
-                    colors: [Color(0xFF1E3A5F), Color(0xFF059669)]),
+                    colors: [HrmPageChrome.primaryNavy, Color(0xFF059669)]),
                 'Nghỉ phép',
               ),
               _buildLegendItemWithBorder(
@@ -7154,7 +7126,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ),
               _buildLegendItemWithBorder(
                 const Color(0xFFDCFCE7),
-                const Color(0xFF1E3A5F),
+                HrmPageChrome.primaryNavy,
                 'Đã duyệt',
               ),
               _buildLegendItemWithBorder(
@@ -7973,7 +7945,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             child: Text('$totalShifts',
                 style: TextStyle(
                     color:
-                        totalShifts > 0 ? const Color(0xFF1E3A5F) : Colors.grey,
+                        totalShifts > 0 ? HrmPageChrome.primaryNavy : Colors.grey,
                     fontWeight: FontWeight.bold,
                     fontSize: 16)),
           )),
@@ -8084,8 +8056,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 return shift?.name ?? 'Ca';
               }).toList();
               shiftLabel = names.join(', ');
-              shiftColor = const Color(0xFF1E3A5F);
-              bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+              shiftColor = HrmPageChrome.primaryNavy;
+              bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
             }
           } else if (submittedRegs.isNotEmpty) {
             final first = submittedRegs.first;
@@ -8110,7 +8082,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           createdAt: DateTime.now()))
                   : null;
               shiftLabel = shift?.name ?? 'Đã duyệt';
-              shiftColor = const Color(0xFF1E3A5F);
+              shiftColor = HrmPageChrome.primaryNavy;
               bgColor = const Color(0xFFD1FAE5);
             }
           }
@@ -8190,7 +8162,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: totalShifts > 0
-                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                              ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -8199,7 +8171,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: totalShifts > 0
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : Colors.grey)),
                       ),
                     ],
@@ -8258,12 +8230,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               margin: const EdgeInsets.only(right: 4, bottom: 2),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4)),
               child: Text(empName,
                   style: const TextStyle(
                       fontSize: 10,
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis),
             ));
@@ -8470,7 +8442,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
                     : '';
                 allApproved.add(_buildApprovedChip(
-                    shift.name, const Color(0xFF1E3A5F), Icons.check_circle,
+                    shift.name, HrmPageChrome.primaryNavy, Icons.check_circle,
                     time: shiftTime));
                 totalApproved++;
               }
@@ -8500,7 +8472,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ? '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'
                     : '';
                 allApproved.add(_buildApprovedChip(shift?.name ?? 'Ca',
-                    const Color(0xFF1E3A5F), Icons.check_circle,
+                    HrmPageChrome.primaryNavy, Icons.check_circle,
                     time: shiftTime));
                 totalApproved++;
               }
@@ -8524,7 +8496,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child: Text('$totalApproved',
                   style: TextStyle(
                       color: totalApproved > 0
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : Colors.grey,
                       fontWeight: FontWeight.bold,
                       fontSize: 16)))),
@@ -8630,8 +8602,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               shiftColor = const Color(0xFF059669);
               bgColor = const Color(0xFFD1FAE5);
             } else {
-              shiftColor = const Color(0xFF1E3A5F);
-              bgColor = const Color(0xFF1E3A5F).withValues(alpha: 0.08);
+              shiftColor = HrmPageChrome.primaryNavy;
+              bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
             }
           }
           dayWidgets.add(
@@ -8707,7 +8679,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: totalApproved > 0
-                              ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                              ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -8716,7 +8688,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: totalApproved > 0
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                     : Colors.grey)),
                       ),
                     ],
@@ -8747,7 +8719,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             child:
                 const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
@@ -8848,7 +8820,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: isSending
                   ? null
                   : () async {
@@ -9034,7 +9006,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: (isSending || selectedShift == null)
                   ? null
                   : () async {
@@ -9151,7 +9123,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: const Text('Đóng')),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
                   _showAddQuotaDialog();
@@ -9323,7 +9295,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: (isSaving || selectedShift == null)
                   ? null
                   : () async {

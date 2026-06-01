@@ -214,9 +214,17 @@ public class ShiftService(
 
     public async Task<(Shift? CurrentShift, Shift? NextShift)> GetTodayShiftAndNextShiftAsync(Guid employeeUserId, CancellationToken cancellationToken = default)
     {
-        var currentShift = await repository.GetSingleAsync(
-            s => s.EmployeeUserId == employeeUserId &&
-                 s.StartTime.Date == DateTime.Now.Date &&
+        // Shift.StartTime is stored in VN local time. Always compare against VN-local
+        // "now" (UTC+7) — DateTime.Now would be wrong on UTC servers (Linux container).
+        var nowVn = DateTime.UtcNow.AddHours(7);
+        var todayLocal = nowVn.Date;
+        var tomorrowLocal = todayLocal.AddDays(1);
+
+        // Use a range query instead of s.StartTime.Date == … so EF can use index on StartTime.
+        var currentShift = await repository.GetFirstOrDefaultAsync(
+            s => s.StartTime,
+            filter: s => s.EmployeeUserId == employeeUserId &&
+                 s.StartTime >= todayLocal && s.StartTime < tomorrowLocal &&
                  s.Status == ShiftStatus.Approved,
             includeProperties: [nameof(Shift.CheckInAttendance), nameof(Shift.CheckOutAttendance)],
             cancellationToken: cancellationToken);
@@ -224,7 +232,7 @@ public class ShiftService(
         var nextShift = await repository.GetFirstOrDefaultAsync(
             s => s.StartTime,
             filter: s => s.EmployeeUserId == employeeUserId &&
-                 s.StartTime > DateTime.Now &&
+                 s.StartTime > nowVn &&
                  s.Status == ShiftStatus.Approved,
             includeProperties: [nameof(Shift.CheckInAttendance), nameof(Shift.CheckOutAttendance)],
             cancellationToken: cancellationToken);
@@ -234,9 +242,14 @@ public class ShiftService(
 
     public async Task<Shift?> GetShiftByDateAsync(Guid employeeUserId, DateTime date, CancellationToken cancellationToken = default)
     {
-        return await repository.GetSingleAsync(
-            s => s.EmployeeUserId == employeeUserId &&
-                 s.StartTime.Date == date.Date &&
+        // Caller passes the VN-local date. Use a half-open range against StartTime
+        // (which is also VN local) so the query is index-friendly.
+        var dayStart = date.Date;
+        var dayEnd = dayStart.AddDays(1);
+        return await repository.GetFirstOrDefaultAsync(
+            s => s.StartTime,
+            filter: s => s.EmployeeUserId == employeeUserId &&
+                 s.StartTime >= dayStart && s.StartTime < dayEnd &&
                  s.Status == ShiftStatus.Approved,
             cancellationToken: cancellationToken);
     }

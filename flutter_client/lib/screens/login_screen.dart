@@ -615,7 +615,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ],
                             ),
-                            child: ElevatedButton(
+                            child: FilledButton(
                               onPressed: _isLoading ? null : _handleLogin,
                               onLongPress: _isLoading
                                   ? null
@@ -706,8 +706,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ),
-                  // Spacing for footer
-                  const SizedBox(height: 24),
+                  _buildLoginFooter(isDesktop: isDesktop),
                 ],
               ),
             ),
@@ -718,89 +717,61 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Container(
       color: const Color(0xFFF8F9FA),
-      child: SafeArea(
-        child: isDesktop
-            ? Stack(
-                children: [
-                  scrollContent,
-                  Positioned(
-                    left: 24,
-                    right: 24,
-                    bottom: 20,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                          style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildFooterLink('TÌM HIỂU THÊM'),
-                            const SizedBox(width: 16),
-                            _buildFooterLink('LIÊN HỆ'),
-                            const SizedBox(width: 16),
-                            _buildFooterLink('HỖ TRỢ'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                children: [
-                  Expanded(child: scrollContent),
-                  IgnorePointer(
-                    ignoring: MediaQuery.of(context).viewInsets.bottom > 0,
-                    child: AnimatedOpacity(
-                      opacity: MediaQuery.of(context).viewInsets.bottom > 0
-                          ? 0.0
-                          : 1.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _buildFooterLink('TÌM HIỂU THÊM'),
-                                  const SizedBox(width: 16),
-                                  _buildFooterLink('LIÊN HỆ'),
-                                  const SizedBox(width: 16),
-                                  _buildFooterLink('HỖ TRỢ'),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
-                                style: TextStyle(
-                                    color: Colors.grey.shade400,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.3),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+      child: SafeArea(child: scrollContent),
+    );
+  }
+
+  /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.
+  Widget _buildLoginFooter({required bool isDesktop}) {
+    const copyright = '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ';
+    final copyrightStyle = TextStyle(
+      color: Colors.grey.shade400,
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0.3,
+    );
+    final links = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildFooterLink('TÌM HIỂU THÊM'),
+        const SizedBox(width: 16),
+        _buildFooterLink('LIÊN HỆ'),
+        const SizedBox(width: 16),
+        _buildFooterLink('HỖ TRỢ'),
+      ],
+    );
+
+    if (isDesktop) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 32),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(copyright, style: copyrightStyle),
+            ),
+            links,
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(fit: BoxFit.scaleDown, child: links),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              copyright,
+              style: copyrightStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

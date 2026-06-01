@@ -3,7 +3,8 @@ using ZKTecoADMS.Domain.Entities;
 namespace ZKTecoADMS.Application.Commands.HrDocuments.CreateHrDocument;
 
 public class CreateHrDocumentHandler(
-    IRepository<HrDocument> documentRepository
+    IRepository<HrDocument> documentRepository,
+    IRepository<Employee> employeeRepository
 ) : ICommandHandler<CreateHrDocumentCommand, AppResponse<Guid>>
 {
     public async Task<AppResponse<Guid>> Handle(
@@ -12,11 +13,29 @@ public class CreateHrDocumentHandler(
     {
         try
         {
+            var employeeUserId = request.EmployeeUserId;
+            if (request.EmployeeId.HasValue)
+            {
+                var employee = await employeeRepository.GetSingleAsync(
+                    e => e.Id == request.EmployeeId.Value && e.StoreId == request.StoreId && e.Deleted == null,
+                    cancellationToken: cancellationToken);
+                if (employee == null)
+                    return AppResponse<Guid>.Error("Không tìm thấy nhân viên");
+                if (!employee.ApplicationUserId.HasValue)
+                    return AppResponse<Guid>.Error(
+                        "Nhân viên chưa có tài khoản đăng nhập. Vui lòng tạo tài khoản trước khi ghi nhận khen thưởng/kỷ luật.");
+                employeeUserId = employee.ApplicationUserId.Value;
+            }
+            else if (employeeUserId == Guid.Empty)
+            {
+                return AppResponse<Guid>.Error("Thiếu thông tin nhân viên (employeeId hoặc employeeUserId).");
+            }
+
             var document = new HrDocument
             {
                 Id = Guid.NewGuid(),
                 StoreId = request.StoreId,
-                EmployeeUserId = request.EmployeeUserId,
+                EmployeeUserId = employeeUserId,
                 Name = request.Name,
                 Description = request.Description,
                 DocumentType = request.DocumentType,

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Queries.Payslips.GetEmployeePayslips;
 using ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
@@ -20,6 +21,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// Employees can only view their own payslips, managers can view any employee's payslips
     /// </summary>
     [HttpGet("employee/{employeeUserId}")]
+    [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetEmployeePayslips(Guid employeeUserId)
     {
         // Check if user is viewing their own payslips or is a manager
@@ -40,6 +42,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// Get my payslips (for the current logged-in user)
     /// </summary>
     [HttpGet("my-payslips")]
+    [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetMyPayslips()
     {
         var query = new GetEmployeePayslipsQuery(RequiredStoreId, CurrentUserId, IsManager);
@@ -53,6 +56,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("store")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetStorePayslips(
         [FromQuery] int year,
         [FromQuery] int? month)
@@ -66,6 +70,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// Get a specific payslip by ID
     /// </summary>
     [HttpGet("{id}")]
+    [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PayslipDto>>> GetPayslipById(Guid id)
     {
         // Check authorization before querying data

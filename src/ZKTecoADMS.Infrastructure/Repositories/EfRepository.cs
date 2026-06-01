@@ -301,7 +301,21 @@ public class EfRepository<TEntity>(
         try
         {
             entity.UpdatedAt = DateTime.Now;
-            dbSet.Update(entity);
+
+            // If the same entity key is already tracked by EF (e.g. added earlier in
+            // the same request scope), update its values in-place to avoid the
+            // "another instance with the same key is already being tracked" conflict.
+            var trackedEntry = context.ChangeTracker.Entries<TEntity>()
+                .FirstOrDefault(e => e.Entity.Id == entity.Id);
+            if (trackedEntry != null)
+            {
+                trackedEntry.CurrentValues.SetValues(entity);
+            }
+            else
+            {
+                dbSet.Update(entity);
+            }
+
             var result = await context.SaveChangesAsync(cancellationToken) > 0;
             
             if (result)

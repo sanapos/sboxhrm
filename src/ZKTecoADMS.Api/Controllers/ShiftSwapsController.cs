@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Application.Commands.ShiftSwaps.CreateShiftSwap;
 using ZKTecoADMS.Application.Commands.ShiftSwaps.RespondToSwap;
 using ZKTecoADMS.Application.Commands.ShiftSwaps.ApproveSwap;
@@ -14,13 +17,51 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerBase
+public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
+    /// <summary>
+    /// Danh sách đồng nghiệp cùng phòng ban (để chọn khi tạo yêu cầu đổi ca).
+    /// </summary>
+    [HttpGet("colleagues")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<SwapColleagueDto>>>> GetColleagues()
+    {
+        var myEmployee = await dbContext.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == CurrentUserId && e.StoreId == RequiredStoreId);
+        if (myEmployee == null)
+            return Ok(AppResponse<List<SwapColleagueDto>>.Success([]));
+
+        var query = dbContext.Employees.AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId
+                && e.ApplicationUserId != null
+                && e.ApplicationUserId != CurrentUserId
+                && e.WorkStatus == EmployeeWorkStatus.Active);
+
+        if (!string.IsNullOrWhiteSpace(myEmployee.Department))
+            query = query.Where(e => e.Department == myEmployee.Department);
+
+        var colleagues = await query
+            .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+            .Select(e => new SwapColleagueDto
+            {
+                UserId = e.ApplicationUserId!.Value,
+                FullName = (e.LastName + " " + e.FirstName).Trim(),
+                EmployeeCode = e.EmployeeCode ?? "",
+                Department = e.Department
+            })
+            .Take(300)
+            .ToListAsync();
+
+        return Ok(AppResponse<List<SwapColleagueDto>>.Success(colleagues));
+    }
+
     /// <summary>
     /// Lấy danh sách yêu cầu đổi ca
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetShiftSwaps(
         [FromQuery] PaginationRequest request,
         [FromQuery] ShiftSwapStatus? status = null)
@@ -35,11 +76,13 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpGet("pending-for-me")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetPendingForMe(
         [FromQuery] PaginationRequest request)
     {
-        // This returns requests where current user is the target and status is pending
-        var query = new GetShiftSwapsQuery(RequiredStoreId, CurrentUserId, false, request, ShiftSwapStatus.Pending);
+        var query = new GetShiftSwapsQuery(
+            RequiredStoreId, CurrentUserId, false, request, ShiftSwapStatus.Pending,
+            TargetUserIdOnly: true);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -49,6 +92,7 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpGet("pending-approval")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetPendingApproval(
         [FromQuery] PaginationRequest request)
     {
@@ -62,6 +106,7 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ShiftSwapRequestDto>>> CreateShiftSwap(
         [FromBody] CreateShiftSwapRequestDto request)
     {
@@ -84,6 +129,7 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpPost("{id}/respond")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> RespondToSwap(
         Guid id,
         [FromBody] RespondShiftSwapDto request)
@@ -104,6 +150,7 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> ApproveSwap(
         Guid id,
         [FromBody] ManagerDecisionDto request)
@@ -125,6 +172,7 @@ public class ShiftSwapsController(IMediator mediator) : AuthenticatedControllerB
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelSwap(Guid id)
     {
         var command = new CancelSwapCommand(RequiredStoreId, id, CurrentUserId);

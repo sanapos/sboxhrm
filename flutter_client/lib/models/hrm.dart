@@ -2,6 +2,8 @@
 // lib/models/hrm.dart
 // ==========================================
 
+import '../utils/api_datetime.dart';
+
 // ============ ENUMS ============
 enum AllowanceType { fixed, daily, hourly, perEvent }
 
@@ -434,9 +436,7 @@ class ApprovalRecord {
       actualUserName: json['actualUserName'],
       status: ApprovalStatus.values[json['status'] ?? 0],
       note: json['note'],
-      actionDate: json['actionDate'] != null
-          ? DateTime.parse(json['actionDate'])
-          : null,
+      actionDate: parseApiUtcDateTime(json['actionDate']),
     );
   }
 }
@@ -519,13 +519,10 @@ class AttendanceCorrectionRequest {
       status: CorrectionStatus.values[json['status'] ?? 0],
       approvedBy: json['approvedBy'],
       approvedByName: json['approvedByName'],
-      approvedAt: json['approvedAt'] != null
-          ? DateTime.parse(json['approvedAt'])
-          : null,
+      approvedAt: parseApiUtcDateTime(json['approvedAt'] ?? json['approvedDate']),
       rejectReason: json['rejectReason'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
       employeeUserId: json['employeeUserId'],
       newType: json['newType'],
       approverId: json['approverId'],
@@ -620,16 +617,8 @@ class AppNotification {
     }
   }
 
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is DateTime) return value.isUtc ? value.toLocal() : value;
-
-    final strValue = value.toString();
-    // Server gửi UTC nhưng không có Z suffix, cần thêm Z để parse đúng UTC rồi chuyển local
-    final parsed =
-        DateTime.tryParse(strValue.endsWith('Z') ? strValue : '${strValue}Z');
-    return parsed?.toLocal() ?? DateTime.now();
-  }
+  static DateTime _parseDateTime(dynamic value) =>
+      parseApiUtcDateTime(value) ?? DateTime.now();
 }
 
 // ============ SETTINGS MODELS ============

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -31,9 +32,11 @@ public class CreateCommunicationHandler(
                     : null,
                 Type = request.Type,
                 Priority = request.Priority,
-                Status = request.PublishImmediately 
-                    ? CommunicationStatus.Published 
-                    : CommunicationStatus.Draft,
+                Status = request.PublishImmediately
+                    ? CommunicationStatus.Published
+                    : request.SubmitForApproval
+                        ? CommunicationStatus.PendingApproval
+                        : CommunicationStatus.Draft,
                 AuthorId = request.CurrentUserId,
                 AuthorName = request.CurrentUserName,
                 TargetDepartmentId = request.TargetDepartmentId,
@@ -43,6 +46,10 @@ public class CreateCommunicationHandler(
                 Tags = request.Tags,
                 IsAiGenerated = request.IsAiGenerated,
                 AiPrompt = request.AiPrompt,
+                IsPublicShareEnabled = request.IsPublicShareEnabled,
+                PublicShareToken = request.IsPublicShareEnabled
+                    ? CommunicationShareTokenHelper.Generate()
+                    : null,
                 ViewCount = 0,
                 LikeCount = 0,
                 CreatedAt = DateTime.UtcNow
@@ -81,7 +88,7 @@ public class CreateCommunicationHandler(
                             communication.Summary ?? StripHtml(communication.Content, 200),
                             relatedEntityId: communication.Id, relatedEntityType: "Communication",
                             fromUserId: request.CurrentUserId,
-                            categoryCode: "communication", storeId: request.StoreId);
+                            categoryCode: "internal_comm", storeId: request.StoreId);
                     }
                 }
                 catch { /* best-effort */ }

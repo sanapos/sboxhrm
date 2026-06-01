@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class GeofenceScreen extends StatefulWidget {
   const GeofenceScreen({super.key});
@@ -54,7 +55,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
         onPressed: () => _showGeofenceDialog(),
         icon: const Icon(Icons.add_location_alt),
         label: const Text('Thêm khu vực'),
-        backgroundColor: const Color(0xFF1E3A5F),
+        backgroundColor: HrmPageChrome.primaryNavy,
       ),
     );
   }
@@ -63,7 +64,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF0F2340), Color(0xFF1E3A5F)]),
+        gradient: LinearGradient(colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
       ),
       child: Row(
         children: [
@@ -149,7 +150,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: isActive ? const Color(0xFF1E3A5F) : Colors.grey, width: 4)),
+        border: Border(left: BorderSide(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, width: 4)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Padding(
@@ -161,8 +162,8 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.location_on, color: Color(0xFF1E3A5F), size: 20),
+                  decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.location_on, color: HrmPageChrome.primaryNavy, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis)),
@@ -190,18 +191,18 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Chip(
-                  label: Text('${radius}m', style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 11, fontWeight: FontWeight.w600)),
-                  backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  label: Text('${radius}m', style: const TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 11, fontWeight: FontWeight.w600)),
+                  backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isActive ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                    color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? const Color(0xFF1E3A5F) : Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -226,8 +227,8 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
           children: [
             Container(
               width: 36, height: 36,
-              decoration: BoxDecoration(color: const Color(0xFF1E3A5F).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.location_on, color: Color(0xFF1E3A5F), size: 18),
+              decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.location_on, color: HrmPageChrome.primaryNavy, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -248,10 +249,10 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? const Color(0xFF1E3A5F) : Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
+              child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
             ),
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
@@ -278,7 +279,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
         content: Text('Xóa "${geo['name']}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xóa')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xóa')),
         ],
       ),
     );
@@ -323,7 +324,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               final data = {
                 'name': nameCtrl.text,
@@ -347,7 +348,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                 debugPrint('Error saving geofence: $e');
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+            style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
           ),
         ],

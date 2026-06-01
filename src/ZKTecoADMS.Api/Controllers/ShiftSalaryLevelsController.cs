@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.ShiftSalaryLevels;
 using ZKTecoADMS.Application.Queries.ShiftSalaryLevels;
@@ -15,6 +16,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSalaryLevelDto>>>> GetAll(
         [FromQuery] Guid? shiftTemplateId = null,
         [FromQuery] bool? isActive = null,
@@ -28,6 +30,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> GetById(Guid id)
     {
         var query = new GetShiftSalaryLevelByIdQuery(RequiredStoreId, id);
@@ -37,6 +40,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> Create([FromBody] CreateShiftSalaryLevelDto request)
     {
         var command = new CreateShiftSalaryLevelCommand(
@@ -59,6 +63,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> Update(Guid id, [FromBody] UpdateShiftSalaryLevelDto request)
     {
         var command = new UpdateShiftSalaryLevelCommand(
@@ -82,6 +87,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var command = new DeleteShiftSalaryLevelCommand(RequiredStoreId, id);
@@ -89,3 +95,4 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
         return Ok(result);
     }
 }
+

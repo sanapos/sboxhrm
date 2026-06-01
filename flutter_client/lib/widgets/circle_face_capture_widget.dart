@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// iPhone-style circular face registration with ML Kit face detection.
+/// iphone-style circular face registration with ML Kit face detection.
 /// Only captures when a face is detected AND matches the required direction.
 class CircleFaceCaptureWidget extends StatefulWidget {
   final void Function(List<String> images)? onComplete;

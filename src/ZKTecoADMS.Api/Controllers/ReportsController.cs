@@ -1,13 +1,17 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using ClosedXML.Excel;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -19,7 +23,7 @@ public class ReportsController(
     ILogger<ReportsController> logger
 ) : AuthenticatedControllerBase
 {
-    // Typed projection for ShiftTemplate used by daily report — using a named record
+    // Typed projection for ShiftTemplate used by daily report â€” using a named record
     // (vs anonymous types boxed into dynamic) avoids runtime cast issues when the
     // list is iterated in a different assembly/internal scope.
     private sealed record ShiftInfo(
@@ -37,9 +41,9 @@ public class ReportsController(
     /// </summary>
     private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date, TimeSpan? overnightCutoff = null)
     {
-        // "Local VN day" — zero the time component, treat input as VN calendar date.
+        // "Local VN day" â€” zero the time component, treat input as VN calendar date.
         var targetLocal = (date ?? DateTime.UtcNow.AddHours(7)).Date;
-        // When an overnight cutoff is configured (ca qua đêm), the "working day" boundary
+        // When an overnight cutoff is configured (ca qua Ä‘Ãªm), the "working day" boundary
         // shifts from VN 00:00 to VN cutoff. Working day X = [X cutoff, X+1 cutoff).
         // This way overnight punches (e.g. checkout 03:00 of next calendar day) attach
         // to the correct working day instead of leaking into the next day's report.
@@ -49,41 +53,59 @@ public class ReportsController(
         return (targetLocal, utcStart, utcEnd);
     }
 
+    private async Task<IQueryable<Employee>> FilterEmployeesQueryAsync(
+        IQueryable<Employee> query,
+        Guid storeId,
+        string? department,
+        Guid? branchId,
+        bool includeChildBranches,
+        string? employeeCodes,
+        string? employeeCode = null)
+    {
+        if (!string.IsNullOrEmpty(department))
+            query = query.Where(e => e.Department == department);
+
+        if (!string.IsNullOrEmpty(employeeCode))
+            query = query.Where(e => e.EmployeeCode.Contains(employeeCode));
+
+        query = await BranchQueryHelper.ApplyBranchFilterAsync(
+            query, dbContext, storeId, branchId, includeChildBranches);
+
+        var codeFilter = ReportsExportHelpers.ParseEmployeeCodes(employeeCodes);
+        if (codeFilter is { Count: > 0 })
+            query = query.Where(e => codeFilter.Contains(e.EmployeeCode));
+
+        return query;
+    }
+
     #region Daily Attendance Report
 
     /// <summary>
     /// Get daily attendance report
     /// </summary>
     [HttpGet("attendance/daily")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DailyAttendanceReportDto>>> GetDailyAttendanceReport(
         [FromQuery] DateTime? date = null,
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCode = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true,
         [FromQuery] string? overnightCutoff = null)
     {
         try
         {
-            TimeSpan? cutoff = null;
-            if (!string.IsNullOrWhiteSpace(overnightCutoff) && TimeSpan.TryParse(overnightCutoff, out var parsedCutoff))
-            {
-                cutoff = parsedCutoff;
-            }
-            var (targetDate, vnStart, vnEnd) = VnDayRange(date, cutoff);
             var storeId = RequiredStoreId;
+            var cutoff = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(
+                dbContext, storeId, overnightCutoff);
+            var (targetDate, vnStart, vnEnd) = VnDayRange(date, cutoff);
 
-            // Get all employees (filter by Deleted == null for active)
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
-            
-            if (!string.IsNullOrEmpty(department))
-            {
-                employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
-            }
-            
-            if (!string.IsNullOrEmpty(employeeCode))
-            {
-                employeesQuery = employeesQuery.Where(e => e.EmployeeCode.Contains(employeeCode));
-            }
+
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes, employeeCode);
 
             var employees = await employeesQuery.ToListAsync();
 
@@ -109,7 +131,7 @@ public class ReportsController(
 
             var allPins = pinToEmployeeId.Keys.ToList();
 
-            // Get attendances for the date (filter by Device.StoreId) — use Select projection.
+            // Get attendances for the date (filter by Device.StoreId) â€” use Select projection.
             // AttendanceTime is stored in UTC; filter by VN-day UTC range so punches near
             // midnight VN fall into the correct calendar day.
             var attendances = await dbContext.AttendanceLogs
@@ -152,18 +174,18 @@ public class ReportsController(
                     && employeeGuids.Contains(ws.EmployeeUserId))
                 .ToListAsync();
 
-            // Build schedule lookup: EmployeeId -> WorkSchedule
+            // Build schedule lookup: EmployeeId -> all WorkSchedules for the day (multi-shift)
             var scheduleMap = workSchedules
                 .GroupBy(ws => ws.EmployeeUserId)
-                .ToDictionary(g => g.Key, g => g.First());
+                .ToDictionary(g => g.Key, g => g.ToList());
 
-            // Load active salary profile (Benefit) for each employee — used as a
+            // Load active salary profile (Benefit) for each employee â€” used as a
             // fallback when no WorkSchedule exists. Salary profile defines:
-            //   • WeeklyOffDays (e.g. "Saturday,Sunday") → those weekdays are rest
+            //   â€¢ WeeklyOffDays (e.g. "Saturday,Sunday") â†’ those weekdays are rest
             //     days and NOT counted as absent when employee doesn't show up.
-            //   • CheckIn/CheckOut → default expected hours.
+            //   â€¢ CheckIn/CheckOut â†’ default expected hours.
             // Any other working weekday with no check-in and no approved leave is
-            // counted as "Vắng không phép".
+            // counted as "Váº¯ng khÃ´ng phÃ©p".
             // EffectiveDate may carry a time component (e.g. created at 14:29:30 of the
             // same day). Treat assignment as effective for the WHOLE day, so compare against
             // end-of-day rather than 00:00. Same for EndDate inclusivity.
@@ -179,11 +201,11 @@ public class ReportsController(
                 .GroupBy(eb => eb.EmployeeId)
                 .ToDictionary(g => g.Key, g => g.First().Benefit);
 
-            // ─── Load shift templates for "shifts in salary profile" fallback ──
-            // Khi nhân viên không có WorkSchedule cho ngày, ta đối chiếu giờ
-            // chấm vào với danh sách ca trong hồ sơ lương (Benefit.Description
-            // dạng "shifts:Ca sáng, Ca chiều|...") để tính trễ/sớm chuẩn theo
-            // tab "Tổng hợp theo ca" trên Flutter.
+            // â”€â”€â”€ Load shift templates for "shifts in salary profile" fallback â”€â”€
+            // Khi nhÃ¢n viÃªn khÃ´ng cÃ³ WorkSchedule cho ngÃ y, ta Ä‘á»‘i chiáº¿u giá»
+            // cháº¥m vÃ o vá»›i danh sÃ¡ch ca trong há»“ sÆ¡ lÆ°Æ¡ng (Benefit.Description
+            // dáº¡ng "shifts:Ca sÃ¡ng, Ca chiá»u|...") Ä‘á»ƒ tÃ­nh trá»…/sá»›m chuáº©n theo
+            // tab "Tá»•ng há»£p theo ca" trÃªn Flutter.
             var activeShiftTemplates = await dbContext.ShiftTemplates
                 .Where(s => s.StoreId == storeId && s.IsActive)
                 .Select(s => new ShiftInfo(
@@ -218,10 +240,10 @@ public class ReportsController(
 
             // Public holidays applicable to this date for this store.
             // A holiday applies if:
-            //  • its exact Date == targetDate, OR
-            //  • IsRecurring AND month/day match (annual holidays)
-            //  • AND (StoreId == storeId OR StoreId IS NULL — null = global)
-            //  • AND IsActive
+            //  â€¢ its exact Date == targetDate, OR
+            //  â€¢ IsRecurring AND month/day match (annual holidays)
+            //  â€¢ AND (StoreId == storeId OR StoreId IS NULL â€” null = global)
+            //  â€¢ AND IsActive
             // EmployeeIds (comma-separated) optionally restricts the holiday to a subset.
             var allHolidays = await dbContext.Holidays
                 .Where(h => h.IsActive
@@ -235,7 +257,7 @@ public class ReportsController(
             var isHolidayToday = matchingHolidays.Any(h => string.IsNullOrWhiteSpace(h.EmployeeIds));
             // Per-employee holiday membership: if a holiday has EmployeeIds set,
             // only those employees are off on that holiday. EmployeeIds is stored either
-            // as comma-separated values OR as a JSON array (legacy seeded data) — handle both.
+            // as comma-separated values OR as a JSON array (legacy seeded data) â€” handle both.
             var holidayEmployeeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var h in matchingHolidays.Where(h => !string.IsNullOrWhiteSpace(h.EmployeeIds)))
             {
@@ -271,6 +293,7 @@ public class ReportsController(
             var totalAbsent = 0;
             var totalOnLeave = 0;
             var totalNotScheduled = 0;
+            var totalNoSalaryProfile = 0;
 
             // Default work hours: 8:30 AM - 6:00 PM (fallback if no shift template)
             var defaultExpectedStart = new TimeSpan(8, 30, 0);
@@ -291,10 +314,13 @@ public class ReportsController(
                 var checkOut = empAttendances.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
                     .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
 
-                // Check work schedule
-                scheduleMap.TryGetValue(employee.Id, out var schedule);
-                var hasSchedule = schedule != null;
-                var isDayOff = schedule?.IsDayOff ?? false;
+                // Check work schedule (may have multiple shifts per day)
+                scheduleMap.TryGetValue(employee.Id, out var daySchedules);
+                daySchedules ??= [];
+                var workingSchedules = daySchedules.Where(s => !s.IsDayOff).ToList();
+                var hasSchedule = daySchedules.Count > 0;
+                var isDayOff = daySchedules.Any(s => s.IsDayOff) && workingSchedules.Count == 0;
+                var schedule = workingSchedules.FirstOrDefault() ?? daySchedules.FirstOrDefault();
 
                 // Fallback: when no explicit WorkSchedule exists for today, derive
                 // the work-day rule from the employee's active salary profile
@@ -320,13 +346,22 @@ public class ReportsController(
                 int? lateGrace = schedule?.Shift?.LateGraceMinutes;
                 int? earlyGrace = schedule?.Shift?.EarlyLeaveGraceMinutes;
 
-                // Multi-shift fallback: nếu không có WorkSchedule, lấy danh
-                // sách ca từ hồ sơ lương (Benefit.Description "shifts:Ca sáng,
-                // Ca chiều") và pair từng punch với ca có StartTime gần nhất.
-                // Tổng late/early được cộng dồn — đồng bộ với tab "Tổng hợp
-                // theo ca" trên Flutter (NV làm 2 ca/ngày sẽ thấy đúng tổng).
+                // Multi-shift: from WorkSchedule rows and/or salary profile shift list.
                 List<ShiftInfo>? multiShiftAssignments = null;
-                if (!hasSchedule && benefit != null)
+                if (workingSchedules.Count > 1)
+                {
+                    multiShiftAssignments = workingSchedules
+                        .Where(s => s.Shift != null)
+                        .Select(s => new ShiftInfo(
+                            s.ShiftId ?? s.Shift!.Id,
+                            s.Shift!.Name ?? "",
+                            s.StartTime ?? s.Shift.StartTime,
+                            s.EndTime ?? s.Shift.EndTime,
+                            s.Shift.LateGraceMinutes,
+                            s.Shift.EarlyLeaveGraceMinutes))
+                        .ToList();
+                }
+                else if (!hasSchedule && benefit != null)
                 {
                     var shiftsStr = ParseDescField(benefit.Description, "shifts");
                     if (!string.IsNullOrWhiteSpace(shiftsStr))
@@ -340,7 +375,7 @@ public class ReportsController(
                         if (assignedShifts.Count > 0)
                         {
                             multiShiftAssignments = assignedShifts;
-                            // Best-match ca chính (cho expectedStart/End mặc định khi chỉ có 1 punch)
+                            // Best-match ca chÃ­nh (cho expectedStart/End máº·c Ä‘á»‹nh khi chá»‰ cÃ³ 1 punch)
                             if (checkIn != null)
                             {
                                 var checkInVnMin = (int)checkIn.AttendanceTime.AddHours(7).TimeOfDay.TotalMinutes;
@@ -374,53 +409,52 @@ public class ReportsController(
                         holidayEmployeeIds.Contains(employee.Id.ToString())
                         || (!string.IsNullOrEmpty(employee.EmployeeCode) && holidayEmployeeIds.Contains(employee.EmployeeCode))));
 
-                // Check if on leave — O(1) HashSet lookup
+                // Check if on leave â€” O(1) HashSet lookup
                 var isOnLeave = employee.ApplicationUserId.HasValue && 
                     leaveUserIds.Contains(employee.ApplicationUserId.Value);
                 
                 // Calculate status
-                var status = "Vắng mặt";
+                var status = ReportLabels.Absent;
                 var lateMinutes = 0;
                 var earlyLeaveMinutes = 0;
 
                 if (isHolidayForEmp && checkIn == null)
                 {
-                    // Public holiday and employee did not work → "Nghỉ lễ".
+                    // Public holiday and employee did not work â†’ "Nghá»‰ lá»…".
                     // If they DID check in on a holiday, fall through to normal
                     // attendance branches so OT/holiday-pay logic still applies.
-                    status = "Nghỉ lễ";
+                    status = ReportLabels.Holiday;
                     totalNotScheduled++;
                 }
                 else if (isOnLeave)
                 {
-                    status = "Nghỉ phép";
+                    status = ReportLabels.Leave;
                     totalOnLeave++;
                 }
                 else if (isDayOff || isWeeklyOffByBenefit)
                 {
                     // Either an explicit WorkSchedule day-off, or a fixed weekly
                     // off day defined in the salary profile (Sat/Sun, etc.).
-                    status = "Ngày nghỉ";
+                    status = ReportLabels.DayOff;
                     totalNotScheduled++;
                 }
                 else if (!hasSchedule && benefit == null)
                 {
-                    // No WorkSchedule and no salary profile to infer from — we
-                    // cannot tell whether today should be a working day, so we
-                    // exclude this employee from the absent count.
-                    status = "Không có lịch";
+                    // No WorkSchedule and no active salary profile — cannot infer working day.
+                    status = ReportLabels.NoSalaryProfile;
                     totalNotScheduled++;
+                    totalNoSalaryProfile++;
                 }
                 else if (checkIn != null)
                 {
-                    // Nếu nhân viên có nhiều ca trong hồ sơ lương, pair từng
-                    // punch với ca gần nhất theo giờ và cộng dồn late/early.
+                    // Náº¿u nhÃ¢n viÃªn cÃ³ nhiá»u ca trong há»“ sÆ¡ lÆ°Æ¡ng, pair tá»«ng
+                    // punch vá»›i ca gáº§n nháº¥t theo giá» vÃ  cá»™ng dá»“n late/early.
                     if (multiShiftAssignments != null && multiShiftAssignments.Count > 1)
                     {
                         var sortedPunches = empAttendances
                             .OrderBy(a => a.AttendanceTime)
                             .ToList();
-                        // Pair theo cặp (in, out) — odd index làm in, even+1 làm out.
+                        // Pair theo cáº·p (in, out) â€” odd index lÃ m in, even+1 lÃ m out.
                         var pairs = new List<(DateTime In, DateTime? Out)>();
                         for (int i = 0; i < sortedPunches.Count; i += 2)
                         {
@@ -474,23 +508,23 @@ public class ReportsController(
                         earlyLeaveMinutes = totalShiftEarly;
                         if (lateMinutes > 0 && earlyLeaveMinutes > 0)
                         {
-                            status = "Đi muộn + Về sớm";
+                            status = ReportLabels.LateAndEarly;
                             totalLate++;
                             totalEarlyLeave++;
                         }
                         else if (lateMinutes > 0)
                         {
-                            status = "Đi muộn";
+                            status = ReportLabels.Late;
                             totalLate++;
                         }
                         else if (earlyLeaveMinutes > 0)
                         {
-                            status = "Về sớm";
+                            status = ReportLabels.Early;
                             totalEarlyLeave++;
                         }
                         else
                         {
-                            status = "Đúng giờ";
+                            status = ReportLabels.OnTime;
                             totalOnTime++;
                         }
                     }
@@ -502,12 +536,12 @@ public class ReportsController(
                         if (checkInTime > expectedStart + lateGraceMin)
                         {
                             lateMinutes = (int)(checkInTime - expectedStart).TotalMinutes;
-                            status = "Đi muộn";
+                            status = ReportLabels.Late;
                             totalLate++;
                         }
                         else
                         {
-                            status = "Đúng giờ";
+                            status = ReportLabels.OnTime;
                             totalOnTime++;
                         }
 
@@ -518,9 +552,9 @@ public class ReportsController(
                             if (checkOutTime < expectedEnd - earlyGraceMin)
                             {
                                 earlyLeaveMinutes = (int)(expectedEnd - checkOutTime).TotalMinutes;
-                                if (status == "Đúng giờ")
+                                if (status == ReportLabels.OnTime)
                                 {
-                                    status = "Về sớm";
+                                    status = ReportLabels.Early;
                                 }
                                 else
                                 {
@@ -534,16 +568,13 @@ public class ReportsController(
                 else
                 {
                     // Today is a working day (per WorkSchedule or salary
-                    // profile), no check-in, no approved leave → vắng không phép.
-                    status = "Vắng không phép";
+                    // profile), no check-in, no approved leave â†’ váº¯ng khÃ´ng phÃ©p.
+                    status = ReportLabels.AbsentUnexcused;
                     totalAbsent++;
                 }
 
-                var workedMinutes = 0;
-                if (checkIn != null && checkOut != null)
-                {
-                    workedMinutes = (int)(checkOut.AttendanceTime - checkIn.AttendanceTime).TotalMinutes;
-                }
+                var workedMinutes = ReportsExportHelpers.WorkedMinutesVn(
+                    checkIn?.AttendanceTime, checkOut?.AttendanceTime);
 
                 reportItems.Add(new DailyAttendanceItemDto
                 {
@@ -557,16 +588,17 @@ public class ReportsController(
                     EarlyLeaveMinutes = earlyLeaveMinutes,
                     WorkedMinutes = workedMinutes,
                     Status = status,
-                    Note = checkIn?.Note ?? checkOut?.Note
+                    Note = ReportLabels.ResolveAttendanceNote(
+                        status, checkIn?.Note ?? checkOut?.Note)
                 });
             }
 
             var scheduledCount = employees.Count - totalNotScheduled;
-            // Present = nhân viên có check-in (đúng giờ + đi muộn). "Về sớm" là sub-flag,
-            // không cộng thêm vào Present để tránh đếm 2 lần người đi muộn-về sớm.
+            // Present = nhÃ¢n viÃªn cÃ³ check-in (Ä‘Ãºng giá» + Ä‘i muá»™n). "Vá» sá»›m" lÃ  sub-flag,
+            // khÃ´ng cá»™ng thÃªm vÃ o Present Ä‘á»ƒ trÃ¡nh Ä‘áº¿m 2 láº§n ngÆ°á»i Ä‘i muá»™n-vá» sá»›m.
             var totalPresent = totalOnTime + totalLate;
-            // Mẫu số của tỷ lệ chấm công bỏ qua người nghỉ phép hợp lệ để phản ánh
-            // đúng mức độ "vắng ngoài dự kiến".
+            // Máº«u sá»‘ cá»§a tá»· lá»‡ cháº¥m cÃ´ng bá» qua ngÆ°á»i nghá»‰ phÃ©p há»£p lá»‡ Ä‘á»ƒ pháº£n Ã¡nh
+            // Ä‘Ãºng má»©c Ä‘á»™ "váº¯ng ngoÃ i dá»± kiáº¿n".
             var rateDenominator = scheduledCount - totalOnLeave;
             var report = new DailyAttendanceReportDto
             {
@@ -578,6 +610,7 @@ public class ReportsController(
                 EarlyLeave = totalEarlyLeave,
                 Absent = totalAbsent,
                 OnLeave = totalOnLeave,
+                NoSalaryProfile = totalNoSalaryProfile,
                 AttendanceRate = rateDenominator > 0
                     ? Math.Round((double)totalPresent / rateDenominator * 100, 2)
                     : 0,
@@ -601,10 +634,14 @@ public class ReportsController(
     /// Get monthly attendance summary report
     /// </summary>
     [HttpGet("attendance/monthly")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<MonthlyAttendanceReportDto>>> GetMonthlyAttendanceReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
-        [FromQuery] string? department = null)
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
@@ -618,25 +655,22 @@ public class ReportsController(
             var utcStart = startDate.AddHours(-7);
             var utcEnd = startDate.AddMonths(1).AddHours(-7);
 
-            // Get employees
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
-            
-            if (!string.IsNullOrEmpty(department))
-            {
-                employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
-            }
+
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes);
 
             var employees = await employeesQuery.ToListAsync();
 
-            var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
+            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
 
-            // AttendanceLogs stored in UTC — filter by VN-month UTC range.
+            // AttendanceLogs stored in UTC â€” filter by VN-month UTC range.
             var rawAttendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart
                     && a.AttendanceTime < utcEnd
-                    && employeeCodes.Contains(a.PIN))
+                    && employeePins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
@@ -683,6 +717,20 @@ public class ReportsController(
             }
 
             var reportItems = new List<MonthlyAttendanceItemDto>();
+            var totalNoSalaryProfile = 0;
+
+            var employeeIds = employees.Select(e => e.Id).ToList();
+            var monthEndExclusive = endDate.Date.AddDays(1);
+            var activeBenefits = await dbContext.EmployeeBenefits
+                .Include(eb => eb.Benefit)
+                .Where(eb => employeeIds.Contains(eb.EmployeeId)
+                    && eb.EffectiveDate < monthEndExclusive
+                    && (eb.EndDate == null || eb.EndDate >= startDate.Date))
+                .OrderByDescending(eb => eb.EffectiveDate)
+                .ToListAsync();
+            var benefitByEmployeeId = activeBenefits
+                .GroupBy(eb => eb.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.First().Benefit);
 
             // Default late threshold: 8:30 AM
             var lateThreshold = new TimeSpan(8, 30, 0);
@@ -692,7 +740,7 @@ public class ReportsController(
                 // O(1) lookup instead of scanning entire list
                 var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
                 
-                // Get leaves for this employee — O(1) lookup (ILookup returns empty for missing keys)
+                // Get leaves for this employee â€” O(1) lookup (ILookup returns empty for missing keys)
                 var empLeaveUserId = employee.ApplicationUserId ?? Guid.Empty;
                 var empLeaves = leavesByUserId[empLeaveUserId];
 
@@ -717,7 +765,7 @@ public class ReportsController(
                     leaveDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
                 }
 
-                // Calculate total worked minutes — group by VN date, diff in VN times
+                // Calculate total worked minutes â€” group by VN date, diff in VN times
                 var totalWorkedMinutes = 0;
                 var groupedByDate = empAttendances.GroupBy(a => a.VnTime.Date);
                 foreach (var dayGroup in groupedByDate)
@@ -736,12 +784,17 @@ public class ReportsController(
                 var absentDays = workingDays - daysPresent - leaveDays;
                 if (absentDays < 0) absentDays = 0;
 
+                var hasSalaryProfile = benefitByEmployeeId.ContainsKey(employee.Id);
+                if (!hasSalaryProfile) totalNoSalaryProfile++;
+
                 reportItems.Add(new MonthlyAttendanceItemDto
                 {
                     EmployeeId = employee.Id,
                     EmployeeCode = employee.EmployeeCode,
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
                     DepartmentName = employee.Department ?? "N/A",
+                    HasSalaryProfile = hasSalaryProfile,
+                    Note = hasSalaryProfile ? null : ReportLabels.SalarySetupReminder,
                     TotalDaysWorked = daysPresent,
                     TotalLateDays = lateDays,
                     TotalLeaveDays = leaveDays,
@@ -759,6 +812,7 @@ public class ReportsController(
                 Month = targetMonth,
                 WorkingDays = workingDays,
                 TotalEmployees = employees.Count,
+                NoSalaryProfile = totalNoSalaryProfile,
                 Items = reportItems.OrderBy(i => i.DepartmentName).ThenBy(i => i.EmployeeCode).ToList()
             };
 
@@ -779,6 +833,7 @@ public class ReportsController(
     /// Get individual employee attendance report
     /// </summary>
     [HttpGet("attendance/employee/{employeeId}")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<EmployeeAttendanceReportDto>>> GetEmployeeAttendanceReport(
         Guid employeeId,
         [FromQuery] DateTime? startDate = null,
@@ -855,18 +910,18 @@ public class ReportsController(
                 var checkOut = dayAttendances.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
                     .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
 
-                var status = "Vắng mặt";
+                var status = ReportLabels.Absent;
                 var workedMinutes = 0;
                 var isLate = false;
                 var isEarlyLeave = false;
 
                 if (isHoliday)
                 {
-                    status = "Ngày lễ";
+                    status = ReportLabels.Holiday;
                 }
                 else if (isOnLeave)
                 {
-                    status = "Nghỉ phép";
+                    status = ReportLabels.Leave;
                     totalLeaveDays++;
                 }
                 else if (checkIn != null)
@@ -878,16 +933,17 @@ public class ReportsController(
                     {
                         isLate = true;
                         totalLateDays++;
-                        status = "Đi muộn";
+                            status = ReportLabels.Late;
                     }
                     else
                     {
-                        status = "Đúng giờ";
+                        status = ReportLabels.OnTime;
                     }
 
                     if (checkOut != null)
                     {
-                        workedMinutes = (int)(checkOut.AttendanceTime - checkIn.AttendanceTime).TotalMinutes;
+                        workedMinutes = ReportsExportHelpers.WorkedMinutesVn(
+                            checkIn.AttendanceTime, checkOut.AttendanceTime);
                         totalWorkedMinutes += workedMinutes;
                         
                         if (checkOut.AttendanceTime.AddHours(7).TimeOfDay < earlyLeaveThreshold)
@@ -895,7 +951,7 @@ public class ReportsController(
                             isEarlyLeave = true;
                             totalEarlyLeaveDays++;
                             if (isLate) status += " + Về sớm";
-                            else status = "Về sớm";
+                            else status = ReportLabels.Early;
                         }
                     }
                 }
@@ -960,10 +1016,14 @@ public class ReportsController(
     /// Get late arrival and early leaving report
     /// </summary>
     [HttpGet("late-early")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<LateEarlyReportDto>>> GetLateEarlyReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
-        [FromQuery] string? department = null)
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
@@ -974,16 +1034,14 @@ public class ReportsController(
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
-            if (!string.IsNullOrEmpty(department))
-            {
-                employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
-            }
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes);
 
             var employees = await employeesQuery.ToListAsync();
 
-            // ─── Loại bỏ NV chưa thiết lập bảng lương (giống tab "Tổng hợp theo ca") ─
-            // Tab Flutter chỉ tính trễ/sớm cho NV nằm trong SalaryProfile thuộc
-            // store hiện tại (BenefitsController.GetAllProfiles filter Benefit.StoreId).
+            // â”€â”€â”€ Loáº¡i bá» NV chÆ°a thiáº¿t láº­p báº£ng lÆ°Æ¡ng (giá»‘ng tab "Tá»•ng há»£p theo ca") â”€
+            // Tab Flutter chá»‰ tÃ­nh trá»…/sá»›m cho NV náº±m trong SalaryProfile thuá»™c
+            // store hiá»‡n táº¡i (BenefitsController.GetAllProfiles filter Benefit.StoreId).
             var salaryProfileEmpIds = await (
                 from eb in dbContext.Set<EmployeeBenefit>()
                 join b in dbContext.Set<Benefit>() on eb.BenefitId equals b.Id
@@ -993,13 +1051,13 @@ public class ReportsController(
             var salaryProfileEmpIdSet = salaryProfileEmpIds.ToHashSet();
             employees = employees.Where(e => salaryProfileEmpIdSet.Contains(e.Id)).ToList();
 
-            var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
+            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
             var employeeIdSet = employees.Select(e => e.Id).ToHashSet();
 
-            // ─── Load shift templates (active in this store) ────────────────
-            // Mirror logic của tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart):
-            // mỗi punch tìm ca phù hợp dựa trên thời điểm chấm vào, áp dụng
-            // grace period rồi mới tính trễ/sớm.
+            // â”€â”€â”€ Load shift templates (active in this store) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Mirror logic cá»§a tab "Tá»•ng há»£p theo ca" (attendance_by_shift_tab.dart):
+            // má»—i punch tÃ¬m ca phÃ¹ há»£p dá»±a trÃªn thá»i Ä‘iá»ƒm cháº¥m vÃ o, Ã¡p dá»¥ng
+            // grace period rá»“i má»›i tÃ­nh trá»…/sá»›m.
             var shiftTemplates = await dbContext.ShiftTemplates
                 .Where(s => s.StoreId == storeId && s.IsActive)
                 .Select(s => new
@@ -1012,7 +1070,7 @@ public class ReportsController(
                 })
                 .ToListAsync();
 
-            // ─── Load shift salary levels → empId → assigned shift ids ──────
+            // â”€â”€â”€ Load shift salary levels â†’ empId â†’ assigned shift ids â”€â”€â”€â”€â”€â”€
             var shiftSalaryLevels = await dbContext.Set<ShiftSalaryLevel>()
                 .Select(l => new { l.ShiftTemplateId, l.EmployeeIds })
                 .ToListAsync();
@@ -1025,7 +1083,7 @@ public class ReportsController(
                 {
                     ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds);
                 }
-                catch { /* malformed JSON — bỏ qua dòng này */ }
+                catch { /* malformed JSON â€” bá» qua dÃ²ng nÃ y */ }
                 if (ids == null) continue;
                 foreach (var raw in ids)
                 {
@@ -1044,7 +1102,7 @@ public class ReportsController(
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= start
                     && a.AttendanceTime <= end.AddDays(1)
-                    && employeeCodes.Contains(a.PIN))
+                    && employeePins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
             var attendanceByPin = attendances.ToLookup(a => a.PIN);
@@ -1060,8 +1118,8 @@ public class ReportsController(
                 var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
                 if (empAttendances.Count == 0) continue;
 
-                // Candidate shift templates: ca được gán riêng nếu có,
-                // không thì duyệt toàn bộ ca trong store (giống fallback Flutter).
+                // Candidate shift templates: ca Ä‘Æ°á»£c gÃ¡n riÃªng náº¿u cÃ³,
+                // khÃ´ng thÃ¬ duyá»‡t toÃ n bá»™ ca trong store (giá»‘ng fallback Flutter).
                 var candidateIds = empIdToShiftIds.TryGetValue(employee.Id, out var assigned) && assigned.Count > 0
                     ? assigned
                     : shiftTemplates.Select(s => s.Id).ToList();
@@ -1079,8 +1137,8 @@ public class ReportsController(
                     var ins = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckIn).ToList();
                     var outs = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckOut).ToList();
 
-                    // Pair (in, out): ưu tiên dùng AttendanceState; nếu không
-                    // đủ thông tin thì rơi về ghép theo thứ tự chronological.
+                    // Pair (in, out): Æ°u tiÃªn dÃ¹ng AttendanceState; náº¿u khÃ´ng
+                    // Ä‘á»§ thÃ´ng tin thÃ¬ rÆ¡i vá» ghÃ©p theo thá»© tá»± chronological.
                     var pairs = new List<(DateTime? In, DateTime? Out)>();
                     if (ins.Count > 0 && outs.Count > 0 && (ins.Count + outs.Count) == dayPunches.Count)
                     {
@@ -1109,20 +1167,20 @@ public class ReportsController(
 
                     foreach (var (punchIn, punchOut) in pairs)
                     {
-                        // Mirror tab "Tổng hợp theo ca": chỉ tính trễ/sớm khi pair
-                        // có ĐỦ cả IN và OUT (attendanceMode='both' mặc định).
-                        // Pair thiếu 1 vế → coi là "thiếu chấm công", không
-                        // cộng vào trễ/sớm để tránh số ảo (vd. 683p do match
-                        // nhầm ca cho 1 punch lẻ).
+                        // Mirror tab "Tá»•ng há»£p theo ca": chá»‰ tÃ­nh trá»…/sá»›m khi pair
+                        // cÃ³ Äá»¦ cáº£ IN vÃ  OUT (attendanceMode='both' máº·c Ä‘á»‹nh).
+                        // Pair thiáº¿u 1 váº¿ â†’ coi lÃ  "thiáº¿u cháº¥m cÃ´ng", khÃ´ng
+                        // cá»™ng vÃ o trá»…/sá»›m Ä‘á»ƒ trÃ¡nh sá»‘ áº£o (vd. 683p do match
+                        // nháº§m ca cho 1 punch láº»).
                         if (punchIn == null || punchOut == null) continue;
 
                         var refTime = punchIn ?? punchOut;
                         if (refTime == null) continue;
                         var refMin = refTime.Value.Hour * 60 + refTime.Value.Minute;
 
-                        // Tìm ca khớp nhất: dùng wrap-around distance (giống Flutter
-                        // _findMatchingShift). Nếu best > 180 phút thì fallback duyệt
-                        // toàn bộ ca trong store; nếu vẫn > 180 thì BỎ QUA pair này.
+                        // TÃ¬m ca khá»›p nháº¥t: dÃ¹ng wrap-around distance (giá»‘ng Flutter
+                        // _findMatchingShift). Náº¿u best > 180 phÃºt thÃ¬ fallback duyá»‡t
+                        // toÃ n bá»™ ca trong store; náº¿u váº«n > 180 thÃ¬ Bá»Ž QUA pair nÃ y.
                         static int WrapDist(int refM, int startM)
                         {
                             var d = Math.Abs(refM - startM);
@@ -1135,11 +1193,11 @@ public class ReportsController(
                             .FirstOrDefault();
                         if (matched == null || matched.Diff > 180)
                         {
-                            // Nếu nhân viên đã được gán ca cụ thể, KHÔNG fallback sang ca
-                            // khác. Một punch cách xa ca được gán → coi là punch lạc
-                            // (vd. NV ca đêm chấm vào lúc 14:33 không nên bị tính trễ
-                            // 93p theo "Ca chiều"). Chỉ fallback khi nhân viên CHƯA
-                            // được gán ca nào.
+                            // Náº¿u nhÃ¢n viÃªn Ä‘Ã£ Ä‘Æ°á»£c gÃ¡n ca cá»¥ thá»ƒ, KHÃ”NG fallback sang ca
+                            // khÃ¡c. Má»™t punch cÃ¡ch xa ca Ä‘Æ°á»£c gÃ¡n â†’ coi lÃ  punch láº¡c
+                            // (vd. NV ca Ä‘Ãªm cháº¥m vÃ o lÃºc 14:33 khÃ´ng nÃªn bá»‹ tÃ­nh trá»…
+                            // 93p theo "Ca chiá»u"). Chá»‰ fallback khi nhÃ¢n viÃªn CHÆ¯A
+                            // Ä‘Æ°á»£c gÃ¡n ca nÃ o.
                             var hasAssignedShifts = empIdToShiftIds.TryGetValue(employee.Id, out var assignedList)
                                 && assignedList.Count > 0;
                             if (hasAssignedShifts) continue;
@@ -1246,6 +1304,7 @@ public class ReportsController(
     /// Get department summary report
     /// </summary>
     [HttpGet("department-summary")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DepartmentSummaryReportDto>>> GetDepartmentSummaryReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null)
@@ -1293,7 +1352,7 @@ public class ReportsController(
 
             // Group employees by department
             var departments = employees
-                .GroupBy(e => e.Department ?? "Chưa phân bổ")
+                .GroupBy(e => e.Department ?? "ChÆ°a phÃ¢n bá»•")
                 .ToList();
 
             var reportItems = new List<DepartmentSummaryItemDto>();
@@ -1381,10 +1440,13 @@ public class ReportsController(
     /// Get overtime report
     /// </summary>
     [HttpGet("overtime")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<OvertimeReportDto>>> GetOvertimeReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
         [FromQuery] string? department = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true,
         [FromQuery] int? minOvertimeMinutes = 0)
     {
         try
@@ -1396,21 +1458,19 @@ public class ReportsController(
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
-            
-            if (!string.IsNullOrEmpty(department))
-            {
-                employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
-            }
+
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null);
 
             var employees = await employeesQuery.ToListAsync();
 
-            var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
+            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId 
                     && a.AttendanceTime >= start 
                     && a.AttendanceTime <= end.AddDays(1)
-                    && employeeCodes.Contains(a.PIN))
+                    && employeePins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
@@ -1442,7 +1502,8 @@ public class ReportsController(
 
                     if (checkIn != null && checkOut != null)
                     {
-                        var workedMinutes = (int)(checkOut.AttendanceTime - checkIn.AttendanceTime).TotalMinutes;
+                        var workedMinutes = ReportsExportHelpers.WorkedMinutesVn(
+                            checkIn.AttendanceTime, checkOut.AttendanceTime);
                         if (workedMinutes > standardWorkMinutes)
                         {
                             var dayOvertime = workedMinutes - standardWorkMinutes;
@@ -1507,10 +1568,13 @@ public class ReportsController(
     /// Get leave summary report
     /// </summary>
     [HttpGet("leave-summary")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<LeaveSummaryReportDto>>> GetLeaveSummaryReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
-        [FromQuery] string? department = null)
+        [FromQuery] string? department = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
@@ -1520,11 +1584,9 @@ public class ReportsController(
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
-            
-            if (!string.IsNullOrEmpty(department))
-            {
-                employeesQuery = employeesQuery.Where(e => !string.IsNullOrEmpty(e.Department) && e.Department.Contains(department));
-            }
+
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null);
 
             var employees = await employeesQuery.ToListAsync();
 
@@ -1629,11 +1691,17 @@ public class ReportsController(
     /// Export daily attendance report to CSV
     /// </summary>
     [HttpGet("export/daily")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportDailyReport(
         [FromQuery] DateTime? date = null,
-        [FromQuery] string format = "csv")
+        [FromQuery] string format = "csv",
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
-        var reportResult = await GetDailyAttendanceReport(date);
+        var reportResult = await GetDailyAttendanceReport(
+            date, department, null, employeeCodes, branchId, includeChildBranches, null);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
             || response.Data == null)
@@ -1654,7 +1722,18 @@ public class ReportsController(
         var stt = 1;
         foreach (var item in report.Items)
         {
-            csv.AppendLine($"{stt++},\"{item.EmployeeCode}\",\"{item.EmployeeName}\",\"{item.DepartmentName}\",\"{item.CheckInTime:HH:mm}\",\"{item.CheckOutTime:HH:mm}\",{item.LateMinutes},{item.EarlyLeaveMinutes},{item.WorkedMinutes},\"{item.Status}\",\"{item.Note}\"");
+            csv.AppendLine(string.Join(",",
+                stt++.ToString(),
+                ReportsExportHelpers.CsvEscape(item.EmployeeCode),
+                ReportsExportHelpers.CsvEscape(item.EmployeeName),
+                ReportsExportHelpers.CsvEscape(item.DepartmentName),
+                ReportsExportHelpers.CsvEscape(ReportsExportHelpers.FormatVnTime(item.CheckInTime)),
+                ReportsExportHelpers.CsvEscape(ReportsExportHelpers.FormatVnTime(item.CheckOutTime)),
+                item.LateMinutes.ToString(),
+                item.EarlyLeaveMinutes.ToString(),
+                item.WorkedMinutes.ToString(),
+                ReportsExportHelpers.CsvEscape(item.Status),
+                ReportsExportHelpers.CsvEscape(item.Note ?? "")));
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
@@ -1665,12 +1744,18 @@ public class ReportsController(
     /// Export monthly attendance report to CSV
     /// </summary>
     [HttpGet("export/monthly")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportMonthlyReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
-        [FromQuery] string format = "csv")
+        [FromQuery] string format = "csv",
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
-        var reportResult = await GetMonthlyAttendanceReport(year, month);
+        var reportResult = await GetMonthlyAttendanceReport(
+            year, month, department, employeeCodes, branchId, includeChildBranches);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<MonthlyAttendanceReportDto> response 
             || response.Data == null)
@@ -1686,12 +1771,23 @@ public class ReportsController(
         }
 
         var csv = new StringBuilder();
-        csv.AppendLine("STT,Mã NV,Họ tên,Phòng ban,Ngày làm,Ngày muộn,Ngày nghỉ,Ngày vắng,Số giờ làm,Tỷ lệ CC (%)");
+        csv.AppendLine("STT,Mã NV,Họ tên,Phòng ban,Ngày làm,Ngày muộn,Ngày nghỉ,Ngày vắng,Số giờ làm,Tỷ lệ CC (%),Ghi chú");
         
         var stt = 1;
         foreach (var item in report.Items)
         {
-            csv.AppendLine($"{stt++},\"{item.EmployeeCode}\",\"{item.EmployeeName}\",\"{item.DepartmentName}\",{item.TotalDaysWorked},{item.TotalLateDays},{item.TotalLeaveDays},{item.TotalAbsentDays},{item.TotalWorkedHours},{item.AttendanceRate}");
+            csv.AppendLine(string.Join(",",
+                stt++.ToString(),
+                ReportsExportHelpers.CsvEscape(item.EmployeeCode),
+                ReportsExportHelpers.CsvEscape(item.EmployeeName),
+                ReportsExportHelpers.CsvEscape(item.DepartmentName),
+                item.TotalDaysWorked.ToString(),
+                item.TotalLateDays.ToString(),
+                item.TotalLeaveDays.ToString(),
+                item.TotalAbsentDays.ToString(),
+                item.TotalWorkedHours.ToString(),
+                item.AttendanceRate.ToString(),
+                ReportsExportHelpers.CsvEscape(item.Note ?? "")));
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
@@ -1702,12 +1798,18 @@ public class ReportsController(
     /// Export late/early report to CSV
     /// </summary>
     [HttpGet("export/late-early")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportLateEarlyReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
-        [FromQuery] string format = "csv")
+        [FromQuery] string format = "csv",
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
-        var reportResult = await GetLateEarlyReport(startDate, endDate);
+        var reportResult = await GetLateEarlyReport(
+            startDate, endDate, department, employeeCodes, branchId, includeChildBranches);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<LateEarlyReportDto> response 
             || response.Data == null)
@@ -1743,11 +1845,18 @@ public class ReportsController(
     /// Export daily attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/daily")]
-    public async Task<IActionResult> ExportDailyReportExcel([FromQuery] DateTime? date = null)
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    public async Task<IActionResult> ExportDailyReportExcel(
+        [FromQuery] DateTime? date = null,
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
-            var reportResult = await GetDailyAttendanceReport(date);
+            var reportResult = await GetDailyAttendanceReport(
+                date, department, null, employeeCodes, branchId, includeChildBranches, null);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
                 || response.Data == null)
@@ -1760,44 +1869,18 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo chấm công");
 
-            // Title
-            worksheet.Cell(1, 1).Value = "BÁO CÁO CHẤM CÔNG NGÀY";
-            worksheet.Range(1, 1, 1, 11).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Ngày: {report.Date:dd/MM/yyyy}";
-            worksheet.Range(2, 1, 2, 11).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Summary
-            worksheet.Cell(4, 1).Value = "Tổng số NV:";
-            worksheet.Cell(4, 2).Value = report.TotalEmployees;
-            worksheet.Cell(4, 3).Value = "Có mặt:";
-            worksheet.Cell(4, 4).Value = report.Present;
-            worksheet.Cell(4, 5).Value = "Đi muộn:";
-            worksheet.Cell(4, 6).Value = report.Late;
-            worksheet.Cell(4, 7).Value = "Về sớm:";
-            worksheet.Cell(4, 8).Value = report.EarlyLeave;
-            worksheet.Cell(4, 9).Value = "Vắng:";
-            worksheet.Cell(4, 10).Value = report.Absent;
-
-            // Headers
-            var headerRow = 6;
             var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Giờ vào", "Giờ ra", "Muộn (phút)", "Về sớm (phút)", "Làm (phút)", "Trạng thái", "Ghi chú" };
-            for (int i = 0; i < headers.Length; i++)
+            var filterLabel = BuildAttendanceExportFilter(department, employeeCodes, branchId);
+            var summary = new[]
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightBlue)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Tổng số NV: {report.TotalEmployees} | Có mặt: {report.Present} | Đi muộn: {report.Late} | Về sớm: {report.EarlyLeave} | Vắng: {report.Absent}"
+            };
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO CHẤM CÔNG NGÀY", headers.Length,
+                $"Ngày {report.Date:dd/MM/yyyy}", filterLabel, summary, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            // Data
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -1805,35 +1888,19 @@ public class ReportsController(
                 worksheet.Cell(row, 2).Value = item.EmployeeCode;
                 worksheet.Cell(row, 3).Value = item.EmployeeName;
                 worksheet.Cell(row, 4).Value = item.DepartmentName;
-                worksheet.Cell(row, 5).Value = item.CheckInTime?.ToString("HH:mm") ?? "-";
-                worksheet.Cell(row, 6).Value = item.CheckOutTime?.ToString("HH:mm") ?? "-";
+                worksheet.Cell(row, 5).Value = ReportsExportHelpers.FormatVnTime(item.CheckInTime);
+                worksheet.Cell(row, 6).Value = ReportsExportHelpers.FormatVnTime(item.CheckOutTime);
                 worksheet.Cell(row, 7).Value = item.LateMinutes;
                 worksheet.Cell(row, 8).Value = item.EarlyLeaveMinutes;
                 worksheet.Cell(row, 9).Value = item.WorkedMinutes;
                 worksheet.Cell(row, 10).Value = item.Status;
                 worksheet.Cell(row, 11).Value = item.Note ?? "";
 
-                // Color coding for status
-                var statusCell = worksheet.Cell(row, 10);
-                switch (item.Status)
-                {
-                    case "Đúng giờ":
-                        statusCell.Style.Fill.SetBackgroundColor(XLColor.LightGreen);
-                        break;
-                    case "Đi muộn":
-                    case string s when s.Contains("Đi muộn"):
-                        statusCell.Style.Fill.SetBackgroundColor(XLColor.LightSalmon);
-                        break;
-                    case "Vắng mặt":
-                        statusCell.Style.Fill.SetBackgroundColor(XLColor.LightPink);
-                        break;
-                }
-
+                ReportsExportHelpers.ApplyDailyStatusFill(worksheet.Cell(row, 10), item.Status);
                 row++;
             }
 
-            // Auto-fit columns
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -1854,13 +1921,19 @@ public class ReportsController(
     /// Export monthly attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/monthly")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportMonthlyReportExcel(
         [FromQuery] int? year = null,
-        [FromQuery] int? month = null)
+        [FromQuery] int? month = null,
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
-            var reportResult = await GetMonthlyAttendanceReport(year, month);
+            var reportResult = await GetMonthlyAttendanceReport(
+                year, month, department, employeeCodes, branchId, includeChildBranches);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<MonthlyAttendanceReportDto> response 
                 || response.Data == null)
@@ -1873,32 +1946,20 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo tháng");
 
-            // Title
-            worksheet.Cell(1, 1).Value = "BÁO CÁO CHẤM CÔNG THÁNG";
-            worksheet.Range(1, 1, 1, 10).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Tháng {report.Month}/{report.Year} - Số ngày làm việc: {report.WorkingDays}";
-            worksheet.Range(2, 1, 2, 10).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Headers
-            var headerRow = 4;
-            var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Ngày làm", "Ngày muộn", "Ngày nghỉ", "Ngày vắng", "Giờ làm", "Tỷ lệ (%)" };
-            for (int i = 0; i < headers.Length; i++)
+            var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Ngày làm", "Ngày muộn", "Ngày nghỉ", "Ngày vắng", "Giờ làm", "Tỷ lệ (%)", "Ghi chú" };
+            var filterLabel = BuildAttendanceExportFilter(department, employeeCodes, branchId);
+            var summary = new List<string>
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightGreen)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Số ngày làm việc: {report.WorkingDays} | Tổng NV: {report.TotalEmployees}"
+            };
+            if (report.NoSalaryProfile > 0)
+                summary.Add($"Cảnh báo: {report.NoSalaryProfile} nhân viên chưa thiết lập hồ sơ lương — xem cột Ghi chú.");
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO CHẤM CÔNG THÁNG", headers.Length,
+                $"Tháng {report.Month}/{report.Year}", filterLabel, summary, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            // Data
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -1912,6 +1973,13 @@ public class ReportsController(
                 worksheet.Cell(row, 8).Value = item.TotalAbsentDays;
                 worksheet.Cell(row, 9).Value = Math.Round(item.TotalWorkedHours, 1);
                 worksheet.Cell(row, 10).Value = Math.Round(item.AttendanceRate, 1);
+                worksheet.Cell(row, 11).Value = item.Note ?? "";
+
+                if (!item.HasSalaryProfile)
+                {
+                    worksheet.Range(row, 1, row, headers.Length).Style
+                        .Fill.SetBackgroundColor(XLColor.LightYellow);
+                }
 
                 // Color for attendance rate
                 var rateCell = worksheet.Cell(row, 10);
@@ -1925,8 +1993,7 @@ public class ReportsController(
                 row++;
             }
 
-            // Auto-fit columns
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -1947,6 +2014,7 @@ public class ReportsController(
     /// Export employee attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/employee/{employeeId}")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportEmployeeReportExcel(
         Guid employeeId,
         [FromQuery] DateTime? startDate = null,
@@ -1967,56 +2035,25 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo cá nhân");
 
-            // Title
-            worksheet.Cell(1, 1).Value = "BÁO CÁO CHẤM CÔNG CÁ NHÂN";
-            worksheet.Range(1, 1, 1, 8).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Employee info
-            worksheet.Cell(3, 1).Value = "Mã NV:";
-            worksheet.Cell(3, 2).Value = report.EmployeeCode;
-            worksheet.Cell(3, 3).Value = "Họ tên:";
-            worksheet.Cell(3, 4).Value = report.EmployeeName;
-            worksheet.Cell(4, 1).Value = "Phòng ban:";
-            worksheet.Cell(4, 2).Value = report.DepartmentName;
-            worksheet.Cell(4, 3).Value = "Chức vụ:";
-            worksheet.Cell(4, 4).Value = report.Position;
-            worksheet.Cell(5, 1).Value = "Từ ngày:";
-            worksheet.Cell(5, 2).Value = report.StartDate.ToString("dd/MM/yyyy");
-            worksheet.Cell(5, 3).Value = "Đến ngày:";
-            worksheet.Cell(5, 4).Value = report.EndDate.ToString("dd/MM/yyyy");
-
-            // Summary
-            worksheet.Cell(7, 1).Value = "TỔNG KẾT";
-            worksheet.Cell(7, 1).Style.Font.SetBold(true);
-            worksheet.Cell(8, 1).Value = $"Ngày có mặt: {report.TotalPresentDays} | Đi muộn: {report.TotalLateDays} | Về sớm: {report.TotalEarlyLeaveDays} | Nghỉ phép: {report.TotalLeaveDays} | Vắng: {report.TotalAbsentDays}";
-            worksheet.Range(8, 1, 8, 8).Merge();
-            worksheet.Cell(9, 1).Value = $"Tổng giờ làm: {report.TotalWorkedHours:F1}h | Tỷ lệ chấm công: {report.AttendanceRate:F1}%";
-            worksheet.Range(9, 1, 9, 8).Merge();
-
-            // Headers
-            var headerRow = 11;
             var headers = new[] { "Ngày", "Thứ", "Giờ vào", "Giờ ra", "Giờ làm (phút)", "Muộn", "Về sớm", "Trạng thái" };
-            for (int i = 0; i < headers.Length; i++)
+            var summary = new[]
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightBlue)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Mã NV: {report.EmployeeCode} | Họ tên: {report.EmployeeName} | Phòng ban: {report.DepartmentName} | Chức vụ: {report.Position}",
+                $"Ngày có mặt: {report.TotalPresentDays} | Đi muộn: {report.TotalLateDays} | Về sớm: {report.TotalEarlyLeaveDays} | Nghỉ phép: {report.TotalLeaveDays} | Vắng: {report.TotalAbsentDays}",
+                $"Tổng giờ làm: {report.TotalWorkedHours:F1}h | Tỷ lệ chấm công: {report.AttendanceRate:F1}%"
+            };
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO CHẤM CÔNG CÁ NHÂN", headers.Length,
+                $"{report.StartDate:dd/MM/yyyy} – {report.EndDate:dd/MM/yyyy}", null, summary, report.DailyRecords.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            // Data
-            var row = headerRow + 1;
+            var row = dataStartRow;
             foreach (var item in report.DailyRecords)
             {
                 worksheet.Cell(row, 1).Value = item.Date.ToString("dd/MM");
                 worksheet.Cell(row, 2).Value = item.DayOfWeek;
-                worksheet.Cell(row, 3).Value = item.CheckInTime?.ToString("HH:mm") ?? "-";
-                worksheet.Cell(row, 4).Value = item.CheckOutTime?.ToString("HH:mm") ?? "-";
+                worksheet.Cell(row, 3).Value = ReportsExportHelpers.FormatVnTime(item.CheckInTime);
+                worksheet.Cell(row, 4).Value = ReportsExportHelpers.FormatVnTime(item.CheckOutTime);
                 worksheet.Cell(row, 5).Value = item.WorkedMinutes;
                 worksheet.Cell(row, 6).Value = item.IsLate ? "✓" : "";
                 worksheet.Cell(row, 7).Value = item.IsEarlyLeave ? "✓" : "";
@@ -2027,7 +2064,7 @@ public class ReportsController(
                 {
                     worksheet.Range(row, 1, row, 8).Style.Fill.SetBackgroundColor(XLColor.LightGray);
                 }
-                else if (item.Status == "Vắng mặt")
+                else if (item.Status == ReportLabels.Absent)
                 {
                     worksheet.Range(row, 1, row, 8).Style.Fill.SetBackgroundColor(XLColor.LightPink);
                 }
@@ -2035,12 +2072,15 @@ public class ReportsController(
                 {
                     worksheet.Range(row, 1, row, 8).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
                 }
+                else
+                {
+                    ReportsExportHelpers.ApplyDailyStatusFill(worksheet.Cell(row, 8), item.Status);
+                }
 
                 row++;
             }
 
-            // Auto-fit columns
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -2061,13 +2101,19 @@ public class ReportsController(
     /// Export late/early report to Excel
     /// </summary>
     [HttpGet("export/excel/late-early")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportLateEarlyReportExcel(
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null)
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? department = null,
+        [FromQuery] string? employeeCodes = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
-            var reportResult = await GetLateEarlyReport(startDate, endDate);
+            var reportResult = await GetLateEarlyReport(
+                startDate, endDate, department, employeeCodes, branchId, includeChildBranches);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<LateEarlyReportDto> response 
                 || response.Data == null)
@@ -2080,36 +2126,18 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo đi muộn về sớm");
 
-            // Title
-            worksheet.Cell(1, 1).Value = "BÁO CÁO ĐI MUỘN - VỀ SỚM";
-            worksheet.Range(1, 1, 1, 8).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Từ {report.StartDate:dd/MM/yyyy} đến {report.EndDate:dd/MM/yyyy}";
-            worksheet.Range(2, 1, 2, 8).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Summary
-            worksheet.Cell(4, 1).Value = $"Tổng NV: {report.TotalEmployees} | Vi phạm: {report.EmployeesWithIssues} | Lần muộn: {report.TotalLateCount} ({report.TotalLateMinutes} phút) | Về sớm: {report.TotalEarlyLeaveCount} ({report.TotalEarlyMinutes} phút)";
-            worksheet.Range(4, 1, 4, 8).Merge();
-
-            // Headers
-            var headerRow = 6;
             var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Lần muộn", "Phút muộn", "Lần về sớm", "Phút về sớm" };
-            for (int i = 0; i < headers.Length; i++)
+            var filterLabel = BuildAttendanceExportFilter(department, employeeCodes, branchId);
+            var summary = new[]
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightSalmon)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Tổng NV: {report.TotalEmployees} | Vi phạm: {report.EmployeesWithIssues} | Lần muộn: {report.TotalLateCount} ({report.TotalLateMinutes} phút) | Về sớm: {report.TotalEarlyLeaveCount} ({report.TotalEarlyMinutes} phút)"
+            };
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO ĐI MUỘN - VỀ SỚM", headers.Length,
+                $"{report.StartDate:dd/MM/yyyy} – {report.EndDate:dd/MM/yyyy}", filterLabel, summary, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            // Data
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -2132,7 +2160,7 @@ public class ReportsController(
             }
 
             // Auto-fit columns
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -2153,6 +2181,7 @@ public class ReportsController(
     /// Export department summary report to Excel
     /// </summary>
     [HttpGet("export/excel/department")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportDepartmentSummaryExcel(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null)
@@ -2172,32 +2201,13 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo theo phòng ban");
 
-            // Title
-            worksheet.Cell(1, 1).Value = "BÁO CÁO TỔNG HỢP THEO PHÒNG BAN";
-            worksheet.Range(1, 1, 1, 7).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Tháng {report.Month}/{report.Year}";
-            worksheet.Range(2, 1, 2, 7).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            // Headers
-            var headerRow = 4;
             var headers = new[] { "STT", "Phòng ban", "Số NV", "Tổng chấm công", "Số lần muộn", "Tổng giờ làm", "Tỷ lệ CC (%)" };
-            for (int i = 0; i < headers.Length; i++)
-            {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightGreen)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO TỔNG HỢP THEO PHÒNG BAN", headers.Length,
+                $"Tháng {report.Month}/{report.Year}", null, null, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            // Data
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -2213,7 +2223,7 @@ public class ReportsController(
             }
 
             // Auto-fit columns
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -2234,6 +2244,7 @@ public class ReportsController(
     /// Export overtime report to Excel
     /// </summary>
     [HttpGet("export/excel/overtime")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportOvertimeReportExcel(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null)
@@ -2253,32 +2264,17 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo tăng ca");
 
-            worksheet.Cell(1, 1).Value = "BÁO CÁO TĂNG CA";
-            worksheet.Range(1, 1, 1, 7).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Từ {report.StartDate:dd/MM/yyyy} đến {report.EndDate:dd/MM/yyyy}";
-            worksheet.Range(2, 1, 2, 7).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(4, 1).Value = $"Tổng NV: {report.TotalEmployees} | NV tăng ca: {report.EmployeesWithOvertime} | Tổng giờ: {report.TotalOvertimeHours:F1}h";
-            worksheet.Range(4, 1, 4, 7).Merge();
-
-            var headerRow = 6;
             var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Số ngày tăng ca", "Tổng phút tăng ca", "Tổng giờ tăng ca" };
-            for (int i = 0; i < headers.Length; i++)
+            var summary = new[]
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightCoral)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Tổng NV: {report.TotalEmployees} | NV tăng ca: {report.EmployeesWithOvertime} | Tổng giờ: {report.TotalOvertimeHours:F1}h"
+            };
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO TĂNG CA", headers.Length,
+                $"{report.StartDate:dd/MM/yyyy} – {report.EndDate:dd/MM/yyyy}", null, summary, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -2297,7 +2293,7 @@ public class ReportsController(
                 row++;
             }
 
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -2318,6 +2314,7 @@ public class ReportsController(
     /// Export leave summary report to Excel
     /// </summary>
     [HttpGet("export/excel/leave-summary")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportLeaveSummaryReportExcel(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null)
@@ -2337,32 +2334,17 @@ public class ReportsController(
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Báo cáo nghỉ phép");
 
-            worksheet.Cell(1, 1).Value = "BÁO CÁO NGHỈ PHÉP";
-            worksheet.Range(1, 1, 1, 9).Merge();
-            worksheet.Cell(1, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(16)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(2, 1).Value = $"Từ {report.StartDate:dd/MM/yyyy} đến {report.EndDate:dd/MM/yyyy}";
-            worksheet.Range(2, 1, 2, 9).Merge();
-            worksheet.Cell(2, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-            worksheet.Cell(4, 1).Value = $"Tổng NV: {report.TotalEmployees} | NV nghỉ: {report.EmployeesWithLeave} | Tổng đơn: {report.TotalLeaveRequests} | Đã duyệt: {report.ApprovedCount} | Từ chối: {report.RejectedCount}";
-            worksheet.Range(4, 1, 4, 9).Merge();
-
-            var headerRow = 6;
             var headers = new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Loại nghỉ", "Tổng đơn", "Ngày nghỉ", "Đã dùng", "Còn lại" };
-            for (int i = 0; i < headers.Length; i++)
+            var summary = new[]
             {
-                worksheet.Cell(headerRow, i + 1).Value = headers[i];
-            }
-            worksheet.Range(headerRow, 1, headerRow, headers.Length).Style
-                .Font.SetBold(true)
-                .Fill.SetBackgroundColor(XLColor.LightBlue)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                $"Tổng NV: {report.TotalEmployees} | NV nghỉ: {report.EmployeesWithLeave} | Tổng đơn: {report.TotalLeaveRequests} | Đã duyệt: {report.ApprovedCount} | Từ chối: {report.RejectedCount}"
+            };
+            var (headerRow, dataStartRow) = WriteAttendanceExcelMeta(
+                worksheet, "BÁO CÁO NGHỈ PHÉP", headers.Length,
+                $"{report.StartDate:dd/MM/yyyy} – {report.EndDate:dd/MM/yyyy}", null, summary, report.Items.Count);
+            ReportExcelLayout.ApplyHeaderRow(worksheet, headerRow, headers);
 
-            var row = headerRow + 1;
+            var row = dataStartRow;
             var stt = 1;
             foreach (var item in report.Items)
             {
@@ -2383,7 +2365,7 @@ public class ReportsController(
                 row++;
             }
 
-            worksheet.Columns().AdjustToContents();
+            ReportExcelLayout.FinishSheet(worksheet, headerRow);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -2404,14 +2386,36 @@ public class ReportsController(
 
     #region Helper Methods
 
+    private string? BuildAttendanceExportFilter(string? department, string? employeeCodes, Guid? branchId)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(department)) parts.Add($"Phòng ban: {department}");
+        if (!string.IsNullOrWhiteSpace(employeeCodes)) parts.Add($"Mã NV: {employeeCodes}");
+        if (branchId.HasValue) parts.Add($"Chi nhánh: {branchId}");
+        return parts.Count == 0 ? null : string.Join(" | ", parts);
+    }
+
+    private (int headerRow, int dataStartRow) WriteAttendanceExcelMeta(
+        IXLWorksheet ws,
+        string title,
+        int columnCount,
+        string? periodLabel = null,
+        string? filterLabel = null,
+        IReadOnlyList<string>? summaryLines = null,
+        int? dataRowCount = null)
+    {
+        var meta = ReportExcelMeta.FromUser(User, title, periodLabel, filterLabel, summaryLines, dataRowCount);
+        return ReportExcelLayout.ApplyMeta(ws, meta, columnCount);
+    }
+
     private static string GetDayOfWeekVN(DayOfWeek day) => day switch
     {
-        DayOfWeek.Monday => "Thứ 2",
-        DayOfWeek.Tuesday => "Thứ 3",
-        DayOfWeek.Wednesday => "Thứ 4",
-        DayOfWeek.Thursday => "Thứ 5",
-        DayOfWeek.Friday => "Thứ 6",
-        DayOfWeek.Saturday => "Thứ 7",
+        DayOfWeek.Monday => "Thá»© 2",
+        DayOfWeek.Tuesday => "Thá»© 3",
+        DayOfWeek.Wednesday => "Thá»© 4",
+        DayOfWeek.Thursday => "Thá»© 5",
+        DayOfWeek.Friday => "Thá»© 6",
+        DayOfWeek.Saturday => "Thá»© 7",
         DayOfWeek.Sunday => "CN",
         _ => day.ToString()
     };
@@ -2432,6 +2436,7 @@ public class DailyAttendanceReportDto
     public int EarlyLeave { get; set; }
     public int Absent { get; set; }
     public int OnLeave { get; set; }
+    public int NoSalaryProfile { get; set; }
     public double AttendanceRate { get; set; }
     public List<DailyAttendanceItemDto> Items { get; set; } = new();
 }
@@ -2458,6 +2463,7 @@ public class MonthlyAttendanceReportDto
     public int Month { get; set; }
     public int WorkingDays { get; set; }
     public int TotalEmployees { get; set; }
+    public int NoSalaryProfile { get; set; }
     public List<MonthlyAttendanceItemDto> Items { get; set; } = new();
 }
 
@@ -2467,6 +2473,8 @@ public class MonthlyAttendanceItemDto
     public string EmployeeCode { get; set; } = string.Empty;
     public string EmployeeName { get; set; } = string.Empty;
     public string DepartmentName { get; set; } = string.Empty;
+    public bool HasSalaryProfile { get; set; } = true;
+    public string? Note { get; set; }
     public int TotalDaysWorked { get; set; }
     public int TotalLateDays { get; set; }
     public int TotalLeaveDays { get; set; }
@@ -2623,3 +2631,4 @@ public class LeaveSummaryItemDto
 }
 
 #endregion
+

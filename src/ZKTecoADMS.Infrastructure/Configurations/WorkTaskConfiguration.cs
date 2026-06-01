@@ -13,8 +13,11 @@ public class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
         builder.HasKey(e => e.Id);
         
         builder.Property(e => e.TaskCode)
-            .HasMaxLength(20)
+            .HasMaxLength(32)
             .IsRequired();
+
+        builder.Property(e => e.RejectionReason).HasMaxLength(500);
+        builder.Property(e => e.AssignmentNote).HasMaxLength(1000);
         
         builder.Property(e => e.Title)
             .HasMaxLength(200)
@@ -263,5 +266,40 @@ public class TaskEvaluationConfiguration : IEntityTypeConfiguration<TaskEvaluati
 
         builder.HasOne(e => e.Task).WithMany().HasForeignKey(e => e.TaskId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(e => e.Evaluator).WithMany().HasForeignKey(e => e.EvaluatorId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class TaskTemplateConfiguration : IEntityTypeConfiguration<TaskTemplate>
+{
+    public void Configure(EntityTypeBuilder<TaskTemplate> builder)
+    {
+        builder.ToTable("TaskTemplates");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Name).HasMaxLength(120).IsRequired();
+        builder.Property(e => e.Title).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Description).HasMaxLength(2000);
+        builder.Property(e => e.Tags).HasMaxLength(500);
+        builder.Property(e => e.Checklist).HasMaxLength(4000);
+        builder.HasIndex(e => e.StoreId);
+        builder.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class TaskDependencyConfiguration : IEntityTypeConfiguration<TaskDependency>
+{
+    public void Configure(EntityTypeBuilder<TaskDependency> builder)
+    {
+        builder.ToTable("TaskDependencies");
+        builder.HasKey(e => e.Id);
+        builder.HasIndex(e => new { e.TaskId, e.DependsOnTaskId }).IsUnique();
+        builder.HasOne(e => e.Task)
+            .WithMany(t => t.BlockedByDependencies)
+            .HasForeignKey(e => e.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(e => e.DependsOnTask)
+            .WithMany(t => t.BlockingDependencies)
+            .HasForeignKey(e => e.DependsOnTaskId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

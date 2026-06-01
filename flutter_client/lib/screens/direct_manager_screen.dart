@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/employee.dart';
 import '../services/api_service.dart';
@@ -6,6 +7,8 @@ import '../widgets/app_button.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class DirectManagerScreen extends StatefulWidget {
   const DirectManagerScreen({super.key});
@@ -36,7 +39,6 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   @override
@@ -188,65 +190,164 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
       body: Padding(
         padding: EdgeInsets.all(isMobile ? 8 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             _buildHeader(isMobile),
             const SizedBox(height: 12),
-            // Stats
-            if (isMobile) ...[
-              InkWell(
-                onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
-                      Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
-                      const Spacer(),
-                      Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
-                    ],
-                  ),
-                ),
-              ),
-              if (_showMobileSummary) ...[
-                const SizedBox(height: 8),
-                _buildStats(isMobile),
-              ],
-            ] else ...[
-              _buildStats(isMobile),
-            ],
-            const SizedBox(height: 12),
-            // Filters
-            if (!isMobile || _showMobileFilters) ...[
-              _buildFilters(isMobile),
-              const SizedBox(height: 12),
-            ],
-            // List
             Expanded(
-              child: _isLoading
-                  ? const LoadingWidget()
-                  : _filteredManagers.isEmpty
-                      ? const EmptyState(
-                          icon: Icons.supervisor_account,
-                          title: 'Không có quản lý',
-                          description: 'Không tìm thấy nhân sự phù hợp',
-                        )
-                      : _buildManagersList(),
+              child: HrmResponsiveListLayout(
+                headerSections: _directManagerHeaderSections(isMobile),
+                desktopBody: _isLoading
+                    ? const LoadingWidget()
+                    : _filteredManagers.isEmpty
+                        ? const EmptyState(
+                            icon: Icons.supervisor_account,
+                            title: 'Không có quản lý',
+                            description: 'Không tìm thấy nhân sự phù hợp',
+                          )
+                        : _buildManagersList(),
+                mobileSlivers: (_) => _directManagerMobileSlivers(),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  List<Widget> _directManagerHeaderSections(bool isMobile) => [
+        if (isMobile) ...[
+          InkWell(
+            onTap: () =>
+                setState(() => _showMobileSummary = !_showMobileSummary),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined,
+                      size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Text('Tổng quan',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.blue.shade700)),
+                  const Spacer(),
+                  Icon(
+                      _showMobileSummary
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                      color: Colors.blue.shade700),
+                ],
+              ),
+            ),
+          ),
+          if (_showMobileSummary) ...[
+            const SizedBox(height: 8),
+            _buildStats(isMobile),
+          ],
+        ] else
+          _buildStats(isMobile),
+        const SizedBox(height: 12),
+        _buildFilters(isMobile),
+        const SizedBox(height: 12),
+      ];
+
+  List<Widget> _directManagerMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(child: const LoadingWidget()),
+      ];
+    }
+    if (_filteredManagers.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.supervisor_account,
+            title: 'Không có quản lý',
+            description: 'Không tìm thấy nhân sự phù hợp',
+          ),
+        ),
+      ];
+    }
+    final totalCount = _filteredManagers.length;
+    final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
+    final page = _currentPage.clamp(1, totalPages);
+    final startIndex = (page - 1) * _pageSize;
+    final endIndex = (page * _pageSize).clamp(0, totalCount);
+    final paginatedList = _filteredManagers.sublist(
+        startIndex.clamp(0, totalCount), endIndex);
+
+    final slivers = HrmScrollSlivers.fromListViewBuilder(
+      itemCount: paginatedList.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, index) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE4E4E7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: _buildManagerDeckItem(paginatedList[index]),
+        ),
+      ),
+    );
+    if (totalPages > 1) {
+      slivers.add(HrmScrollSlivers.toBox(_buildMobilePagination(
+          totalCount, startIndex, endIndex, page, totalPages)));
+    }
+    return slivers;
+  }
+
+  Widget _buildMobilePagination(
+      int totalCount, int startIndex, int endIndex, int page, int totalPages) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Row(children: [
+            IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                onPressed:
+                    page > 1 ? () => setState(() => _currentPage--) : null,
+                visualDensity: VisualDensity.compact),
+            Text('$page / $totalPages',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                onPressed: page < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                visualDensity: VisualDensity.compact),
+          ]),
+        ],
       ),
     );
   }
@@ -386,18 +487,6 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             ],
           ),
         ),
-        if (isMobile)
-          IconButton(
-            onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-            icon: Stack(
-              children: [
-                Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: Colors.blue[700]),
-                if (_searchQuery.isNotEmpty || _filterDepartment != 'Tất cả' || _filterPosition != 'Tất cả')
-                  Positioned(right: 0, top: 0, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
-              ],
-            ),
-            tooltip: 'Bộ lọc',
-          ),
         IconButton(
           onPressed: _showPositionSettings,
           icon: const Icon(Icons.tune),

@@ -106,7 +106,16 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             }
             var disabledUserIds = await GetDisabledUserIdsAsync(preferenceRepo, allCandidateUserIds, "attendance", device.StoreId);
 
-            foreach (var attendance in attendanceList)
+            // Máy upload hàng loạt: tối đa 5 thông báo / batch để tránh tràn khi admin đăng nhập lại.
+            var toNotify = attendanceList
+                .OrderByDescending(a => a.AttendanceTime)
+                .Take(5)
+                .ToList();
+
+            // Gom FCM: 1 push / user / batch (tránh Android hiện "Bạn có 5,6,7… thông báo mới").
+            var fcmBatchByUser = new Dictionary<Guid, List<Notification>>();
+
+            foreach (var attendance in toNotify)
             {
                 DeviceUser? user = null;
                 if (!string.IsNullOrEmpty(attendance.PIN) && userDict.TryGetValue(attendance.PIN, out var foundUser))
@@ -143,8 +152,21 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                     continue;
                 }
 
-                await SendAttendanceNotificationAsync(attendance, device, user, targetUserIds, notificationRepo);
+                var created = await SendAttendanceNotificationAsync(
+                    attendance, device, user, targetUserIds, notificationRepo, sendFcm: false);
+                foreach (var n in created)
+                {
+                    if (n.TargetUserId == null) continue;
+                    if (!fcmBatchByUser.TryGetValue(n.TargetUserId.Value, out var list))
+                    {
+                        list = new List<Notification>();
+                        fcmBatchByUser[n.TargetUserId.Value] = list;
+                    }
+                    list.Add(n);
+                }
             }
+
+            await SendBatchedFcmPushesAsync(fcmBatchByUser, device);
 
             _logger.LogWarning("📢 Sent {Count} targeted attendance notifications for device {DeviceName}",
                 attendanceList.Count, device.DeviceName);
@@ -374,10 +396,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
     /// <summary>
     /// Send NewAttendance SignalR event and save notification records for each target user
     /// </summary>
-    private async Task SendAttendanceNotificationAsync(
+    private async Task<List<Notification>> SendAttendanceNotificationAsync(
         Attendance attendance, Device device, DeviceUser? user,
         HashSet<Guid> targetUserIds, IRepository<Notification> notificationRepo,
-        string? employeeNameOverride = null)
+        string? employeeNameOverride = null,
+        bool sendFcm = true)
     {
         string? employeeName = null;
         if (user?.Employee != null)
@@ -411,7 +434,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         {
             _logger.LogWarning("⚠️ No target users for attendance notification: PIN={PIN}, Device={DeviceName}",
                 attendance.PIN, device.DeviceName);
-            return;
+            return [];
         }
 
         // Save per-user notification records to DB + send NewNotification for history
@@ -440,27 +463,13 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         await notificationRepo.AddRangeAsync(notifications);
 
-        // Send FCM push notifications (background/system tray). Resolved from scope because
-        // the push service is scoped (DbContext-bound).
-        try
+        if (sendFcm)
         {
-            using var pushScope = _serviceScopeFactory.CreateScope();
-            var push = pushScope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService>();
-            if (push != null)
-            {
-                var pushData = new Dictionary<string, string>
-                {
-                    ["type"] = "attendance",
-                    ["attendanceId"] = attendance.Id.ToString(),
-                    ["categoryCode"] = "attendance"
-                };
-                await push.PushToUsersAsync(targetUserIds, title, message,
-                    actionUrl: "/attendance", data: pushData);
-            }
-        }
-        catch (Exception pushEx)
-        {
-            _logger.LogWarning(pushEx, "FCM push for attendance notification failed (non-fatal)");
+            var byUser = notifications
+                .Where(n => n.TargetUserId.HasValue)
+                .GroupBy(n => n.TargetUserId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            await SendBatchedFcmPushesAsync(byUser, device);
         }
 
         // Send NewNotification to each targeted user for notification list update.
@@ -469,19 +478,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         {
             try
             {
-                var dto = new
-                {
-                    id = n.Id,
-                    title = n.Title,
-                    message = n.Message,
-                    type = (int)n.Type,
-                    timestamp = n.Timestamp,
-                    isRead = false,
-                    relatedUrl = n.RelatedUrl,
-                    relatedEntityId = n.RelatedEntityId,
-                    relatedEntityType = n.RelatedEntityType,
-                    categoryCode = n.CategoryCode
-                };
+                var dto = NotificationDtoMapper.ToSignalRPayload(n);
                 await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
             }
             catch (Exception perUserEx)
@@ -495,6 +492,55 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         _logger.LogWarning("📢 Attendance notification: User={UserName}, Device={DeviceName}, Targets={TargetCount}, Groups={Groups}",
             notification.UserName, notification.DeviceName, targetUserIds.Count,
             string.Join(",", targetUserIds.Select(id => $"user_{id}")));
+
+        return notifications;
+    }
+
+    /// <summary>
+    /// Một FCM / user thay vì từng lần chấm — Android không còn đếm "5,6,7… thông báo mới".
+    /// DB + SignalR vẫn giữ từng dòng; payload mang notificationId mới nhất trong batch.
+    /// </summary>
+    private async Task SendBatchedFcmPushesAsync(
+        Dictionary<Guid, List<Notification>> byUser,
+        Device device)
+    {
+        if (byUser.Count == 0) return;
+
+        try
+        {
+            using var pushScope = _serviceScopeFactory.CreateScope();
+            var push = pushScope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService>();
+            if (push == null) return;
+
+            const string title = "Chấm công";
+            var deviceLabel = device.DeviceName ?? device.SerialNumber;
+
+            foreach (var (userId, list) in byUser)
+            {
+                if (list.Count == 0) continue;
+
+                var latest = list.OrderByDescending(n => n.Timestamp).First();
+                var body = list.Count == 1
+                    ? latest.Message ?? deviceLabel
+                    : $"{list.Count} lần chấm công mới\n{deviceLabel}";
+
+                var pushData = NotificationDtoMapper.ToFcmData(latest, new Dictionary<string, string>
+                {
+                    ["batchCount"] = list.Count.ToString(),
+                    ["attendanceId"] = latest.RelatedEntityId?.ToString() ?? string.Empty,
+                });
+
+                await push.PushToUserAsync(
+                    userId, title, body,
+                    actionUrl: "/attendance",
+                    data: pushData,
+                    androidTag: "sbox_attendance");
+            }
+        }
+        catch (Exception pushEx)
+        {
+            _logger.LogWarning(pushEx, "FCM batched push for attendance failed (non-fatal)");
+        }
     }
 
     /// <summary>
@@ -521,10 +567,13 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         string categoryCode,
         Guid? storeId)
     {
+        var normalized = ZKTecoADMS.Application.Constants.NotificationCategoryCodes.Normalize(categoryCode);
+        if (normalized == null) return new HashSet<Guid>();
+
         var userIdList = candidateUserIds.ToList();
         var disabledPrefs = await preferenceRepo.GetAllAsync(
             p => userIdList.Contains(p.UserId)
-                 && p.CategoryCode == categoryCode
+                 && p.CategoryCode == normalized
                  && !p.IsEnabled
                  && (p.StoreId == null || p.StoreId == storeId));
         return disabledPrefs.Select(p => p.UserId).ToHashSet();

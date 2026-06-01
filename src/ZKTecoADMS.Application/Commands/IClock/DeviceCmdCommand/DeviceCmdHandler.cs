@@ -32,9 +32,24 @@ public class DeviceCmdHandler(
         {
             var (commandType, objectRefId) = await deviceCmdService.GetCommandTypesAndIdAsync(response.CommandId);
 
-            if (commandType == DeviceCommandTypes.SyncFingerprints)
+            if (commandType is DeviceCommandTypes.SyncFingerprints
+                or DeviceCommandTypes.SyncDeviceUsers
+                or DeviceCommandTypes.SyncAttendances)
             {
-                logger.LogInformation("[DeviceCmd] SyncFingerprints acknowledged by device {SN}, keeping as Sent until data arrives", request.SN);
+                if (response.IsSuccess)
+                {
+                    logger.LogInformation(
+                        "[DeviceCmd] Sync {Type} ACK from {SN} — chờ POST cdata (Return=0)",
+                        commandType, request.SN);
+                    await deviceCmdService.UpdateCommandAcknowledgedAsync(response);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "[DeviceCmd] Sync {Type} FAILED on {SN}: Return={Return} MSG={Msg}",
+                        commandType, request.SN, response.Return, response.Message);
+                    await deviceCmdService.UpdateCommandAfterExecutedAsync(response);
+                }
             }
             else
             {

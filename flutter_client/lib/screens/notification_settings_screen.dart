@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 /// Quản lý local settings cho 2 nhóm thông báo
 class NotificationGroupSettings {
@@ -158,19 +159,19 @@ class _NotificationSettingsScreenState
 
   Color _getCategoryColor(String code) {
     const colorMap = {
-      'attendance': Color(0xFF0F2340),
-      'leave': Color(0xFF1E3A5F),
+      'attendance': HrmPageChrome.primaryNavy,
+      'leave': HrmPageChrome.primaryNavy,
       'overtime': Color(0xFFF97316),
-      'payroll': Color(0xFF1E3A5F),
-      'task': Color(0xFF1E3A5F),
+      'payroll': HrmPageChrome.primaryNavy,
+      'task': HrmPageChrome.primaryNavy,
       'approval': Color(0xFFEF4444),
-      'device': Color(0xFF1E3A5F),
+      'device': HrmPageChrome.primaryNavy,
       'hr': Color(0xFFEC4899),
       'system': Color(0xFF71717A),
       'kpi': Color(0xFF059669),
       'internal_comm': Color(0xFF8B5CF6),
     };
-    return colorMap[code] ?? const Color(0xFF1E3A5F);
+    return colorMap[code] ?? HrmPageChrome.primaryNavy;
   }
 
   @override
@@ -191,7 +192,7 @@ class _NotificationSettingsScreenState
                     title: 'Thông báo chấm công',
                     subtitle: 'Chấm công, thiết bị kết nối/ngắt kết nối',
                     icon: Icons.fingerprint,
-                    color: const Color(0xFF0F2340),
+                    color: HrmPageChrome.primaryNavy,
                     isEnabled: _attendanceEnabled,
                     onToggle: (val) {
                       setState(() {
@@ -209,7 +210,7 @@ class _NotificationSettingsScreenState
                     title: 'Thông báo công việc',
                     subtitle: 'Nghỉ phép, tăng ca, lương, KPI, phê duyệt, ...',
                     icon: Icons.work_outline,
-                    color: const Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     isEnabled: _workEnabled,
                     onToggle: (val) {
                       setState(() {
@@ -365,7 +366,7 @@ class _NotificationSettingsScreenState
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E3A5F), Color(0xFF0F2340)],
+          colors: [Color(0xFF0F172A), HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -416,7 +417,7 @@ class _NotificationSettingsScreenState
   Widget _buildSaveButton() {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      child: FilledButton.icon(
         onPressed: _isSaving ? null : _savePreferences,
         icon: _isSaving
             ? const SizedBox(
@@ -428,7 +429,7 @@ class _NotificationSettingsScreenState
             : const Icon(Icons.save, size: 18),
         label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E3A5F),
+          backgroundColor: HrmPageChrome.primaryNavy,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape:

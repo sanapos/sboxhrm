@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_widget.dart';
@@ -270,6 +271,7 @@ class _ReportScreenState extends State<ReportScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           // Header

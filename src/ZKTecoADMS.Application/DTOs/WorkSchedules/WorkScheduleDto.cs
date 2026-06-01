@@ -81,6 +81,23 @@ public class ScheduleRegistrationDto
     public string? RejectionReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public int TotalApprovalLevels { get; set; } = 1;
+    public int CurrentApprovalStep { get; set; } = 0;
+    public List<ScheduleApprovalRecordDto> ApprovalRecords { get; set; } = new();
+}
+
+public class ScheduleApprovalRecordDto
+{
+    public Guid Id { get; set; }
+    public int StepOrder { get; set; }
+    public string? StepName { get; set; }
+    public Guid? AssignedUserId { get; set; }
+    public string? AssignedUserName { get; set; }
+    public Guid? ActualUserId { get; set; }
+    public string? ActualUserName { get; set; }
+    public ApprovalStatus Status { get; set; }
+    public string? Note { get; set; }
+    public DateTime? ActionDate { get; set; }
 }
 
 public class CreateScheduleRegistrationDto

@@ -16,6 +16,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 
 
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 
 
@@ -102,6 +103,69 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         new string(bssid.Where(c => char.IsAsciiHexDigit(c)).ToArray()).ToLowerInvariant();
+
+
+    private static string NormalizeSsid(string? ssid) =>
+
+
+        string.IsNullOrWhiteSpace(ssid) ? "" : ssid.Trim().Trim('"').ToLowerInvariant();
+
+
+    /// <summary>Location may store one or several BSSIDs (comma/semicolon/newline separated) for mesh WiFi.</summary>
+
+
+    private static bool BssidMatchesLocation(string? locationWifiBssid, string normalizedDeviceBssid)
+
+
+    {
+
+
+        if (string.IsNullOrWhiteSpace(locationWifiBssid) || string.IsNullOrEmpty(normalizedDeviceBssid))
+
+
+            return false;
+
+
+        foreach (var part in locationWifiBssid.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+
+
+        {
+
+
+            var locBssid = NormalizeBssidHex(part.Trim());
+
+
+            if (!string.IsNullOrEmpty(locBssid) && locBssid == normalizedDeviceBssid)
+
+
+                return true;
+
+
+        }
+
+
+        return false;
+
+
+    }
+
+
+    private static bool SsidMatchesLocation(string? locationWifiSsid, string normalizedDeviceSsid)
+
+
+    {
+
+
+        if (string.IsNullOrWhiteSpace(locationWifiSsid) || string.IsNullOrEmpty(normalizedDeviceSsid))
+
+
+            return false;
+
+
+        return NormalizeSsid(locationWifiSsid) == normalizedDeviceSsid;
+
+
+    }
     // Legacy compatibility: old stores may still have MaxPunchesPerDay = 4 in DB.
     // Treat that legacy value as the new default. A value of 0 or negative now
     // means "unlimited" (no per-day cap) so stores with shift-based rotation
@@ -242,6 +306,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> GetSettings()
 
 
@@ -470,6 +535,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Edit)]
     public async Task<ActionResult> UpdateSettings([FromBody] UpdateMobileSettingsRequest request)
 
 
@@ -608,6 +674,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> GetLocations()
 
 
@@ -698,6 +765,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
     public async Task<ActionResult> AddLocation([FromBody] WorkLocationRequest request)
 
 
@@ -842,6 +910,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Edit)]
     public async Task<ActionResult> UpdateLocation(Guid id, [FromBody] WorkLocationRequest request)
 
 
@@ -983,6 +1052,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Delete)]
     public async Task<ActionResult> DeleteLocation(Guid id)
 
 
@@ -1055,117 +1125,86 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> GetFaceRegistrations()
-
-
     {
-
-
         var storeId = RequiredStoreId;
 
-
         var registrations = await _dbContext.MobileFaceRegistrations
-
-
             .AsNoTracking()
-
-
             .Where(f => f.StoreId == storeId && f.Deleted == null)
-
-
             .OrderByDescending(f => f.RegisteredAt)
-
-
-            .Select(f => new
-
-
-            {
-
-
-                id = f.Id.ToString(),
-
-
-                odooEmployeeId = f.OdooEmployeeId,
-
-
-                employeeName = f.EmployeeName,
-
-
-                employeeCode = f.EmployeeCode,
-
-
-                department = f.Department,
-
-
-                faceImages = f.FaceImagesJson,
-
-
-                isVerified = f.IsVerified,
-
-
-                registeredAt = f.RegisteredAt,
-
-
-                lastVerifiedAt = f.LastVerifiedAt,
-
-
-            })
-
-
             .ToListAsync();
 
+        var employees = await _dbContext.Employees
+            .AsNoTracking()
+            .Where(e => e.StoreId == storeId)
+            .Select(e => new
+            {
+                e.Id,
+                e.ApplicationUserId,
+                e.EmployeeCode,
+                e.FirstName,
+                e.LastName,
+                DepartmentName = e.Department
+            })
+            .ToListAsync();
 
-
-
-
-        // Parse JSON arrays for faceImages, normalize absolute URLs to relative paths
-
-
-        var result = registrations.Select(r => new
-
-
+        string ResolveEmployeeName(string odooId, string stored)
         {
+            if (!string.IsNullOrWhiteSpace(stored)) return stored.Trim();
+            if (Guid.TryParse(odooId, out var gid))
+            {
+                var byId = employees.FirstOrDefault(e => e.Id == gid);
+                if (byId != null) return $"{byId.LastName} {byId.FirstName}".Trim();
+                var byUser = employees.FirstOrDefault(e => e.ApplicationUserId == gid);
+                if (byUser != null) return $"{byUser.LastName} {byUser.FirstName}".Trim();
+            }
+            var byCode = employees.FirstOrDefault(e => e.EmployeeCode == odooId);
+            if (byCode != null) return $"{byCode.LastName} {byCode.FirstName}".Trim();
+            return string.IsNullOrWhiteSpace(odooId) ? "(Chưa có tên)" : odooId;
+        }
 
+        (string? code, string? dept) ResolveEmployeeMeta(string odooId, string? storedCode, string? storedDept)
+        {
+            if (Guid.TryParse(odooId, out var gid))
+            {
+                var emp = employees.FirstOrDefault(e => e.Id == gid)
+                          ?? employees.FirstOrDefault(e => e.ApplicationUserId == gid);
+                if (emp != null)
+                    return (
+                        string.IsNullOrWhiteSpace(storedCode) ? emp.EmployeeCode : storedCode,
+                        string.IsNullOrWhiteSpace(storedDept) ? emp.DepartmentName : storedDept);
+            }
+            var byCode = employees.FirstOrDefault(e => e.EmployeeCode == odooId);
+            if (byCode != null)
+                return (
+                    string.IsNullOrWhiteSpace(storedCode) ? byCode.EmployeeCode : storedCode,
+                    string.IsNullOrWhiteSpace(storedDept) ? byCode.DepartmentName : storedDept);
+            return (storedCode, storedDept);
+        }
 
-            r.id,
-
-
-            r.odooEmployeeId,
-
-
-            r.employeeName,
-
-
-            r.employeeCode,
-
-
-            r.department,
-
-
-            faceImages = (JsonSerializer.Deserialize<List<string>>(r.faceImages ?? "[]") ?? new List<string>())
-
-
-                .Select(NormalizeImagePath).ToList(),
-
-
-            r.isVerified,
-
-
-            r.registeredAt,
-
-
-            r.lastVerifiedAt,
-
-
+        var result = registrations.Select(f =>
+        {
+            var images = (JsonSerializer.Deserialize<List<string>>(f.FaceImagesJson ?? "[]") ?? new List<string>())
+                .Select(NormalizeImagePath).ToList();
+            var (code, dept) = ResolveEmployeeMeta(f.OdooEmployeeId, f.EmployeeCode, f.Department);
+            return new
+            {
+                id = f.Id.ToString(),
+                odooEmployeeId = f.OdooEmployeeId,
+                employeeName = ResolveEmployeeName(f.OdooEmployeeId, f.EmployeeName),
+                employeeCode = code,
+                department = dept,
+                faceImages = images,
+                faceImageCount = images.Count,
+                isVerified = f.IsVerified,
+                registeredAt = f.RegisteredAt,
+                lastVerifiedAt = f.LastVerifiedAt,
+            };
         }).ToList();
 
-
-
-
-
         return Ok(AppResponse<object>.Success(result));
-
-
     }
 
 
@@ -1181,6 +1220,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
     public async Task<IActionResult> RegisterFace([FromBody] FaceRegistrationRequest request)
 
 
@@ -1353,41 +1393,22 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 existing.FaceImagesJson = JsonSerializer.Serialize(existingImages);
-
-
+                if (!string.IsNullOrWhiteSpace(request.EmployeeName))
+                    existing.EmployeeName = request.EmployeeName.Trim();
+                if (!string.IsNullOrWhiteSpace(request.EmployeeCode))
+                    existing.EmployeeCode = request.EmployeeCode.Trim();
                 existing.UpdatedAt = DateTime.UtcNow;
-
-
                 existing.UpdatedBy = CurrentUserEmail;
-
-
             }
-
-
             else
-
-
             {
-
-
                 existing = new MobileFaceRegistration
-
-
                 {
-
-
                     Id = Guid.NewGuid(),
-
-
                     StoreId = storeId,
-
-
                     OdooEmployeeId = request.EmployeeId,
-
-
                     EmployeeName = request.EmployeeName,
-
-
+                    EmployeeCode = request.EmployeeCode,
                     FaceImagesJson = JsonSerializer.Serialize(storedImageUrls),
 
 
@@ -1487,6 +1508,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Delete)]
     public async Task<ActionResult> DeleteFaceRegistration(Guid id)
 
 
@@ -1553,6 +1575,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> GetDevices()
 
 
@@ -1724,6 +1747,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Create)]
     public async Task<ActionResult> AuthorizeDevice([FromBody] AuthorizeDeviceRequest request)
 
 
@@ -1931,6 +1955,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Delete)]
     public async Task<ActionResult> RevokeDevice(Guid id)
 
 
@@ -2015,6 +2040,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Create)]
     public async Task<ActionResult> RegisterDeviceWithFace([FromBody] RegisterDeviceWithFaceRequest request)
 
 
@@ -2064,6 +2090,18 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Kh�ng x�c d?nh du?c nh�n vi�n"));
+
+
+
+
+
+        var regSelfErr = ValidateSelfServiceEmployeeAction(employeeId);
+
+
+        if (regSelfErr != null)
+
+
+            return regSelfErr;
 
 
 
@@ -2419,6 +2457,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
+            InvalidateRegistrationEmbeddingCache(storeId, employeeId);
+
 
 
 
@@ -2660,6 +2700,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "AttendanceApproval", "MobileAttendanceApproval")]
     public async Task<ActionResult> ApproveDevice(Guid id, [FromBody] ApproveRequest request)
 
 
@@ -2837,6 +2878,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Create)]
     public async Task<ActionResult> RequestDeviceChange([FromBody] DeviceChangeRequestDto request)
 
 
@@ -3287,6 +3329,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> GetDeviceChangeRequests([FromQuery] int? status)
 
 
@@ -3407,6 +3450,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "AttendanceApproval", "MobileAttendanceApproval")]
     public async Task<ActionResult> ApproveDeviceChange(Guid id, [FromBody] ApproveRequest request)
 
 
@@ -3707,6 +3751,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            if (storedImageUrls.Count == 0)
+
+
+                return BadRequest(AppResponse<object>.Fail("Không thể duyệt: chưa có ảnh khuôn mặt hợp lệ trên yêu cầu đổi thiết bị."));
+
+
+
+
+
             // 4. Create new face registration
 
 
@@ -3959,7 +4012,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
-    public async Task<ActionResult> CheckWifi([FromQuery] string? bssid)
+    public async Task<ActionResult> CheckWifi([FromQuery] string? bssid, [FromQuery] string? ssid)
 
 
     {
@@ -4022,25 +4075,34 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        _logger.LogInformation("WiFi check: BSSID={Bssid}, ClientIP={ClientIp}, StoreId={StoreId}, Locations={Count}",
+        var normalizedBssid = !string.IsNullOrEmpty(bssid) ? NormalizeBssidHex(bssid) : "";
 
 
-            bssid ?? "null", clientIp, storeId, locations.Count);
+        var normalizedSsid = NormalizeSsid(ssid);
+
+
+        _logger.LogInformation("WiFi check: BSSID={Bssid}, SSID={Ssid}, ClientIP={ClientIp}, StoreId={StoreId}, Locations={Count}",
+
+
+            string.IsNullOrEmpty(normalizedBssid) ? "null" : normalizedBssid,
+
+
+            string.IsNullOrEmpty(normalizedSsid) ? "null" : normalizedSsid,
+
+
+            clientIp, storeId, locations.Count);
 
 
 
 
 
-        // Priority 1: BSSID match (most secure - router MAC address)
+        // Priority 1: BSSID match (supports multiple BSSIDs per location)
 
 
-        if (!string.IsNullOrEmpty(bssid))
+        if (!string.IsNullOrEmpty(normalizedBssid))
 
 
         {
-
-
-            var normalizedBssid = NormalizeBssidHex(bssid);
 
 
             foreach (var loc in locations)
@@ -4049,55 +4111,43 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                if (!string.IsNullOrEmpty(loc.WifiBssid))
+                if (BssidMatchesLocation(loc.WifiBssid, normalizedBssid))
 
 
                 {
 
 
-                    var locBssid = NormalizeBssidHex(loc.WifiBssid);
+                    _logger.LogInformation("WiFi BSSID match: device={DeviceBssid} location={LocName}",
 
 
-                    _logger.LogInformation("WiFi BSSID compare: device={DeviceBssid} vs location={LocBssid} ({LocName})",
+                        normalizedBssid, loc.Name);
 
 
-                        normalizedBssid, locBssid, loc.Name);
-
-
-                    if (locBssid == normalizedBssid)
+                    return Ok(AppResponse<object>.Success(new
 
 
                     {
 
 
-                        return Ok(AppResponse<object>.Success(new
+                        isWifiVerified = true,
 
 
-                        {
+                        verifyType = "bssid",
 
 
-                            isWifiVerified = true,
+                        locationName = loc.Name,
 
 
-                            verifyType = "bssid",
+                        wifiSsid = loc.WifiSsid,
 
 
-                            locationName = loc.Name,
+                        wifiBssid = loc.WifiBssid,
 
 
-                            wifiSsid = loc.WifiSsid,
+                        clientIp = clientIp,
 
 
-                            wifiBssid = loc.WifiBssid,
-
-
-                            clientIp = clientIp,
-
-
-                        }));
-
-
-                    }
+                    }));
 
 
                 }
@@ -4112,7 +4162,73 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Priority 2: IP-based match (fallback for web where BSSID unavailable)
+        // Priority 2: SSID match (fallback when BSSID unavailable on device)
+
+
+        if (!string.IsNullOrEmpty(normalizedSsid))
+
+
+        {
+
+
+            foreach (var loc in locations)
+
+
+            {
+
+
+                if (SsidMatchesLocation(loc.WifiSsid, normalizedSsid))
+
+
+                {
+
+
+                    _logger.LogInformation("WiFi SSID match: device={DeviceSsid} location={LocName}",
+
+
+                        normalizedSsid, loc.Name);
+
+
+                    return Ok(AppResponse<object>.Success(new
+
+
+                    {
+
+
+                        isWifiVerified = true,
+
+
+                        verifyType = "ssid",
+
+
+                        locationName = loc.Name,
+
+
+                        wifiSsid = loc.WifiSsid,
+
+
+                        wifiBssid = loc.WifiBssid,
+
+
+                        clientIp = clientIp,
+
+
+                    }));
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+
+
+
+        // Priority 3: IP-based match (fallback for web where BSSID unavailable)
 
 
         foreach (var loc in locations)
@@ -4184,13 +4300,22 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             receivedBssid = bssid,
 
 
+            receivedSsid = ssid,
+
+
             locationsChecked = locations.Count,
 
 
             userStoreId = storeId.ToString(),
 
 
-            message = "Không tìm thấy WiFi văn phòng phù hợp. Hãy kết nối WiFi công ty để chấm công.",
+            message = string.IsNullOrEmpty(normalizedBssid)
+
+
+                ? "Không đọc được MAC WiFi (BSSID). Bật quyền Vị trí + GPS, hoặc cấu hình lại MAC router tại Thiết lập → Chấm công mobile."
+
+
+                : "MAC WiFi (BSSID) không khớp với vị trí đã cấu hình. Kiểm tra MAC router/AP đang dùng (mesh có thể có nhiều MAC).",
 
 
         }));
@@ -4217,6 +4342,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(10_000_000)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
     public async Task<ActionResult> SubmitPunch([FromBody] MobilePunchRequest request)
 
 
@@ -4353,6 +4479,30 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         }
+
+
+        if (!string.Equals(request.EmployeeId, registeredDevice.EmployeeId, StringComparison.OrdinalIgnoreCase))
+
+
+        {
+
+
+            _logger.LogWarning("❌ PUNCH REJECT: employee {Emp} != device owner {DevEmp}", request.EmployeeId, registeredDevice.EmployeeId);
+
+
+            return BadRequest(AppResponse<object>.Fail("Thiết bị không khớp với nhân viên đang chấm công."));
+
+
+        }
+
+
+        var selfServiceError = ValidateSelfServiceEmployeeAction(request.EmployeeId);
+
+
+        if (selfServiceError != null)
+
+
+            return selfServiceError;
 
 
 
@@ -4655,6 +4805,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+        var defaultGpsRadius = settings?.GpsRadiusMeters > 0 ? settings.GpsRadiusMeters : 100;
+
+
         if (request.Latitude.HasValue && request.Longitude.HasValue)
 
 
@@ -4670,6 +4823,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 var d = CalculateDistance(request.Latitude.Value, request.Longitude.Value, loc.Latitude, loc.Longitude);
 
 
+                var radius = loc.Radius > 0 ? loc.Radius : defaultGpsRadius;
+
+
+                if (d <= radius)
+
+
+                    isInRange = true;
+
+
                 if (distance == null || d < distance)
 
 
@@ -4680,9 +4842,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                     locationName = loc.Name;
-
-
-                    isInRange = d <= loc.Radius;
 
 
                 }
@@ -4718,7 +4877,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            var normalizedReqBssid = !string.IsNullOrEmpty(request.WifiBssid) ? NormalizeBssidHex(request.WifiBssid) : null;
+            var normalizedReqBssid = !string.IsNullOrEmpty(request.WifiBssid) ? NormalizeBssidHex(request.WifiBssid) : "";
+
+
+            var normalizedReqSsid = NormalizeSsid(request.WifiSsid);
 
 
             foreach (var loc in locations)
@@ -4727,37 +4889,43 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                // Priority 1: BSSID match (most secure - router MAC address)
-
-
-                if (!string.IsNullOrEmpty(normalizedReqBssid) && !string.IsNullOrEmpty(loc.WifiBssid))
+                if (!string.IsNullOrEmpty(normalizedReqBssid) && BssidMatchesLocation(loc.WifiBssid, normalizedReqBssid))
 
 
                 {
 
 
-                    var locBssid = NormalizeBssidHex(loc.WifiBssid);
+                    isWifiVerified = true;
 
 
-                    if (locBssid == normalizedReqBssid)
+                    matchedWifiSsid = loc.WifiSsid ?? loc.Name;
 
 
-                    {
+                    if (locationName == null) locationName = loc.Name;
 
 
-                        isWifiVerified = true;
+                    break;
 
 
-                        matchedWifiSsid = loc.WifiSsid ?? loc.Name;
+                }
 
 
-                        if (locationName == null) locationName = loc.Name;
+                if (!string.IsNullOrEmpty(normalizedReqSsid) && SsidMatchesLocation(loc.WifiSsid, normalizedReqSsid))
 
 
-                        break;
+                {
 
 
-                    }
+                    isWifiVerified = true;
+
+
+                    matchedWifiSsid = loc.WifiSsid ?? loc.Name;
+
+
+                    if (locationName == null) locationName = loc.Name;
+
+
+                    break;
 
 
                 }
@@ -4766,7 +4934,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 
 
 
-                // Priority 2: IP match (fallback for web where BSSID unavailable)
+                // IP match (fallback for web where BSSID unavailable)
 
 
                 if (!string.IsNullOrEmpty(loc.AllowedIpRange))
@@ -4817,16 +4985,25 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         bool allowOutside = registeredDevice.AllowOutsideCheckIn;
 
 
+        var autoApproveInRange = settings?.AutoApproveInRange ?? true;
+
+
+        // Only persist punch face photos when the record needs manager approval.
+
+
+        var keepPunchFaceImage = ShouldKeepPunchFaceImage(isInRange, isWifiVerified, allowOutside, autoApproveInRange);
+
+
 
 
 
         // Server-side verification mode enforcement
 
 
-        var enableFace = settings?.EnableFaceId ?? true;
+        var enableFace = (settings?.EnableFaceId ?? true) && registeredDevice.CanUseFaceId;
 
 
-        var enableGps = settings?.EnableGps ?? true;
+        var enableGps = (settings?.EnableGps ?? true) && registeredDevice.CanUseGps;
 
 
         var enableWifi = settings?.EnableWifi ?? false;
@@ -4874,7 +5051,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            var hasRegistration = faceReg != null;
+            var hasRegistration = faceReg != null && faceReg.IsVerified;
 
 
             if (hasRegistration)
@@ -4913,21 +5090,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             var livenessOk = !requireLiveness || request.LivenessPassed;
 
 
-            // SECURITY: Never trust clientFaceScore from the mobile app as the
-            // sole verification signal. Real-world logs proved that the iOS
-            // HOG+LBP fallback (used when TFLite fails to load) scored an
-            // imposter at 81.5 against another user's registered face — well
-            // above the 55 threshold — while the server-side ArcFace R50
-            // scored the same pair at 0.15 cosine (rejected). Allowing the
-            // FAST PATH would therefore let anyone punch by sending a large
-            // clientFaceScore. Force the server-side comparison path on every
-            // request; the client score is still logged for debugging but is
-            // no longer authoritative.
-            var trustClient = false;
-
-            // Previous (unsafe) logic kept for reference only:
-            // var trustClient = hasRegistration && hasClientImage
-            //     && clientFaceScore >= minFaceScore && livenessOk;
+            // Fast path: only trust on-device MobileFaceNet (TFLite) after blink liveness.
+            // MLKit/HOG fallbacks can score imposters high — those must use server ONNX.
+            var clientEngine = (request.ClientFaceEngine ?? "").Trim().ToLowerInvariant();
+            var trustClient = livenessOk && hasRegistration && hasClientImage
+                && string.Equals(clientEngine, "tflite", StringComparison.Ordinal)
+                && clientFaceScore >= minFaceScore;
 
 
 
@@ -5074,76 +5242,73 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-                var empId = request.EmployeeId;
-
-
-                var imageBytesCopy = imageBytes;
-
-
-                var extCopy = imageExt ?? ".jpg";
-
-
-                var faceFileName = $"punch_{empId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extCopy}";
-
-
-                // Resolve store folder synchronously (needs HttpContext.CurrentStoreId) BEFORE
-
-
-                // kicking off the background task; Task.Run has no HTTP scope.
-
-
-                var uploadFolderForBg = await GetStoreFolderAsync("uploads/face-verifications");
-
-
-                faceImageStoredPath = $"{uploadFolderForBg.TrimEnd('/')}/{faceFileName}";
-
-
-                var storageSvc = _fileStorageService;
-
-
-                var logger = _logger;
-
-
-
-
-
-                // Fire-and-forget: persist for audit in the background; do not block the response.
-
-
-                _ = Task.Run(async () =>
+                if (keepPunchFaceImage)
 
 
                 {
 
 
-                    try
+                    var empId = request.EmployeeId;
+
+
+                    var imageBytesCopy = imageBytes;
+
+
+                    var extCopy = imageExt ?? ".jpg";
+
+
+                    var faceFileName = $"punch_{empId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extCopy}";
+
+
+                    var uploadFolderForBg = await GetStoreFolderAsync("uploads/face-verifications");
+
+
+                    faceImageStoredPath = $"{uploadFolderForBg.TrimEnd('/')}/{faceFileName}";
+
+
+                    var storageSvc = _fileStorageService;
+
+
+                    var logger = _logger;
+
+
+                    _ = Task.Run(async () =>
 
 
                     {
 
 
-                        using var ms = new MemoryStream(imageBytesCopy);
+                        try
 
 
-                        await storageSvc.UploadAsync(ms, faceFileName, uploadFolderForBg);
+                        {
 
 
-                    }
+                            using var ms = new MemoryStream(imageBytesCopy);
 
 
-                    catch (Exception ex)
+                            await storageSvc.UploadAsync(ms, faceFileName, uploadFolderForBg);
 
 
-                    {
+                        }
 
 
-                        logger.LogWarning(ex, "Background save of punch face image failed for {EmployeeId}", empId);
+                        catch (Exception ex)
 
 
-                    }
+                        {
 
 
-                });
+                            logger.LogWarning(ex, "Background save of punch face image failed for {EmployeeId}", empId);
+
+
+                        }
+
+
+                    });
+
+
+                }
 
 
 
@@ -5152,10 +5317,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 _logger.LogInformation(
 
 
-                    "Trusting client face score for employee {EmpId}: clientScore={Score}, threshold={Threshold} (image saved async)",
+                    "Trusting client face score for employee {EmpId}: clientScore={Score}, threshold={Threshold}, keepFaceImage={Keep}",
 
 
-                    request.EmployeeId, clientFaceScore, minFaceScore);
+                    request.EmployeeId, clientFaceScore, minFaceScore, keepPunchFaceImage);
 
 
             }
@@ -5167,10 +5332,115 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                // SLOW PATH: client score insufficient or pending → upload synchronously
+                var regImages = JsonSerializer.Deserialize<List<string>>(faceReg!.FaceImagesJson ?? "[]") ?? new List<string>();
 
 
-                // so we can run the server-side face comparator as a fallback.
+                var onnxUsed = false;
+
+
+                string onnxDetails = string.Empty;
+
+
+                double compScore = 0;
+
+
+                string compDetails = string.Empty;
+
+
+                // FAST IN-MEMORY: compare punch bytes vs cached registration embeddings (no sync upload).
+
+
+                var (memScore, memOnnx, memDetails) = await ComparePunchFaceInMemoryAsync(
+
+
+                    imageBytes, regImages, storeId, request.EmployeeId);
+
+
+                if (memOnnx)
+
+
+                {
+
+
+                    onnxUsed = true;
+
+
+                    serverFaceScore = memScore;
+
+
+                    onnxDetails = memDetails;
+
+
+                    compScore = memScore;
+
+
+                    compDetails = memDetails;
+
+
+                }
+
+
+                var verificationDone = false;
+
+
+                if (memOnnx)
+
+
+                {
+
+
+                    var strictMinMem = minFaceScore;
+
+
+                    isFaceVerified = compScore >= strictMinMem;
+
+
+                    verificationDone = isFaceVerified;
+
+
+                    if (isFaceVerified && keepPunchFaceImage)
+
+
+                    {
+
+
+                        var uploadFolderMem = await GetStoreFolderAsync("uploads/face-verifications");
+
+
+                        var extMem = imageExt ?? ".jpg";
+
+
+                        var faceFileNameMem = $"punch_{request.EmployeeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extMem}";
+
+
+                        faceImageStoredPath = $"{uploadFolderMem.TrimEnd('/')}/{faceFileNameMem}";
+
+
+                        QueuePunchFaceImageUpload(imageBytes, faceFileNameMem, uploadFolderMem);
+
+
+                    }
+
+
+                    _logger.LogWarning(
+
+
+                        "In-memory ONNX face for {EmpId}: score={Score}, verified={Verified}, strictMin={StrictMin}, details={Details}",
+
+
+                        request.EmployeeId, compScore, isFaceVerified, strictMinMem, compDetails);
+
+
+                }
+
+
+                if (!verificationDone)
+
+
+                {
+
+
+                // SLOW PATH: gradient comparator needs a stored file; in-memory ONNX missed threshold or unavailable.
 
 
                 try
@@ -5215,27 +5485,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 {
 
 
-                    var regImages = JsonSerializer.Deserialize<List<string>>(faceReg!.FaceImagesJson ?? "[]") ?? new List<string>();
-
-
-                    // Try ONNX MobileFaceNet first — same model family as the Android
-
-
-                    // client-side TFLite, so scores are directly comparable and we can
-
-
-                    // use the same strict threshold (default 80). Embeddings are L2
-
-
-                    // normalized so cosine similarity maps cleanly to 0-100.
-
-
-                    var onnxUsed = false;
-
-
-                    string onnxDetails = string.Empty;
-
-
                     if (_onnxFaceEmbedding.IsReady)
 
 
@@ -5257,22 +5506,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                             {
 
 
-                                var regEmbeddings = new List<float[]>();
-
-
-                                foreach (var regPath in regImages)
-
-
-                                {
-
-
-                                    var regEmb = await _onnxFaceEmbedding.GetEmbeddingFromRelativeAsync(regPath);
-
-
-                                    if (regEmb != null) regEmbeddings.Add(regEmb);
-
-
-                                }
+                                var regEmbeddings = await GetCachedRegistrationEmbeddingsAsync(storeId, request.EmployeeId, regImages);
 
 
                                 if (regEmbeddings.Count > 0)
@@ -5287,7 +5521,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                                     onnxUsed = true;
 
 
-                                    onnxDetails = $"ONNX embedding match, {regEmbeddings.Count} refs, best={serverFaceScore:F1}, cos=[{cosDbg}]";
+                                    onnxDetails = $"ONNX file match, {regEmbeddings.Count} refs, best={serverFaceScore:F1}, cos=[{cosDbg}]";
 
 
                                 }
@@ -5315,12 +5549,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-
-
-                    double compScore;
-
-
-                    string compDetails;
 
 
                     if (onnxUsed)
@@ -5476,6 +5704,21 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                         request.EmployeeId, onnxUsed ? "ONNX" : "gradient", compScore, isFaceVerified, strictMin, request.LivenessPassed, liveProb, clientFaceScore, compDetails);
 
 
+                    if (!keepPunchFaceImage && !string.IsNullOrWhiteSpace(faceImageStoredPath))
+
+
+                    {
+
+
+                        await TryDeletePunchFaceImageAsync(faceImageStoredPath);
+
+
+                        faceImageStoredPath = null;
+
+
+                    }
+
+
                 }
 
 
@@ -5495,6 +5738,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 }
+
+
+                } // end !verificationDone (slow path)
 
 
             }
@@ -5590,13 +5836,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        if (!allowOutside)
-
-
         {
 
 
-            // Count which enabled methods passed
+            // Count which enabled methods passed (allowOutside only bypasses GPS fence)
 
 
             var enabledMethods = new List<string>();
@@ -5605,13 +5848,16 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             var passedMethods = new List<string>();
 
 
+            var gpsPassed = isInRange || allowOutside;
+
+
 
 
 
             if (enableFace) { enabledMethods.Add("face"); if (isFaceVerified) passedMethods.Add("face"); }
 
 
-            if (enableGps) { enabledMethods.Add("gps"); if (isInRange) passedMethods.Add("gps"); }
+            if (enableGps) { enabledMethods.Add("gps"); if (gpsPassed) passedMethods.Add("gps"); }
 
 
             if (enableWifi) { enabledMethods.Add("wifi"); if (isWifiVerified) passedMethods.Add("wifi"); }
@@ -5695,13 +5941,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         // Determine status
 
 
-        var autoApprove = settings?.AutoApproveInRange ?? true;
-
-
-
-
-
-        var status = ((isInRange || isWifiVerified || allowOutside) && autoApprove) ? "auto_approved" : "pending";
+        var status = keepPunchFaceImage ? "pending" : "auto_approved";
 
 
 
@@ -5770,7 +6010,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             // Never persist raw base64 payload into DB (column is varchar(500)).
 
 
-            FaceImageUrl = faceImageStoredPath,
+            FaceImageUrl = keepPunchFaceImage ? faceImageStoredPath : null,
 
 
             FaceMatchScore = serverFaceScore,
@@ -6019,6 +6259,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> GetHistory(
 
 
@@ -6163,16 +6404,36 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             .ToListAsync();
 
 
+        var photoMap = await GetEmployeePhotoMapAsync(storeId, records.Select(r => r.odooEmployeeId));
+        var enrichedHistory = records.Select(r => new
+        {
+            r.id,
+            r.odooEmployeeId,
+            r.employeeName,
+            r.punchTime,
+            r.punchType,
+            r.latitude,
+            r.longitude,
+            r.locationName,
+            r.distanceFromLocation,
+            r.faceImageUrl,
+            employeePhotoUrl = photoMap.GetValueOrDefault(r.odooEmployeeId),
+            r.faceMatchScore,
+            r.verifyMethod,
+            r.status,
+            r.approvedBy,
+            r.approvedAt,
+            r.rejectReason,
+            r.deviceId,
+            r.deviceName,
+            r.note,
+        }).ToList();
 
 
-
-        _logger.LogWarning("ðŸ“‹ HISTORY RESULT: {Count} records found", records.Count);
-
+        _logger.LogWarning("ðŸ“‹ HISTORY RESULT: {Count} records found", enrichedHistory.Count);
 
 
-
-
-        return Ok(AppResponse<object>.Success(records));
+        return Ok(AppResponse<object>.Success(enrichedHistory));
 
 
     }
@@ -6187,6 +6448,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> GetPending()
 
 
@@ -6244,10 +6506,16 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 faceMatchScore = r.FaceMatchScore,
 
 
+                faceImageUrl = r.FaceImageUrl,
+
+
                 verifyMethod = r.VerifyMethod,
 
 
                 status = r.Status,
+
+
+                wifiSsid = r.WifiSsid,
 
 
             })
@@ -6256,10 +6524,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             .ToListAsync();
 
 
+        var photoMapPending = await GetEmployeePhotoMapAsync(storeId, records.Select(r => r.odooEmployeeId));
+        var enrichedPending = records.Select(r => new
+        {
+            r.id,
+            r.odooEmployeeId,
+            r.employeeName,
+            r.punchTime,
+            r.punchType,
+            r.latitude,
+            r.longitude,
+            r.locationName,
+            r.distanceFromLocation,
+            r.faceMatchScore,
+            r.faceImageUrl,
+            employeePhotoUrl = photoMapPending.GetValueOrDefault(r.odooEmployeeId),
+            r.verifyMethod,
+            r.status,
+            r.wifiSsid,
+        }).ToList();
 
 
-
-        return Ok(AppResponse<object>.Success(records));
+        return Ok(AppResponse<object>.Success(enrichedPending));
 
 
     }
@@ -6274,6 +6560,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "AttendanceApproval", "MobileAttendanceApproval")]
     public async Task<ActionResult> ApproveRecord(Guid recordId, [FromBody] ApproveRequest request)
 
 
@@ -6331,10 +6618,31 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         record.UpdatedBy = CurrentUserEmail;
 
 
+        var punchFacePathToDelete = record.FaceImageUrl;
+
+
+        record.FaceImageUrl = null;
+
+
 
 
 
         await _dbContext.SaveChangesAsync();
+
+
+
+
+
+        if (!string.IsNullOrWhiteSpace(punchFacePathToDelete))
+
+
+        {
+
+
+            await TryDeletePunchFaceImageAsync(punchFacePathToDelete);
+
+
+        }
 
 
 
@@ -6511,6 +6819,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(10_000_000)]
 
 
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
     public async Task<ActionResult> VerifyFace([FromBody] VerifyFaceRequest request)
 
 
@@ -6918,9 +7227,166 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
     }
 
+    /// <summary>Cache registered-face ONNX embeddings per employee to avoid re-reading storage on every punch.</summary>
+    private async Task<List<float[]>> GetCachedRegistrationEmbeddingsAsync(
+        Guid storeId, string employeeId, IReadOnlyList<string> regImagePaths)
+    {
+        var cacheKey = $"face_reg_emb_{storeId:N}_{employeeId}";
+        if (_cache.TryGetValue(cacheKey, out List<float[]>? cached) && cached is { Count: > 0 })
+            return cached;
+
+        var regEmbeddings = new List<float[]>();
+        foreach (var regPath in regImagePaths)
+        {
+            var regEmb = await _onnxFaceEmbedding.GetEmbeddingFromRelativeAsync(regPath);
+            if (regEmb != null) regEmbeddings.Add(regEmb);
+        }
+
+        if (regEmbeddings.Count > 0)
+        {
+            _cache.Set(cacheKey, regEmbeddings, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+                Size = 1,
+            });
+        }
+
+        return regEmbeddings;
+    }
+
+    private void InvalidateRegistrationEmbeddingCache(Guid storeId, string employeeId)
+    {
+        _cache.Remove($"face_reg_emb_{storeId:N}_{employeeId}");
+    }
+
+    /// <summary>In-memory ONNX face match (no upload). Returns score 0-100 and whether ONNX was used.</summary>
+    private async Task<(double score, bool onnxUsed, string details)> ComparePunchFaceInMemoryAsync(
+        byte[] punchBytes, IReadOnlyList<string> regImagePaths, Guid storeId, string employeeId)
+    {
+        if (!_onnxFaceEmbedding.IsReady || regImagePaths.Count == 0)
+            return (0, false, "ONNX not ready or no registration images");
+
+        try
+        {
+            var checkInEmb = await _onnxFaceEmbedding.GetEmbeddingFromBytesAsync(punchBytes);
+            if (checkInEmb == null)
+                return (0, false, "Could not extract punch embedding");
+
+            var regEmbeddings = await GetCachedRegistrationEmbeddingsAsync(storeId, employeeId, regImagePaths);
+            if (regEmbeddings.Count == 0)
+                return (0, false, "No registration embeddings");
+
+            var score = OnnxFaceEmbeddingService.BestCosineScore(checkInEmb, regEmbeddings, out var cosDbg);
+            return (score, true, $"ONNX in-memory, {regEmbeddings.Count} refs, best={score:F1}, cos=[{cosDbg}]");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "In-memory ONNX face compare failed for {EmployeeId}", employeeId);
+            return (0, false, ex.Message);
+        }
+    }
+
+    private bool IsPrivilegedMobileUser =>
+        IsAdmin || IsManager;
 
 
+    private bool EmployeeIdMatchesCurrentUser(string employeeId)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+            return false;
+        if (string.Equals(employeeId, CurrentUserId.ToString(), StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (EmployeeId.HasValue &&
+            string.Equals(employeeId, EmployeeId.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
 
+
+    private ActionResult? ValidateSelfServiceEmployeeAction(string requestEmployeeId)
+    {
+        if (IsPrivilegedMobileUser)
+            return null;
+        if (!EmployeeIdMatchesCurrentUser(requestEmployeeId))
+            return Forbid();
+        return null;
+    }
+
+
+    private async Task<Dictionary<string, string?>> GetEmployeePhotoMapAsync(
+        Guid storeId,
+        IEnumerable<string> odooEmployeeIds)
+    {
+        var ids = odooEmployeeIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (ids.Count == 0)
+            return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        var guidIds = ids
+            .Where(id => Guid.TryParse(id, out _))
+            .Select(Guid.Parse)
+            .ToList();
+
+        var employees = await _dbContext.Employees
+            .AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.Deleted == null
+                && (guidIds.Contains(e.Id) || ids.Contains(e.EmployeeCode)))
+            .Select(e => new { e.Id, e.EmployeeCode, e.PhotoUrl })
+            .ToListAsync();
+
+        var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in employees)
+        {
+            if (string.IsNullOrWhiteSpace(e.PhotoUrl))
+                continue;
+            map[e.Id.ToString()] = e.PhotoUrl;
+            if (!string.IsNullOrEmpty(e.EmployeeCode))
+                map[e.EmployeeCode] = e.PhotoUrl;
+        }
+
+        return map;
+    }
+
+
+    private static bool ShouldKeepPunchFaceImage(bool isInRange, bool isWifiVerified, bool allowOutside, bool autoApproveInRange)
+        => !((isInRange || isWifiVerified || allowOutside) && autoApproveInRange);
+
+
+    private async Task TryDeletePunchFaceImageAsync(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return;
+
+        try
+        {
+            await _fileStorageService.DeleteAsync(relativePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete punch face image at {Path}", relativePath);
+        }
+    }
+
+
+    private void QueuePunchFaceImageUpload(byte[] imageBytes, string faceFileName, string uploadFolder)
+    {
+        var storageSvc = _fileStorageService;
+        var logger = _logger;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var ms = new MemoryStream(imageBytes);
+                await storageSvc.UploadAsync(ms, faceFileName, uploadFolder);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Background save of punch face image failed for {FileName}", faceFileName);
+            }
+        });
+    }
 
     /// <summary>
 
@@ -7364,20 +7830,11 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 public class FaceRegistrationRequest
-
-
 {
-
-
     public string EmployeeId { get; set; } = string.Empty;
-
-
     public string EmployeeName { get; set; } = string.Empty;
-
-
+    public string? EmployeeCode { get; set; }
     public List<string> FaceImages { get; set; } = new();
-
-
 }
 
 
@@ -7558,6 +8015,10 @@ public class MobilePunchRequest
     public bool LivenessPassed { get; set; }
 
 
+    /// <summary>On-device matcher: "tflite" (trusted fast path), "mlkit", "server", etc.</summary>
+    public string? ClientFaceEngine { get; set; }
+
+
 }
 
 
@@ -7691,6 +8152,7 @@ internal class FaceRegistrationInfo
 
 
 }
+
 
 
 

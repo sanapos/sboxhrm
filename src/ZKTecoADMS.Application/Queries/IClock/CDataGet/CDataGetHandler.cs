@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Queries.IClock.CDataGet;
@@ -88,22 +89,17 @@ public class CDataGetHandler(
         // Kiểm tra xem có pending SyncFingerprints command không
         var hasSyncFingerprintsCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncFingerprints);
         
-        // QUAN TRỌNG: ATTLOGStamp
-        // - Nếu có lệnh SyncAttendances, set ATTLOGStamp=0 để máy gửi lại TOÀN BỘ attendance
-        // - Nếu không, lấy thời gian attendance cuối cùng để chỉ nhận dữ liệu mới
-        string ATTLOGStamp;
+        // ATTLOGStamp=0 chỉ khi admin đã xếp lệnh SyncAttendances; còn lại chỉ chấm mới.
+        var ATTLOGStamp = await AttendanceLogStampResolver.ResolveAsync(
+            attendanceRepository,
+            device.Id,
+            hasSyncAttendancesCommand,
+            cancellationToken);
         if (hasSyncAttendancesCommand)
         {
-            ATTLOGStamp = "0";
-            logger.LogInformation("[CDataGet] Device {SN} - SyncAttendances command pending, setting ATTLOGStamp=0 to request all attendance data", sn);
-        }
-        else
-        {
-            var lastAttendance = await attendanceRepository.GetLastOrDefaultAsync(
-                keySelector: a => a.AttendanceTime,
-                filter: a => a.DeviceId == device.Id,
-                cancellationToken: cancellationToken);
-            ATTLOGStamp = lastAttendance?.AttendanceTime.ToString(DameTimeFormats.DeviceDateTimeFormat) ?? "0";
+            logger.LogInformation(
+                "[CDataGet] Device {SN} - manual SyncAttendances pending, ATTLOGStamp=0",
+                sn);
         }
         
         // QUAN TRỌNG: OPERLOGStamp
@@ -143,16 +139,8 @@ public class CDataGetHandler(
                        "ServerVer=2.0.4\r\n" +
                        "Encrypt=0";
 
-        // Nhúng inline commands cho face/PUSH protocol devices (pushver != null)
-        // Thiết bị PUSH có thể không gọi /iclock/getrequest → cần gửi lệnh qua cdata response
-        // Complete SyncDeviceUsers/SyncAttendances immediately — stamp-based approach handles data sync
-        // SyncFingerprints: giữ lại cho GetRequestHandler gửi command, nhưng timeout sau 2 phút
-        foreach (var cmd in pendingList.Where(c => c.CommandType == DeviceCommandTypes.SyncDeviceUsers
-            || c.CommandType == DeviceCommandTypes.SyncAttendances))
-        {
-            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
-            logger.LogInformation("[CDataGet] Completed sync command for device {SN}: Type={Type}", sn, cmd.CommandType);
-        }
+        // KHÔNG đánh dấu Success sớm cho SyncDeviceUsers/SyncAttendances — máy cần nhiều lần poll
+        // với OPERLOGStamp=0 / ATTLOGStamp=0 cho đến khi POST dữ liệu (OperLogStrategy / PostAttendancesStrategy).
         
         // Auto-complete stale SyncFingerprints commands (Sent > 2 minutes ago)
         // V8 firmware devices don't POST biometric data via ADMS, so the command stays Sent forever
@@ -164,6 +152,40 @@ public class CDataGetHandler(
             logger.LogInformation("[CDataGet] Auto-completed stale SyncFingerprints command for device {SN} (sent at {SentAt})", sn, cmd.SentAt);
         }
 
+        var (serverAttCount, localAttCount) = await GetAttendanceCountsAsync(device.Id, cancellationToken);
+
+        // SyncAttendances: chỉ đóng khi server đã gần đủ máy hoặc máy im lặng đủ lâu.
+        foreach (var cmd in pendingList.Where(c => c.CommandType == DeviceCommandTypes.SyncAttendances
+            && c.Status == CommandStatus.Sent && c.SentAt.HasValue))
+        {
+            if (!AttendanceBulkSyncTracker.ShouldAutoCompleteStaleSync(
+                    device.Id, cmd.SentAt!.Value, localAttCount, serverAttCount))
+            {
+                continue;
+            }
+
+            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
+            logger.LogInformation(
+                "[CDataGet] Auto-completed SyncAttendances for {SN} (sent {SentAt}, server={Server}, machine={Machine})",
+                sn, cmd.SentAt, serverAttCount, localAttCount);
+        }
+
+        foreach (var cmd in pendingList.Where(c => c.CommandType == DeviceCommandTypes.SyncDeviceUsers
+            && c.Status == CommandStatus.Sent && c.SentAt.HasValue
+            && c.SentAt.Value < DateTime.Now.AddMinutes(-10)))
+        {
+            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
+            logger.LogInformation("[CDataGet] Auto-completed stale SyncDeviceUsers command for device {SN} (sent at {SentAt})", sn, cmd.SentAt);
+        }
+
+        // Gửi lệnh sync/check qua cdata (máy PUSH thường không gọi getrequest)
+        var syncInlineCommands = pendingList
+            .Where(c => c.Status == CommandStatus.Created
+                && (c.CommandType == DeviceCommandTypes.SyncDeviceUsers
+                    || c.CommandType == DeviceCommandTypes.SyncAttendances))
+            .OrderByDescending(c => c.Priority)
+            .ToList();
+
         var inlineCommands = pendingList
             .Where(c => c.Status == CommandStatus.Created
                 && c.CommandType != DeviceCommandTypes.SyncDeviceUsers
@@ -172,15 +194,19 @@ public class CDataGetHandler(
             .OrderByDescending(c => c.Priority)
             .ToList();
 
-        if (inlineCommands.Count > 0)
+        if (syncInlineCommands.Count > 0 || inlineCommands.Count > 0)
         {
             var sb = new StringBuilder(response);
+            foreach (var cmd in syncInlineCommands)
+            {
+                sb.Append($"\r\nC:{cmd.CommandId}:{cmd.Command}");
+                await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Sent);
+                logger.LogInformation("[CDataGet] Embedded SYNC command for {SN}: Type={Type}, Cmd={Cmd}", sn, cmd.CommandType, cmd.Command);
+            }
             foreach (var cmd in inlineCommands)
             {
                 sb.Append($"\r\nC:{cmd.CommandId}:{cmd.Command}");
                 
-                // Enrollment commands: mark as Sent — they need time for the device to process
-                // PostBiometricStrategy will mark them as Success when biometric data arrives
                 var isEnrollment = cmd.CommandType == DeviceCommandTypes.EnrollFingerprint
                     || cmd.CommandType == DeviceCommandTypes.EnrollFace;
                 var newStatus = isEnrollment ? CommandStatus.Sent : CommandStatus.Success;
@@ -191,5 +217,18 @@ public class CDataGetHandler(
         }
 
         return response;
+    }
+
+    private async Task<(int ServerCount, int LocalCount)> GetAttendanceCountsAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken)
+    {
+        var serverCount = await attendanceRepository.CountAsync(
+            a => a.DeviceId == deviceId,
+            cancellationToken);
+        var deviceInfo = await deviceInfoRepository.GetSingleAsync(
+            di => di.DeviceId == deviceId,
+            cancellationToken: cancellationToken);
+        return (serverCount, deviceInfo?.AttendanceCount ?? 0);
     }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 /// Màn hình Đào tạo — hiển thị bài viết loại Training (type=4)
 class TrainingScreen extends StatefulWidget {
@@ -22,7 +23,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
   String _selectedTimeFilter = 'newest';
   int _currentPage = 1;
   final int _pageSize = 20;
-  bool _showMobileFilters = false;
 
   @override
   void initState() {
@@ -142,10 +142,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.school, color: Color(0xFF1E3A5F), size: 22),
+                      child: const Icon(Icons.school, color: HrmPageChrome.primaryNavy, size: 22),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -157,35 +157,15 @@ class _TrainingScreenState extends State<TrainingScreen> {
                             style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                       ]),
                     ),
-                    if (Responsive.isMobile(context))
-                      IconButton(
-                        icon: Stack(
-                          children: [
-                            Icon(
-                              _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                              color: _showMobileFilters ? Colors.orange : const Color(0xFF71717A),
-                            ),
-                            if (_searchQuery.isNotEmpty || _selectedCategoryId != null || _selectedTimeFilter != 'newest')
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                                ),
-                              ),
-                          ],
-                        ),
-                        onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                      ),
                   ]),
-                  if (!Responsive.isMobile(context) || _showMobileFilters) ...[
+                  ...[
                   const SizedBox(height: 16),
                   // ── Search & Filter ──
                   Wrap(spacing: 10, runSpacing: 10, children: [
                     SizedBox(
-                      width: 320,
+                      width: Responsive.isMobile(context)
+                          ? double.infinity
+                          : 320,
                       height: 40,
                       child: TextField(
                         onChanged: (v) => setState(() { _searchQuery = v; _currentPage = 1; }),
@@ -249,14 +229,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('${filtered.length} bài viết',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w600)),
+                          style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
                     ),
                   ]),
-                  ], // end _showMobileFilters
+                  ],
                 ]),
               ),
 
@@ -359,7 +339,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
               image: thumb != null && thumb.isNotEmpty
                   ? DecorationImage(image: NetworkImage(thumb), fit: BoxFit.cover, onError: (_, __) {}) : null,

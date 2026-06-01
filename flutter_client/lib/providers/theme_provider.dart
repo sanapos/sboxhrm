@@ -1,5 +1,7 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/vietnamese_font.dart';
 
 /// Hệ thống typography chuẩn cho tiếng Việt
 /// Sử dụng Be Vietnam Pro – font được thiết kế riêng cho tiếng Việt
@@ -9,110 +11,100 @@ class AppTypography {
   AppTypography._();
 
   static TextTheme _buildTextTheme(Color textColor, Color subtextColor) {
-    const f = 'BeVietnamPro';
+    const f = kVietnameseFontFamily;
+    const fb = kVietnameseFontFallback;
+    TextStyle s(TextStyle style) => style.copyWith(
+          fontFamily: f,
+          fontFamilyFallback: fb,
+        );
     return TextTheme(
       // === DISPLAY: Tiêu đề lớn, dashboard header ===
-      displayLarge: TextStyle(
-          fontFamily: f,
+      displayLarge: s(TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w700,
           height: 1.35,
           color: textColor,
-          letterSpacing: -0.5),
-      displayMedium: TextStyle(
-          fontFamily: f,
+          letterSpacing: -0.5)),
+      displayMedium: s(TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           height: 1.35,
           color: textColor,
-          letterSpacing: -0.3),
-      displaySmall: TextStyle(
-          fontFamily: f,
+          letterSpacing: -0.3)),
+      displaySmall: s(TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w600,
           height: 1.35,
-          color: textColor),
+          color: textColor)),
 
       // === HEADLINE: Tiêu đề section, card header ===
-      headlineLarge: TextStyle(
-          fontFamily: f,
+      headlineLarge: s(TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           height: 1.4,
-          color: textColor),
-      headlineMedium: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      headlineMedium: s(TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          color: textColor),
-      headlineSmall: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      headlineSmall: s(TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          color: textColor),
+          color: textColor)),
 
       // === TITLE: Tiêu đề item, AppBar, dialog title ===
-      titleLarge: TextStyle(
-          fontFamily: f,
+      titleLarge: s(TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          color: textColor),
-      titleMedium: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      titleMedium: s(TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          color: textColor),
-      titleSmall: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      titleSmall: s(TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          color: textColor),
+          color: textColor)),
 
       // === BODY: Nội dung chính ===
-      bodyLarge: TextStyle(
-          fontFamily: f,
+      bodyLarge: s(TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w400,
           height: 1.5,
-          color: textColor),
-      bodyMedium: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      bodyMedium: s(TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           height: 1.5,
-          color: textColor),
-      bodySmall: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      bodySmall: s(TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w400,
           height: 1.5,
-          color: subtextColor),
+          color: subtextColor)),
 
       // === LABEL: Nút, badge, form label, caption ===
-      labelLarge: TextStyle(
-          fontFamily: f,
+      labelLarge: s(TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           height: 1.4,
-          color: textColor),
-      labelMedium: TextStyle(
-          fontFamily: f,
+          color: textColor)),
+      labelMedium: s(TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           height: 1.4,
-          color: subtextColor),
-      labelSmall: TextStyle(
-          fontFamily: f,
+          color: subtextColor)),
+      labelSmall: s(TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
           height: 1.4,
           color: subtextColor,
-          letterSpacing: 0.3),
+          letterSpacing: 0.3)),
     );
   }
 
@@ -170,8 +162,14 @@ class ThemeProvider extends ChangeNotifier {
   static const Color accentColor = Color(0xFFEC4899); // Pink 500 (accent)
 
   ThemeData get lightTheme {
-    final baseTheme = ThemeData(fontFamily: 'BeVietnamPro');
-    final textTheme = AppTypography.lightTextTheme;
+    final baseTheme = ThemeData(
+      fontFamily: kVietnameseFontFamily,
+      fontFamilyFallback: kVietnameseFontFallback,
+    );
+    var textTheme = AppTypography.lightTextTheme;
+    if (kIsWeb) {
+      textTheme = vietnameseTextTheme(textTheme);
+    }
     return baseTheme.copyWith(
       textTheme: textTheme,
       scaffoldBackgroundColor: const Color(0xFFFAFAFA),
@@ -316,6 +314,13 @@ class ThemeProvider extends ChangeNotifier {
         labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         unselectedLabelStyle: textTheme.labelLarge,
       ),
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+        dataTextStyle: textTheme.bodySmall,
+      ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
         selectedColor: primaryColor.withValues(alpha: 0.1),
@@ -402,9 +407,15 @@ class ThemeProvider extends ChangeNotifier {
     const darkText = Color(0xFFE4E4E7);
     const darkSubtext = Color(0xFF9CA3AF);
 
-    final baseDarkTheme =
-        ThemeData(fontFamily: 'BeVietnamPro', brightness: Brightness.dark);
-    final textTheme = AppTypography.darkTextTheme;
+    final baseDarkTheme = ThemeData(
+      fontFamily: kVietnameseFontFamily,
+      fontFamilyFallback: kVietnameseFontFallback,
+      brightness: Brightness.dark,
+    );
+    var textTheme = AppTypography.darkTextTheme;
+    if (kIsWeb) {
+      textTheme = vietnameseTextTheme(textTheme);
+    }
     return baseDarkTheme.copyWith(
       textTheme: textTheme,
       scaffoldBackgroundColor: darkBg,
@@ -537,6 +548,13 @@ class ThemeProvider extends ChangeNotifier {
         indicatorColor: primaryColor,
         labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         unselectedLabelStyle: textTheme.labelLarge,
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+        dataTextStyle: textTheme.bodySmall,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: darkCard,

@@ -46,6 +46,8 @@ public class RolePermissionGroupDto
     public Guid? StoreId { get; set; }
     public string? StoreName { get; set; }
     public List<ModulePermissionDto> Permissions { get; set; } = [];
+    /// <summary>Số module có ít nhất một quyền (View/Create/Edit/...) được bật.</summary>
+    public int GrantedModuleCount { get; set; }
 }
 
 /// <summary>
@@ -82,6 +84,8 @@ public class CreateRolePermissionRequest
 public class ModulePermissionRequest
 {
     public Guid PermissionId { get; set; }
+    /// <summary>Fallback khi client gửi sai PermissionId — khớp theo mã module.</summary>
+    public string? Module { get; set; }
     public bool CanView { get; set; }
     public bool CanCreate { get; set; }
     public bool CanEdit { get; set; }

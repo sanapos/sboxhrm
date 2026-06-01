@@ -1,8 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Attributes;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Models;
@@ -12,20 +14,26 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Controller để quản lý phân quyền theo role
+/// Controller Ä‘á»ƒ quáº£n lÃ½ phÃ¢n quyá»n theo role
 /// </summary>
 [ApiController]
 [Route("api/permission-management")]
 [Authorize(Policy = PolicyNames.AtLeastAdmin)]
-public class PermissionManagementController(ZKTecoDbContext context) : AuthenticatedControllerBase
+public class PermissionManagementController(
+    ZKTecoDbContext context,
+    ILogger<PermissionManagementController> logger) : AuthenticatedControllerBase
 {
+    private static readonly string[] SystemRoles =
+        ["Admin", "Director", "Accountant", "DepartmentHead", "Manager", "Employee", "User"];
+
     #region Get Permissions
 
     /// <summary>
-    /// Lấy tất cả permissions của một role
+    /// Láº¥y táº¥t cáº£ permissions cá»§a má»™t role
     /// </summary>
     [HttpGet("by-role")]
     [RequirePermission("Role", PermissionAction.View)]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> GetPermissionsByRole([FromQuery] string roleName)
     {
         var permissions = await context.RolePermissions
@@ -38,12 +46,12 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
 
         if (permissions.Count == 0)
         {
-            // Tạo permissions mặc định nếu chưa có
+            // Táº¡o permissions máº·c Ä‘á»‹nh náº¿u chÆ°a cÃ³
             permissions = await CreateDefaultPermissionsForRole(roleName, allModules);
         }
         else
         {
-            // Kiểm tra module mới được thêm sau khi role đã có permissions
+            // Kiá»ƒm tra module má»›i Ä‘Æ°á»£c thÃªm sau khi role Ä‘Ã£ cÃ³ permissions
             var existingPermissionIds = permissions.Select(p => p.PermissionId).ToHashSet();
             var missingModules = allModules.Where(m => !existingPermissionIds.Contains(m.Id)).ToList();
             if (missingModules.Count > 0)
@@ -69,7 +77,7 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
                 }
                 context.RolePermissions.AddRange(newEntries);
                 await context.SaveChangesAsync();
-                // Reload để có đầy đủ navigation props
+                // Reload Ä‘á»ƒ cÃ³ Ä‘áº§y Ä‘á»§ navigation props
                 permissions = await context.RolePermissions
                     .Include(p => p.Permission)
                     .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
@@ -78,46 +86,59 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
             }
         }
 
+        var modulePermissions = permissions.Select(p => new ModulePermissionDto
+        {
+            PermissionId = p.PermissionId,
+            Module = p.Permission.Module,
+            ModuleDisplayName = p.Permission.ModuleDisplayName,
+            DisplayOrder = p.Permission.DisplayOrder,
+            CanView = p.CanView,
+            CanCreate = p.CanCreate,
+            CanEdit = p.CanEdit,
+            CanDelete = p.CanDelete,
+            CanExport = p.CanExport,
+            CanApprove = p.CanApprove
+        }).ToList();
+
         var result = new RolePermissionGroupDto
         {
             RoleName = roleName,
             RoleDisplayName = GetRoleDisplayName(roleName),
             StoreId = RequiredStoreId,
-            Permissions = permissions.Select(p => new ModulePermissionDto
-            {
-                PermissionId = p.PermissionId,
-                Module = p.Permission.Module,
-                ModuleDisplayName = p.Permission.ModuleDisplayName,
-                DisplayOrder = p.Permission.DisplayOrder,
-                CanView = p.CanView,
-                CanCreate = p.CanCreate,
-                CanEdit = p.CanEdit,
-                CanDelete = p.CanDelete,
-                CanExport = p.CanExport,
-                CanApprove = p.CanApprove
-            }).ToList()
+            Permissions = modulePermissions,
+            GrantedModuleCount = CountGrantedModules(modulePermissions)
         };
 
         return Ok(AppResponse<RolePermissionGroupDto>.Success(result));
     }
 
     /// <summary>
-    /// Lấy tất cả permissions của store theo tất cả roles
+    /// Láº¥y táº¥t cáº£ permissions cá»§a store theo táº¥t cáº£ roles
     /// </summary>
     [HttpGet("all")]
     [RequirePermission("Role", PermissionAction.View)]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<RolePermissionGroupDto>>>> GetAllPermissions()
     {
-        var allRoles = new[] { "Admin", "Director", "Accountant", "DepartmentHead", "Manager", "Employee", "User" };
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
 
         // Pre-load all role permissions for the store in one query
         var allPermissions = await context.RolePermissions
             .Include(p => p.Permission)
-            .Where(p => p.StoreId == RequiredStoreId && allRoles.Contains(p.RoleName))
+            .Where(p => p.StoreId == RequiredStoreId)
             .ToListAsync();
         var permissionsByRole = allPermissions.GroupBy(p => p.RoleName)
-            .ToDictionary(g => g.Key, g => g.ToList());
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var storeRoleNames = permissionsByRole.Keys.ToList();
+        var roleOrder = SystemRoles
+            .Select((name, index) => (name, index))
+            .ToDictionary(x => x.name, x => x.index, StringComparer.OrdinalIgnoreCase);
+        var allRoles = SystemRoles
+            .Union(storeRoleNames, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(r => roleOrder.GetValueOrDefault(r, 900))
+            .ThenBy(r => r, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var result = new List<RolePermissionGroupDto>();
 
@@ -162,24 +183,31 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
                 }
             }
 
+            var modulePermissions = permissions.Select(p => new ModulePermissionDto
+            {
+                PermissionId = p.PermissionId,
+                Module = p.Permission.Module,
+                ModuleDisplayName = p.Permission.ModuleDisplayName,
+                DisplayOrder = p.Permission.DisplayOrder,
+                CanView = p.CanView,
+                CanCreate = p.CanCreate,
+                CanEdit = p.CanEdit,
+                CanDelete = p.CanDelete,
+                CanExport = p.CanExport,
+                CanApprove = p.CanApprove
+            }).OrderBy(p => p.DisplayOrder).ToList();
+
+            var displayName = permissions.FirstOrDefault()?.RoleDisplayName;
+            if (string.IsNullOrWhiteSpace(displayName))
+                displayName = GetRoleDisplayName(roleName);
+
             result.Add(new RolePermissionGroupDto
             {
                 RoleName = roleName,
-                RoleDisplayName = GetRoleDisplayName(roleName),
+                RoleDisplayName = displayName,
                 StoreId = RequiredStoreId,
-                Permissions = permissions.Select(p => new ModulePermissionDto
-                {
-                    PermissionId = p.PermissionId,
-                    Module = p.Permission.Module,
-                    ModuleDisplayName = p.Permission.ModuleDisplayName,
-                    DisplayOrder = p.Permission.DisplayOrder,
-                    CanView = p.CanView,
-                    CanCreate = p.CanCreate,
-                    CanEdit = p.CanEdit,
-                    CanDelete = p.CanDelete,
-                    CanExport = p.CanExport,
-                    CanApprove = p.CanApprove
-                }).OrderBy(p => p.DisplayOrder).ToList()
+                Permissions = modulePermissions,
+                GrantedModuleCount = CountGrantedModules(modulePermissions)
             });
         }
 
@@ -187,9 +215,38 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
     }
 
     /// <summary>
-    /// Lấy danh sách modules có thể phân quyền
+    /// Xóa hoàn toàn một chức danh tùy chỉnh (không phải chức danh hệ thống).
+    /// </summary>
+    [HttpDelete("role/{roleName}")]
+    [RequirePermission("Role", PermissionAction.Delete)]
+    [RequireModulePermission("Role", ModulePermissionAction.Delete)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteRole(string roleName)
+    {
+        if (SystemRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(AppResponse<bool>.Error("Không thể xóa chức danh mặc định của hệ thống"));
+        }
+
+        var existingPermissions = await context.RolePermissions
+            .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
+            .ToListAsync();
+
+        if (existingPermissions.Count == 0)
+        {
+            return NotFound(AppResponse<bool>.Error("Không tìm thấy chức danh"));
+        }
+
+        context.RolePermissions.RemoveRange(existingPermissions);
+        await context.SaveChangesAsync();
+
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>
+    /// Láº¥y danh sÃ¡ch modules cÃ³ thá»ƒ phÃ¢n quyá»n
     /// </summary>
     [HttpGet("modules")]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PermissionDto>>>> GetAvailableModules()
     {
         var modules = await context.Permissions
@@ -212,83 +269,153 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
     #region Update Permission
 
     /// <summary>
-    /// Cập nhật permissions của một role
+    /// Cáº­p nháº­t permissions cá»§a má»™t role
     /// </summary>
     [HttpPut("role/{roleName}")]
     [RequirePermission("Role", PermissionAction.Edit)]
+    [RequireModulePermission("Role", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> UpdateRolePermissions(
         string roleName, 
         [FromBody] List<ModulePermissionRequest> request)
     {
-        // Không cho phép chỉnh sửa permission của Admin
         if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(AppResponse<bool>.Error("Không thể chỉnh sửa quyền của Admin"));
         }
 
+        if (request == null || request.Count == 0)
+        {
+            return BadRequest(AppResponse<bool>.Error("Danh sách quyền trống"));
+        }
+
+        var permissionDefs = await context.Permissions.AsNoTracking().ToListAsync();
+        var defById = permissionDefs.ToDictionary(p => p.Id);
+        var defByModule = permissionDefs
+            .GroupBy(p => p.Module, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Load all rows for this role/store scope (including inactive) to avoid unique-index violations on insert.
         var existingPermissions = await context.RolePermissions
+            .Include(p => p.Permission)
             .AsTracking()
-            .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
+            .Where(p => (p.StoreId == RequiredStoreId || p.StoreId == null)
+                        && p.RoleName == roleName)
             .ToListAsync();
 
+        var updated = 0;
         foreach (var moduleRequest in request)
         {
-            var existing = existingPermissions.FirstOrDefault(p => p.PermissionId == moduleRequest.PermissionId);
-            if (existing != null)
+            Guid permissionId = moduleRequest.PermissionId;
+            if (!defById.ContainsKey(permissionId)
+                && !string.IsNullOrWhiteSpace(moduleRequest.Module)
+                && defByModule.TryGetValue(moduleRequest.Module.Trim(), out var byModule))
             {
-                existing.CanView = moduleRequest.CanView;
-                existing.CanCreate = moduleRequest.CanCreate;
-                existing.CanEdit = moduleRequest.CanEdit;
-                existing.CanDelete = moduleRequest.CanDelete;
-                existing.CanExport = moduleRequest.CanExport;
-                existing.CanApprove = moduleRequest.CanApprove;
+                permissionId = byModule.Id;
+            }
+
+            if (!defById.ContainsKey(permissionId))
+                continue;
+
+            var moduleCode = defById[permissionId].Module;
+            var matches = existingPermissions
+                .Where(p => p.PermissionId == permissionId
+                            || (p.Permission != null
+                                && string.Equals(p.Permission.Module, moduleCode,
+                                    StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (matches.Count > 0)
+            {
+                var primary = matches[0];
+                primary.PermissionId = permissionId;
+                primary.StoreId = RequiredStoreId;
+                primary.IsActive = true;
+                primary.CanView = moduleRequest.CanView;
+                primary.CanCreate = moduleRequest.CanCreate;
+                primary.CanEdit = moduleRequest.CanEdit;
+                primary.CanDelete = moduleRequest.CanDelete;
+                primary.CanExport = moduleRequest.CanExport;
+                primary.CanApprove = moduleRequest.CanApprove;
+
+                foreach (var duplicate in matches.Skip(1))
+                {
+                    context.RolePermissions.Remove(duplicate);
+                    existingPermissions.Remove(duplicate);
+                }
+
+                updated++;
             }
             else
             {
-                // Tạo mới nếu chưa có
                 var newPermission = new RolePermission
                 {
                     Id = Guid.NewGuid(),
                     StoreId = RequiredStoreId,
                     RoleName = roleName,
                     RoleDisplayName = GetRoleDisplayName(roleName),
-                    PermissionId = moduleRequest.PermissionId,
+                    PermissionId = permissionId,
                     CanView = moduleRequest.CanView,
                     CanCreate = moduleRequest.CanCreate,
                     CanEdit = moduleRequest.CanEdit,
                     CanDelete = moduleRequest.CanDelete,
                     CanExport = moduleRequest.CanExport,
-                    CanApprove = moduleRequest.CanApprove
+                    CanApprove = moduleRequest.CanApprove,
+                    IsActive = true
                 };
                 context.RolePermissions.Add(newPermission);
+                existingPermissions.Add(newPermission);
+                updated++;
             }
         }
 
-        await context.SaveChangesAsync();
+        if (updated == 0)
+        {
+            return BadRequest(AppResponse<bool>.Error(
+                "Không cập nhật được quyền — PermissionId không hợp lệ hoặc không khớp module"));
+        }
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogWarning(ex, "Failed to save role permissions for {RoleName}", roleName);
+            var inner = ex.InnerException?.Message ?? ex.Message;
+            if (inner.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
+                || inner.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+                || inner.Contains("unique", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(AppResponse<bool>.Error(
+                    "Trùng bản ghi phân quyền trong cơ sở dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị."));
+            }
+
+            return BadRequest(AppResponse<bool>.Error($"Không lưu được phân quyền: {inner}"));
+        }
 
         return Ok(AppResponse<bool>.Success(true));
     }
 
     /// <summary>
-    /// Reset permissions của một role về mặc định
+    /// Reset permissions cá»§a má»™t role vá» máº·c Ä‘á»‹nh
     /// </summary>
     [HttpPost("reset/{roleName}")]
     [RequirePermission("Role", PermissionAction.Edit)]
+    [RequireModulePermission("Role", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> ResetPermissions(string roleName)
     {
         if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(AppResponse<bool>.Error("Không thể reset quyền của Admin"));
+            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ reset quyá»n cá»§a Admin"));
         }
 
-        // Xóa permissions hiện tại
         var existingPermissions = await context.RolePermissions
-            .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
+            .Where(p => (p.StoreId == RequiredStoreId || p.StoreId == null) && p.RoleName == roleName)
             .ToListAsync();
 
         context.RolePermissions.RemoveRange(existingPermissions);
 
-        // Tạo permissions mặc định
+        // Táº¡o permissions máº·c Ä‘á»‹nh
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
         await CreateDefaultPermissionsForRole(roleName, allModules);
 
@@ -334,80 +461,13 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
             .ToListAsync();
     }
 
-    private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove) 
-        GetDefaultPermissions(string roleName, string module)
-    {
-        return roleName.ToLower() switch
-        {
-            // Admin có full quyền
-            "admin" => (true, true, true, true, true, true),
-            
-            // Giám đốc: gần như full, trừ cấu hình hệ thống
-            "director" => module.ToLower() switch
-            {
-                "settings" or "device" or "geofence" or "deviceuser" => (true, false, false, false, false, false),
-                "store" or "role" or "usermanagement" or "departmentpermission" => (true, false, false, false, true, false),
-                _ => (true, true, true, true, true, true)
-            },
-            
-            // Kế toán: tập trung tài chính, lương, bảo hiểm, thuế
-            "accountant" => module.ToLower() switch
-            {
-                "salary" or "payslip" or "allowance" or "insurance" or "tax" or "advance" 
-                    or "transaction" or "cashtransaction" or "bankaccount" or "benefit" 
-                    => (true, true, true, true, true, false),
-                "report" => (true, false, false, false, true, false),
-                "employee" or "attendance" => (true, false, false, false, true, false),
-                "dashboard" or "leave" or "shift" or "holiday" or "overtime" or "notification" 
-                    => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-            
-            // Trưởng phòng: quản lý nhân sự phòng ban, duyệt đơn từ
-            "departmenthead" => module.ToLower() switch
-            {
-                "employee" or "attendance" or "leave" or "shift" or "overtime" 
-                    or "attendancecorrection" or "workshedule" or "shiftswap" 
-                    or "task" or "kpi" or "hrdocument" 
-                    => (true, true, true, false, true, true),
-                "notification" or "communication" => (true, true, false, false, false, false),
-                "report" or "salary" or "payslip" => (true, false, false, false, true, false),
-                "dashboard" or "allowance" or "holiday" or "insurance" or "advance" 
-                    or "shifttemplate" or "shiftsalarylevel" or "benefit" or "asset" 
-                    or "orgchart" or "department" 
-                    => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-            
-            // Manager có hầu hết quyền, trừ một số module nhạy cảm
-            "manager" => module.ToLower() switch
-            {
-                "settings" or "store" or "role" => (true, false, false, false, false, false),
-                _ => (true, true, true, false, true, true)
-            },
-            
-            // Employee chỉ xem và tạo đơn từ
-            "employee" => module.ToLower() switch
-            {
-                "dashboard" or "attendance" or "payslip" or "shift" or "notification" 
-                    => (true, false, false, false, false, false),
-                "leave" or "shiftswap" or "attendancecorrection" or "overtime" 
-                    => (true, true, false, false, false, false),
-                "task" => (true, false, true, false, false, false),
-                "fieldcheckin" => (true, true, true, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-            
-            // User chỉ xem được thông tin cơ bản
-            "user" => module.ToLower() switch
-            {
-                "dashboard" => (true, false, false, false, false, false),
-                _ => (false, false, false, false, false, false)
-            },
-            
-            _ => (false, false, false, false, false, false)
-        };
-    }
+    private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove)
+        GetDefaultPermissions(string roleName, string module) =>
+        ModulePermissionDefaults.Get(roleName, module);
+
+    private static int CountGrantedModules(IEnumerable<ModulePermissionDto> permissions) =>
+        permissions.Count(p =>
+            p.CanView || p.CanCreate || p.CanEdit || p.CanDelete || p.CanExport || p.CanApprove);
 
     private static string GetRoleDisplayName(string roleName) => roleName.ToLower() switch
     {
@@ -423,3 +483,6 @@ public class PermissionManagementController(ZKTecoDbContext context) : Authentic
 
     #endregion
 }
+
+
+

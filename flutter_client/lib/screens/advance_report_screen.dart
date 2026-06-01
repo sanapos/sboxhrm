@@ -1,12 +1,11 @@
 ﻿import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../models/hrm.dart';
-import '../utils/file_saver.dart' as file_saver;
-import '../widgets/notification_overlay.dart';
-import 'package:excel/excel.dart' as excel_lib;
+import '../utils/report_screen_helpers.dart';
 
 const _aRowH = 54.0;
 const _aHdrH = 44.0;
@@ -26,21 +25,19 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
 
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
+  String _datePreset = 'this_month';
   AdvanceRequestStatus? _statusFilter;
   bool _loading = false;
   List<AdvanceRequest> _requests = [];
   String _empSearch = '';
   String? _selectedBranchId;
-  List<Map<String, dynamic>> _branches = [];
-  List<Map<String, dynamic>> _employeesList = [];
+  final _branchFilter = ReportBranchFilter();
 
   List<AdvanceRequest> get _filtered {
     var result = _requests;
     if (_selectedBranchId != null) {
-      final ids = _employeesList
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
-          .map((e) => e['id']?.toString() ?? '')
-          .toSet();
+      final ids = _branchFilter.userIdsForBranch(_selectedBranchId);
+      if (ids.isEmpty) return [];
       result = result.where((r) => ids.contains(r.employeeUserId)).toList();
     }
     if (_empSearch.isEmpty) return result;
@@ -54,25 +51,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   void initState() {
     super.initState();
     _load();
-    _loadBranches();
-  }
-
-  Future<void> _loadBranches() async {
-    try {
-      final emps = await _api.getEmployees(pageSize: 1000);
-      if (mounted) {
-        setState(() => _employeesList =
-            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
-      }
-    } catch (_) {}
-    try {
-      final br = await _api.getBranchesForSelect();
-      final bd = br['data'];
-      if (bd is List && mounted) {
-        setState(() => _branches =
-            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
-      }
-    } catch (_) {}
+    _branchFilter.loadBranches(_api).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -119,16 +100,30 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
 
   Future<void> _exportExcel() async {
     final data = _filtered;
-    if (data.isEmpty) {
-      NotificationOverlayManager()
-          .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
-      return;
+    final rows = <List<dynamic>>[];
+    for (int i = 0; i < data.length; i++) {
+      final r = data[i];
+      rows.add([
+        i + 1,
+        r.employeeName,
+        r.employeeCode,
+        (r.forMonth != null && r.forYear != null)
+            ? '${r.forMonth}/${r.forYear}'
+            : '',
+        _fmtDate.format(r.requestDate),
+        r.amount,
+        r.reason ?? '',
+        _statusLabel(r.status),
+        r.approvedByName ?? '',
+        r.approvedDate != null ? _fmtDate.format(r.approvedDate!) : '',
+      ]);
     }
-    try {
-      final wb = excel_lib.Excel.createExcel();
-      final sh = wb['Báo cáo ứng lương'];
-      wb.delete('Sheet1');
-      sh.appendRow([
+    await ClientExcelExport.export(
+      context: context,
+      title: 'Báo cáo ứng lương',
+      sheetName: 'Bao cao ung luong',
+      filePrefix: 'BaoCaoUngLuong',
+      headers: const [
         'STT',
         'Nhân viên',
         'Mã NV',
@@ -138,43 +133,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         'Lý do',
         'Trạng thái',
         'Người duyệt',
-        'Ngày duyệt'
-      ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < data.length; i++) {
-        final r = data[i];
-        sh.appendRow([
-          excel_lib.IntCellValue(i + 1),
-          excel_lib.TextCellValue(r.employeeName),
-          excel_lib.TextCellValue(r.employeeCode),
-          excel_lib.TextCellValue((r.forMonth != null && r.forYear != null)
-              ? '${r.forMonth}/${r.forYear}'
-              : ''),
-          excel_lib.TextCellValue(_fmtDate.format(r.requestDate)),
-          excel_lib.DoubleCellValue(r.amount),
-          excel_lib.TextCellValue(r.reason ?? ''),
-          excel_lib.TextCellValue(_statusLabel(r.status)),
-          excel_lib.TextCellValue(r.approvedByName ?? ''),
-          excel_lib.TextCellValue(
-              r.approvedDate != null ? _fmtDate.format(r.approvedDate!) : ''),
-        ]);
-      }
-      final bytes = wb.encode();
-      if (bytes != null) {
-        final fn =
-            'BaoCaoUngLuong_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
-        await file_saver.saveFileBytes(bytes, fn,
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted) {
-          NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
-      }
-    }
+        'Ngày duyệt',
+      ],
+      rows: rows,
+      periodLabel: '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}',
+    );
   }
 
   String _statusLabel(AdvanceRequestStatus s) {
@@ -203,28 +166,10 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     }
   }
 
-  Future<void> _pickFrom() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _from,
-        firstDate: DateTime(2020),
-        lastDate: _to);
-    if (d != null) setState(() => _from = d);
-  }
-
-  Future<void> _pickTo() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _to,
-        firstDate: _from,
-        lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (d != null) setState(() => _to = d);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         title: const Text('Báo cáo ứng lương'),
         backgroundColor: _aTheme,
@@ -241,12 +186,25 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         ],
       ),
       body: Column(children: [
-        _buildFilters(),
-        _buildSummary(),
         Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildTable()),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildFilters(),
+                _buildSummary(),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(48),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _buildTable(),
+              ],
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -256,12 +214,17 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(children: [
-        Row(children: [
-          Expanded(child: _dateBtn('Từ ngày', _from, _pickFrom)),
-          const SizedBox(width: 8),
-          Expanded(child: _dateBtn('Đến ngày', _to, _pickTo)),
-        ]),
-        const SizedBox(height: 6),
+        ReportDateRangeFilterBar(
+          from: _from,
+          to: _to,
+          preset: _datePreset,
+          onChanged: (f, t, p) => setState(() {
+            _from = f;
+            _to = t;
+            _datePreset = p;
+          }),
+        ),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(child: _statusDrop()),
           const SizedBox(width: 8),
@@ -282,7 +245,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             ),
           ),
         ]),
-        if (_branches.isNotEmpty) ...[
+        if (_branchFilter.branches.isNotEmpty) ...[
           const SizedBox(height: 6),
           Container(
             height: 40,
@@ -311,13 +274,16 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                           value: null,
                           child: Text('Tất cả chi nhánh',
                               style: TextStyle(fontSize: 13))),
-                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                      ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
                           value: b['id']?.toString(),
                           child: Text(b['name']?.toString() ?? '',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 13)))),
                     ],
-                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                    onChanged: (v) async {
+                      if (v != null) await _branchFilter.ensureEmployees(_api);
+                      if (mounted) setState(() => _selectedBranchId = v);
+                    },
                   ),
                 ),
               ),
@@ -417,39 +383,6 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          const Icon(Icons.calendar_today_outlined,
-              size: 14, color: Color(0xFF9CA3AF)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF9CA3AF), height: 1.1)),
-                Text(_fmtDate.format(val),
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2)),
-              ])),
-        ]),
-      ),
     );
   }
 
@@ -617,10 +550,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 1),
-      child: SingleChildScrollView(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // ═══ STICKY: Nhân viên ═══
             Container(
               width: _aStickyW,
@@ -710,7 +642,6 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

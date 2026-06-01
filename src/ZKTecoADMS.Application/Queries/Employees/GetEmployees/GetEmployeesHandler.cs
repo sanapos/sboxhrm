@@ -16,8 +16,9 @@ public class GetEmployeesHandler(
         var pagedResult = await employeeRepository.GetPagedResultWithProjectionAsync(
             request.PaginationRequest,
             filter: e => e.StoreId == request.StoreId &&
-                    (subordinateIds == null || subordinateIds.Contains(e.Id)) && 
-                    (!request.BranchId.HasValue || e.BranchId == request.BranchId) &&
+                    (subordinateIds == null || subordinateIds.Contains(e.Id)) &&
+                    (request.BranchIds == null || request.BranchIds.Count == 0
+                        || (e.BranchId.HasValue && request.BranchIds.Contains(e.BranchId.Value))) &&
                     (string.IsNullOrEmpty(request.SearchTerm) || 
                     e.EmployeeCode.Contains(request.SearchTerm) ||
                     e.FirstName.Contains(request.SearchTerm) ||

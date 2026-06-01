@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../screens/settings_hub_screen.dart';
+import '../utils/dashboard_permission_modules.dart';
+import '../utils/permission_module_catalog.dart';
+import '../utils/permission_role_catalog.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class RolePermissionsScreen extends StatefulWidget {
   const RolePermissionsScreen({super.key});
 
@@ -22,14 +25,139 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   bool _isLoadingPermissions = false;
   bool _isSaving = false;
 
-  // Pagination
-  int _permPage = 1;
-  final int _permPageSize = 50;
+  /// Lọc bảng theo một nhóm (null = tất cả nhóm).
+  String? _filterGroupId;
+
+  /// Back của Settings Hub khi drill-down danh sách quyền (mobile + embedded).
+  VoidCallback? _savedHubBack;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    if (_savedHubBack != null) {
+      SettingsHubScreen.internalBackCallback = _savedHubBack;
+    }
+    super.dispose();
+  }
+
+  void _updateEmbeddedBack() {
+    if (!mounted || !HrmPageChrome.isEmbedded || !Responsive.isMobile(context)) {
+      return;
+    }
+    if (_selectedRolePermissions != null) {
+      _savedHubBack ??= SettingsHubScreen.internalBackCallback;
+      SettingsHubScreen.internalBackCallback = () {
+        if (!mounted) return;
+        setState(() {
+          _selectedRoleName = null;
+          _selectedRolePermissions = null;
+        });
+        SettingsHubScreen.internalBackCallback = _savedHubBack;
+        _savedHubBack = null;
+      };
+    } else if (_savedHubBack != null) {
+      SettingsHubScreen.internalBackCallback = _savedHubBack;
+      _savedHubBack = null;
+    }
+  }
+
+  static bool _isLegacyDashboardModule(String? module) =>
+      module == DashboardPermissionModules.legacyDashboard ||
+      DashboardPermissionModules.allWidgets.contains(module ?? '');
+
+  static const List<String> _systemRoleOrder = [
+    'Admin',
+    'Director',
+    'Accountant',
+    'DepartmentHead',
+    'Manager',
+    'Employee',
+    'User',
+  ];
+
+  List<Map<String, dynamic>> _sortRoles(List<Map<String, dynamic>> roles) {
+    int orderKey(String? name) {
+      if (name == null) return 999;
+      final i = _systemRoleOrder.indexWhere(
+          (r) => r.toLowerCase() == name.toLowerCase());
+      return i >= 0 ? i : 100 + name.toLowerCase().codeUnitAt(0);
+    }
+
+    final sorted = List<Map<String, dynamic>>.from(roles);
+    sorted.sort((a, b) {
+      final ka = orderKey(a['roleName'] as String?);
+      final kb = orderKey(b['roleName'] as String?);
+      final c = ka.compareTo(kb);
+      if (c != 0) return c;
+      return ((a['roleDisplayName'] ?? '') as String)
+          .compareTo((b['roleDisplayName'] ?? '') as String);
+    });
+    return sorted;
+  }
+
+  /// Gộp module từ API với catalog UI (8 khối Tổng quan, …) — DB có thể chưa seed kịp.
+  List<Map<String, dynamic>> _ensureUiModules(
+      List<Map<String, dynamic>> apiModules) {
+    final byModule = <String, Map<String, dynamic>>{};
+    for (final m in apiModules) {
+      final mod = m['module'] as String?;
+      if (mod != null && mod.isNotEmpty) {
+        byModule[mod] = Map<String, dynamic>.from(m);
+      }
+    }
+
+    void upsert(Map<String, dynamic> def) {
+      final mod = def['module'] as String?;
+      if (mod == null || !PermissionRoleCatalog.showInPermissionUi(mod)) return;
+      final existing = byModule[mod];
+      if (existing != null) {
+        byModule[mod] = {
+          ...existing,
+          'moduleDisplayName':
+              existing['moduleDisplayName'] ?? def['moduleDisplayName'],
+          'displayOrder': existing['displayOrder'] ?? def['displayOrder'],
+        };
+        return;
+      }
+      final copy = Map<String, dynamic>.from(def);
+      final guid = PermissionModuleCatalog.idsByModule[mod];
+      if (guid != null) copy['id'] = guid;
+      byModule[mod] = copy;
+    }
+
+    for (final def in _getAllModules()) {
+      upsert(def);
+    }
+    for (final g in PermissionRoleCatalog.groups) {
+      for (final code in g.moduleCodes) {
+        if (byModule.containsKey(code)) continue;
+        final fromDefs = _getAllModules()
+            .where((m) => m['module'] == code)
+            .cast<Map<String, dynamic>?>()
+            .firstOrNull;
+        if (fromDefs != null) {
+          upsert(fromDefs);
+        } else {
+          upsert({
+            'id': PermissionModuleCatalog.idsByModule[code] ?? '',
+            'module': code,
+            'moduleDisplayName': code,
+            'displayOrder': 999,
+          });
+        }
+      }
+    }
+
+    final list = byModule.values.toList();
+    list.sort((a, b) =>
+        ((a['displayOrder'] as int?) ?? 999)
+            .compareTo((b['displayOrder'] as int?) ?? 999));
+    return list;
   }
 
   Future<void> _loadData() async {
@@ -40,8 +168,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         _apiService.getPermissionModules(),
       ]);
       setState(() {
-        _roles = List<Map<String, dynamic>>.from(results[0]);
-        _modules = List<Map<String, dynamic>>.from(results[1]);
+        _roles = _sortRoles(List<Map<String, dynamic>>.from(results[0]));
+        _modules = _ensureUiModules(List<Map<String, dynamic>>.from(results[1]));
       });
 
       // Fallback: if API returns empty, use defaults
@@ -49,12 +177,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         _loadSampleData();
       }
       if (_modules.isEmpty) {
-        setState(() => _modules = _getAllModules());
-      }
-
-      // Auto select first role
-      if (_roles.isNotEmpty && _selectedRoleName == null) {
-        _selectRole(_roles.first['roleName']);
+        setState(() => _modules = _ensureUiModules(_getAllModules()));
       }
     } catch (e) {
       // Use sample data
@@ -66,7 +189,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   void _loadSampleData() {
     setState(() {
-      _roles = [
+      _roles = _sortRoles([
         {
           'roleName': 'Admin',
           'roleDisplayName': 'Quản trị viên',
@@ -102,8 +225,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           'roleDisplayName': 'Người dùng',
           'permissionCount': 42
         },
-      ];
-      _modules = _getAllModules();
+      ]);
+      _modules = _ensureUiModules(_getAllModules());
     });
   }
 
@@ -113,12 +236,22 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     // ── TỔNG QUAN ──
     'Home': {'canView'},
     'Notification': {'canView'},
-    'Dashboard': {'canView'},
+    'DashboardAttendanceOverview': {'canView'},
+    'DashboardHrInsights': {'canView'},
+    'DashboardTodaySchedule': {'canView'},
+    'DashboardRealtimeAttendance': {'canView'},
+    'DashboardAbsent': {'canView'},
+    'DashboardLateEarly': {'canView'},
+    'DashboardKpiPanel': {'canView'},
+    'DashboardInternalNews': {'canView'},
     // ── HỒ SƠ NHÂN SỰ ──
     'Employee': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'DeviceUser': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Department': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Leave': {'canView', 'canCreate', 'canDelete', 'canExport', 'canApprove'},
+    'Payslip': {'canView', 'canExport'},
+    'Overtime': {'canView', 'canCreate', 'canApprove'},
+    'ShiftSwap': {'canView', 'canCreate', 'canApprove'},
     'SalarySettings': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     // ── CHẤM CÔNG ──
     'Attendance': {'canView', 'canExport'},
@@ -162,9 +295,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'Meal': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'FieldCheckIn': {'canView', 'canExport'},
     // ── BÁO CÁO — chỉ xem + xuất ──
-    'HrReport': {'canView', 'canExport'},
-    'AttendanceReport': {'canView', 'canExport'},
-    'PayrollReport': {'canView', 'canExport'},
     'LeaveReport': {'canView', 'canExport'},
     'CashReport': {'canView', 'canExport'},
     'PenaltyReport': {'canView', 'canExport'},
@@ -214,10 +344,52 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       },
       // ══════════ HỒ SƠ NHÂN SỰ ══════════
       {
-        'id': '003',
-        'module': 'Dashboard',
-        'moduleDisplayName': 'Tổng quan',
-        'displayOrder': 3
+        'id': '075',
+        'module': 'DashboardAttendanceOverview',
+        'moduleDisplayName': 'Tổng quan chấm công',
+        'displayOrder': 4
+      },
+      {
+        'id': '076',
+        'module': 'DashboardHrInsights',
+        'moduleDisplayName': 'Chỉ số nhân sự & vận hành',
+        'displayOrder': 5
+      },
+      {
+        'id': '077',
+        'module': 'DashboardTodaySchedule',
+        'moduleDisplayName': 'Lịch làm việc hôm nay',
+        'displayOrder': 6
+      },
+      {
+        'id': '078',
+        'module': 'DashboardRealtimeAttendance',
+        'moduleDisplayName': 'Chấm công thời gian thực',
+        'displayOrder': 7
+      },
+      {
+        'id': '079',
+        'module': 'DashboardAbsent',
+        'moduleDisplayName': 'Nhân viên vắng mặt',
+        'displayOrder': 8
+      },
+      {
+        'id': '080',
+        'module': 'DashboardLateEarly',
+        'moduleDisplayName': 'Đi trễ / về sớm',
+        'displayOrder': 9
+      },
+      {
+        'id': '081',
+        'module': 'DashboardKpiPanel',
+        'moduleDisplayName': 'KPI (Dashboard)',
+        'displayOrder': 10
+      },
+      {
+        'id': '082',
+        'module': 'DashboardInternalNews',
+        'moduleDisplayName': 'Bản tin nội bộ',
+        'displayOrder': 11
       },
       {
         'id': '004',
@@ -249,11 +421,17 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'moduleDisplayName': 'Thiết lập lương',
         'displayOrder': 8
       },
+      {
+        'id': '007b',
+        'module': 'Payslip',
+        'moduleDisplayName': 'Phiếu lương',
+        'displayOrder': 8
+      },
       // ══════════ CHẤM CÔNG ══════════
       {
         'id': '009',
         'module': 'Attendance',
-        'moduleDisplayName': 'Chấm công',
+        'moduleDisplayName': 'Chấm công thô',
         'displayOrder': 9
       },
       {
@@ -277,7 +455,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       {
         'id': '013',
         'module': 'AttendanceApproval',
-        'moduleDisplayName': 'Duyệt chấm công',
+        'moduleDisplayName': 'Duyệt chấm công (máy + mobile)',
         'displayOrder': 13
       },
       {
@@ -291,6 +469,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'module': 'Payroll',
         'moduleDisplayName': 'Tổng hợp lương',
         'displayOrder': 15
+      },
+      {
+        'id': '021b',
+        'module': 'Overtime',
+        'moduleDisplayName': 'Tăng ca',
+        'displayOrder': 21
+      },
+      {
+        'id': '024b',
+        'module': 'ShiftSwap',
+        'moduleDisplayName': 'Đổi ca',
+        'displayOrder': 24
       },
       // ══════════ TÀI CHÍNH ══════════
       {
@@ -355,12 +545,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'displayOrder': 46
       },
       {
-        'id': '046',
-        'module': 'MobileAttendanceApproval',
-        'moduleDisplayName': 'Duyệt chấm công Mobile',
-        'displayOrder': 47
-      },
-      {
         'id': '047',
         'module': 'Meal',
         'moduleDisplayName': 'Chấm cơm',
@@ -373,24 +557,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'displayOrder': 49
       },
       // ══════════ BÁO CÁO ══════════
-      {
-        'id': '023',
-        'module': 'HrReport',
-        'moduleDisplayName': 'Báo cáo nhân sự',
-        'displayOrder': 23
-      },
-      {
-        'id': '024',
-        'module': 'AttendanceReport',
-        'moduleDisplayName': 'Báo cáo chấm công',
-        'displayOrder': 24
-      },
-      {
-        'id': '025',
-        'module': 'PayrollReport',
-        'moduleDisplayName': 'Báo cáo lương',
-        'displayOrder': 25
-      },
       {
         'id': '051',
         'module': 'LeaveReport',
@@ -555,8 +721,65 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       // Use sample permissions
       _loadSamplePermissions(roleName);
     } finally {
+      if (_selectedRolePermissions != null) {
+        _normalizeLoadedPermissions();
+      }
       setState(() => _isLoadingPermissions = false);
+      _updateEmbeddedBack();
     }
+  }
+
+  /// Gộp module mới từ API catalog; đồng bộ quyền Dashboard legacy → từng widget.
+  void _normalizeLoadedPermissions() {
+    if (_selectedRolePermissions == null) return;
+    final catalog =
+        _ensureUiModules(_modules.isNotEmpty ? _modules : _getAllModules());
+    final permissions = List<Map<String, dynamic>>.from(
+        _selectedRolePermissions!['permissions'] ?? []);
+
+    for (final m in catalog) {
+      final mod = m['module'] as String?;
+      if (mod == null || mod == DashboardPermissionModules.legacyDashboard) {
+        continue;
+      }
+      if (permissions.any((p) => p['module'] == mod)) continue;
+      permissions.add({
+        'permissionId': m['id'],
+        'module': mod,
+        'moduleDisplayName': m['moduleDisplayName'],
+        'displayOrder': m['displayOrder'],
+        'canView': false,
+        'canCreate': false,
+        'canEdit': false,
+        'canDelete': false,
+        'canExport': false,
+        'canApprove': false,
+      });
+    }
+
+    Map<String, dynamic>? legacy;
+    for (final p in permissions) {
+      if (p['module'] == DashboardPermissionModules.legacyDashboard) {
+        legacy = p;
+        break;
+      }
+    }
+    if (legacy != null && legacy['canView'] == true) {
+      for (final code in DashboardPermissionModules.allWidgets) {
+        final idx = permissions.indexWhere((p) => p['module'] == code);
+        if (idx >= 0) {
+          permissions[idx] = Map<String, dynamic>.from(permissions[idx]);
+          permissions[idx]['canView'] = true;
+        }
+      }
+    }
+
+    // Ẩn module Dashboard cũ trên UI — quyền đã map sang từng widget.
+    permissions.removeWhere(
+      (p) => p['module'] == DashboardPermissionModules.legacyDashboard,
+    );
+
+    _selectedRolePermissions!['permissions'] = permissions;
   }
 
   void _loadSamplePermissions(String roleName) {
@@ -660,14 +883,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canApprove': false
           };
         }
-        if ([
-          'Dashboard',
-          'Leave',
-          'Shift',
-          'Holiday',
-          'Overtime',
-          'Notification'
-        ].contains(module)) {
+        if (_isLegacyDashboardModule(module) ||
+            [
+              'Leave',
+              'Shift',
+              'Holiday',
+              'Overtime',
+              'Notification'
+            ].contains(module)) {
           return {
             'canView': true,
             'canCreate': false,
@@ -729,19 +952,19 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canApprove': false
           };
         }
-        if ([
-          'Dashboard',
-          'Allowance',
-          'Holiday',
-          'Insurance',
-          'Advance',
-          'ShiftTemplate',
-          'ShiftSalaryLevel',
-          'Benefit',
-          'Asset',
-          'OrgChart',
-          'Department'
-        ].contains(module)) {
+        if (_isLegacyDashboardModule(module) ||
+            [
+              'Allowance',
+              'Holiday',
+              'Insurance',
+              'Advance',
+              'ShiftTemplate',
+              'ShiftSalaryLevel',
+              'Benefit',
+              'Asset',
+              'OrgChart',
+              'Department'
+            ].contains(module)) {
           return {
             'canView': true,
             'canCreate': false,
@@ -781,8 +1004,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         };
 
       case 'employee':
-        if (['Dashboard', 'Attendance', 'Payslip', 'Shift', 'Notification']
-            .contains(module)) {
+        if (_isLegacyDashboardModule(module) ||
+            ['Attendance', 'Payslip', 'Shift', 'Notification'].contains(module)) {
           return {
             'canView': true,
             'canCreate': false,
@@ -823,7 +1046,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         };
 
       case 'user':
-        if (module == 'Dashboard') {
+        if (_isLegacyDashboardModule(module)) {
           return {
             'canView': true,
             'canCreate': false,
@@ -953,6 +1176,269 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     });
   }
 
+  List<Map<String, dynamic>> _allPermissions() =>
+      List<Map<String, dynamic>>.from(
+          _selectedRolePermissions!['permissions'] ?? []);
+
+  List<Map<String, dynamic>> _visiblePermissions() {
+    var list = PermissionRoleCatalog.sortForUi(_allPermissions());
+    if (_filterGroupId != null) {
+      final g = PermissionRoleCatalog.groupById(_filterGroupId!);
+      if (g != null) {
+        final codes = g.moduleCodes.toSet();
+        list = list.where((p) => codes.contains(p['module'])).toList();
+      }
+    }
+    return list;
+  }
+
+  int _permissionIndex(String module) {
+    final permissions = _allPermissions();
+    return permissions.indexWhere((p) => p['module'] == module);
+  }
+
+  void _applyGroup(String groupId, PermissionBundleLevel level) {
+    final g = PermissionRoleCatalog.groupById(groupId);
+    if (g == null || _selectedRolePermissions == null) return;
+    setState(() {
+      final permissions = _allPermissions();
+      PermissionRoleCatalog.applyToPermissionsList(
+        permissions,
+        moduleCodes: g.moduleCodes,
+        level: level,
+        moduleSupports: _moduleSupports,
+      );
+      _selectedRolePermissions!['permissions'] = permissions;
+    });
+  }
+
+  String _levelLabel(PermissionBundleLevel level) {
+    switch (level) {
+      case PermissionBundleLevel.none:
+        return 'Tắt';
+      case PermissionBundleLevel.viewOnly:
+        return 'Chỉ xem';
+      case PermissionBundleLevel.operate:
+        return 'Vận hành';
+      case PermissionBundleLevel.full:
+        return 'Toàn quyền';
+    }
+  }
+
+  Widget _buildGroupFilterBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+      ),
+      child: Row(
+        children: [
+          const Text('Lọc nhóm:',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF52525B))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  FilterChip(
+                    label: const Text('Tất cả'),
+                    selected: _filterGroupId == null,
+                    onSelected: (_) => setState(() => _filterGroupId = null),
+                  ),
+                  const SizedBox(width: 6),
+                  for (final g in PermissionRoleCatalog.groups)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: FilterChip(
+                        avatar: Icon(g.icon, size: 16, color: g.color),
+                        label: Text(g.title),
+                        selected: _filterGroupId == g.id,
+                        onSelected: (_) =>
+                            setState(() => _filterGroupId = g.id),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionRow(Map<String, dynamic> perm) {
+    final modKey = perm['module'] as String?;
+    final globalIndex = _permissionIndex(modKey ?? '');
+    if (globalIndex < 0) return const SizedBox.shrink();
+
+    final supportedDesktop = [
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport',
+      'canApprove',
+    ].where((p) => _moduleSupports(modKey, p));
+    final allChecked = supportedDesktop.isNotEmpty &&
+        supportedDesktop.every((p) => perm[p] == true);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 200,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _getModuleColor(perm['module'])
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    _getModuleIcon(perm['module']),
+                    size: 16,
+                    color: _getModuleColor(perm['module']),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    perm['moduleDisplayName'] ?? perm['module'],
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildPermissionCheckbox(globalIndex, 'canView', perm['canView'] ?? false,
+              supported: _moduleSupports(modKey, 'canView')),
+          _buildPermissionCheckbox(globalIndex, 'canCreate', perm['canCreate'] ?? false,
+              supported: _moduleSupports(modKey, 'canCreate')),
+          _buildPermissionCheckbox(globalIndex, 'canEdit', perm['canEdit'] ?? false,
+              supported: _moduleSupports(modKey, 'canEdit')),
+          _buildPermissionCheckbox(globalIndex, 'canDelete', perm['canDelete'] ?? false,
+              supported: _moduleSupports(modKey, 'canDelete')),
+          _buildPermissionCheckbox(globalIndex, 'canExport', perm['canExport'] ?? false,
+              supported: _moduleSupports(modKey, 'canExport')),
+          _buildPermissionCheckbox(globalIndex, 'canApprove', perm['canApprove'] ?? false,
+              supported: _moduleSupports(modKey, 'canApprove')),
+          SizedBox(
+            width: 90,
+            child: Center(
+              child: Checkbox(
+                value: allChecked,
+                onChanged: (value) =>
+                    _toggleAllForModule(globalIndex, value ?? false),
+                activeColor: HrmPageChrome.primaryNavy,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupedPermissionSections() {
+    final visible = _visiblePermissions();
+    final byGroup = <String, List<Map<String, dynamic>>>{};
+    for (final p in visible) {
+      final gid =
+          PermissionRoleCatalog.groupIdForModule(p['module'] as String?) ??
+              'other';
+      byGroup.putIfAbsent(gid, () => []).add(p);
+    }
+
+    final sectionOrder = [
+      ...PermissionRoleCatalog.groups.map((g) => g.id),
+      'other',
+    ];
+
+    return Column(
+      children: [
+        for (final gid in sectionOrder)
+          if (byGroup.containsKey(gid)) ...[
+            _buildGroupSectionHeader(gid, byGroup[gid]!),
+            ...byGroup[gid]!.map(_buildPermissionRow),
+            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildGroupSectionHeader(
+      String groupId, List<Map<String, dynamic>> items) {
+    final g = PermissionRoleCatalog.groupById(groupId);
+    final title = g?.title ?? 'Khác';
+    final desc = g?.description ?? '';
+    final color = g?.color ?? const Color(0xFF94A3B8);
+    final icon = g?.icon ?? Icons.folder_outlined;
+    final enabledCount =
+        items.where((p) => p['canView'] == true).length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: color.withValues(alpha: 0.06),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: color)),
+                if (desc.isNotEmpty)
+                  Text(desc,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF71717A))),
+              ],
+            ),
+          ),
+          Text('$enabledCount/${items.length}',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color)),
+          const SizedBox(width: 8),
+          PopupMenuButton<PermissionBundleLevel>(
+            tooltip: 'Áp dụng cho cả nhóm',
+            icon: Icon(Icons.more_vert, size: 20, color: color),
+            onSelected: (level) {
+              if (g != null) _applyGroup(g.id, level);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                  value: PermissionBundleLevel.viewOnly,
+                  child: Text('Nhóm: Chỉ xem')),
+              const PopupMenuItem(
+                  value: PermissionBundleLevel.operate,
+                  child: Text('Nhóm: Vận hành')),
+              const PopupMenuItem(
+                  value: PermissionBundleLevel.full,
+                  child: Text('Nhóm: Toàn quyền')),
+              const PopupMenuItem(
+                  value: PermissionBundleLevel.none,
+                  child: Text('Nhóm: Tắt hết')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // Bỏ tất cả quyền cho role
   void _deselectAllPermissions() {
     if (_selectedRolePermissions == null) return;
@@ -976,11 +1462,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   void _showAddRoleDialog() {
     final nameController = TextEditingController();
     final displayNameController = TextEditingController();
-
     final isMobile = Responsive.isMobile(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         insetPadding: isMobile
             ? EdgeInsets.zero
             : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
@@ -996,7 +1482,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Mã chức danh',
-                  hintText: 'VD: Accountant, HRManager...',
+                  hintText: 'VD: HRManager, HRSettings...',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1005,7 +1491,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 controller: displayNameController,
                 decoration: const InputDecoration(
                   labelText: 'Tên hiển thị',
-                  hintText: 'VD: Kế toán, Quản lý nhân sự...',
+                  hintText: 'VD: HR tổng quan, HR thiết lập...',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1017,7 +1503,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (nameController.text.isEmpty ||
                   displayNameController.text.isEmpty) {
@@ -1039,17 +1525,29 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
               Navigator.pop(context);
 
-              // Save empty permissions to backend to persist the role
               final defaultModules = _getAllModules();
-              final permissions = defaultModules
+              final permRows = defaultModules
                   .map((m) => {
                         'permissionId': m['id'],
+                        'module': m['module'],
                         'canView': false,
                         'canCreate': false,
                         'canEdit': false,
                         'canDelete': false,
                         'canExport': false,
                         'canApprove': false,
+                      })
+                  .toList();
+
+              final permissions = permRows
+                  .map((p) => {
+                        'permissionId': p['permissionId'],
+                        'canView': p['canView'],
+                        'canCreate': p['canCreate'],
+                        'canEdit': p['canEdit'],
+                        'canDelete': p['canDelete'],
+                        'canExport': p['canExport'],
+                        'canApprove': p['canApprove'],
                       })
                   .toList();
 
@@ -1080,9 +1578,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     message: result['message'] ?? 'Không thể tạo chức danh');
               }
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+            ),
             child: const Text('Thêm'),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1116,11 +1618,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Hủy'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -1158,55 +1660,40 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Phân quyền Chức danh',
-          style: TextStyle(
-              color: Color(0xFF18181B),
-              fontWeight: FontWeight.bold,
-              fontSize: 18),
-        ),
-        leading: Responsive.isMobile(context)
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => SettingsHubScreen.goBack(context),
-              ),
-        actions: [
-          if (_selectedRolePermissions != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _savePermissions,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save, size: 18),
-                label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
+    final saveAction = _selectedRolePermissions != null
+        ? Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: FilledButton.icon(
+              onPressed: _isSaving ? null : _savePermissions,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save, size: 18),
+              label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi'),
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
-        ],
-      ),
-      body: _isLoading
-          ? const LoadingWidget()
-          : Responsive.isMobile(context)
-              ? _buildMobileBody()
-              : Row(
+          )
+        : null;
+
+    final body = _isLoading
+        ? const LoadingWidget()
+        : Column(
+            children: [
+              if (HrmPageChrome.isEmbedded)
+                HrmPageChrome.embeddedActionBar(
+                  actions: saveAction != null ? [saveAction] : [],
+                ),
+              Expanded(
+                child: Responsive.isMobile(context)
+                    ? _buildMobileBody()
+                    : Row(
                   children: [
                     // Left sidebar - Role list
                     Container(
@@ -1230,12 +1717,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F2340)
+                                    color: HrmPageChrome.primaryNavy
                                         .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(Icons.badge,
-                                      color: Color(0xFF0F2340), size: 20),
+                                      color: HrmPageChrome.primaryNavy, size: 20),
                                 ),
                                 const SizedBox(width: 12),
                                 const Expanded(
@@ -1264,7 +1751,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                 IconButton(
                                   onPressed: _showAddRoleDialog,
                                   icon: const Icon(Icons.add_circle,
-                                      color: Color(0xFF0F2340)),
+                                      color: HrmPageChrome.primaryNavy),
                                   tooltip: 'Thêm chức danh',
                                 ),
                               ],
@@ -1301,6 +1788,20 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     ),
                   ],
                 ),
+              ),
+            ],
+          );
+
+    if (HrmPageChrome.isEmbedded) {
+      return ColoredBox(color: HrmPageChrome.background, child: body);
+    }
+    return Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        title: 'Phân quyền Chức danh',
+        actions: saveAction != null ? [saveAction] : null,
+      ),
+      body: body,
     );
   }
 
@@ -1310,47 +1811,63 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       // Step 1: Show role list
       return Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+          if (HrmPageChrome.isEmbedded)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F2340).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    onPressed: _showAddRoleDialog,
+                    icon: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
+                    tooltip: 'Thêm chức danh',
                   ),
-                  child: const Icon(Icons.badge,
-                      color: Color(0xFF0F2340), size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Chức danh',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Color(0xFF18181B))),
-                      Text('Chọn để phân quyền',
-                          style: TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A))),
-                    ],
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.badge,
+                        color: HrmPageChrome.primaryNavy, size: 20),
                   ),
-                ),
-                IconButton(
-                  onPressed: _showAddRoleDialog,
-                  icon: const Icon(Icons.add_circle, color: Color(0xFF0F2340)),
-                  tooltip: 'Thêm chức danh',
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Chức danh',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: Color(0xFF18181B))),
+                        Text('Chọn để phân quyền',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF71717A))),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _showAddRoleDialog,
+                    icon: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
+                    tooltip: 'Thêm chức danh',
+                  ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1367,8 +1884,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     }
 
     // Step 2: Show permissions for selected role
-    final permissions = List<Map<String, dynamic>>.from(
-        _selectedRolePermissions!['permissions'] ?? []);
+    final visible = _visiblePermissions();
     return Column(
       children: [
         // Header with back and role info
@@ -1377,14 +1893,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           color: Colors.white,
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => setState(() {
-                  _selectedRoleName = null;
-                  _selectedRolePermissions = null;
-                }),
-              ),
-              const SizedBox(width: 4),
+              if (!HrmPageChrome.isEmbedded)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+                  onPressed: () {
+                    setState(() {
+                      _selectedRoleName = null;
+                      _selectedRolePermissions = null;
+                    });
+                    _updateEmbeddedBack();
+                  },
+                ),
+              if (!HrmPageChrome.isEmbedded) const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _selectedRolePermissions!['roleDisplayName'] ?? '',
@@ -1400,7 +1920,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 icon: const Icon(Icons.check_box, size: 16),
                 label: const Text('Tất cả', style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1E3A5F),
+                  foregroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
@@ -1416,18 +1936,41 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             ],
           ),
         ),
-        const Divider(height: 24),
-        // Permissions list as cards
         Expanded(
           child: _isLoadingPermissions
               ? const LoadingWidget()
-              : ListView.separated(
+              : ListView(
                   padding: const EdgeInsets.all(12),
-                  itemCount: permissions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final perm = permissions[index];
-                    final modKey = perm['module'] as String?;
+                  children: [
+                    _buildGroupFilterBar(),
+                    for (final gid in [
+                      ...PermissionRoleCatalog.groups.map((g) => g.id),
+                      'other',
+                    ]) ...[
+                      if (visible.any((p) =>
+                          (PermissionRoleCatalog.groupIdForModule(
+                                  p['module'] as String?) ??
+                              'other') ==
+                          gid)) ...[
+                        _buildGroupSectionHeader(
+                          gid,
+                          visible
+                              .where((p) =>
+                                  (PermissionRoleCatalog.groupIdForModule(
+                                          p['module'] as String?) ??
+                                      'other') ==
+                                  gid)
+                              .toList(),
+                        ),
+                        ...visible
+                            .where((p) =>
+                                (PermissionRoleCatalog.groupIdForModule(
+                                        p['module'] as String?) ??
+                                    'other') ==
+                                gid)
+                            .map((perm) {
+                          final modKey = perm['module'] as String?;
+                          final index = _permissionIndex(modKey ?? '');
                     // allChecked: chỉ tính các quyền module thực sự hỗ trợ
                     final supportedPerms = [
                       'canView',
@@ -1439,88 +1982,121 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     ].where((p) => _moduleSupports(modKey, p));
                     final allChecked = supportedPerms.isNotEmpty &&
                         supportedPerms.every((p) => perm[p] == true);
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: _getModuleColor(perm['module'])
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(_getModuleIcon(perm['module']),
-                                    size: 16,
-                                    color: _getModuleColor(perm['module'])),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: const Color(0xFFE4E4E7)),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  perm['moduleDisplayName'] ?? perm['module'],
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14),
-                                ),
-                              ),
-                              // Toggle all
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(allChecked ? 'Toàn quyền' : '',
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF71717A))),
-                                  Checkbox(
-                                    value: allChecked,
-                                    onChanged: (value) => _toggleAllForModule(
-                                        index, value ?? false),
-                                    activeColor: const Color(0xFF0F2340),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: _getModuleColor(perm['module'])
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Icon(
+                                            _getModuleIcon(perm['module']),
+                                            size: 16,
+                                            color: _getModuleColor(
+                                                perm['module'])),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          perm['moduleDisplayName'] ??
+                                              perm['module'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14),
+                                        ),
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(allChecked ? 'Toàn quyền' : '',
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF71717A))),
+                                          Checkbox(
+                                            value: allChecked,
+                                            onChanged: (value) =>
+                                                _toggleAllForModule(
+                                                    index, value ?? false),
+                                            activeColor:
+                                                HrmPageChrome.primaryNavy,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (_moduleSupports(
+                                          perm['module'], 'canView'))
+                                        _mobilePermChip('Xem', index, 'canView',
+                                            perm['canView'] ?? false),
+                                      if (_moduleSupports(
+                                          perm['module'], 'canCreate'))
+                                        _mobilePermChip(
+                                            'Thêm',
+                                            index,
+                                            'canCreate',
+                                            perm['canCreate'] ?? false),
+                                      if (_moduleSupports(
+                                          perm['module'], 'canEdit'))
+                                        _mobilePermChip('Sửa', index, 'canEdit',
+                                            perm['canEdit'] ?? false),
+                                      if (_moduleSupports(
+                                          perm['module'], 'canDelete'))
+                                        _mobilePermChip(
+                                            'Xóa',
+                                            index,
+                                            'canDelete',
+                                            perm['canDelete'] ?? false),
+                                      if (_moduleSupports(
+                                          perm['module'], 'canExport'))
+                                        _mobilePermChip(
+                                            'Xuất',
+                                            index,
+                                            'canExport',
+                                            perm['canExport'] ?? false),
+                                      if (_moduleSupports(
+                                          perm['module'], 'canApprove'))
+                                        _mobilePermChip(
+                                            'Duyệt',
+                                            index,
+                                            'canApprove',
+                                            perm['canApprove'] ?? false),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: [
-                              if (_moduleSupports(perm['module'], 'canView'))
-                                _mobilePermChip('Xem', index, 'canView',
-                                    perm['canView'] ?? false),
-                              if (_moduleSupports(perm['module'], 'canCreate'))
-                                _mobilePermChip('Thêm', index, 'canCreate',
-                                    perm['canCreate'] ?? false),
-                              if (_moduleSupports(perm['module'], 'canEdit'))
-                                _mobilePermChip('Sửa', index, 'canEdit',
-                                    perm['canEdit'] ?? false),
-                              if (_moduleSupports(perm['module'], 'canDelete'))
-                                _mobilePermChip('Xóa', index, 'canDelete',
-                                    perm['canDelete'] ?? false),
-                              if (_moduleSupports(perm['module'], 'canExport'))
-                                _mobilePermChip('Xuất', index, 'canExport',
-                                    perm['canExport'] ?? false),
-                              if (_moduleSupports(perm['module'], 'canApprove'))
-                                _mobilePermChip('Duyệt', index, 'canApprove',
-                                    perm['canApprove'] ?? false),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ],
                 ),
         ),
       ],
@@ -1586,11 +2162,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isSelected
-            ? const Color(0xFF0F2340).withValues(alpha: 0.1)
+            ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isSelected ? const Color(0xFF0F2340) : Colors.transparent,
+          color: isSelected ? HrmPageChrome.primaryNavy : Colors.transparent,
         ),
       ),
       child: ListTile(
@@ -1613,7 +2189,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color:
-                isSelected ? const Color(0xFF0F2340) : const Color(0xFF18181B),
+                isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF18181B),
           ),
         ),
         subtitle: Text(
@@ -1625,7 +2201,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           children: [
             if (isSelected)
               const Icon(Icons.check_circle,
-                  color: Color(0xFF0F2340), size: 20),
+                  color: HrmPageChrome.primaryNavy, size: 20),
             if (canDelete)
               IconButton(
                 onPressed: () => _deleteRole(role['roleName']),
@@ -1642,13 +2218,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Widget _buildPermissionsTable() {
-    final permissions = List<Map<String, dynamic>>.from(
-        _selectedRolePermissions!['permissions'] ?? []);
-
-    return Column(
-      children: [
-        // Header with role info
-        Container(
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -1688,7 +2261,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       ),
                     ),
                     Text(
-                      'Tick vào ô để cấp/bỏ quyền. Thay đổi sẽ được lưu khi bấm "Lưu thay đổi"',
+                      'Chọn từng chức năng theo nhóm — lưu khi bấm "Lưu thay đổi"',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[600],
@@ -1708,8 +2281,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       icon: const Icon(Icons.check_box, size: 18),
                       label: const Text('Chọn tất cả'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        foregroundColor: HrmPageChrome.primaryNavy,
+                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                       ),
@@ -1731,10 +2304,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             ],
           ),
         ),
-        // Permissions table
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+        ),
+        SliverToBoxAdapter(child: _buildGroupFilterBar()),
+        SliverPadding(
+          padding: const EdgeInsets.all(20),
+          sliver: SliverToBoxAdapter(
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1743,7 +2317,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               ),
               child: Column(
                 children: [
-                  // Table header
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -1756,11 +2329,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 200,
                           child: Text(
-                            'Chức năng',
-                            style: TextStyle(
+                            '${_visiblePermissions().length} chức năng',
+                            style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF52525B)),
                           ),
@@ -1781,152 +2354,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       ],
                     ),
                   ),
-                  // Table rows - paginated
-                  Builder(builder: (_) {
-                    final totalPages =
-                        (permissions.length / _permPageSize).ceil();
-                    final safePage =
-                        _permPage.clamp(1, totalPages == 0 ? 1 : totalPages);
-                    final startIdx = (safePage - 1) * _permPageSize;
-                    final endIdx =
-                        (startIdx + _permPageSize).clamp(0, permissions.length);
-                    final pagePerms = permissions.sublist(startIdx, endIdx);
-                    return Column(children: [
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: pagePerms.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 24, color: Color(0xFFE4E4E7)),
-                        itemBuilder: (context, index) {
-                          final globalIndex = startIdx + index;
-                          final perm = pagePerms[index];
-                          final modKey = perm['module'] as String?;
-                          final supportedDesktop = [
-                            'canView',
-                            'canCreate',
-                            'canEdit',
-                            'canDelete',
-                            'canExport',
-                            'canApprove'
-                          ].where((p) => _moduleSupports(modKey, p));
-                          final allChecked = supportedDesktop.isNotEmpty &&
-                              supportedDesktop.every((p) => perm[p] == true);
-
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            color: index % 2 == 0
-                                ? Colors.white
-                                : const Color(0xFFFAFAFA),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 200,
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: _getModuleColor(perm['module'])
-                                              .withValues(alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
-                                        child: Icon(
-                                          _getModuleIcon(perm['module']),
-                                          size: 16,
-                                          color:
-                                              _getModuleColor(perm['module']),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          perm['moduleDisplayName'] ??
-                                              perm['module'],
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w500),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                _buildPermissionCheckbox(globalIndex, 'canView',
-                                    perm['canView'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canView')),
-                                _buildPermissionCheckbox(globalIndex,
-                                    'canCreate', perm['canCreate'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canCreate')),
-                                _buildPermissionCheckbox(globalIndex, 'canEdit',
-                                    perm['canEdit'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canEdit')),
-                                _buildPermissionCheckbox(globalIndex,
-                                    'canDelete', perm['canDelete'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canDelete')),
-                                _buildPermissionCheckbox(globalIndex,
-                                    'canExport', perm['canExport'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canExport')),
-                                _buildPermissionCheckbox(globalIndex,
-                                    'canApprove', perm['canApprove'] ?? false,
-                                    supported:
-                                        _moduleSupports(modKey, 'canApprove')),
-                                SizedBox(
-                                  width: 90,
-                                  child: Center(
-                                    child: Checkbox(
-                                      value: allChecked,
-                                      onChanged: (value) => _toggleAllForModule(
-                                          globalIndex, value ?? false),
-                                      activeColor: const Color(0xFF0F2340),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      if (totalPages > 1)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                  icon: const Icon(Icons.first_page),
-                                  onPressed: safePage > 1
-                                      ? () => setState(() => _permPage = 1)
-                                      : null),
-                              IconButton(
-                                  icon: const Icon(Icons.chevron_left),
-                                  onPressed: safePage > 1
-                                      ? () => setState(() => _permPage--)
-                                      : null),
-                              Text(
-                                  'Trang $safePage / $totalPages (${permissions.length} dòng)',
-                                  style: const TextStyle(fontSize: 13)),
-                              IconButton(
-                                  icon: const Icon(Icons.chevron_right),
-                                  onPressed: safePage < totalPages
-                                      ? () => setState(() => _permPage++)
-                                      : null),
-                              IconButton(
-                                  icon: const Icon(Icons.last_page),
-                                  onPressed: safePage < totalPages
-                                      ? () =>
-                                          setState(() => _permPage = totalPages)
-                                      : null),
-                            ],
-                          ),
-                        ),
-                    ]);
-                  }),
+                  _buildGroupedPermissionSections(),
                 ],
               ),
             ),
@@ -1992,13 +2420,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'Director':
         return const Color(0xFFD97706);
       case 'Accountant':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'DepartmentHead':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Manager':
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       case 'Employee':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'User':
         return const Color(0xFF71717A);
       default:
@@ -2029,17 +2457,26 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   Color _getModuleColor(String? module) {
     switch (module) {
+      case 'DashboardAttendanceOverview':
+      case 'DashboardHrInsights':
+      case 'DashboardTodaySchedule':
+      case 'DashboardRealtimeAttendance':
+      case 'DashboardAbsent':
+      case 'DashboardLateEarly':
+      case 'DashboardKpiPanel':
+      case 'DashboardInternalNews':
+        return const Color(0xFF0284C7);
       case 'Dashboard':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Employee':
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       case 'Attendance':
         return const Color(0xFFF59E0B);
       case 'Leave':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Salary':
       case 'Payslip':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'Device':
         return const Color(0xFFEC4899);
       case 'Report':
@@ -2053,6 +2490,22 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   IconData _getModuleIcon(String? module) {
     switch (module) {
+      case 'DashboardAttendanceOverview':
+        return Icons.pie_chart_outline;
+      case 'DashboardHrInsights':
+        return Icons.insights_outlined;
+      case 'DashboardTodaySchedule':
+        return Icons.calendar_today_outlined;
+      case 'DashboardRealtimeAttendance':
+        return Icons.sensors;
+      case 'DashboardAbsent':
+        return Icons.person_off_outlined;
+      case 'DashboardLateEarly':
+        return Icons.schedule_send_outlined;
+      case 'DashboardKpiPanel':
+        return Icons.track_changes;
+      case 'DashboardInternalNews':
+        return Icons.newspaper_outlined;
       case 'Dashboard':
         return Icons.dashboard;
       case 'Employee':
@@ -2099,15 +2552,15 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   Color _getPermissionColor(String permissionType) {
     switch (permissionType) {
       case 'canView':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'canCreate':
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case 'canEdit':
         return const Color(0xFFF59E0B);
       case 'canDelete':
         return const Color(0xFFEF4444);
       case 'canExport':
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       case 'canApprove':
         return const Color(0xFFEC4899);
       default:

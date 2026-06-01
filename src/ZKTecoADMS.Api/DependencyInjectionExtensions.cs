@@ -3,6 +3,7 @@ using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Api.Middlewares;
+using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using HealthChecks.UI.Client;
@@ -20,6 +21,7 @@ public static class DependencyInjectionExtensions
     public static IServiceCollection AddApi(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSettings(configuration);
+        services.AddScoped<SystemAdminAgentScopeFilter>();
         services.AddControllers()
             .AddJsonOptions(options =>
             {
@@ -139,8 +141,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<INotificationChannelProvider, ZKTecoADMS.Infrastructure.Services.Channels.PushChannelProvider>();
         services.AddScoped<IMarketingService, MarketingService>();
         
-        // Register Gemini AI service
-        services.AddSingleton<IGeminiAiService, GeminiAiService>();
+        // Gemini AI: per-store config from AppSettings (scoped per request)
+        services.AddScoped<TenantScopedGeminiAiService>();
+        services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
         
         // Register DeepSeek AI service
         services.AddSingleton<IDeepSeekAiService, DeepSeekAiService>();
@@ -153,12 +156,14 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<KpiAutoSyncBackgroundService>();
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
+        services.AddHostedService<RawAttendanceCleanupBackgroundService>();
         services.AddHostedService<FieldDataCleanupBackgroundService>();
 
         // Phase 2 jobs
         services.AddHostedService<ScheduledAnnouncementBackgroundService>();
         services.AddHostedService<RenewalReminderBackgroundService>();
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
+        services.AddHostedService<BirthdayNotifierBackgroundService>();
         
         services.AddSwaggerGen(config =>
         {
@@ -197,27 +202,27 @@ public static class DependencyInjectionExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            // Global fixed window: 200 requests per 10 seconds per IP
+            // Global fixed window: 1000 requests per 10 seconds per IP
             options.AddPolicy("fixed", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 200,
+                        PermitLimit = 1000,
                         Window = TimeSpan.FromSeconds(10),
-                        QueueLimit = 10,
+                        QueueLimit = 50,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
-            // Per-user sliding window: 100 requests per minute
+            // Per-user sliding window: 1000 requests per minute
             options.AddPolicy("per-user", httpContext =>
                 RateLimitPartition.GetSlidingWindowLimiter(
                     partitionKey: httpContext.User?.Identity?.Name ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 100,
+                        PermitLimit = 1000,
                         Window = TimeSpan.FromMinutes(1),
                         SegmentsPerWindow = 6,
-                        QueueLimit = 5,
+                        QueueLimit = 50,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
             // Login brute-force protection: 20 attempts per minute per IP
@@ -240,16 +245,16 @@ public static class DependencyInjectionExtensions
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));
-            // Device endpoints: 100 requests per 10 seconds per user (supports burst at shift change)
+            // Device endpoints: 500 requests per 10 seconds per user (supports burst at shift change)
             options.AddPolicy("device", httpContext =>
                 RateLimitPartition.GetSlidingWindowLimiter(
                     partitionKey: httpContext.User?.Identity?.Name ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 100,
+                        PermitLimit = 500,
                         Window = TimeSpan.FromSeconds(10),
                         SegmentsPerWindow = 5,
-                        QueueLimit = 10,
+                        QueueLimit = 50,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
         });
@@ -330,6 +335,7 @@ public static class DependencyInjectionExtensions
         app.UseResponseCompression();
         app.UseCors("corsPolicy");
         app.UseRateLimiter();
+        app.UseDefaultFiles();
         app.UseStaticFiles();
         // Enable WebSocket middleware (required for SignalR WebSocket transport in Docker/cloud)
         app.UseWebSockets();

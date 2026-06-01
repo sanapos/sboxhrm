@@ -1,4 +1,9 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
+import '../utils/attendance_correction_privilege.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import '../models/hrm.dart';
 import '../services/api_service.dart';
@@ -6,6 +11,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/attendance_correction_reason_field.dart';
 
 class AttendanceCorrectionsScreen extends StatefulWidget {
   final String? highlightId;
@@ -216,14 +222,18 @@ class _AttendanceCorrectionsScreenState
                   ),
                   const SizedBox(height: 16),
                 ],
-                TextField(
+                AttendanceCorrectionReasonField(
                   controller: reasonController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Lý do *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.note),
-                  ),
+                  kind: reasonKindFromCorrectionAction(selectedAction),
+                  date: selectedDate,
+                  timeText: newCheckIn != null
+                      ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
+                      : (newCheckOut != null
+                          ? '${newCheckOut!.hour.toString().padLeft(2, '0')}:${newCheckOut!.minute.toString().padLeft(2, '0')}'
+                          : null),
+                  punchLabel: newCheckIn != null
+                      ? 'Vào'
+                      : (newCheckOut != null ? 'Ra' : null),
                 ),
               ],
             ),
@@ -244,10 +254,21 @@ class _AttendanceCorrectionsScreenState
                 reason: reasonController.text.trim(),
               );
               if (result['isSuccess'] == true) {
-                if (context.mounted) Navigator.pop(context);
+                if (!context.mounted) return;
+                final auth = context.read<AuthProvider>();
+                final perm = context.read<PermissionProvider>();
+                final expectedDirect = canDirectAttendanceCorrection(
+                  role: auth.user?.role,
+                  allowManualSetting: _allowManualCorrection,
+                  permissions: perm,
+                );
+                Navigator.pop(context);
                 appNotification.showSuccess(
                     title: 'Thành công',
-                    message: 'Đã gửi yêu cầu sửa chấm công');
+                    message: attendanceCorrectionSuccessMessage(
+                      result,
+                      expectedDirect: expectedDirect,
+                    ));
                 _loadData();
               } else {
                 appNotification.showError(
@@ -466,7 +487,8 @@ class _AttendanceCorrectionsScreenState
                     '${request.newCheckIn ?? '--:--'} / ${request.newCheckOut ?? '--:--'}'),
               ],
               _detailRow('Ngày tạo',
-                  DateFormat('dd/MM/yyyy HH:mm').format(request.createdAt)),
+                  DateFormat('dd/MM/yyyy HH:mm')
+                      .format(request.createdAt.toLocal())),
 
               // Multi-level approval progress
               if (request.totalApprovalLevels > 1 ||

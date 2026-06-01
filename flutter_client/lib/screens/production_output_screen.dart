@@ -1,5 +1,6 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as xl;
@@ -7,6 +8,7 @@ import '../utils/file_saver.dart' as file_saver;
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 
@@ -44,8 +46,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   final int _pageSize = 50;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -161,6 +161,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     final isMobile = Responsive.isMobile(context);
     const primary = Color(0xFF059669);
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       floatingActionButton: isMobile &&
               Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('Production')
@@ -238,42 +239,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     // Filter toggle (mobile)
                     if (isMobile) ...[
                       GestureDetector(
-                        onTap: () => setState(
-                            () => _showMobileFilters = !_showMobileFilters),
-                        child: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(
-                                alpha: _showMobileFilters ? 0.25 : 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Stack(
-                            children: [
-                              Icon(
-                                _showMobileFilters
-                                    ? Icons.filter_alt
-                                    : Icons.filter_alt_outlined,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              if (_hasActiveFilters)
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(
-                                        color: Colors.orangeAccent,
-                                        shape: BoxShape.circle),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
                         onTap: () {
                           _showMobileImportMenu(context);
                         },
@@ -321,7 +286,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       if (Provider.of<PermissionProvider>(context,
                               listen: false)
                           .canCreate('Production'))
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: () {
                             if (_items.isEmpty) {
                               NotificationOverlayManager().showError(
@@ -350,152 +315,60 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             ),
           ),
 
-          // ═══════ FILTERS (collapsible on mobile) ═══════
-          if (!isMobile || _showMobileFilters)
-            Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  _buildDateFilter('Từ ngày', _fromDate, (d) {
-                    setState(() => _fromDate = d);
-                    _reloadCurrentTab();
-                  }),
-                  _buildDateFilter('Đến ngày', _toDate, (d) {
-                    setState(() => _toDate = d);
-                    _reloadCurrentTab();
-                  }),
-                  _buildDropdown(
-                    'Nhân viên',
-                    _filterEmployeeId,
-                    (_filterBranchId != null
-                            ? _employees
-                                .where((e) =>
-                                    e['branchId']?.toString() ==
-                                    _filterBranchId)
-                                .toList()
-                            : _employees)
-                        .map((e) {
-                      final name =
-                          '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
-                              .trim();
-                      return DropdownMenuItem(
-                          value: e['id']?.toString(), child: Text(name));
-                    }).toList(),
-                    (v) {
-                      setState(() => _filterEmployeeId = v);
-                      _reloadCurrentTab();
-                    },
-                  ),
-                  _buildDropdown(
-                    'Nhóm SP',
-                    _filterGroupId,
-                    _groups
-                        .map((g) => DropdownMenuItem(
-                            value: g['id']?.toString(),
-                            child: Text(g['name'] ?? '')))
-                        .toList(),
-                    (v) {
-                      setState(() => _filterGroupId = v);
-                      _reloadCurrentTab();
-                    },
-                  ),
-                  if (_branches.isNotEmpty)
-                    Container(
-                      height: 40,
-                      constraints:
-                          const BoxConstraints(minWidth: 150, maxWidth: 220),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.account_tree_outlined,
-                            size: 15, color: Color(0xFF6B7280)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String?>(
-                              value: _filterBranchId,
-                              isExpanded: true,
-                              isDense: true,
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFF111827)),
-                              icon: const Icon(Icons.keyboard_arrow_down,
-                                  size: 16, color: Color(0xFF9CA3AF)),
-                              items: [
-                                const DropdownMenuItem<String?>(
-                                    value: null,
-                                    child: Text('Chi nhánh',
-                                        style: TextStyle(fontSize: 12))),
-                                ..._branches.map((b) => DropdownMenuItem<
-                                        String?>(
-                                    value: b['id']?.toString(),
-                                    child: Text(b['name']?.toString() ?? '',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 12)))),
-                              ],
-                              onChanged: (v) {
-                                setState(() {
-                                  _filterBranchId = v;
-                                  if (v != null) _filterEmployeeId = null;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                        if (_filterBranchId != null)
-                          InkWell(
-                            onTap: () => setState(() => _filterBranchId = null),
-                            child: const Padding(
-                                padding: EdgeInsets.all(3),
-                                child: Icon(Icons.close,
-                                    size: 13, color: Color(0xFF9CA3AF))),
-                          ),
-                      ]),
-                    ),
-                ],
-              ),
-            ),
-
-          // ═══════ TABS ═══════
-          Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabCtl,
-              labelColor: primary,
-              unselectedLabelColor: const Color(0xFF71717A),
-              indicatorColor: primary,
-              tabs: const [
-                Tab(text: 'Chi tiết'),
-                Tab(text: 'Tổng hợp'),
-              ],
-            ),
-          ),
-
-          // ═══════ BODY ═══════
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabCtl,
+            child: isMobile
+                ? HrmMobileNestedTabLayout(
+                    headerSections: [_buildProductionFilters()],
+                    tabBar: TabBar(
+                      controller: _tabCtl,
+                      labelColor: primary,
+                      unselectedLabelColor: const Color(0xFF71717A),
+                      indicatorColor: primary,
+                      tabs: const [
+                        Tab(text: 'Chi tiết'),
+                        Tab(text: 'Tổng hợp'),
+                      ],
+                    ),
+                    tabBarView: TabBarView(
+                      controller: _tabCtl,
+                      children: [
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildEntriesTab(nestedTab: true),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : HrmScrollSlivers.nestedTabList(
+                                child: _buildSummaryTab()),
+                      ],
+                    ),
+                  )
+                : Column(
                     children: [
-                      _buildEntriesTab(),
-                      _buildSummaryTab(),
+                      _buildProductionFilters(),
+                      Container(
+                        color: Colors.white,
+                        child: TabBar(
+                          controller: _tabCtl,
+                          labelColor: primary,
+                          unselectedLabelColor: const Color(0xFF71717A),
+                          indicatorColor: primary,
+                          tabs: const [
+                            Tab(text: 'Chi tiết'),
+                            Tab(text: 'Tổng hợp'),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : TabBarView(
+                                controller: _tabCtl,
+                                children: [
+                                  _buildEntriesTab(),
+                                  _buildSummaryTab(),
+                                ],
+                              ),
+                      ),
                     ],
                   ),
           ),
@@ -552,6 +425,125 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     );
   }
 
+  Widget _buildProductionFilters() {
+    final isMobile = Responsive.isMobile(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          _buildDateFilter('Từ ngày', _fromDate, (d) {
+            setState(() => _fromDate = d);
+            _reloadCurrentTab();
+          }),
+          _buildDateFilter('Đến ngày', _toDate, (d) {
+            setState(() => _toDate = d);
+            _reloadCurrentTab();
+          }),
+          _buildDropdown(
+            'Nhân viên',
+            _filterEmployeeId,
+            (_filterBranchId != null
+                    ? _employees
+                        .where((e) =>
+                            e['branchId']?.toString() == _filterBranchId)
+                        .toList()
+                    : _employees)
+                .map((e) {
+              final name =
+                  '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+              return DropdownMenuItem(
+                  value: e['id']?.toString(), child: Text(name));
+            }).toList(),
+            (v) {
+              setState(() => _filterEmployeeId = v);
+              _reloadCurrentTab();
+            },
+          ),
+          _buildDropdown(
+            'Nhóm SP',
+            _filterGroupId,
+            _groups
+                .map((g) => DropdownMenuItem(
+                    value: g['id']?.toString(), child: Text(g['name'] ?? '')))
+                .toList(),
+            (v) {
+              setState(() => _filterGroupId = v);
+              _reloadCurrentTab();
+            },
+          ),
+          if (_branches.isNotEmpty)
+            Container(
+              height: 40,
+              constraints:
+                  const BoxConstraints(minWidth: 150, maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.account_tree_outlined,
+                    size: 15, color: Color(0xFF6B7280)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: _filterBranchId,
+                      isExpanded: true,
+                      isDense: true,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF111827)),
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          size: 16, color: Color(0xFF9CA3AF)),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Chi nhánh',
+                                style: TextStyle(fontSize: 12))),
+                        ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(b['name']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12)))),
+                      ],
+                      onChanged: (v) {
+                        setState(() {
+                          _filterBranchId = v;
+                          if (v != null) _filterEmployeeId = null;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                if (_filterBranchId != null)
+                  InkWell(
+                    onTap: () => setState(() => _filterBranchId = null),
+                    child: const Padding(
+                        padding: EdgeInsets.all(3),
+                        child: Icon(Icons.close,
+                            size: 13, color: Color(0xFF9CA3AF))),
+                  ),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _reloadCurrentTab() {
     if (_tabCtl.index == 0) {
       _page = 1;
@@ -562,10 +554,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   }
 
   // ═══════════ ENTRIES TAB ═══════════
-  Widget _buildEntriesTab() {
+  Widget _buildEntriesTab({bool nestedTab = false}) {
     final isMobile = Responsive.isMobile(context);
     if (_entries.isEmpty) {
-      return Center(
+      final empty = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -576,9 +568,48 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           ],
         ),
       );
+      if (nestedTab) {
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle:
+                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverFillRemaining(child: empty),
+          ],
+        );
+      }
+      return empty;
     }
 
     if (isMobile) {
+      if (nestedTab) {
+        return RefreshIndicator(
+          onRefresh: () async => _reloadCurrentTab(),
+          child: CustomScrollView(
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                    context),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(12),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => Padding(
+                      padding: EdgeInsets.only(bottom: i < _entries.length - 1 ? 8 : 0),
+                      child: _buildEntryCard(_entries[i], i),
+                    ),
+                    childCount: _entries.length,
+                  ),
+                ),
+              ),
+              if (_total > _pageSize)
+                SliverToBoxAdapter(child: _buildPagination()),
+            ],
+          ),
+        );
+      }
       return Column(
         children: [
           Expanded(
@@ -1676,7 +1707,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       if (bytes != null) {
         await file_saver.saveFileBytes(
             Uint8List.fromList(bytes),
-            'mau_san_luong.xlsx',
+            'mau_san_lương.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Thành công', message: 'Đã tải file mẫu');

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Leaves.CreateLeave;
 using ZKTecoADMS.Application.Commands.Leaves.UpdateLeave;
@@ -25,6 +26,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     // Employee endpoints - can manage their own leaves
     [HttpGet("my-leaves")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<LeaveDto>>>> GetMyLeaves()
     {
         var query = new GetMyLeavesQuery(RequiredStoreId, CurrentUserId, IsManager);
@@ -34,6 +36,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<LeaveDto>>> CreateLeave([FromBody] CreateLeaveRequest request)
     {
         var managerId = request.EmployeeUserId.HasValue ? CurrentUserId : (ManagerId ?? CurrentUserId);
@@ -59,6 +62,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelLeave(Guid id)
     {
         var command = new CancelLeaveCommand(RequiredStoreId, id, CurrentUserId, IsManager);
@@ -68,6 +72,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpDelete("{id}/force")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> ForceDeleteLeave(Guid id)
     {
         var command = new ForceDeleteLeaveCommand(RequiredStoreId, id, CurrentUserId, IsManager);
@@ -77,6 +82,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<LeaveDto>>> UpdateLeave(Guid id, [FromBody] UpdateLeaveRequest request)
     {
         var command = new UpdateLeaveCommand(
@@ -102,6 +108,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     // Manager endpoints - can view and approve/reject leaves
     [HttpGet("pending")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<LeaveDto>>>> GetPendingLeaves([FromQuery] PaginationRequest request)
     {
         List<Guid>? subordinateUserIds = null;
@@ -114,6 +121,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<LeaveDto>>>> GetAllLeaves(
         [FromQuery] PaginationRequest request,
         [FromQuery] DateTime? fromDate = null,
@@ -130,6 +138,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> ApproveLeave(Guid id)
     {
         var command = new ApproveLeaveCommand(RequiredStoreId, id, CurrentUserId);
@@ -139,6 +148,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost("{id}/reject")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> RejectLeave(Guid id, [FromBody] RejectLeaveRequest request)
     {
         var command = new RejectLeaveCommand(RequiredStoreId, id, CurrentUserId, request.RejectionReason);
@@ -148,6 +158,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost("{id}/undo-approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> UndoLeaveApproval(Guid id)
     {
         var command = new UndoLeaveApprovalCommand(RequiredStoreId, id, CurrentUserId);

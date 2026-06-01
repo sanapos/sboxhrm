@@ -1,9 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/circle_face_capture_widget.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class FaceRegistrationScreen extends StatefulWidget {
   final String? employeeId;
@@ -72,8 +73,8 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                  child: const Icon(Icons.person, color: Color(0xFF1E3A5F)),
+                  backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  child: const Icon(Icons.person, color: HrmPageChrome.primaryNavy),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -116,9 +117,9 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                       height: 36,
                       decoration: BoxDecoration(
                         color: isCompleted
-                            ? const Color(0xFF1E3A5F)
+                            ? HrmPageChrome.primaryNavy
                             : isCurrent
-                                ? const Color(0xFF1E3A5F)
+                                ? HrmPageChrome.primaryNavy
                                 : const Color(0xFFE4E4E7),
                         shape: BoxShape.circle,
                       ),
@@ -139,7 +140,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                         child: Container(
                           height: 3,
                           color: isCompleted
-                              ? const Color(0xFF1E3A5F)
+                              ? HrmPageChrome.primaryNavy
                               : const Color(0xFFE4E4E7),
                         ),
                       ),
@@ -173,13 +174,13 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.08),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.face_retouching_natural,
                 size: 80,
-                color: Color(0xFF1E3A5F),
+                color: HrmPageChrome.primaryNavy,
               ),
             ),
             const SizedBox(height: 32),
@@ -204,7 +205,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed: _openFaceCapture,
                 icon: const Icon(Icons.camera_alt),
                 label: const Text(
@@ -212,7 +213,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -247,12 +248,12 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.check_circle,
-              color: Color(0xFF1E3A5F),
+              color: HrmPageChrome.primaryNavy,
               size: 80,
             ),
           ),
@@ -286,7 +287,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF1E3A5F), width: 2),
+                  border: Border.all(color: HrmPageChrome.primaryNavy, width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -337,7 +338,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               const SizedBox(width: 16),
               Expanded(
                 flex: 2,
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: _isLoading ? null : _submitRegistration,
                   icon: _isLoading
                       ? const SizedBox(
@@ -351,7 +352,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                       : const Icon(Icons.check),
                   label: Text(_isLoading ? 'Đang xử lý...' : 'Đăng ký'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F),
+                    backgroundColor: HrmPageChrome.primaryNavy,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

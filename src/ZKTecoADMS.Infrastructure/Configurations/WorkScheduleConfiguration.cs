@@ -39,8 +39,8 @@ public class WorkScheduleConfiguration : IEntityTypeConfiguration<WorkSchedule>
         builder.HasIndex(ws => ws.ShiftId)
             .HasDatabaseName("IX_WorkSchedules_ShiftId");
 
-        builder.HasIndex(ws => new { ws.EmployeeUserId, ws.Date })
+        builder.HasIndex(ws => new { ws.EmployeeUserId, ws.Date, ws.ShiftId })
             .IsUnique()
-            .HasDatabaseName("IX_WorkSchedules_Employee_Date");
+            .HasDatabaseName("IX_WorkSchedules_Employee_Date_Shift");
     }
 }

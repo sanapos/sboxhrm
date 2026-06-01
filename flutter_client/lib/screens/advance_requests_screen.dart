@@ -10,6 +10,8 @@ import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +50,6 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   bool _sortAscending = false;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   // Pagination
@@ -334,10 +335,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text(_l10n.cancel)),
-            ElevatedButton(
+            FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               child: Text(_l10n.approveLabel,
                   style: const TextStyle(color: Colors.white)),
             ),
@@ -375,7 +375,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(_l10n.cancel)),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: Text(_l10n.reverseApproval),
@@ -522,7 +522,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             onPressed: () => Navigator.pop(ctx, false),
                             child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green),
@@ -546,7 +546,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: const Text('Hủy')),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 icon: const Icon(Icons.payment, color: Colors.white, size: 18),
@@ -610,7 +610,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _approveRequest(request, false, reason: reasonController.text);
@@ -638,7 +638,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(_l10n.cancel)),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child:
@@ -670,7 +670,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(_l10n.cancel)),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Hủy yêu cầu',
@@ -1101,7 +1101,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             onPressed: () => Navigator.pop(context),
                             child: Text(_l10n.cancel)),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: onSubmit,
                           icon: const Icon(Icons.send, size: 18),
                           label: const Text('Gửi yêu cầu'),
@@ -1124,7 +1124,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(_l10n.cancel)),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onSubmit,
                 icon: const Icon(Icons.send, size: 18),
                 label: const Text('Gửi yêu cầu'),
@@ -1153,13 +1153,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   Color _getStatusColor(AdvanceRequest request) {
     if (request.status == AdvanceRequestStatus.approved && request.isPaid) {
-      return const Color(0xFF0F2340);
+      return HrmPageChrome.primaryNavy;
     }
     switch (request.status) {
       case AdvanceRequestStatus.pending:
         return const Color(0xFFF59E0B);
       case AdvanceRequestStatus.approved:
-        return const Color(0xFF1E3A5F);
+        return HrmPageChrome.primaryNavy;
       case AdvanceRequestStatus.rejected:
         return const Color(0xFFEF4444);
       case AdvanceRequestStatus.cancelled:
@@ -1280,7 +1280,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       if (bytes != null) {
         await file_saver.saveFileBytes(
             bytes,
-            'ung_luong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
+            'ung_lương_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Thành công',
@@ -1353,7 +1353,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           if (request.paidDate != null)
             _detailRow(Icons.check_circle, 'Ngày TT',
                 DateFormat('dd/MM/yyyy HH:mm').format(request.paidDate!),
-                valueColor: const Color(0xFF0F2340)),
+                valueColor: HrmPageChrome.primaryNavy),
         ],
         // Approval timeline
         if (request.approvalRecords.isNotEmpty) ...[
@@ -1735,7 +1735,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           // ── Gradient Header ──
@@ -1787,43 +1787,6 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   ),
                 ),
                 if (isMobile) ...[
-                  GestureDetector(
-                    onTap: () => setState(
-                        () => _showMobileFilters = !_showMobileFilters),
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(
-                            alpha: _showMobileFilters ? 0.25 : 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Stack(
-                        children: [
-                          Icon(
-                              _showMobileFilters
-                                  ? Icons.filter_alt
-                                  : Icons.filter_alt_outlined,
-                              size: 18,
-                              color: Colors.white),
-                          if (_selectedStatus != null ||
-                              _selectedTimePreset != 'all' ||
-                              _searchQuery.isNotEmpty ||
-                              _selectedEmployee != null ||
-                              _selectedBranchId != null)
-                            Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(
-                                        color: Colors.orangeAccent,
-                                        shape: BoxShape.circle))),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canCreate('AdvanceRequests'))
                     GestureDetector(
@@ -1871,79 +1834,97 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           ),
           // ── Content ──
           Expanded(
-            child: Padding(
+            child: HrmResponsiveListLayout(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                children: [
-                  if (isMobile) ...[
-                    InkWell(
-                      onTap: () => setState(
-                          () => _showMobileSummary = !_showMobileSummary),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
+              headerSections: _advancePageHeaderSections(isMobile),
+              desktopBody: _isLoading
+                  ? const LoadingWidget(message: 'Đang tải dữ liệu...')
+                  : _filteredRequests.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.money_off,
+                          title: 'Không có yêu cầu',
+                          description: 'Chưa có yêu cầu ứng lương nào',
+                        )
+                      : Column(
                           children: [
-                            Icon(Icons.analytics_outlined,
-                                size: 16, color: Colors.blue.shade700),
-                            const SizedBox(width: 6),
-                            Text('Tổng quan',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Colors.blue.shade700)),
-                            const Spacer(),
-                            Icon(
-                                _showMobileSummary
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 20,
-                                color: Colors.blue.shade700),
+                            Expanded(child: _buildDataTable()),
+                            _buildPagination(),
                           ],
                         ),
-                      ),
-                    ),
-                    if (_showMobileSummary) ...[
-                      const SizedBox(height: 8),
-                      _buildStatsRow(),
-                    ],
-                  ] else ...[
-                    _buildStatsRow(),
-                  ],
-                  const SizedBox(height: 12),
-                  if (!isMobile || _showMobileFilters) ...[
-                    _buildFilters(),
-                    const SizedBox(height: 12),
-                  ],
-                  Expanded(
-                    child: _isLoading
-                        ? const LoadingWidget(message: 'Đang tải dữ liệu...')
-                        : _filteredRequests.isEmpty
-                            ? const EmptyState(
-                                icon: Icons.money_off,
-                                title: 'Không có yêu cầu',
-                                description: 'Chưa có yêu cầu ứng lương nào',
-                              )
-                            : Responsive.isMobile(context)
-                                ? _buildMobileCardList()
-                                : Column(
-                                    children: [
-                                      Expanded(child: _buildDataTable()),
-                                      _buildPagination(),
-                                    ],
-                                  ),
-                  ),
-                ],
-              ),
+              mobileSlivers: (_) => _advanceMobileSlivers(),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _advancePageHeaderSections(bool isMobile) => [
+        if (isMobile) ...[
+          InkWell(
+            onTap: () =>
+                setState(() => _showMobileSummary = !_showMobileSummary),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined,
+                      size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Text('Tổng quan',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.blue.shade700)),
+                  const Spacer(),
+                  Icon(
+                      _showMobileSummary
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                      color: Colors.blue.shade700),
+                ],
+              ),
+            ),
+          ),
+          if (_showMobileSummary) ...[
+            const SizedBox(height: 8),
+            _buildStatsRow(),
+          ],
+        ] else
+          _buildStatsRow(),
+        const SizedBox(height: 12),
+        _buildFilters(),
+        const SizedBox(height: 12),
+      ];
+
+  List<Widget> _advanceMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const LoadingWidget(message: 'Đang tải dữ liệu...')),
+      ];
+    }
+    if (_filteredRequests.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.money_off,
+            title: 'Không có yêu cầu',
+            description: 'Chưa có yêu cầu ứng lương nào',
+          ),
+        ),
+      ];
+    }
+    return HrmScrollSlivers.fromListViewBuilder(
+      itemCount: _filteredRequests.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, i) => _buildAdvanceRequestMobileCard(_filteredRequests[i]),
     );
   }
 
@@ -1980,7 +1961,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         count: _waitingPaymentList.length,
         amount: _sumAmount(_waitingPaymentList),
         icon: Icons.payment,
-        color: const Color(0xFF1E3A5F)
+        color: HrmPageChrome.primaryNavy
       ),
       (
         label: _l10n.rejected,
@@ -1994,7 +1975,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         count: _paidList.length,
         amount: _sumAmount(_paidList),
         icon: Icons.check_circle,
-        color: const Color(0xFF0F2340)
+        color: HrmPageChrome.primaryNavy
       ),
     ];
     return LayoutBuilder(builder: (context, constraints) {
@@ -2426,12 +2407,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   // ── Mobile Card List ──
-  Widget _buildMobileCardList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: _filteredRequests.length,
-      itemBuilder: (_, index) {
-        final r = _filteredRequests[index];
+  Widget _buildAdvanceRequestMobileCard(AdvanceRequest r) {
         final statusColor = _getStatusColor(r);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -2460,11 +2436,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         CircleAvatar(
                           radius: 18,
                           backgroundColor:
-                              const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           child: Text(
                             r.employeeName.isNotEmpty ? r.employeeName[0] : '?',
                             style: const TextStyle(
-                                color: Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14),
                           ),
@@ -2524,7 +2500,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F2340)),
+                              color: HrmPageChrome.primaryNavy),
                         ),
                         Text(
                           DateFormat('dd/MM/yyyy').format(r.requestDate),
@@ -2554,7 +2530,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   .canApprove('AdvanceRequests')) ...[
                             _miniBtn(
                                 Icons.check,
-                                const Color(0xFF1E3A5F),
+                                HrmPageChrome.primaryNavy,
                                 _l10n.approveLabel,
                                 () => _approveRequest(r, true)),
                             const SizedBox(width: 6),
@@ -2569,7 +2545,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             _miniBtn(Icons.undo, const Color(0xFFF59E0B),
                                 _l10n.reverseApproval, () => _undoApprove(r)),
                             const SizedBox(width: 6),
-                            _miniBtn(Icons.payment, const Color(0xFF1E3A5F),
+                            _miniBtn(Icons.payment, HrmPageChrome.primaryNavy,
                                 _l10n.payment, () => _payRequest(r)),
                           ],
                           if (Provider.of<PermissionProvider>(context,
@@ -2588,7 +2564,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             ),
           ),
         );
-      },
+  }
+
+  // ignore: unused_element
+  Widget _buildMobileCardList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: _filteredRequests.length,
+      itemBuilder: (_, index) =>
+          _buildAdvanceRequestMobileCard(_filteredRequests[index]),
     );
   }
 
@@ -2671,7 +2655,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A5F)))),
+                              color: HrmPageChrome.primaryNavy))),
                       DataCell(Text(r.employeeName,
                           style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w500))),
@@ -2680,7 +2664,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F2340)),
+                            color: HrmPageChrome.primaryNavy),
                       )),
                       DataCell(
                         r.forMonth != null && r.forYear != null
@@ -2755,7 +2739,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       children: [
         if (r.status == AdvanceRequestStatus.pending &&
             p.canApprove('AdvanceRequests')) ...[
-          _miniBtn(Icons.check, const Color(0xFF1E3A5F), _l10n.approveLabel,
+          _miniBtn(Icons.check, HrmPageChrome.primaryNavy, _l10n.approveLabel,
               () => _approveRequest(r, true)),
           const SizedBox(width: 4),
           _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject,
@@ -2767,7 +2751,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval,
               () => _undoApprove(r)),
           const SizedBox(width: 4),
-          _miniBtn(Icons.payment, const Color(0xFF1E3A5F), _l10n.payment,
+          _miniBtn(Icons.payment, HrmPageChrome.primaryNavy, _l10n.payment,
               () => _payRequest(r)),
         ],
         if (p.canDelete('AdvanceRequests')) ...[

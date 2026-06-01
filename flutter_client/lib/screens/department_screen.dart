@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -8,6 +8,8 @@ import '../models/department.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 
 class DepartmentScreen extends StatefulWidget {
@@ -34,7 +36,6 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   bool _isManager = false;
   String _searchQuery = '';
   bool _showInactive = false;
-  bool _showMobileFilters = false;
 
   // Pagination
   int _currentPage = 1;
@@ -189,37 +190,82 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   // MAIN BUILD
   // ═══════════════════════════════════════════════════════════════
 
+  bool _canCreateDepartment(BuildContext context) {
+    return Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Department');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canAddDept = _canCreateDepartment(context);
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
+      floatingActionButton: canAddDept
+          ? FloatingActionButton.extended(
+              onPressed: () => _showDepartmentDialog(),
+              icon: const Icon(Icons.add),
+              label: Text(_l10n.addNew),
+            )
+          : null,
       body: Column(
         children: [
-          _buildHeader(),
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          if (!isMobile) ...[
+            _buildHeader(),
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).primaryColor,
+                tabs: [
+                  Tab(icon: const Icon(Icons.list_alt), text: _l10n.list),
+                  Tab(
+                      icon: const Icon(Icons.account_tree),
+                      text: _l10n.orgChart),
+                ],
+              ),
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Theme.of(context).primaryColor,
-              tabs: [
-                Tab(icon: const Icon(Icons.list_alt), text: _l10n.list),
-                Tab(icon: const Icon(Icons.account_tree), text: _l10n.orgChart),
-              ],
-            ),
-          ),
+          ],
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildListView(),
-                      _buildOrgChartView(),
-                    ],
-                  ),
+            child: isMobile
+                ? HrmMobileNestedTabLayout(
+                    headerSections: [_buildHeader()],
+                    tabBar: TabBar(
+                      controller: _tabController,
+                      labelColor: Theme.of(context).primaryColor,
+                      tabs: [
+                        Tab(
+                            icon: const Icon(Icons.list_alt),
+                            text: _l10n.list),
+                        Tab(
+                            icon: const Icon(Icons.account_tree),
+                            text: _l10n.orgChart),
+                      ],
+                    ),
+                    tabBarView: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildListView(),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildOrgChartView(),
+                      ],
+                    ),
+                  )
+                : _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildListView(),
+                          _buildOrgChartView(),
+                        ],
+                      ),
           ),
         ],
       ),
@@ -269,7 +315,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   )
                 else
                 if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Department'))
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: () => _showDepartmentDialog(),
                   icon: const Icon(Icons.add),
                   label: Text(_l10n.addNew),
@@ -279,35 +325,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   ),
                 ),
               ],
-              if (Responsive.isMobile(context))
-                GestureDetector(
-                  onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                  child: Stack(
-                    children: [
-                      Icon(
-                        _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                        color: _showMobileFilters ? Colors.orange : Colors.grey[600],
-                        size: 22,
-                      ),
-                      if (_searchQuery.isNotEmpty || _showInactive)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
             ],
           ),
-          if (!Responsive.isMobile(context) || _showMobileFilters) ...[
+          ...[ 
           const SizedBox(height: 12),
           Row(
             children: [
@@ -343,7 +363,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               ),
             ],
           ),
-          ], // end _showMobileFilters
+          ],
         ],
       ),
     );
@@ -371,8 +391,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   ),
             ),
             const SizedBox(height: 8),
-            if (_isManager)
-              ElevatedButton.icon(
+            if (_canCreateDepartment(context))
+              FilledButton.icon(
                 onPressed: () => _showDepartmentDialog(),
                 icon: const Icon(Icons.add),
                 label: Text(_l10n.createFirstDept),
@@ -424,8 +444,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
 
   Widget _buildDeptDeckItem(Department dept) {
     final levelColors = [
-      const Color(0xFF0F2340), const Color(0xFF2E7D32), const Color(0xFFEF6C00),
-      const Color(0xFF6A1B9A), const Color(0xFF00838F),
+      HrmPageChrome.primaryNavy,
+      const Color(0xFF2E7D32),
+      const Color(0xFFEF6C00),
+      const Color(0xFF6A1B9A),
+      const Color(0xFF00838F),
     ];
     final levelColor = levelColors[(dept.level ?? 0) % levelColors.length];
 
@@ -482,7 +505,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
 
   Widget _buildHierarchicalCard(Department dept) {
     final levelColors = [
-      const Color(0xFF0F2340), // Blue 800
+      HrmPageChrome.primaryNavy,
       const Color(0xFF2E7D32), // Green 800
       const Color(0xFFEF6C00), // Orange 800
       const Color(0xFF6A1B9A), // Purple 800
@@ -650,7 +673,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         ),
                       ),
                       // Actions
-                      if (_isManager)
+                      if (Provider.of<PermissionProvider>(context, listen: false)
+                              .canEdit('Department') ||
+                          Provider.of<PermissionProvider>(context, listen: false)
+                              .canDelete('Department'))
                         PopupMenuButton<String>(
                           icon: Icon(Icons.more_vert,
                               size: 20, color: Colors.grey[400]),
@@ -755,7 +781,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 color: const Color(0xFFF0F4FF),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(Icons.account_tree_outlined, size: 56, color: Color(0xFF1E3A5F)),
+              child: const Icon(Icons.account_tree_outlined, size: 56, color: HrmPageChrome.primaryNavy),
             ),
             const SizedBox(height: 20),
             Text('Chưa có cấu trúc phòng ban',
@@ -763,6 +789,14 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             ),
             const SizedBox(height: 8),
             Text('Thêm phòng ban để tạo sơ đồ tổ chức', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+            if (_canCreateDepartment(context)) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => _showDepartmentDialog(),
+                icon: const Icon(Icons.add),
+                label: Text(_l10n.createFirstDept),
+              ),
+            ],
           ],
         ),
       );
@@ -844,7 +878,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       width: 300,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF153058), Color(0xFF1E3A5F)],
+          colors: [Color(0xFF153058), HrmPageChrome.primaryNavy],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1721,7 +1755,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: _statCard('Tổng cộng', '${dept.totalEmployeeCount ?? 0}', Icons.groups, const Color(0xFF1E3A5F)),
+                              child: _statCard('Tổng cộng', '${dept.totalEmployeeCount ?? 0}', Icons.groups, HrmPageChrome.primaryNavy),
                             ),
                           ],
                         ),
@@ -1862,7 +1896,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     ),
                     if (_isManager) ...[
                       const SizedBox(width: 8),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
                           _showDepartmentDialog(department: dept);
@@ -2252,7 +2286,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       children: [
                         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: Text(isEdit ? 'Cập nhật' : 'Tạo mới')),
+                        FilledButton(onPressed: onSave, child: Text(isEdit ? 'Cập nhật' : 'Tạo mới')),
                       ],
                     ),
                   ),

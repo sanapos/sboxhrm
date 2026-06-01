@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -17,6 +17,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/platform_geolocation.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class FieldCheckInScreen extends StatefulWidget {
   const FieldCheckInScreen({super.key});
@@ -834,10 +835,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12)),
                   child: const Icon(Icons.store,
-                      color: Color(0xFF1E3A5F), size: 28),
+                      color: HrmPageChrome.primaryNavy, size: 28),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -912,7 +913,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   icon: const Icon(Icons.login),
                   label: const Text('Check-in'),
                   style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
+                      backgroundColor: HrmPageChrome.primaryNavy,
                       padding: const EdgeInsets.symmetric(vertical: 14)),
                 ),
               ),
@@ -1135,9 +1136,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             itemBuilder: (_, i) => ActionChip(
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.06),
+              backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
               side: BorderSide(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.25)),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.25)),
               avatar: Icon(Icons.history, size: 14, color: Colors.grey[700]),
               label: Text(
                 items[i].length > 40
@@ -1249,7 +1250,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 // Photos (optional)
                 Row(children: [
                   const Icon(Icons.photo_camera,
-                      size: 16, color: Color(0xFF1E3A5F)),
+                      size: 16, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
                   Text('Ảnh (${selectedPhotos.length}/5) — tuỳ chọn',
                       style: const TextStyle(
@@ -1327,7 +1328,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   onTap: () => setDialogState(() => showMore = !showMore),
                   child: Row(children: [
                     Icon(showMore ? Icons.expand_less : Icons.expand_more,
-                        size: 20, color: const Color(0xFF1E3A5F)),
+                        size: 20, color: HrmPageChrome.primaryNavy),
                     const SizedBox(width: 4),
                     Text(
                       showMore
@@ -1335,7 +1336,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                           : 'Báo cáo chi tiết (tuỳ chọn)',
                       style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                           fontWeight: FontWeight.w600),
                     ),
                   ]),
@@ -1462,12 +1463,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         padding: const EdgeInsets.only(bottom: 10),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(icon, size: 14, color: const Color(0xFF1E3A5F)),
+            Icon(icon, size: 14, color: HrmPageChrome.primaryNavy),
             const SizedBox(width: 6),
             Text(label,
                 style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF1E3A5F),
+                    color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 4),
@@ -1509,8 +1510,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             const SizedBox(height: 14),
             Row(children: [
               CircleAvatar(
-                backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
-                child: const Icon(Icons.store, color: Color(0xFF1E3A5F)),
+                backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                child: const Icon(Icons.store, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1548,7 +1549,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 ]),
               if (visit.timeSpentMinutes != null && visit.timeSpentMinutes! > 0)
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.timer, size: 14, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.timer, size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 4),
                   Text('Thời gian: ${visit.timeSpentFormatted}',
                       style: const TextStyle(fontSize: 12)),
@@ -1583,12 +1584,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 const SizedBox(height: 4),
                 Row(children: [
                   const Icon(Icons.photo_library,
-                      size: 14, color: Color(0xFF1E3A5F)),
+                      size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
                   Text('Ảnh (${visit.photos.length})',
                       style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                           fontWeight: FontWeight.w600)),
                 ]),
                 const SizedBox(height: 6),
@@ -1711,7 +1712,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         children: [
           // Tab bar header
           Container(
-            color: const Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
             child: SafeArea(
               bottom: false,
               child: Column(children: [
@@ -1842,7 +1843,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                       .map((v) =>
                           LatLng(v.checkInLatitude!, v.checkInLongitude!))
                       .toList(),
-                  color: const Color(0xFF1E3A5F),
+                  color: HrmPageChrome.primaryNavy,
                   strokeWidth: 4,
                 ),
               ]),
@@ -1876,7 +1877,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: const Color(0xFF1E3A5F), width: 1),
+                                color: HrmPageChrome.primaryNavy, width: 1),
                             boxShadow: [
                               BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.15),
@@ -1890,7 +1891,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                             style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1E3A5F)),
+                                color: HrmPageChrome.primaryNavy),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -1898,7 +1899,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A5F),
+                            color: HrmPageChrome.primaryNavy,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
@@ -1976,7 +1977,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                               ? Colors.orange.shade700
                               : visited
                                   ? const Color(0xFF059669)
-                                  : const Color(0xFF1E3A5F),
+                                  : HrmPageChrome.primaryNavy,
                           width: 2,
                         ),
                         boxShadow: [
@@ -1994,7 +1995,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                                   : Icons.store,
                           color: activeVisit != null || visited
                               ? Colors.white
-                              : const Color(0xFF1E3A5F),
+                              : HrmPageChrome.primaryNavy,
                           size: 20,
                         ),
                       ),
@@ -2044,7 +2045,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             ),
           ),
 
-        // My location button
+        // Máy location button
         Positioned(
           right: 12,
           bottom: _myAssignments.isEmpty ? 100 : 320,
@@ -2056,7 +2057,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               }
             },
             backgroundColor: Colors.white,
-            child: const Icon(Icons.my_location, color: Color(0xFF1E3A5F)),
+            child: const Icon(Icons.my_location, color: HrmPageChrome.primaryNavy),
           ),
         ),
 
@@ -2069,7 +2070,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               heroTag: 'fit_all',
               onPressed: _fitAllMarkers,
               backgroundColor: Colors.white,
-              child: const Icon(Icons.zoom_out_map, color: Color(0xFF1E3A5F)),
+              child: const Icon(Icons.zoom_out_map, color: HrmPageChrome.primaryNavy),
             ),
           ),
 
@@ -2246,7 +2247,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                         label: const Text('Đăng ký',
                             style: TextStyle(fontSize: 12)),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A5F),
+                          backgroundColor: HrmPageChrome.primaryNavy,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           minimumSize: Size.zero,
                         ),
@@ -2290,7 +2291,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                        borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                     style: const TextStyle(fontSize: 13),
@@ -2392,13 +2393,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   Widget _buildJourneyStat(IconData icon, String value, String label) {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 16, color: const Color(0xFF1E3A5F)),
+        Icon(icon, size: 16, color: HrmPageChrome.primaryNavy),
         const SizedBox(width: 4),
         Text(value,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFF1E3A5F))),
+                color: HrmPageChrome.primaryNavy)),
       ]),
       Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
     ]);
@@ -2413,14 +2414,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F).withValues(alpha: 0.04),
+        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
         border:
-            Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.12)),
+            Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.checklist_rtl, size: 15, color: Color(0xFF1E3A5F)),
+          const Icon(Icons.checklist_rtl, size: 15, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 6),
           Text('Tiến độ hôm nay',
               style: TextStyle(
@@ -2460,7 +2461,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             valueColor: AlwaysStoppedAnimation(
               progress >= 1.0
                   ? const Color(0xFF22C55E)
-                  : const Color(0xFF1E3A5F),
+                  : HrmPageChrome.primaryNavy,
             ),
           ),
         ),
@@ -2508,14 +2509,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         border: Border.all(
             color: isActive
                 ? const Color(0xFF22C55E).withValues(alpha: 0.3)
-                : const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                : HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
       ),
       child: Row(children: [
         Container(
           width: 10,
           height: 10,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF22C55E) : const Color(0xFF1E3A5F),
+            color: isActive ? const Color(0xFF22C55E) : HrmPageChrome.primaryNavy,
             shape: BoxShape.circle,
             boxShadow: isActive
                 ? [
@@ -2541,7 +2542,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   fontSize: 13,
                   color: isActive
                       ? const Color(0xFF22C55E)
-                      : const Color(0xFF1E3A5F)),
+                      : HrmPageChrome.primaryNavy),
             ),
           ],
         )),
@@ -2622,7 +2623,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         trailing: activeVisit != null
             ? _actionButton('Check-out', Icons.logout, Colors.orange,
                 () => _doCheckOut(activeVisit))
-            : _actionButton('Check-in', Icons.login, const Color(0xFF1E3A5F),
+            : _actionButton('Check-in', Icons.login, HrmPageChrome.primaryNavy,
                 () => _doCheckIn(a)),
         onTap: () {
           if (a.location != null) {
@@ -2819,7 +2820,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                         style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A5F))),
+                            color: HrmPageChrome.primaryNavy)),
                     const SizedBox(height: 16),
 
                     // Name
@@ -2926,11 +2927,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                             color:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                       ),
                       child: Row(children: [
                         const Icon(Icons.gps_fixed,
-                            color: Color(0xFF1E3A5F), size: 20),
+                            color: HrmPageChrome.primaryNavy, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                             child: Text(
@@ -2940,7 +2941,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                           style: TextStyle(
                               fontSize: 12,
                               color: lat != null
-                                  ? const Color(0xFF1E3A5F)
+                                  ? HrmPageChrome.primaryNavy
                                   : Colors.red),
                         )),
                         if (lat == null)
@@ -3098,7 +3099,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                                   'name': nameCtl.text.trim(),
                                   'address': addressCtl.text.trim(),
                                   'contactName': contactNameCtl.text.trim(),
-                                  'contactPhone': contactPhoneCtl.text.trim(),
+                                  'contactphone': contactPhoneCtl.text.trim(),
                                   'contactEmail': contactEmailCtl.text.trim(),
                                   'note': noteCtl.text.trim(),
                                   'latitude': lat,
@@ -3133,7 +3134,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                         label:
                             Text(saving ? 'Đang lưu...' : 'Đăng ký điểm bán'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A5F),
+                          backgroundColor: HrmPageChrome.primaryNavy,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -3392,10 +3393,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1E3A5F) : Colors.white,
+          color: isActive ? HrmPageChrome.primaryNavy : Colors.white,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-              color: isActive ? const Color(0xFF1E3A5F) : Colors.grey.shade300),
+              color: isActive ? HrmPageChrome.primaryNavy : Colors.grey.shade300),
         ),
         child: Text(label,
             style: TextStyle(
@@ -3409,13 +3410,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
   Widget _buildHistoryStat(IconData icon, String value, String label) {
     return Expanded(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 16, color: const Color(0xFF1E3A5F)),
+        Icon(icon, size: 16, color: HrmPageChrome.primaryNavy),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: Color(0xFF1E3A5F))),
+                color: HrmPageChrome.primaryNavy)),
         Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
       ]),
     );
@@ -3453,10 +3454,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child:
-                  const Icon(Icons.route, color: Color(0xFF1E3A5F), size: 20),
+                  const Icon(Icons.route, color: HrmPageChrome.primaryNavy, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -3629,12 +3630,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4)),
                   child: Text(v.timeSpentFormatted,
                       style: const TextStyle(
                           fontSize: 10,
-                          color: Color(0xFF1E3A5F),
+                          color: HrmPageChrome.primaryNavy,
                           fontWeight: FontWeight.w600)),
                 ),
               ],
@@ -3716,7 +3717,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: (hasReport ? const Color(0xFF1E3A5F) : Colors.grey)
+                color: (hasReport ? HrmPageChrome.primaryNavy : Colors.grey)
                     .withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -3724,7 +3725,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 Icon(
                   hasReport ? Icons.description : Icons.description_outlined,
                   size: 13,
-                  color: hasReport ? const Color(0xFF1E3A5F) : Colors.grey[500],
+                  color: hasReport ? HrmPageChrome.primaryNavy : Colors.grey[500],
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -3735,7 +3736,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                     style: TextStyle(
                       fontSize: 11,
                       color: hasReport
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : Colors.grey[600],
                       fontWeight: hasReport ? FontWeight.w600 : FontWeight.w400,
                     ),
@@ -3780,7 +3781,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         child: _buildVisitActionBtn(
           icon: Icons.history,
           label: 'Lịch sử',
-          color: const Color(0xFF1E3A5F),
+          color: HrmPageChrome.primaryNavy,
           enabled: true,
           onTap: () => _showLocationHistory(v),
         ),
@@ -3910,7 +3911,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Row(children: [
-                  const Icon(Icons.history, size: 20, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.history, size: 20, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -4050,7 +4051,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         label = 'Đã xong';
         break;
       case 'completed':
-        color = const Color(0xFF1E3A5F);
+        color = HrmPageChrome.primaryNavy;
         label = 'Hoàn thành';
         break;
       case 'reviewed':
@@ -4076,7 +4077,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   // Color palette for employee routes
   static const _routeColors = [
-    Color(0xFF1E3A5F),
+    HrmPageChrome.primaryNavy,
     Color(0xFFE53E3E),
     Color(0xFF38A169),
     Color(0xFFDD6B20),
@@ -4094,7 +4095,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   // Department color palette
   static const _deptColors = [
-    Color(0xFF1E3A5F),
+    HrmPageChrome.primaryNavy,
     Color(0xFFE53E3E),
     Color(0xFF38A169),
     Color(0xFFDD6B20),
@@ -4164,7 +4165,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 tooltip: _showManagerMap ? 'Danh sách' : 'Bản đồ',
                 style: IconButton.styleFrom(
                   backgroundColor:
-                      const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                      HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 ),
               ),
               const SizedBox(width: 4),
@@ -4753,9 +4754,9 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                             style: const TextStyle(fontSize: 11),
                           ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E3A5F),
+                            foregroundColor: HrmPageChrome.primaryNavy,
                             side: const BorderSide(
-                                color: Color(0xFF1E3A5F), width: 0.8),
+                                color: HrmPageChrome.primaryNavy, width: 0.8),
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             visualDensity: VisualDensity.compact,
                             shape: RoundedRectangleBorder(
@@ -4874,7 +4875,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     layers.add(PolylineLayer(polylines: [
       Polyline(
         points: points.map((p) => LatLng(p.lat, p.lng)).toList(),
-        color: const Color(0xFF1E3A5F),
+        color: HrmPageChrome.primaryNavy,
         strokeWidth: 3.5,
       ),
     ]));
@@ -4990,13 +4991,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: const Color(0xFF1E3A5F), width: 0.5),
+              border: Border.all(color: HrmPageChrome.primaryNavy, width: 0.5),
             ),
             child: Text(
               DateFormat('HH:mm').format(p.time.toLocal()),
               style: const TextStyle(
                   fontSize: 8,
-                  color: Color(0xFF1E3A5F),
+                  color: HrmPageChrome.primaryNavy,
                   fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
@@ -5041,7 +5042,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         Row(
           children: [
             _buildStatCard('Lượt gặp', '$weeklyTotal', Icons.badge,
-                const Color(0xFF1E3A5F)),
+                HrmPageChrome.primaryNavy),
             const SizedBox(width: 6),
             _buildStatCard('Có ảnh', '$weeklyWithPhotos', Icons.photo_camera,
                 const Color(0xFF16A34A)),
@@ -5172,7 +5173,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+              borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
             ),
           ),
           style: const TextStyle(fontSize: 13),
@@ -5215,7 +5216,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             Icons.timer, Colors.orange),
         const SizedBox(width: 6),
         _buildStatCard('Km', journeyKm.toStringAsFixed(1), Icons.route,
-            const Color(0xFF1E3A5F)),
+            HrmPageChrome.primaryNavy),
       ].map((w) => Expanded(child: w)).toList(),
     );
   }
@@ -5256,10 +5257,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             Row(children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 child: Text((j.employeeName ?? '?')[0].toUpperCase(),
                     style: const TextStyle(
-                        color: Color(0xFF1E3A5F),
+                        color: HrmPageChrome.primaryNavy,
                         fontWeight: FontWeight.bold,
                         fontSize: 13)),
               ),
@@ -5286,7 +5287,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation(j.completionRate >= 1
                   ? const Color(0xFF22C55E)
-                  : const Color(0xFF1E3A5F)),
+                  : HrmPageChrome.primaryNavy),
             ),
           ]),
         ),
@@ -5328,7 +5329,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
-                color: Color(0xFF1E3A5F),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(children: [
@@ -5371,7 +5372,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                   PolylineLayer(polylines: [
                     Polyline(
                       points: points.map((p) => LatLng(p.lat, p.lng)).toList(),
-                      color: const Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       strokeWidth: 3,
                     ),
                   ]),
@@ -5510,7 +5511,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                                   shape: BoxShape.circle,
                                   color: p.isDwell
                                       ? Colors.orange
-                                      : const Color(0xFF1E3A5F),
+                                      : HrmPageChrome.primaryNavy,
                                 )),
                             if (i < points.length - 1)
                               Container(
@@ -5562,17 +5563,17 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F).withValues(alpha: 0.05),
+        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(children: [
-        Icon(icon, size: 18, color: const Color(0xFF1E3A5F)),
+        Icon(icon, size: 18, color: HrmPageChrome.primaryNavy),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: Color(0xFF1E3A5F))),
+                color: HrmPageChrome.primaryNavy)),
         Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
       ]),
     );

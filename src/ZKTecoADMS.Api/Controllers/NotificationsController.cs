@@ -1,7 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Commands.Notifications;
 using ZKTecoADMS.Application.Queries.Notifications;
 using ZKTecoADMS.Application.Constants;
@@ -16,11 +19,16 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILogger<NotificationsController> logger) : AuthenticatedControllerBase
+public class NotificationsController(
+    IMediator mediator,
+    ZKTecoDbContext db,
+    IHubContext<AttendanceHub> hubContext,
+    ILogger<NotificationsController> logger) : AuthenticatedControllerBase
 {
     private readonly ILogger<NotificationsController> _logger = logger;
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<NotificationDto>>>> GetUserNotifications(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -34,6 +42,7 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationSummaryDto>>> GetNotificationSummary()
     {
         var storeId = CurrentStoreId;
@@ -49,6 +58,7 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpGet("unread-count")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<int>>> GetUnreadCount()
     {
         var query = new GetUnreadCountQuery(RequiredStoreId, CurrentUserId);
@@ -58,6 +68,7 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> GetNotificationById(Guid id)
     {
         var query = new GetNotificationByIdQuery(RequiredStoreId, id);
@@ -67,6 +78,7 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> CreateNotification([FromBody] CreateNotificationDto request)
     {
         var command = new CreateNotificationCommand(
@@ -86,6 +98,7 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpPost("bulk")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<List<NotificationDto>>>> BulkCreateNotifications([FromBody] BulkCreateNotificationDto request)
     {
         var command = new BulkCreateNotificationsCommand(
@@ -103,38 +116,77 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 
     [HttpPost("{id}/read")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> MarkNotificationAsRead(Guid id)
     {
         var command = new MarkNotificationReadCommand(RequiredStoreId, id, CurrentUserId);
         var result = await mediator.Send(command);
+        if (result.IsSuccess)
+        {
+            // Notify other devices/tabs of this user so they can update the badge and
+            // greyed-out state immediately, instead of waiting for the next manual refresh.
+            await BroadcastToUserAsync("NotificationRead", new { id = id.ToString(), all = false });
+        }
         return Ok(result);
     }
 
     [HttpPost("read-all")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> MarkAllNotificationsAsRead()
     {
         var command = new MarkAllNotificationsReadCommand(RequiredStoreId, CurrentUserId);
         var result = await mediator.Send(command);
+        if (result.IsSuccess)
+        {
+            await BroadcastToUserAsync("NotificationRead", new { id = (string?)null, all = true });
+        }
         return Ok(result);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteNotification(Guid id)
     {
         var command = new DeleteNotificationCommand(RequiredStoreId, id, CurrentUserId);
         var result = await mediator.Send(command);
+        if (result.IsSuccess)
+        {
+            await BroadcastToUserAsync("NotificationDeleted", new { id = id.ToString(), all = false });
+        }
         return Ok(result);
     }
 
     [HttpDelete]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<int>>> DeleteAllNotifications([FromQuery] bool? isRead = null)
     {
         var command = new DeleteAllNotificationsCommand(RequiredStoreId, CurrentUserId, isRead);
         var result = await mediator.Send(command);
+        if (result.IsSuccess)
+        {
+            await BroadcastToUserAsync("NotificationDeleted", new { id = (string?)null, all = true, isRead });
+        }
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Push a sync event to every connection of the current user. Best-effort:
+    /// SignalR failures are logged but don't fail the HTTP response (the DB row
+    /// is already mutated and will surface on next manual reload).
+    /// </summary>
+    private async Task BroadcastToUserAsync(string eventName, object payload)
+    {
+        try
+        {
+            await hubContext.Clients.Group($"user_{CurrentUserId}").SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast {Event} to user {UserId}", eventName, CurrentUserId);
+        }
     }
 
     // ---- FCM Device Token registration ----
@@ -184,6 +236,16 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
             });
         }
 
+        // Gỡ app không gọi DELETE token — vô hiệu token cũ cùng user+platform, chỉ giữ token hiện tại.
+        var stale = await db.UserDeviceTokens
+            .Where(t => t.UserId == userId
+                        && t.Platform == request.Platform
+                        && t.Token != request.Token
+                        && !t.IsDisabled)
+            .ToListAsync();
+        foreach (var t in stale)
+            t.IsDisabled = true;
+
         await db.SaveChangesAsync();
         return Ok(AppResponse<bool>.Success(true));
     }
@@ -220,3 +282,4 @@ public class NotificationsController(IMediator mediator, ZKTecoDbContext db, ILo
 }
 
 public record DeviceTokenDebugRequest(string Message, string Platform, string? Ts);
+

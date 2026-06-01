@@ -99,7 +99,7 @@ public class ShiftSwapRequest : AuditableEntity<Guid>
     public virtual Store Store { get; set; } = null!;
     public virtual ApplicationUser RequesterUser { get; set; } = null!;
     public virtual ApplicationUser TargetUser { get; set; } = null!;
-    public virtual Shift RequesterShift { get; set; } = null!;
-    public virtual Shift TargetShift { get; set; } = null!;
+    public virtual ShiftTemplate RequesterShift { get; set; } = null!;
+    public virtual ShiftTemplate TargetShift { get; set; } = null!;
     public virtual ApplicationUser? ApprovedByManager { get; set; }
 }

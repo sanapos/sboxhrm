@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Meals.CreateMealMenu;
 using ZKTecoADMS.Application.Commands.Meals.CreateMealSession;
@@ -41,6 +42,7 @@ public class MealsController(
 
     [HttpGet("dishes")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealDishDto>>>> GetMealDishes()
     {
         var storeId = RequiredStoreId;
@@ -60,6 +62,7 @@ public class MealsController(
 
     [HttpPost("dishes")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<MealDishDto>>> CreateMealDish([FromBody] CreateMealDishRequest request)
     {
         var dish = new MealDish
@@ -84,6 +87,7 @@ public class MealsController(
 
     [HttpPut("dishes/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<MealDishDto>>> UpdateMealDish(Guid id, [FromBody] UpdateMealDishRequest request)
     {
         var dish = await mealDishRepository.GetByIdAsync(id);
@@ -106,6 +110,7 @@ public class MealsController(
 
     [HttpDelete("dishes/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealDish(Guid id)
     {
         var dish = await mealDishRepository.GetByIdAsync(id);
@@ -120,6 +125,7 @@ public class MealsController(
 
     [HttpGet("sessions")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealSessionDto>>>> GetMealSessions()
     {
         var query = new GetMealSessionsQuery(RequiredStoreId);
@@ -129,6 +135,7 @@ public class MealsController(
 
     [HttpPost("sessions")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<MealSessionDto>>> CreateMealSession([FromBody] CreateMealSessionRequest request)
     {
         var command = new CreateMealSessionCommand(
@@ -145,6 +152,7 @@ public class MealsController(
 
     [HttpPut("sessions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<MealSessionDto>>> UpdateMealSession(Guid id, [FromBody] UpdateMealSessionRequest request)
     {
         var command = new UpdateMealSessionCommand(
@@ -162,6 +170,7 @@ public class MealsController(
 
     [HttpDelete("sessions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealSession(Guid id)
     {
         var command = new DeleteMealSessionCommand(RequiredStoreId, id);
@@ -173,6 +182,7 @@ public class MealsController(
 
     [HttpGet("estimate")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<MealSummaryDto>>> GetMealEstimate([FromQuery] DateTime? date)
     {
         var query = new GetMealEstimateQuery(RequiredStoreId, date ?? DateTime.Today);
@@ -184,12 +194,15 @@ public class MealsController(
 
     [HttpGet("records")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<MealRecordDto>>>> GetMealRecords(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? mealSessionId,
+        [FromQuery] string? searchTerm,
         [FromQuery] PaginationRequest paginationRequest)
     {
-        var query = new GetMealRecordsQuery(RequiredStoreId, date ?? DateTime.Today, mealSessionId, paginationRequest);
+        var query = new GetMealRecordsQuery(
+            RequiredStoreId, date ?? DateTime.Today, mealSessionId, paginationRequest, searchTerm);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -198,12 +211,14 @@ public class MealsController(
 
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<EmployeeMealSummaryDto>>>> GetEmployeeMealSummary(
         [FromQuery] DateTime from,
         [FromQuery] DateTime to,
-        [FromQuery] Guid? employeeUserId)
+        [FromQuery] Guid? employeeUserId,
+        [FromQuery] Guid? branchId = null)
     {
-        var query = new GetEmployeeMealSummaryQuery(RequiredStoreId, from, to, employeeUserId);
+        var query = new GetEmployeeMealSummaryQuery(RequiredStoreId, from, to, employeeUserId, branchId);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -212,6 +227,7 @@ public class MealsController(
 
     [HttpGet("menu")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealMenuDto>>>> GetMealMenu(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? mealSessionId)
@@ -223,6 +239,7 @@ public class MealsController(
 
     [HttpGet("menu/weekly")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealMenuDto>>>> GetWeeklyMealMenu([FromQuery] DateTime? weekStartDate)
     {
         var startDate = weekStartDate ?? DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + 1);
@@ -233,6 +250,7 @@ public class MealsController(
 
     [HttpPost("menu")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<MealMenuDto>>> CreateMealMenu([FromBody] CreateMealMenuRequest request)
     {
         var command = new CreateMealMenuCommand(
@@ -247,6 +265,7 @@ public class MealsController(
 
     [HttpPut("menu/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<MealMenuDto>>> UpdateMealMenu(Guid id, [FromBody] UpdateMealMenuRequest request)
     {
         var command = new UpdateMealMenuCommand(
@@ -260,6 +279,7 @@ public class MealsController(
 
     [HttpDelete("menu/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealMenu(Guid id)
     {
         var command = new DeleteMealMenuCommand(RequiredStoreId, id);
@@ -274,6 +294,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("register")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> RegisterMeal([FromBody] MealRegistrationRequest request)
     {
         try
@@ -288,8 +309,8 @@ public class MealsController(
             if (session == null)
                 return Ok(AppResponse<object>.Error("Buổi ăn không tồn tại"));
 
-            // Check deadline: cannot register after session start time on same day
-            if (date == DateTime.UtcNow.Date && DateTime.UtcNow.TimeOfDay >= session.StartTime)
+            var nowLocal = DateTime.Now;
+            if (date == nowLocal.Date && nowLocal.TimeOfDay >= session.StartTime)
                 return Ok(AppResponse<object>.Error("Đã quá hạn đăng ký cho buổi này"));
 
             // Upsert
@@ -344,6 +365,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("register/batch")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> BatchRegisterMeal([FromBody] BatchMealRegistrationRequest request)
     {
         try
@@ -396,6 +418,7 @@ public class MealsController(
     /// </summary>
     [HttpGet("register/my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<object>>>> GetMyRegistrations(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate)
@@ -435,6 +458,7 @@ public class MealsController(
     /// </summary>
     [HttpGet("register/summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetRegistrationSummary(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? mealSessionId)
@@ -492,13 +516,14 @@ public class MealsController(
     /// </summary>
     [HttpPost("checkin/qr")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> QrMealCheckIn([FromBody] QrMealCheckInRequest request)
     {
         try
         {
             var storeId = RequiredStoreId;
             var userId = CurrentUserId;
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
 
             // Find matching active session by time or by explicit ID
             MealSession? session;
@@ -578,6 +603,7 @@ public class MealsController(
     /// </summary>
     [HttpGet("debt/summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealDebtSummaryDto>>>> GetDebtSummary(
         [FromQuery] string? period,
         [FromQuery] DateTime? from,
@@ -637,6 +663,7 @@ public class MealsController(
     /// </summary>
     [HttpGet("debt/history")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealDebtDto>>>> GetDebtHistory(
         [FromQuery] Guid? employeeUserId,
         [FromQuery] string? period)
@@ -681,6 +708,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("debt")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<MealDebtDto>>> CreateDebt([FromBody] CreateMealDebtRequest request)
     {
         try
@@ -729,6 +757,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("debt/batch-charge")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> BatchChargeMeals([FromBody] BatchChargeRequest request)
     {
         try
@@ -795,6 +824,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("records")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<MealRecordDto>>> CreateMealRecord([FromBody] CreateMealRecordRequest request)
     {
         try
@@ -805,12 +835,20 @@ public class MealsController(
             if (session == null)
                 return Ok(AppResponse<MealRecordDto>.Error("Buổi ăn không tồn tại"));
 
+            var recordDate = request.Date.Date;
+            var exists = await mealRecordRepository.ExistsAsync(
+                r => r.EmployeeUserId == request.EmployeeUserId
+                     && r.MealSessionId == request.MealSessionId
+                     && r.Date == recordDate);
+            if (exists)
+                return Ok(AppResponse<MealRecordDto>.Error("Nhân viên đã chấm cơm buổi này trong ngày"));
+
             var record = new MealRecord
             {
                 EmployeeUserId = request.EmployeeUserId,
                 MealSessionId = request.MealSessionId,
-                MealTime = request.MealTime ?? DateTime.UtcNow,
-                Date = request.Date.Date,
+                MealTime = request.MealTime ?? DateTime.Now,
+                Date = recordDate,
                 StoreId = storeId,
                 PIN = request.PIN,
             };
@@ -839,6 +877,7 @@ public class MealsController(
     /// </summary>
     [HttpPut("records/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<MealRecordDto>>> UpdateMealRecord(Guid id, [FromBody] UpdateMealRecordRequest request)
     {
         try
@@ -881,6 +920,7 @@ public class MealsController(
     /// </summary>
     [HttpDelete("records/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealRecord(Guid id)
     {
         try
@@ -905,6 +945,7 @@ public class MealsController(
     /// </summary>
     [HttpGet("registrations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MealRegistrationDto>>>> GetRegistrations(
         [FromQuery] DateTime? date,
         [FromQuery] Guid? mealSessionId)
@@ -945,6 +986,7 @@ public class MealsController(
     /// </summary>
     [HttpPost("registrations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<MealRegistrationDto>>> CreateRegistration([FromBody] ManagerMealRegistrationRequest request)
     {
         try
@@ -1003,6 +1045,7 @@ public class MealsController(
     /// </summary>
     [HttpDelete("registrations/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteRegistration(Guid id)
     {
         try

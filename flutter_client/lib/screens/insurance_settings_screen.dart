@@ -1,13 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class InsuranceSettingsScreen extends StatefulWidget {
   const InsuranceSettingsScreen({super.key});
 
@@ -17,6 +16,7 @@ class InsuranceSettingsScreen extends StatefulWidget {
 
 class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
   final ApiService _apiService = ApiService();
+  final _scrollController = ScrollController();
   bool _isLoading = true;
 
   // Lương cơ sở & Tối thiểu vùng
@@ -159,6 +159,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _baseSalaryController.dispose();
     _regionISalaryController.dispose();
     _regionIISalaryController.dispose();
@@ -176,66 +177,116 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth >= 1200;
-    final isMediumScreen = screenWidth >= 800 && screenWidth < 1200;
+  /// Desktop/web: xếp dọc khi màn hẹp hoặc thấp để tránh cắt nội dung dưới.
+  bool _useStackedCards(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.width < 1200 || size.height < 900;
+  }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text('Bảo hiểm xã hội', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis, maxLines: 1),
-        leading: Responsive.isMobile(context) ? null : IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => SettingsHubScreen.goBack(context),
+  Widget _buildSaveSettingsButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: FilledButton.icon(
+        onPressed: _saveSettings,
+        icon: const Icon(Icons.save, size: 20),
+        label: const Text(
+          'Lưu thiết lập bảo hiểm',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        actions: const [],
+        style: FilledButton.styleFrom(
+          backgroundColor: HrmPageChrome.primaryNavy,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
-      body: _isLoading
-          ? const LoadingWidget()
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+    );
+  }
+
+  Widget _buildPageContent(BuildContext context) {
+    final isWideScreen = !_useStackedCards(context);
+    final isMediumScreen = MediaQuery.sizeOf(context).width >= 800 &&
+        MediaQuery.sizeOf(context).width < 1200 &&
+        MediaQuery.sizeOf(context).height >= 900;
+
+    if (_isLoading) {
+      return const LoadingWidget();
+    }
+
+    final padH = Responsive.isMobile(context) ? 12.0 : 24.0;
+    final padTop = Responsive.isMobile(context) ? 12.0 : 16.0;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          interactive: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            primary: false,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              padH,
+              padTop,
+              padH,
+              32 + bottomInset,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight > 0
+                    ? constraints.maxHeight - padTop - 32
+                    : 0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF71717A).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  if (HrmPageChrome.isEmbedded) ...[
+                    _buildSaveSettingsButton(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (!HrmPageChrome.isEmbedded) ...[
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF71717A).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.settings,
+                              color: Color(0xFF71717A), size: 20),
                         ),
-                        child: const Icon(Icons.settings, color: Color(0xFF71717A), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Thiết lập Bảo hiểm xã hội',
-                              style: TextStyle(
-                                color: Color(0xFF1E3A5F),
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thiết lập Bảo hiểm xã hội',
+                                style: TextStyle(
+                                  color: HrmPageChrome.primaryNavy,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Cấu hình tỷ lệ đóng BHXH, BHYT, BHTN và phí công đoàn',
-                              style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
-                            ),
-                          ],
+                              Text(
+                                'Cấu hình tỷ lệ đóng BHXH, BHYT, BHTN và phí công đoàn',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: Color(0xFF71717A), fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Row 1: Lương cơ sở, BHXH, BHYT
                   if (isWideScreen)
@@ -315,27 +366,45 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                       ],
                     ),
 
-                  const SizedBox(height: 24),
-
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _saveSettings,
-                      icon: const Icon(Icons.save, size: 20),
-                      label: const Text('Lưu thiết lập bảo hiểm', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
+                  if (!HrmPageChrome.isEmbedded) ...[
+                    const SizedBox(height: 24),
+                    _buildSaveSettingsButton(),
+                  ],
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      resizeToAvoidBottomInset: true,
+      appBar: (!HrmPageChrome.isEmbedded && isMobile)
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              title: const Text(
+                'Bảo hiểm xã hội',
+                style: TextStyle(
+                  color: Color(0xFF18181B),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              actions: const [],
+            )
+          : null,
+      body: _buildPageContent(context),
     );
   }
 
@@ -366,7 +435,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF60A5FA)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF60A5FA)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -533,7 +602,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2),
+                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
               ),
               filled: true,
               fillColor: const Color(0xFFFAFAFA),
@@ -575,7 +644,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -624,7 +693,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   controller: _bhxhEmployerController,
                 ),
                 const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHXH:', employeeRate + employerRate, const Color(0xFF1E3A5F)),
+                _buildTotalBox('Tổng BHXH:', employeeRate + employerRate, HrmPageChrome.primaryNavy),
               ],
             ),
           ),
@@ -712,7 +781,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   controller: _bhytEmployerController,
                 ),
                 const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHYT:', employeeRate + employerRate, const Color(0xFF1E3A5F)),
+                _buildTotalBox('Tổng BHYT:', employeeRate + employerRate, HrmPageChrome.primaryNavy),
               ],
             ),
           ),
@@ -752,7 +821,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF60A5FA)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF60A5FA)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -801,7 +870,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   controller: _bhtnEmployerController,
                 ),
                 const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHTN:', total, const Color(0xFF1E3A5F)),
+                _buildTotalBox('Tổng BHTN:', total, HrmPageChrome.primaryNavy),
               ],
             ),
           ),
@@ -890,7 +959,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   controller: _unionEmployerController,
                 ),
                 const SizedBox(height: 20),
-                _buildTotalBox('Tổng Công đoàn:', total, const Color(0xFF1E3A5F)),
+                _buildTotalBox('Tổng Công đoàn:', total, HrmPageChrome.primaryNavy),
               ],
             ),
           ),
@@ -934,7 +1003,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF1E3A5F), width: 2),
+                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
               ),
               filled: true,
               fillColor: const Color(0xFFFAFAFA),
@@ -1023,7 +1092,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A5F), Color(0xFF2D5F8B)],
+                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1069,7 +1138,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(11),
                         topRight: Radius.circular(11),
@@ -1102,9 +1171,9 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     child: Row(
                       children: [
                         const Expanded(flex: 3, child: Text('TỔNG CỘNG', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp + totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text('${_formatRate(totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp + totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
                       ],
                     ),
                   ),

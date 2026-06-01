@@ -14,7 +14,10 @@ public record GetAttendanceCorrectionsQuery(
     Guid? EmployeeUserId = null,
     CorrectionStatus? Status = null,
     DateTime? FromDate = null,
-    DateTime? ToDate = null) : IQuery<AppResponse<PagedResult<AttendanceCorrectionRequestDto>>>;
+    DateTime? ToDate = null,
+    bool FilterByWorkDate = false,
+    Guid? PendingForApproverId = null,
+    CorrectionAction? Action = null) : IQuery<AppResponse<PagedResult<AttendanceCorrectionRequestDto>>>;
 
 public class GetAttendanceCorrectionsHandler(
     IRepository<AttendanceCorrectionRequest> correctionRepository
@@ -29,8 +32,20 @@ public class GetAttendanceCorrectionsHandler(
                 a.StoreId == request.StoreId &&
                 (!request.EmployeeUserId.HasValue || a.EmployeeUserId == request.EmployeeUserId.Value) &&
                 (!request.Status.HasValue || a.Status == request.Status.Value) &&
-                (!request.FromDate.HasValue || a.CreatedAt >= request.FromDate.Value) &&
-                (!request.ToDate.HasValue || a.CreatedAt <= request.ToDate.Value);
+                (!request.Action.HasValue || a.Action == request.Action.Value) &&
+                (!request.PendingForApproverId.HasValue ||
+                    (a.Status == CorrectionStatus.Pending &&
+                     a.ApprovalRecords.Any(r =>
+                         r.Status == ApprovalStatus.Pending &&
+                         r.AssignedUserId == request.PendingForApproverId.Value))) &&
+                (!request.FromDate.HasValue ||
+                    (request.FilterByWorkDate
+                        ? (a.NewDate ?? a.OldDate) >= request.FromDate.Value
+                        : a.CreatedAt >= request.FromDate.Value)) &&
+                (!request.ToDate.HasValue ||
+                    (request.FilterByWorkDate
+                        ? (a.NewDate ?? a.OldDate) <= request.ToDate.Value
+                        : a.CreatedAt <= request.ToDate.Value));
 
             var totalCount = await correctionRepository.CountAsync(filter, cancellationToken);
 

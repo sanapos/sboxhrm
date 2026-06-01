@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/circle_face_capture_widget.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 class MobileDeviceRegistrationScreen extends StatefulWidget {
@@ -420,8 +421,11 @@ class _MobileDeviceRegistrationScreenState
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A5F), Color(0xFF2563EB)],
+              gradient: LinearGradient(
+                colors: [
+                  HrmPageChrome.primaryNavy,
+                  HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+                ],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -526,13 +530,13 @@ class _MobileDeviceRegistrationScreenState
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: const Color(0xFF1E3A5F), width: 2),
+                              color: HrmPageChrome.primaryNavy, width: 2),
                         ),
                         child: const Icon(Icons.check,
-                            color: Color(0xFF1E3A5F), size: 24),
+                            color: HrmPageChrome.primaryNavy, size: 24),
                       ),
                     ),
                   ),
@@ -548,9 +552,9 @@ class _MobileDeviceRegistrationScreenState
                     label: Text(
                         _capturedImages.isEmpty ? 'Bắt đầu chụp' : 'Chụp lại'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF1E3A5F),
+                      foregroundColor: HrmPageChrome.primaryNavy,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFF1E3A5F)),
+                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -565,7 +569,7 @@ class _MobileDeviceRegistrationScreenState
           // Submit button
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed:
                   (_capturedImages.isNotEmpty && !_isSubmitting) ? _submitRegistration : null,
               icon: _isSubmitting
@@ -583,15 +587,10 @@ class _MobileDeviceRegistrationScreenState
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
                 disabledBackgroundColor: const Color(0xFFD4D4D8),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
               ),
             ),
           ),
@@ -665,7 +664,7 @@ class _MobileDeviceRegistrationScreenState
                 decoration: BoxDecoration(
                   color: isCompleted
                       ? const Color(0xFF22C55E)
-                      : const Color(0xFF1E3A5F),
+                      : HrmPageChrome.primaryNavy,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -706,7 +705,7 @@ class _MobileDeviceRegistrationScreenState
               Icon(icon,
                   color: isCompleted
                       ? const Color(0xFF22C55E)
-                      : const Color(0xFF1E3A5F),
+                      : HrmPageChrome.primaryNavy,
                   size: 24),
             ],
           ),
@@ -804,7 +803,7 @@ class _MobileDeviceRegistrationScreenState
               icon: const Icon(Icons.refresh),
               label: const Text('Kiểm tra lại'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1E3A5F),
+                foregroundColor: HrmPageChrome.primaryNavy,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -863,12 +862,12 @@ class _MobileDeviceRegistrationScreenState
             ),
             const SizedBox(height: 32),
             const Icon(Icons.phone_android,
-                size: 28, color: Color(0xFF1E3A5F)),
+                size: 28, color: HrmPageChrome.primaryNavy),
             const SizedBox(height: 8),
             const Text(
               'Mở "Chấm công Mobile" trong menu để bắt đầu',
               style: TextStyle(
-                color: Color(0xFF1E3A5F),
+                color: HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -1061,9 +1060,9 @@ class _MobileDeviceRegistrationScreenState
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('Chụp khuôn mặt mới'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F),
+                        foregroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -1095,7 +1094,7 @@ class _MobileDeviceRegistrationScreenState
                 // Submit button
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     onPressed: (_capturedImages.isNotEmpty && !_isSubmitting)
                         ? _submitDeviceChangeRequest
                         : null,
@@ -1113,15 +1112,10 @@ class _MobileDeviceRegistrationScreenState
                       _isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đổi máy',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
                       disabledBackgroundColor: const Color(0xFFD4D4D8),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
                     ),
                   ),
                 ),
@@ -1250,13 +1244,12 @@ class _MobileDeviceRegistrationScreenState
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),
               label: const Text('Thử lại'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
               ),
             ),
           ],

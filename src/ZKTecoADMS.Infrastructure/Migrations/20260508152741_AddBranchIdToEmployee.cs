@@ -11,17 +11,10 @@ namespace ZKTecoADMS.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Devices_Branches_BranchId",
-                table: "Devices");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Devices_BranchId",
-                table: "Devices");
-
-            migrationBuilder.DropColumn(
-                name: "BranchId",
-                table: "Devices");
+            // DB may never have had Devices.BranchId — use IF EXISTS so migrate does not abort.
+            migrationBuilder.Sql(@"ALTER TABLE ""Devices"" DROP CONSTRAINT IF EXISTS ""FK_Devices_Branches_BranchId"";");
+            migrationBuilder.Sql(@"DROP INDEX IF EXISTS ""IX_Devices_BranchId"";");
+            migrationBuilder.Sql(@"ALTER TABLE ""Devices"" DROP COLUMN IF EXISTS ""BranchId"";");
 
             migrationBuilder.UpdateData(
                 table: "NotificationCategories",

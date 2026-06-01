@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
 
@@ -165,23 +164,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Responsive.isMobile(context)
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => SettingsHubScreen.goBack(context),
-              ),
-        title: const Text(
-          'Thiết lập AI',
-          style:
-              TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold),
-        ),
-      ),
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(title: 'Thiết lập AI'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildProviderTab(
@@ -475,7 +459,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return _buildCard(
       title: 'Cài đặt Model',
       icon: Icons.tune,
-      iconColor: const Color(0xFF0F2340),
+      iconColor: HrmPageChrome.primaryNavy,
       children: [
         const Text('Model',
             style: TextStyle(
@@ -648,7 +632,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return _buildCard(
       title: 'Kiểm tra kết nối',
       icon: Icons.science,
-      iconColor: const Color(0xFF1E3A5F),
+      iconColor: HrmPageChrome.primaryNavy,
       children: [
         Text(
           'Gửi yêu cầu thử để kiểm tra API Key và kết nối.',
@@ -667,8 +651,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 : const Icon(Icons.play_arrow),
             label: Text(_isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A5F),
-              side: const BorderSide(color: Color(0xFF1E3A5F)),
+              foregroundColor: HrmPageChrome.primaryNavy,
+              side: const BorderSide(color: HrmPageChrome.primaryNavy),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -725,7 +709,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: ElevatedButton.icon(
+      child: FilledButton.icon(
         onPressed: _isSaving ? null : onSave,
         icon: _isSaving
             ? const SizedBox(
@@ -738,9 +722,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           _isSaving ? 'Đang lưu...' : 'Lưu cấu hình',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2D5F8B),
-          foregroundColor: Colors.white,
+        style: FilledButton.styleFrom(
+          backgroundColor: HrmPageChrome.primaryNavy,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 2,
@@ -753,7 +736,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return _buildCard(
       title: 'Hướng dẫn lấy API Key',
       icon: Icons.help_outline,
-      iconColor: const Color(0xFF1E3A5F),
+      iconColor: HrmPageChrome.primaryNavy,
       children: [
         ...steps.map((s) => _buildStep(s.number, s.title, s.subtitle)),
         const SizedBox(height: 12),
@@ -766,7 +749,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info, size: 18, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.info, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(note,

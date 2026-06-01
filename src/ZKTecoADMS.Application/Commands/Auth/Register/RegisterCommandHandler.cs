@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZKTecoADMS.Application.Settings;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Commands.Auth.Register;
@@ -16,6 +17,11 @@ namespace ZKTecoADMS.Application.Commands.Auth.Register;
 public class RegisterCommandHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Store> storeRepository,
+    IRepository<Department> departmentRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
+    IRepository<Holiday> holidayRepository,
+    IRepository<PenaltySetting> penaltySettingRepository,
+    IRepository<Allowance> allowanceRepository,
     IRepository<Agent> agentRepository,
     IRepository<ServicePackage> servicePackageRepository,
     IEmailService emailService,
@@ -95,6 +101,16 @@ public class RegisterCommandHandler(
             TrialStartDate = DateTime.UtcNow
         };
         await storeRepository.AddAsync(store, cancellationToken);
+
+        try
+        {
+            await StoreDefaultSetupSeeder.SeedDepartmentsIfEmptyAsync(
+                departmentRepository, storeId, "Register", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not seed default departments for store {StoreId}", storeId);
+        }
         
         // Kiểm tra số điện thoại đã tồn tại chưa
         if (!string.IsNullOrEmpty(request.PhoneNumber))
@@ -135,6 +151,23 @@ public class RegisterCommandHandler(
         // 4. Cập nhật OwnerId cho Store
         store.OwnerId = userId;
         await storeRepository.UpdateAsync(store, cancellationToken);
+
+        try
+        {
+            await StoreDefaultSetupSeeder.SeedSettingsIfEmptyAsync(
+                storeId,
+                userId,
+                shiftTemplateRepository,
+                holidayRepository,
+                penaltySettingRepository,
+                allowanceRepository,
+                "Register",
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not seed default settings for store {StoreId}", storeId);
+        }
 
         // 5. Gửi email chào mừng với thông tin tài khoản
         try

@@ -14,6 +14,9 @@ public interface IDeviceCmdService
     Task<bool> UpdateCommandStatusAsync(Guid commandId, CommandStatus status);
     
     Task<bool> UpdateCommandAfterExecutedAsync(ClockCommandResponse commandResponse);
+
+    /// <summary>Device ACK (Return=0) for sync commands — keep Sent until cdata upload completes.</summary>
+    Task<bool> UpdateCommandAcknowledgedAsync(ClockCommandResponse commandResponse);
     
     Task<(DeviceCommandTypes, Guid)> GetCommandTypesAndIdAsync(long commandId);
 }

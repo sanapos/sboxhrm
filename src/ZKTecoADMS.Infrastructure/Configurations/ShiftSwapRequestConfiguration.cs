@@ -58,11 +58,13 @@ public class ShiftSwapRequestConfiguration : IEntityTypeConfiguration<ShiftSwapR
         builder.HasOne(e => e.RequesterShift)
             .WithMany()
             .HasForeignKey(e => e.RequesterShiftId)
+            .HasPrincipalKey(st => st.Id)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.TargetShift)
             .WithMany()
             .HasForeignKey(e => e.TargetShiftId)
+            .HasPrincipalKey(st => st.Id)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.ApprovedByManager)

@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -24,6 +25,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<List<BenefitDto>>>> GetAllProfiles([FromQuery] int? salaryRateType = null)
     {
         var query = new GetBenefitsQuery(RequiredStoreId, salaryRateType);
@@ -36,6 +38,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> GetProfileById(Guid id)
     {
         var query = new GetBenefitByIdQuery(RequiredStoreId, id);
@@ -48,6 +51,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> CreateProfile([FromBody] CreateBenefitRequest request)
     {
         var command = request.Adapt<CreateBenefitCommand>();
@@ -62,6 +66,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> UpdateProfile(Guid id, [FromBody] UpdateSalaryProfileRequest request)
     {
         var command = request.Adapt<UpdateBenefitCommand>();
@@ -77,6 +82,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteProfile(Guid id)
     {
         var command = new DeleteBenefitCommand(RequiredStoreId, id);
@@ -89,6 +95,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPost("assign")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> AssignEmployee([FromBody] AssignSalaryProfileRequest request)
     {
         var command = request.Adapt<AssignBenefitCommand>();
@@ -102,6 +109,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("employees/{employeeId}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> GetEmployeeBenefit(Guid employeeId)
     {
         var query = new GetEmployeeBenefitQuery(employeeId);
@@ -114,6 +122,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("employees")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<IEnumerable<EmployeeBenefitDto>>>> GetEmployeeBenefits()
     {
         var query = new GetEmployeeBenefitsQuery
@@ -125,3 +134,4 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
         return Ok(result);
     }
 }
+

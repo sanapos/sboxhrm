@@ -27,6 +27,7 @@ public class MaintenanceModeMiddleware
         "/api/auth/",
         "/api/maintenance/active",
         "/api/system-admin/maintenance",
+        "/api/communications/public/",
         "/hubs/",
     };
 

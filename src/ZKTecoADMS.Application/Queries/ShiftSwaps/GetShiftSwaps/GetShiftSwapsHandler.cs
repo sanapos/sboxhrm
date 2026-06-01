@@ -19,7 +19,9 @@ public class GetShiftSwapsHandler(
                 filter: r => r.StoreId == request.StoreId
                     && r.IsActive
                     && (!request.Status.HasValue || r.Status == request.Status.Value)
-                    && (request.IsManager || r.RequesterUserId == request.UserId || r.TargetUserId == request.UserId),
+                    && (request.TargetUserIdOnly
+                        ? r.TargetUserId == request.UserId
+                        : (request.IsManager || r.RequesterUserId == request.UserId || r.TargetUserId == request.UserId)),
                 orderBy: q => q.OrderByDescending(r => r.CreatedAt),
                 includes: q => q
                     .Include(r => r.RequesterUser)
@@ -35,7 +37,9 @@ public class GetShiftSwapsHandler(
                 filter: r => r.StoreId == request.StoreId
                     && r.IsActive
                     && (!request.Status.HasValue || r.Status == request.Status.Value)
-                    && (request.IsManager || r.RequesterUserId == request.UserId || r.TargetUserId == request.UserId),
+                    && (request.TargetUserIdOnly
+                        ? r.TargetUserId == request.UserId
+                        : (request.IsManager || r.RequesterUserId == request.UserId || r.TargetUserId == request.UserId)),
                 cancellationToken: cancellationToken);
 
             var dtos = swapRequests.Select(r => new ShiftSwapRequestDto
@@ -101,12 +105,12 @@ public class GetShiftSwapsHandler(
         };
     }
 
-    private static string FormatShiftName(Shift? shift)
+    private static string FormatShiftName(ShiftTemplate? shift)
     {
         if (shift == null)
             return "N/A";
-        if (shift.Description != null)
-            return shift.Description;
-        return $"{shift.StartTime:HH:mm} - {shift.EndTime:HH:mm}";
+        if (!string.IsNullOrWhiteSpace(shift.Name))
+            return shift.Name;
+        return $"{shift.StartTime:hh\\:mm} - {shift.EndTime:hh\\:mm}";
     }
 }

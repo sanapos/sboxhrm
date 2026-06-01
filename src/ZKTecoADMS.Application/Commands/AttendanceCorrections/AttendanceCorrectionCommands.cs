@@ -1,6 +1,11 @@
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.AttendanceCorrections;
+using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
 
@@ -9,15 +14,18 @@ namespace ZKTecoADMS.Application.Commands.AttendanceCorrections;
 // Create Attendance Correction Request Command
 public record CreateAttendanceCorrectionCommand(
     Guid StoreId,
-    Guid EmployeeUserId,
+    Guid RequestedByUserId,
+    Guid? EmployeeUserId,
     string? EmployeeName,
     string? EmployeeCode,
+    string? Pin,
     Guid? AttendanceId,
     CorrectionAction Action,
     DateTime? OldDate,
     TimeSpan? OldTime,
     DateTime? NewDate,
     TimeSpan? NewTime,
+    string? NewPunchType,
     string? Reason) : ICommand<AppResponse<AttendanceCorrectionRequestDto>>;
 
 public class CreateAttendanceCorrectionHandler(
@@ -26,37 +34,102 @@ public class CreateAttendanceCorrectionHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Attendance> attendanceRepository,
     IRepository<Employee> employeeRepository,
+    IRepository<Device> deviceRepository,
+    IRepository<DeviceUser> deviceUserRepository,
+    IAttendanceDeletePreparer attendanceDeletePreparer,
+    IRepository<PenaltyTicket> penaltyTicketRepository,
+    IRepository<PaymentTransaction> paymentTransactionRepository,
+    IRepository<CashTransaction> cashTransactionRepository,
     IRepository<AppSettings> appSettingsRepository,
     ISystemNotificationService notificationService,
-    ZKTecoADMS.Application.Interfaces.INotificationTargetResolver targetResolver
+    ZKTecoADMS.Application.Interfaces.INotificationTargetResolver targetResolver,
+    IModulePermissionService modulePermissionService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<CreateAttendanceCorrectionCommand, AppResponse<AttendanceCorrectionRequestDto>>
 {
     public async Task<AppResponse<AttendanceCorrectionRequestDto>> Handle(CreateAttendanceCorrectionCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var user = await userManager.FindByIdAsync(request.EmployeeUserId.ToString());
-            if (user == null)
-                return AppResponse<AttendanceCorrectionRequestDto>.Error("User not found");
+            var (resolvedUserId, resolvedEmployee, resolveError) =
+                await AttendanceCorrectionEmployeeResolver.ResolveAsync(
+                    employeeRepository,
+                    deviceUserRepository,
+                    request.StoreId,
+                    request.RequestedByUserId,
+                    request.EmployeeCode,
+                    request.Pin,
+                    cancellationToken);
+            if (resolveError != null)
+                return AppResponse<AttendanceCorrectionRequestDto>.Error(resolveError);
+            if (resolvedUserId == null)
+                return AppResponse<AttendanceCorrectionRequestDto>.Error("Không tìm thấy nhân viên");
+
+            Attendance? targetLog = null;
+            if (request.Action is CorrectionAction.Edit or CorrectionAction.Delete)
+            {
+                targetLog = await AttendanceLogResolveHelper.FindLogForCorrectionAsync(
+                    attendanceRepository,
+                    deviceUserRepository,
+                    employeeRepository,
+                    request.StoreId,
+                    request.EmployeeCode,
+                    request.Pin,
+                    request.AttendanceId,
+                    request.OldDate,
+                    request.OldTime,
+                    resolvedEmployee?.Id,
+                    cancellationToken);
+
+                if (targetLog == null)
+                {
+                    return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                        "Không tìm thấy bản ghi chấm công. Kiểm tra PIN/giờ hoặc tải lại dữ liệu rồi thử lại.");
+                }
+            }
+
+            var attendanceIdForRequest = targetLog?.Id ?? request.AttendanceId;
+
+            // FK to ApplicationUser: NV có tài khoản → user NV; không có → user người tạo (Admin/QL)
+            var employeeUserId = resolvedEmployee?.ApplicationUserId ?? request.RequestedByUserId;
+            if (resolvedEmployee?.ApplicationUserId is Guid empUserId)
+            {
+                var userExists = await userManager.FindByIdAsync(empUserId.ToString());
+                if (userExists == null)
+                    employeeUserId = request.RequestedByUserId;
+            }
+
+            var employeeCodeForRecord = !string.IsNullOrWhiteSpace(request.EmployeeCode)
+                ? request.EmployeeCode
+                : resolvedEmployee?.EmployeeCode;
+
+            var requester = await userManager.FindByIdAsync(request.RequestedByUserId.ToString());
+            if (requester == null)
+                return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                    "Không tìm thấy tài khoản người gửi yêu cầu");
 
             // Check allow_manual_correction setting
             var allowCorrectionSetting = await appSettingsRepository.GetSingleAsync(
                 s => s.Key == "allow_manual_correction" && s.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
-            if (allowCorrectionSetting?.Value == "false")
+            var canBypassSetting = await AttendanceCorrectionPrivilegeHelper
+                .CanBypassManualCorrectionSettingAsync(
+                    userManager, modulePermissionService, request.RequestedByUserId,
+                    request.StoreId, cancellationToken);
+            if (allowCorrectionSetting?.Value == "false" && !canBypassSetting)
                 return AppResponse<AttendanceCorrectionRequestDto>.Error("Tính năng chấm công bù đã bị tắt. Liên hệ quản trị viên để được hỗ trợ.");
 
             string? oldDevice = null;
             string? oldType = null;
+            var oldDateForRecord = request.OldDate;
+            var oldTimeForRecord = request.OldTime;
 
-            if (request.Action != CorrectionAction.Add && request.AttendanceId.HasValue)
+            if (request.Action != CorrectionAction.Add && targetLog != null)
             {
-                var attendance = await attendanceRepository.GetByIdAsync(request.AttendanceId.Value,
-                    includeProperties: ["Device"], cancellationToken: cancellationToken);
-                if (attendance == null)
-                    return AppResponse<AttendanceCorrectionRequestDto>.Error("Attendance record not found");
-                oldDevice = attendance.Device?.Id.ToString();
-                oldType = attendance.AttendanceState.ToString();
+                oldDevice = targetLog.DeviceId.ToString();
+                oldType = targetLog.AttendanceState.ToString();
+                oldDateForRecord ??= targetLog.AttendanceTime.Date;
+                oldTimeForRecord ??= targetLog.AttendanceTime.TimeOfDay;
             }
 
             // Read approval levels from settings (default 1)
@@ -65,17 +138,21 @@ public class CreateAttendanceCorrectionHandler(
             var correction = new AttendanceCorrectionRequest
             {
                 StoreId = request.StoreId,
-                EmployeeUserId = request.EmployeeUserId,
-                EmployeeName = request.EmployeeName,
-                EmployeeCode = request.EmployeeCode,
-                AttendanceId = request.AttendanceId,
+                EmployeeUserId = employeeUserId,
+                EmployeeName = request.EmployeeName ??
+                    (resolvedEmployee != null
+                        ? $"{resolvedEmployee.LastName} {resolvedEmployee.FirstName}".Trim()
+                        : null),
+                EmployeeCode = employeeCodeForRecord ?? string.Empty,
+                AttendanceId = attendanceIdForRequest,
                 Action = request.Action,
-                OldDate = request.OldDate,
-                OldTime = request.OldTime,
+                OldDate = oldDateForRecord,
+                OldTime = oldTimeForRecord,
                 OldDevice = oldDevice,
                 OldType = oldType,
                 NewDate = request.NewDate,
                 NewTime = request.NewTime,
+                NewPunchType = NormalizePunchType(request.NewPunchType),
                 Reason = request.Reason,
                 Status = CorrectionStatus.Pending,
                 TotalApprovalLevels = approvalLevels,
@@ -85,7 +162,8 @@ public class CreateAttendanceCorrectionHandler(
             var created = await correctionRepository.AddAsync(correction, cancellationToken);
 
             // Build approval chain and create ApprovalRecord for each level
-            var approvalChain = await BuildApprovalChainAsync(request.EmployeeUserId, request.StoreId, approvalLevels, cancellationToken);
+            var approvalChain = await BuildApprovalChainAsync(
+                employeeUserId, resolvedEmployee, request.StoreId, approvalLevels, cancellationToken);
             foreach (var record in approvalChain)
             {
                 record.CorrectionRequestId = created.Id;
@@ -97,48 +175,91 @@ public class CreateAttendanceCorrectionHandler(
                 [nameof(AttendanceCorrectionRequest.EmployeeUser)],
                 cancellationToken: cancellationToken);
 
-            // Send notification to first-level approver(s) only
-            try
+            var autoApprove = await AttendanceCorrectionPrivilegeHelper
+                .CanAutoApproveCorrectionsAsync(
+                    userManager, modulePermissionService, request.RequestedByUserId,
+                    request.StoreId, cancellationToken);
+
+            if (autoApprove)
             {
-                var actionText = request.Action switch
-                {
-                    CorrectionAction.Add => "thêm",
-                    CorrectionAction.Edit => "sửa",
-                    CorrectionAction.Delete => "xóa",
-                    _ => "chỉnh sửa"
-                };
+                const string autoNote = "Tự động duyệt — tài khoản quyền quản trị";
+                var applier = new AttendanceCorrectionApplyHelper(
+                    correctionRepository,
+                    approvalRecordRepository,
+                    attendanceRepository,
+                    employeeRepository,
+                    deviceRepository,
+                    deviceUserRepository,
+                    attendanceDeletePreparer,
+                    penaltyTicketRepository,
+                    paymentTransactionRepository,
+                    cashTransactionRepository,
+                    userManager,
+                    notificationService,
+                    attendanceService);
 
-                var firstLevelTargets = approvalChain
-                    .Where(r => r.StepOrder == 1 && r.AssignedUserId.HasValue)
-                    .Select(r => r.AssignedUserId!.Value)
-                    .ToHashSet();
+                var autoResult = await applier.AutoApproveAndApplyAsync(
+                    created.Id,
+                    request.StoreId,
+                    request.RequestedByUserId,
+                    autoNote,
+                    cancellationToken);
 
-                // Per the org chart: dept managers up to 2 levels + store admins.
-                var hierarchyTargets = await targetResolver.ResolveManagersAsync(
-                    request.EmployeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
-                foreach (var t in hierarchyTargets)
-                    firstLevelTargets.Add(t);
+                if (!autoResult.IsSuccess)
+                    return autoResult;
 
-                firstLevelTargets.Remove(request.EmployeeUserId);
-
-                if (firstLevelTargets.Count > 0)
-                {
-                    await notificationService.CreateAndSendToUsersAsync(
-                        firstLevelTargets, NotificationType.ApprovalRequired,
-                        "Yêu cầu chỉnh công mới",
-                        $"{request.EmployeeName ?? "Nhân viên"} yêu cầu {actionText} chấm công" +
-                        (approvalLevels > 1 ? $" (cấp 1/{approvalLevels})" : ""),
-                        relatedEntityId: created.Id, relatedEntityType: "AttendanceCorrection",
-                        fromUserId: request.EmployeeUserId, categoryCode: "approval", storeId: request.StoreId);
-                }
+                result = await correctionRepository.GetByIdAsync(created.Id,
+                    [nameof(AttendanceCorrectionRequest.EmployeeUser)],
+                    cancellationToken: cancellationToken);
             }
-            catch { /* Notification failure should not affect main operation */ }
+            else
+            {
+                // Send notification to first-level approver(s) only
+                try
+                {
+                    var actionText = request.Action switch
+                    {
+                        CorrectionAction.Add => "thêm",
+                        CorrectionAction.Edit => "sửa",
+                        CorrectionAction.Delete => "xóa",
+                        _ => "chỉnh sửa"
+                    };
+
+                    var firstLevelTargets = approvalChain
+                        .Where(r => r.StepOrder == 1 && r.AssignedUserId.HasValue)
+                        .Select(r => r.AssignedUserId!.Value)
+                        .ToHashSet();
+
+                    if (resolvedEmployee?.ApplicationUserId is Guid empAppUserId)
+                    {
+                        var hierarchyTargets = await targetResolver.ResolveManagersAsync(
+                            empAppUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
+                        foreach (var t in hierarchyTargets)
+                            firstLevelTargets.Add(t);
+                        firstLevelTargets.Remove(empAppUserId);
+                    }
+
+                    firstLevelTargets.Remove(request.RequestedByUserId);
+
+                    if (firstLevelTargets.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            firstLevelTargets, NotificationType.ApprovalRequired,
+                            "Yêu cầu chỉnh công mới",
+                            $"{request.EmployeeName ?? "Nhân viên"} yêu cầu {actionText} chấm công" +
+                            (approvalLevels > 1 ? $" (cấp 1/{approvalLevels})" : ""),
+                            relatedEntityId: created.Id, relatedEntityType: "AttendanceCorrection",
+                            fromUserId: employeeUserId, categoryCode: "approval", storeId: request.StoreId);
+                    }
+                }
+                catch { /* Notification failure should not affect main operation */ }
+            }
 
             return AppResponse<AttendanceCorrectionRequestDto>.Success(result!.Adapt<AttendanceCorrectionRequestDto>());
         }
         catch (Exception ex)
         {
-            return AppResponse<AttendanceCorrectionRequestDto>.Error(ex.Message);
+            return AppResponse<AttendanceCorrectionRequestDto>.Error(DbExceptionMessageHelper.ToUserMessage(ex));
         }
     }
 
@@ -166,12 +287,11 @@ public class CreateAttendanceCorrectionHandler(
     /// Fallback: Admin for any level without a specific manager
     /// </summary>
     private async Task<List<ApprovalRecord>> BuildApprovalChainAsync(
-        Guid employeeUserId, Guid storeId, int totalLevels, CancellationToken ct)
+        Guid employeeUserId, Employee? targetEmployee, Guid storeId, int totalLevels, CancellationToken ct)
     {
         var records = new List<ApprovalRecord>();
 
-        // Find the employee
-        var employee = await employeeRepository.GetSingleAsync(
+        var employee = targetEmployee ?? await employeeRepository.GetSingleAsync(
             e => e.ApplicationUserId == employeeUserId, cancellationToken: ct);
 
         // Walk up the manager chain
@@ -239,6 +359,15 @@ public class CreateAttendanceCorrectionHandler(
 
         return records;
     }
+
+    private static string? NormalizePunchType(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        if (raw.Equals("CheckOut", StringComparison.OrdinalIgnoreCase) || raw == "1")
+            return "CheckOut";
+        return "CheckIn";
+    }
 }
 
 // Approve Attendance Correction Command (Multi-level)
@@ -256,12 +385,31 @@ public class ApproveAttendanceCorrectionHandler(
     IRepository<Employee> employeeRepository,
     IRepository<Device> deviceRepository,
     IRepository<DeviceUser> deviceUserRepository,
+    IAttendanceDeletePreparer attendanceDeletePreparer,
     IRepository<PenaltyTicket> penaltyTicketRepository,
     IRepository<PaymentTransaction> paymentTransactionRepository,
+    IRepository<CashTransaction> cashTransactionRepository,
     UserManager<ApplicationUser> userManager,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService,
+    IModulePermissionService modulePermissionService
 ) : ICommandHandler<ApproveAttendanceCorrectionCommand, AppResponse<AttendanceCorrectionRequestDto>>
 {
+    private AttendanceCorrectionApplyHelper ApplyHelper => new(
+        correctionRepository,
+        approvalRecordRepository,
+        attendanceRepository,
+        employeeRepository,
+        deviceRepository,
+        deviceUserRepository,
+        attendanceDeletePreparer,
+        penaltyTicketRepository,
+        paymentTransactionRepository,
+        cashTransactionRepository,
+        userManager,
+        notificationService,
+        attendanceService);
+
     public async Task<AppResponse<AttendanceCorrectionRequestDto>> Handle(ApproveAttendanceCorrectionCommand request, CancellationToken cancellationToken)
     {
         try
@@ -303,20 +451,43 @@ public class ApproveAttendanceCorrectionHandler(
             }
 
             if (currentRecord == null)
-                return AppResponse<AttendanceCorrectionRequestDto>.Error("Không còn bước duyệt nào cần xử lý");
-
-            // Verify permission: only assigned user, admin, or any manager can approve
-            var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
-            var isAdmin = approver?.Role == "Admin";
-            var isAssigned = currentRecord.AssignedUserId == request.ApprovedById;
-
-            if (!isAdmin && !isAssigned)
             {
-                // Check if approver is a manager/department head (can approve as delegate)
-                var isManager = approver?.Role == "Manager" || approver?.Role == "DepartmentHead";
-                if (!isManager)
-                    return AppResponse<AttendanceCorrectionRequestDto>.Error("Bạn không có quyền duyệt bước này");
+                // Trạng thái mồ côi: mọi bước đã duyệt nhưng phiếu vẫn Pending (thường do lỗi khi áp dụng lần trước)
+                if (allRecords.Count > 0 &&
+                    allRecords.All(r => r.Status == ApprovalStatus.Approved))
+                {
+                    if (!request.IsApproved)
+                        return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                            "Yêu cầu đã được duyệt đủ cấp, không thể từ chối");
+
+                    var canFinalize = await AttendanceCorrectionPrivilegeHelper
+                        .CanApproveCorrectionStepAsync(
+                            userManager, modulePermissionService, request.ApprovedById,
+                            request.StoreId, cancellationToken);
+                    if (!canFinalize)
+                        return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                            "Bạn không có quyền hoàn tất yêu cầu này");
+
+                    correction.CurrentApprovalStep = allRecords.Max(r => r.StepOrder);
+                    return await ApplyHelper.FinalizeApprovedAsync(
+                        correction, request.ApprovedById, request.ApproverNote, cancellationToken);
+                }
+
+                return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                    "Không còn bước duyệt nào cần xử lý");
             }
+
+            // Verify permission: assigned approver, quản trị, hoặc quyền module duyệt
+            var isAssigned = currentRecord.AssignedUserId == request.ApprovedById;
+            var canApproveStep = isAssigned || await AttendanceCorrectionPrivilegeHelper
+                .CanApproveCorrectionStepAsync(
+                    userManager, modulePermissionService, request.ApprovedById,
+                    request.StoreId, cancellationToken);
+
+            if (!canApproveStep)
+                return AppResponse<AttendanceCorrectionRequestDto>.Error("Bạn không có quyền duyệt bước này");
+
+            var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
 
             // Record the approval/rejection
             currentRecord.ActualUserId = request.ApprovedById;
@@ -358,29 +529,8 @@ public class ApproveAttendanceCorrectionHandler(
 
             if (nextPending == null)
             {
-                // All levels approved → Final approval
-                correction.Status = CorrectionStatus.Approved;
-                correction.ApprovedById = request.ApprovedById;
-                correction.ApprovedDate = DateTime.UtcNow;
-                correction.ApproverNote = request.ApproverNote;
-
-                // Apply the actual correction
-                await ApplyCorrectionAsync(correction, cancellationToken);
-                await correctionRepository.UpdateAsync(correction, cancellationToken);
-
-                // Notify employee: approved
-                try
-                {
-                    await notificationService.CreateAndSendAsync(
-                        correction.EmployeeUserId, NotificationType.Success,
-                        "Yêu cầu chỉnh công đã duyệt",
-                        correction.TotalApprovalLevels > 1
-                            ? $"Yêu cầu chỉnh sửa chấm công đã được phê duyệt qua {correction.TotalApprovalLevels} cấp"
-                            : "Yêu cầu chỉnh sửa chấm công của bạn đã được phê duyệt",
-                        relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
-                        fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
-                }
-                catch { }
+                return await ApplyHelper.FinalizeApprovedAsync(
+                    correction, request.ApprovedById, request.ApproverNote, cancellationToken);
             }
             else
             {
@@ -420,142 +570,6 @@ public class ApproveAttendanceCorrectionHandler(
         catch (Exception ex)
         {
             return AppResponse<AttendanceCorrectionRequestDto>.Error(ex.Message);
-        }
-    }
-
-    private async Task ApplyCorrectionAsync(
-        AttendanceCorrectionRequest correction, 
-        CancellationToken cancellationToken)
-    {
-        switch (correction.Action)
-        {
-            case CorrectionAction.Add:
-                if (correction.NewDate.HasValue && correction.NewTime.HasValue)
-                {
-                    // Look up Employee for this user
-                    var employee = await employeeRepository.GetSingleAsync(
-                        e => e.ApplicationUserId == correction.EmployeeUserId,
-                        cancellationToken: cancellationToken);
-
-                    // Look up DeviceUser to get proper UID (PIN) and device name
-                    DeviceUser? deviceUser = null;
-                    if (employee != null)
-                    {
-                        deviceUser = await deviceUserRepository.GetSingleAsync(
-                            du => du.EmployeeId == employee.Id,
-                            cancellationToken: cancellationToken);
-                    }
-
-                    // Determine DeviceId: prefer DeviceUser's device, fallback to store device
-                    Guid deviceId;
-                    if (deviceUser != null)
-                    {
-                        deviceId = deviceUser.DeviceId;
-                    }
-                    else
-                    {
-                        var device = await deviceRepository.GetSingleAsync(
-                            d => d.StoreId == correction.StoreId,
-                            cancellationToken: cancellationToken);
-                        deviceId = device?.Id ?? Guid.Empty;
-                        if (deviceId == Guid.Empty) break;
-                    }
-
-                    // PIN: use DeviceUser.Pin (actual device UID), fallback to EmployeeCode
-                    var pin = deviceUser?.Pin ?? correction.EmployeeCode;
-                    if (string.IsNullOrEmpty(pin))
-                        pin = employee?.EmployeeCode ?? "0";
-
-                    // WorkCode: employee name (max 10 chars)
-                    string? workCode = null;
-                    if (employee != null)
-                    {
-                        var empName = $"{employee.LastName} {employee.FirstName}".Trim();
-                        workCode = empName.Length > 10 ? empName.Substring(0, 10) : empName;
-                    }
-
-                    var newAttendance = new Attendance
-                    {
-                        Id = Guid.NewGuid(),
-                        EmployeeId = deviceUser?.Id, // Link to DeviceUser for proper DeviceUserName
-                        DeviceId = deviceId,
-                        PIN = pin,
-                        AttendanceTime = correction.NewDate.Value.Date.Add(correction.NewTime.Value),
-                        VerifyMode = VerifyModes.Manual,
-                        AttendanceState = AttendanceStates.CheckIn,
-                        WorkCode = workCode,
-                        Note = $"Duyệt thêm chấm công [YC:{correction.Id}]",
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await attendanceRepository.AddAsync(newAttendance, cancellationToken);
-                    correction.AttendanceId = newAttendance.Id;
-                }
-                break;
-
-            case CorrectionAction.Edit:
-                if (correction.AttendanceId.HasValue)
-                {
-                    var attendance = await attendanceRepository.GetByIdAsync(correction.AttendanceId.Value, cancellationToken: cancellationToken);
-                    if (attendance != null && correction.NewDate.HasValue && correction.NewTime.HasValue)
-                    {
-                        attendance.AttendanceTime = correction.NewDate.Value.Date.Add(correction.NewTime.Value);
-                        attendance.Note = $"Điều chỉnh giờ chấm công [YC:{correction.Id}]";
-                        await attendanceRepository.UpdateAsync(attendance, cancellationToken);
-
-                        // Hủy các phiếu phạt liên quan tới chấm công này; manager có thể tạo lại nếu giờ mới vẫn vi phạm
-                        await CancelRelatedPenaltiesAsync(correction.AttendanceId.Value, correction.Id, cancellationToken);
-                    }
-                }
-                break;
-
-            case CorrectionAction.Delete:
-                if (correction.AttendanceId.HasValue)
-                {
-                    // Hủy phiếu phạt trước khi xóa attendance để giữ lại tham chiếu lịch sử
-                    await CancelRelatedPenaltiesAsync(correction.AttendanceId.Value, correction.Id, cancellationToken);
-
-                    var attendance = await attendanceRepository.GetByIdAsync(correction.AttendanceId.Value, cancellationToken: cancellationToken);
-                    if (attendance != null)
-                    {
-                        await attendanceRepository.DeleteAsync(attendance, cancellationToken);
-                    }
-                }
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Khi yêu cầu chỉnh sửa/xóa chấm công được duyệt, hủy các phiếu phạt và giao dịch trừ lương
-    /// đã sinh tự động từ chấm công đó. Đảm bảo nhân viên không bị phạt sau khi đã được duyệt sửa giờ.
-    /// </summary>
-    private async Task CancelRelatedPenaltiesAsync(Guid attendanceId, Guid correctionId, CancellationToken cancellationToken)
-    {
-        var tickets = (await penaltyTicketRepository.GetAllAsync(
-            filter: t => t.AttendanceId == attendanceId && t.Status == PenaltyTicketStatus.Pending,
-            cancellationToken: cancellationToken)).ToList();
-
-        foreach (var ticket in tickets)
-        {
-            ticket.Status = PenaltyTicketStatus.Cancelled;
-            ticket.ProcessedDate = DateTime.UtcNow;
-            ticket.CancellationReason = $"Tự động hủy do duyệt chỉnh sửa chấm công [YC:{correctionId}]";
-            await penaltyTicketRepository.UpdateAsync(ticket, cancellationToken);
-
-            // Tìm và hủy PaymentTransaction tương ứng (cùng ngày + Description khớp)
-            var txs = (await paymentTransactionRepository.GetAllAsync(
-                filter: tx => tx.EmployeeId == ticket.EmployeeId
-                    && tx.Type == "Penalty"
-                    && tx.TransactionDate.Date == ticket.ViolationDate.Date
-                    && tx.Status == "Pending"
-                    && tx.Description == ticket.Description,
-                cancellationToken: cancellationToken)).ToList();
-
-            foreach (var tx in txs)
-            {
-                tx.Status = "Cancelled";
-                tx.Note = (tx.Note ?? string.Empty) + $" | Hủy do chỉnh sửa chấm công [YC:{correctionId}]";
-                await paymentTransactionRepository.UpdateAsync(tx, cancellationToken);
-            }
         }
     }
 }
@@ -606,7 +620,14 @@ public class UndoApproveAttendanceCorrectionHandler(
     IRepository<AttendanceCorrectionRequest> correctionRepository,
     IRepository<ApprovalRecord> approvalRecordRepository,
     IRepository<Attendance> attendanceRepository,
-    ISystemNotificationService notificationService
+    IRepository<Employee> employeeRepository,
+    IRepository<DeviceUser> deviceUserRepository,
+    IRepository<Device> deviceRepository,
+    IRepository<PenaltyTicket> penaltyTicketRepository,
+    IRepository<PaymentTransaction> paymentTransactionRepository,
+    IRepository<CashTransaction> cashTransactionRepository,
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<UndoApproveAttendanceCorrectionCommand, AppResponse<AttendanceCorrectionRequestDto>>
 {
     public async Task<AppResponse<AttendanceCorrectionRequestDto>> Handle(UndoApproveAttendanceCorrectionCommand request, CancellationToken cancellationToken)
@@ -624,8 +645,9 @@ public class UndoApproveAttendanceCorrectionHandler(
             if (correction.Status != CorrectionStatus.Approved)
                 return AppResponse<AttendanceCorrectionRequestDto>.Error("Chỉ có thể hoàn duyệt yêu cầu đã duyệt");
 
-            // Revert the attendance change
-            await RevertCorrectionAsync(correction, attendanceRepository, cancellationToken);
+            var revertError = await RevertCorrectionAsync(correction, cancellationToken);
+            if (revertError != null)
+                return AppResponse<AttendanceCorrectionRequestDto>.Error(revertError);
 
             correction.Status = CorrectionStatus.Pending;
             correction.ApprovedById = null;
@@ -635,22 +657,19 @@ public class UndoApproveAttendanceCorrectionHandler(
 
             await correctionRepository.UpdateAsync(correction, cancellationToken);
 
-            // Reset all approval records to Pending
-            try
+            var allRecords = await approvalRecordRepository.GetAllAsync(
+                r => r.CorrectionRequestId == request.RequestId, cancellationToken: cancellationToken);
+            foreach (var record in allRecords)
             {
-                var allRecords = await approvalRecordRepository.GetAllAsync(
-                    r => r.CorrectionRequestId == request.RequestId, cancellationToken: cancellationToken);
-                foreach (var record in allRecords)
-                {
-                    record.Status = ApprovalStatus.Pending;
-                    record.ActualUserId = null;
-                    record.ActualUserName = null;
-                    record.Note = null;
-                    record.ActionDate = null;
-                    await approvalRecordRepository.UpdateAsync(record, cancellationToken);
-                }
+                record.Status = ApprovalStatus.Pending;
+                record.ActualUserId = null;
+                record.ActualUserName = null;
+                record.Note = null;
+                record.ActionDate = null;
+                await approvalRecordRepository.UpdateAsync(record, cancellationToken);
             }
-            catch { }
+
+            await RecalculatePenaltiesAfterUndoAsync(correction, cancellationToken);
 
             try
             {
@@ -663,50 +682,198 @@ public class UndoApproveAttendanceCorrectionHandler(
             }
             catch { /* Notification failure should not affect main operation */ }
 
-            return AppResponse<AttendanceCorrectionRequestDto>.Success(correction.Adapt<AttendanceCorrectionRequestDto>());
+            var refreshed = await correctionRepository.GetByIdAsync(
+                correction.Id,
+                [nameof(AttendanceCorrectionRequest.EmployeeUser), nameof(AttendanceCorrectionRequest.ApprovedBy)],
+                cancellationToken: cancellationToken);
+
+            return AppResponse<AttendanceCorrectionRequestDto>.Success(
+                (refreshed ?? correction).Adapt<AttendanceCorrectionRequestDto>());
         }
         catch (Exception ex)
         {
-            return AppResponse<AttendanceCorrectionRequestDto>.Error(ex.Message);
+            return AppResponse<AttendanceCorrectionRequestDto>.Error(
+                string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Không thể hoàn duyệt yêu cầu"
+                    : ex.Message);
         }
     }
 
-    private async Task RevertCorrectionAsync(
+    /// <returns>Error message if revert failed; null if OK.</returns>
+    private async Task<string?> RevertCorrectionAsync(
         AttendanceCorrectionRequest correction,
-        IRepository<Attendance> attendanceRepository,
         CancellationToken cancellationToken)
     {
         switch (correction.Action)
         {
             case CorrectionAction.Add:
-                // If we added an attendance on approval, delete it now
-                if (correction.AttendanceId.HasValue)
+                if (!correction.AttendanceId.HasValue)
+                    return null;
+
+                var addedId = correction.AttendanceId.Value;
+                await AttendanceCorrectionPenaltyHelper.CancelPenaltiesForAttendanceAsync(
+                    addedId, correction.Id,
+                    penaltyTicketRepository, paymentTransactionRepository, cashTransactionRepository,
+                    cancellationToken);
+
+                var violationDate = (correction.NewDate ?? correction.OldDate)?.Date;
+                if (violationDate.HasValue)
                 {
-                    var attendance = await attendanceRepository.GetByIdAsync(correction.AttendanceId.Value, cancellationToken: cancellationToken);
-                    if (attendance != null)
+                    var employee = await AttendanceCorrectionEmployeeResolver.ResolveEmployeeEntityAsync(
+                        employeeRepository, deviceUserRepository,
+                        correction.StoreId, correction.EmployeeCode, correction.EmployeeUserId,
+                        cancellationToken);
+                    if (employee != null)
                     {
-                        await attendanceRepository.DeleteAsync(attendance, cancellationToken);
-                        correction.AttendanceId = null;
+                        await AttendanceCorrectionPenaltyHelper.CancelDayLevelPenaltiesAsync(
+                            employee.Id, violationDate.Value, correction.Id,
+                            penaltyTicketRepository, paymentTransactionRepository, cashTransactionRepository,
+                            cancellationToken);
                     }
                 }
-                break;
+
+                correction.AttendanceId = null;
+                await correctionRepository.UpdateAsync(correction, cancellationToken);
+
+                var addedAttendance = await attendanceRepository.GetByIdAsync(addedId, cancellationToken: cancellationToken);
+                if (addedAttendance != null)
+                    await attendanceRepository.DeleteAsync(addedAttendance, cancellationToken);
+                return null;
 
             case CorrectionAction.Edit:
-                // Revert to old time
-                if (correction.AttendanceId.HasValue && correction.OldDate.HasValue && correction.OldTime.HasValue)
-                {
-                    var attendance = await attendanceRepository.GetByIdAsync(correction.AttendanceId.Value, cancellationToken: cancellationToken);
-                    if (attendance != null)
-                    {
-                        attendance.AttendanceTime = correction.OldDate.Value.Date.Add(correction.OldTime.Value);
-                        await attendanceRepository.UpdateAsync(attendance, cancellationToken);
-                    }
-                }
-                break;
+                if (!correction.AttendanceId.HasValue)
+                    return "Không tìm thấy bản ghi chấm công để khôi phục";
+                if (!correction.OldDate.HasValue || !correction.OldTime.HasValue)
+                    return "Thiếu giờ cũ, không thể hoàn duyệt chỉnh sửa";
+
+                var edited = await attendanceRepository.GetByIdAsync(
+                    correction.AttendanceId.Value, cancellationToken: cancellationToken);
+                if (edited == null)
+                    return "Bản ghi chấm công đã bị xóa, không thể hoàn duyệt";
+
+                edited.AttendanceTime = correction.OldDate.Value.Date.Add(correction.OldTime.Value);
+                edited.Note = AppendUndoNote(edited.Note, correction.Id);
+                await attendanceRepository.UpdateAsync(edited, cancellationToken);
+                return null;
 
             case CorrectionAction.Delete:
-                // Cannot undo a delete - the attendance data is gone
-                break;
+                if (!correction.OldDate.HasValue || !correction.OldTime.HasValue)
+                    return "Thiếu giờ cũ, không thể khôi phục chấm công đã xóa";
+
+                if (correction.AttendanceId.HasValue)
+                {
+                    var existing = await attendanceRepository.GetByIdAsync(
+                        correction.AttendanceId.Value, cancellationToken: cancellationToken);
+                    if (existing != null)
+                        return null;
+                }
+
+                var restored = await BuildRestoredAttendanceAsync(correction, cancellationToken);
+                if (restored == null)
+                    return "Không thể khôi phục chấm công (thiếu thiết bị hoặc nhân viên)";
+
+                await attendanceRepository.AddAsync(restored, cancellationToken);
+                correction.AttendanceId = restored.Id;
+                return null;
+
+            default:
+                return null;
         }
+    }
+
+    private async Task<Attendance?> BuildRestoredAttendanceAsync(
+        AttendanceCorrectionRequest correction,
+        CancellationToken cancellationToken)
+    {
+        var employee = await AttendanceCorrectionEmployeeResolver.ResolveEmployeeEntityAsync(
+            employeeRepository, deviceUserRepository,
+            correction.StoreId, correction.EmployeeCode, correction.EmployeeUserId,
+            cancellationToken);
+        if (employee == null)
+            return null;
+
+        DeviceUser? deviceUser = await deviceUserRepository.GetSingleAsync(
+            du => du.EmployeeId == employee.Id, cancellationToken: cancellationToken);
+
+        Guid deviceId;
+        if (deviceUser != null)
+            deviceId = deviceUser.DeviceId;
+        else
+        {
+            var device = correction.StoreId.HasValue
+                ? await deviceRepository.GetSingleAsync(
+                    d => d.StoreId == correction.StoreId.Value, cancellationToken: cancellationToken)
+                : await deviceRepository.GetSingleAsync(d => true, cancellationToken: cancellationToken);
+            if (device == null)
+                return null;
+            deviceId = device.Id;
+        }
+
+        var pin = deviceUser?.Pin ?? correction.EmployeeCode;
+        if (string.IsNullOrEmpty(pin))
+            pin = employee.EmployeeCode ?? "0";
+
+        var punchState = ResolvePunchStateFromOldType(correction.OldType);
+        var punchTime = correction.OldDate!.Value.Date.Add(correction.OldTime!.Value);
+
+        return new Attendance
+        {
+            Id = correction.AttendanceId ?? Guid.NewGuid(),
+            EmployeeId = deviceUser?.Id ?? employee.Id,
+            DeviceId = deviceId,
+            PIN = pin,
+            AttendanceTime = punchTime,
+            VerifyMode = VerifyModes.Manual,
+            AttendanceState = punchState,
+            Note = $"Khôi phục sau hoàn duyệt [YC:{correction.Id}]",
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private async Task RecalculatePenaltiesAfterUndoAsync(
+        AttendanceCorrectionRequest correction,
+        CancellationToken cancellationToken)
+    {
+        if (correction.Action == CorrectionAction.Delete)
+            return;
+
+        var employee = await AttendanceCorrectionEmployeeResolver.ResolveEmployeeEntityAsync(
+            employeeRepository, deviceUserRepository,
+            correction.StoreId, correction.EmployeeCode, correction.EmployeeUserId,
+            cancellationToken);
+        if (employee == null || !correction.StoreId.HasValue)
+            return;
+
+        var workDate = (correction.NewDate ?? correction.OldDate)?.Date;
+        if (!workDate.HasValue)
+            return;
+
+        try
+        {
+            await attendanceService.RecalculatePenaltiesForEmployeeDateAsync(
+                correction.StoreId.Value, employee.Id, workDate.Value, cancellationToken);
+        }
+        catch
+        {
+            // Penalty recalc failure must not roll back undo
+        }
+    }
+
+    private static AttendanceStates ResolvePunchStateFromOldType(string? oldType)
+    {
+        if (string.Equals(oldType, "CheckOut", StringComparison.OrdinalIgnoreCase)
+            || oldType == "1")
+            return AttendanceStates.CheckOut;
+        return AttendanceStates.CheckIn;
+    }
+
+    private static string AppendUndoNote(string? existing, Guid correctionId)
+    {
+        var addition = $"Hoàn duyệt chỉnh sửa [YC:{correctionId}]";
+        if (string.IsNullOrWhiteSpace(existing))
+            return addition;
+        if (existing.Contains(addition, StringComparison.Ordinal))
+            return existing;
+        return $"{existing} | {addition}";
     }
 }

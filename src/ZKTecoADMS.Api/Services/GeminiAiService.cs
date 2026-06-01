@@ -15,6 +15,12 @@ public interface IGeminiAiService
         string prompt, string typeLabel, string tone, string? context, int maxLength,
         CancellationToken cancellationToken = default);
     Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024);
+    /// <summary>Multi-turn chat for AI assistant (lower temperature, system instruction).</summary>
+    Task<string> GenerateAssistantChatAsync(
+        string systemPrompt,
+        IReadOnlyList<(string Role, string Content)> messages,
+        int maxTokens = 2048,
+        CancellationToken cancellationToken = default);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -235,7 +241,9 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
     public async Task<string> GeneratePlainTextAsync(string systemPrompt, string userPrompt, int maxTokens = 1024)
     {
         if (!IsConfigured)
-            throw new InvalidOperationException("Gemini API key chưa được cấu hình");
+            throw new InvalidOperationException("Gemini API key chưa được cấu hình. Vui lòng cấu hình tại Cài đặt → Thiết lập AI (Gemini).");
+        if (!IsEnabled)
+            throw new InvalidOperationException("Gemini AI chưa được bật. Vui lòng bật trong Cài đặt → Thiết lập AI (Gemini).");
 
         var requestBody = new
         {
@@ -283,6 +291,78 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
             break;
         }
         return text.Trim();
+    }
+
+    public async Task<string> GenerateAssistantChatAsync(
+        string systemPrompt,
+        IReadOnlyList<(string Role, string Content)> messages,
+        int maxTokens = 2048,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+            throw new InvalidOperationException("Gemini API key chưa được cấu hình.");
+        if (!IsEnabled)
+            throw new InvalidOperationException("Gemini AI chưa được bật.");
+
+        var contents = new List<object>();
+        foreach (var (role, content) in messages)
+        {
+            if (string.IsNullOrWhiteSpace(content)) continue;
+            var geminiRole = string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, "model", StringComparison.OrdinalIgnoreCase)
+                ? "model"
+                : "user";
+            contents.Add(new
+            {
+                role = geminiRole,
+                parts = new[] { new { text = content.Trim() } }
+            });
+        }
+
+        if (contents.Count == 0)
+            throw new InvalidOperationException("Không có nội dung hội thoại.");
+
+        var assistantTemp = Math.Min(_temperature, 0.35);
+        var requestBody = new
+        {
+            systemInstruction = new { parts = new[] { new { text = systemPrompt } } },
+            contents,
+            generationConfig = new
+            {
+                temperature = assistantTemp,
+                maxOutputTokens = Math.Max(maxTokens, 512)
+            }
+        };
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
+        };
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Gemini assistant chat error {StatusCode}: {Body}", response.StatusCode, responseBody);
+            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
+        for (int i = parts.GetArrayLength() - 1; i >= 0; i--)
+        {
+            var part = parts[i];
+            if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean()) continue;
+            return (part.GetProperty("text").GetString() ?? "").Trim();
+        }
+
+        return string.Empty;
     }
 
     public async IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(

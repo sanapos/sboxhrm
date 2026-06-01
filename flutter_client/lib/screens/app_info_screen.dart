@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'settings_hub_screen.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class AppInfoScreen extends StatefulWidget {
   /// type: 'terms' | 'privacy' | 'help' | 'bugreport'
@@ -170,7 +171,7 @@ class _BugReportFormState extends State<_BugReportForm> {
                   const Text('Chúng tôi sẽ xem xét và phản hồi sớm nhất có thể.',
                       textAlign: TextAlign.center),
                   const SizedBox(height: 24),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: widget.onBack,
                     child: const Text('Quay lại'),
                   ),
@@ -228,7 +229,7 @@ class _BugReportFormState extends State<_BugReportForm> {
                     const SizedBox(height: 24),
                     SizedBox(
                       height: 50,
-                      child: ElevatedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: _submitting ? null : _submit,
                         icon: _submitting
                             ? const SizedBox(
@@ -238,10 +239,7 @@ class _BugReportFormState extends State<_BugReportForm> {
                               )
                             : const Icon(Icons.send),
                         label: Text(_submitting ? 'Đang gửi...' : 'Gửi phản hồi'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F2340),
-                          foregroundColor: Colors.white,
-                        ),
+                        style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                       ),
                     ),
                   ],

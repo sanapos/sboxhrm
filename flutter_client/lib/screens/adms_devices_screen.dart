@@ -6,6 +6,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../widgets/hrm_page_chrome.dart';
 
 enum DeviceFilter {
   all,
@@ -32,8 +33,6 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   Timer? _refreshTimer;
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -392,40 +391,11 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               ],
             ),
           ),
-          if (Responsive.isMobile(context))
-            IconButton(
-              icon: Stack(
-                children: [
-                  Icon(
-                    _showMobileFilters
-                        ? Icons.filter_alt
-                        : Icons.filter_alt_outlined,
-                    color: _showMobileFilters
-                        ? Colors.orange
-                        : const Color(0xFF71717A),
-                  ),
-                  if (_searchQuery.isNotEmpty ||
-                      _currentFilter != DeviceFilter.all)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                            color: Colors.orange, shape: BoxShape.circle),
-                      ),
-                    ),
-                ],
-              ),
-              onPressed: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-            ),
         ],
       ),
       body: Column(
         children: [
-          if (!Responsive.isMobile(context) || _showMobileFilters) ...[
+          ...[ 
             // Search bar
             Container(
               padding: const EdgeInsets.all(16),
@@ -470,7 +440,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                    borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -545,7 +515,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                 }).toList(),
               ),
             ),
-          ], // end _showMobileFilters
+          ],
 
           // Stats summary
           Container(
@@ -903,9 +873,9 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                   if (device.isOnline) {
                     noteText =
                         'Thiết bị này đã kết nối và đang gửi dữ liệu đến server.';
-                    noteColor = const Color(0xFF1E3A5F);
+                    noteColor = HrmPageChrome.primaryNavy;
                     noteBorderColor =
-                        const Color(0xFF1E3A5F).withValues(alpha: 0.3);
+                        HrmPageChrome.primaryNavy.withValues(alpha: 0.3);
                   } else if (device.hasNeverConnected) {
                     noteText =
                         'Thiết bị này chưa từng kết nối đến server. Vui lòng kiểm tra cấu hình mạng trên máy chấm công.';

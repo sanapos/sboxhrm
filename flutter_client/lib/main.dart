@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'utils/vietnamese_font.dart';
 import 'app/app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
@@ -13,13 +13,6 @@ import 'services/fcm_service_stub.dart'
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load Be Vietnam Pro vào CanvasKit font registry TRƯỚC runApp.
-  // Đây là fix dứt điểm cho Vietnamese garbled text trong CanvasKit:
-  // CanvasKit embedded fallback fonts có glyph mapping sai cho Vietnamese
-  // Unicode range → phải đảm bảo Be Vietnam Pro được đăng ký trước
-  // frame đầu tiên, không phụ thuộc vào pubspec.yaml font loading timing.
-  await _loadBeVietnamProFonts();
 
   // Tắt Widget Inspector overlay trong debug mode
   WidgetsApp.debugAllowBannerOverride = false;
@@ -59,6 +52,8 @@ void main() async {
   // ignore: discarded_futures
   FcmService.instance.initialize();
 
+  await preloadVietnameseFonts();
+
   runApp(
     MultiProvider(
       providers: [
@@ -71,16 +66,3 @@ void main() async {
   );
 }
 
-/// Đăng ký Be Vietnam Pro vào CanvasKit font registry.
-/// FontLoader.load() là cách duy nhất đảm bảo font có mặt trong
-/// Skia/CanvasKit TRƯỚC khi paragraph builder chạy lần đầu.
-Future<void> _loadBeVietnamProFonts() async {
-  final loader = FontLoader('BeVietnamPro');
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-Regular.ttf'));
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf'));
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-SemiBold.ttf'));
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-Bold.ttf'));
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-ExtraBold.ttf'));
-  loader.addFont(rootBundle.load('assets/fonts/BeVietnamPro-Italic.ttf'));
-  await loader.load();
-}

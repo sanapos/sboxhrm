@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/web_canvas.dart' as web_canvas;
 import 'package:intl/intl.dart';
@@ -9,8 +10,12 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/vietnamese_font.dart';
+import '../utils/api_datetime.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/attendance_correction_privilege.dart';
 import 'mobile_attendance_approval_screen.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
@@ -58,8 +63,6 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   bool _sortAscending = false;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
-
   // Pagination
   int _currentPage = 1;
   int _itemsPerPage = 50;
@@ -134,17 +137,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                   cmp = (da ?? DateTime(1900)).compareTo(db ?? DateTime(1900));
                   break;
                 case 'createdAt':
-                  final da =
-                      DateTime.tryParse(a['createdAt']?.toString() ?? '');
-                  final db =
-                      DateTime.tryParse(b['createdAt']?.toString() ?? '');
+                  final da = parseApiUtcDateTime(a['createdAt']);
+                  final db = parseApiUtcDateTime(b['createdAt']);
                   cmp = (da ?? DateTime(1900)).compareTo(db ?? DateTime(1900));
                   break;
                 case 'approvedDate':
-                  final da =
-                      DateTime.tryParse(a['approvedDate']?.toString() ?? '');
-                  final db =
-                      DateTime.tryParse(b['approvedDate']?.toString() ?? '');
+                  final da = parseApiUtcDateTime(a['approvedDate']);
+                  final db = parseApiUtcDateTime(b['approvedDate']);
                   cmp = (da ?? DateTime(1900)).compareTo(db ?? DateTime(1900));
                   break;
               }
@@ -221,8 +220,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           _toDate = today.add(const Duration(days: 1));
           break;
         case 'last_month':
-          _fromDate = DateTime(now.year, now.month - 1, 1);
-          _toDate = DateTime(now.year, now.month, 1);
+          final firstThis = DateTime(today.year, today.month, 1);
+          final lastDayPrev = firstThis.subtract(const Duration(days: 1));
+          _fromDate = DateTime(lastDayPrev.year, lastDayPrev.month, 1);
+          _toDate = DateTime(
+              lastDayPrev.year, lastDayPrev.month, lastDayPrev.day, 23, 59, 59);
           break;
         case 'all':
           _fromDate = null;
@@ -254,7 +256,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     }
   }
 
-  // ── Actions ──
+  // ?? Actions ??
 
   Future<void> _approveRequest(Map<String, dynamic> req) async {
     final noteController = TextEditingController();
@@ -389,7 +391,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Hoàn duyệt'),
         content: Text(
-            'Bạn có chắc muốn hoàn duyệt yêu cầu của ${req['employeeName'] ?? ''}?\n\nChấm công đã ghi sẽ bị xóa.'),
+            'Bạn có chắc muốn hoàn duyệt yêu cầu của ${req['employeeName'] ?? ''}?\n\nThay đổi chấm công đã áp dụng sẽ được hoàn tác.'),
         actions: [
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
@@ -403,8 +405,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     );
     if (confirmed != true) return;
 
-    final result =
-        await _apiService.undoAttendanceCorrectionApproval(req['id']);
+    final result = await _apiService.undoAttendanceCorrectionApproval(
+        req['id']?.toString() ?? '');
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
           title: 'Thành công', message: 'Đã hoàn duyệt yêu cầu');
@@ -420,7 +422,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     if (status == 1) {
       appNotification.showWarning(
           title: 'Không thể xóa',
-          message: 'Yêu cầu đã duyệt không thể xóa. Hãy hoàn duyệt trước.');
+          message: 'Yêu cầu đã duyệt không thể xóa. Hãy hoãn duyệt trước.');
       return;
     }
     final confirmed = await showDialog<bool>(
@@ -450,7 +452,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     }
   }
 
-  // ── Helpers ──
+  // ?? Helpers ??
 
   static int _parseAction(dynamic action) {
     if (action is int) return action;
@@ -543,11 +545,29 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   String _formatDate(dynamic date) {
     if (date == null) return '--';
     try {
-      final dt = date is DateTime ? date : DateTime.parse(date.toString());
+      final dt = date is DateTime
+          ? DateTime(date.year, date.month, date.day)
+          : _parseCorrectionDisplayDate(date);
+      if (dt == null) return '--';
       return DateFormat('dd/MM/yyyy').format(dt);
     } catch (_) {
       return '--';
     }
+  }
+
+  DateTime? _parseCorrectionDisplayDate(dynamic value) {
+    final s = value.toString().trim();
+    if (s.isEmpty) return null;
+    if (s.contains('T')) {
+      final datePart = s.split('T').first;
+      final p = datePart.split('-');
+      if (p.length == 3) {
+        return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+      }
+    }
+    final parsed = DateTime.tryParse(s);
+    if (parsed == null) return null;
+    return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
   String _formatTime(dynamic time) {
@@ -565,15 +585,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     }
   }
 
-  String _formatDateTime(dynamic dt) {
-    if (dt == null) return '--';
-    try {
-      final d = dt is DateTime ? dt : DateTime.parse(dt.toString());
-      return DateFormat('dd/MM/yyyy HH:mm').format(d.toLocal());
-    } catch (_) {
-      return '--';
-    }
-  }
+  String _formatDateTime(dynamic dt) => formatApiDateTime(dt);
 
   String _getApprovalStatusLabel(int status) {
     switch (status) {
@@ -1020,59 +1032,68 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     );
   }
 
-  // ── Build ──
+  // ?? Build ??
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        body: Column(
-          children: [
-            Container(
-              color: Theme.of(context).cardColor,
-              child: TabBar(
-                labelColor: Theme.of(context).primaryColor,
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: Theme.of(context).primaryColor,
-                tabs: const [
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.fact_check_outlined, size: 16),
-                        SizedBox(width: 6),
-                        Text('Duyệt chấm công'),
-                      ],
+    final perm = Provider.of<PermissionProvider>(context);
+    final showMobileTab = canViewMobileAttendanceApprovalTab(perm);
+
+    final correctionPane = Column(
+      children: [
+        _buildHeader(),
+        Expanded(child: _buildContent()),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      body: Theme(
+        data: vietnameseThemeOverlay(context),
+        child: DefaultTextStyle(
+          style: kDefaultVietnameseTextStyle,
+          child: showMobileTab
+            ? DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    Material(
+                      color: Theme.of(context).cardColor,
+                      child: TabBar(
+                        labelColor: Theme.of(context).primaryColor,
+                        unselectedLabelColor: Colors.grey[600],
+                        indicatorColor: Theme.of(context).primaryColor,
+                        labelStyle: vietnameseTextStyle(const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        )),
+                        unselectedLabelStyle: vietnameseTextStyle(const TextStyle(
+                          fontSize: 14,
+                        )),
+                        tabs: const [
+                          Tab(
+                            icon: Icon(Icons.fact_check_outlined, size: 16),
+                            text: 'Duyệt chấm công',
+                          ),
+                          Tab(
+                            icon: Icon(Icons.how_to_reg_outlined, size: 16),
+                            text: 'Chấm công Mobile',
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.how_to_reg_outlined, size: 16),
-                        SizedBox(width: 6),
-                        Text('Chấm công Mobile'),
-                      ],
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          correctionPane,
+                          const MobileAttendanceApprovalScreen(),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  Column(
-                    children: [
-                      _buildHeader(),
-                      Expanded(child: _buildContent()),
-                    ],
-                  ),
-                  const MobileAttendanceApprovalScreen(),
-                ],
-              ),
-            ),
-          ],
+                  ],
+                ),
+              )
+            : correctionPane,
         ),
       ),
     );
@@ -1109,37 +1130,6 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           ),
           const SizedBox(width: 8),
           if (isMobile) ...[
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                child: Stack(
-                  children: [
-                    Icon(
-                      _showMobileFilters
-                          ? Icons.filter_alt
-                          : Icons.filter_alt_outlined,
-                      size: 20,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    if (_selectedDatePreset != 'all' ||
-                        _selectedEmployeeIds.isNotEmpty ||
-                        _actionFilter != -1)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: Colors.orangeAccent,
-                                shape: BoxShape.circle)),
-                      ),
-                  ],
-                ),
-              ),
-            ),
             PopupMenuButton<String>(
               icon:
                   Icon(Icons.more_vert, color: Theme.of(context).primaryColor),
@@ -1225,34 +1215,56 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   }
 
   Widget _buildContent() {
-    return Padding(
+    final isMobile = Responsive.isMobile(context);
+    return HrmResponsiveListLayout(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-      child: Column(
-        children: [
-          _buildStatusTabs(),
-          const SizedBox(height: 6),
-          if (!Responsive.isMobile(context) || _showMobileFilters) ...[
-            _buildFilters(),
-            const SizedBox(height: 6),
-          ],
-          Expanded(
-            child: _isLoading
-                ? const LoadingWidget(message: 'Đang tải dữ liệu...')
-                : _filteredRequests.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.fact_check_outlined,
-                        title: 'Không có yêu cầu',
-                        description: 'Chưa có yêu cầu chấm công nào')
-                    : Column(
-                        children: [
-                          Expanded(child: _buildTable()),
-                          if (!Responsive.isMobile(context)) _buildPagination(),
-                        ],
-                      ),
-          ),
-        ],
-      ),
+      headerSections: [
+        _buildStatusTabs(),
+        const SizedBox(height: 6),
+        _buildFilters(),
+        const SizedBox(height: 6),
+      ],
+      desktopBody: _isLoading
+          ? const LoadingWidget(message: 'Đang tải dữ liệu...')
+          : _filteredRequests.isEmpty
+              ? const EmptyState(
+                  icon: Icons.fact_check_outlined,
+                  title: 'Không có yêu cầu',
+                  description: 'Chưa có yêu cầu chấm công nào')
+              : Column(
+                  children: [
+                    Expanded(child: _buildTable()),
+                    if (!isMobile) _buildPagination(),
+                  ],
+                ),
+      mobileSlivers: (_) => _approvalMobileSlivers(),
     );
+  }
+
+  List<Widget> _approvalMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const LoadingWidget(message: 'Đang tải dữ liệu...')),
+      ];
+    }
+    if (_filteredRequests.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.fact_check_outlined,
+            title: 'Không có yêu cầu',
+            description: 'Chưa có yêu cầu chấm công nào',
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverFillRemaining(
+        hasScrollBody: true,
+        child: _buildTable(),
+      ),
+    ];
   }
 
   Widget _buildStatusTabs() {
@@ -1293,12 +1305,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                 child: Center(
                   child: Text(
                     tab['label'] as String,
-                    style: TextStyle(
+                    style: vietnameseTextStyle(TextStyle(
                       fontSize: 13,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected ? color : Colors.grey[600],
-                    ),
+                    )),
                   ),
                 ),
               ),
@@ -1381,7 +1393,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           ),
           Text(
             '$_totalCount yêu cầu',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: vietnameseTextStyle(
+              TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
           ),
         ],
       ),
@@ -1613,10 +1627,20 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
               const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
         ),
-        style: const TextStyle(fontSize: 13, color: Colors.black87),
+        style: vietnameseTextStyle(
+          const TextStyle(fontSize: 13, color: Colors.black87),
+        ),
       ),
     );
   }
+
+  static TextStyle _tableHeaderStyle() => vietnameseTextStyle(const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 12,
+      ));
+
+  static TextStyle _tableCellStyle() =>
+      vietnameseTextStyle(const TextStyle(fontSize: 12));
 
   Widget _buildTable() {
     final startIndex = (_currentPage - 1) * _itemsPerPage;
@@ -1656,41 +1680,31 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                     sortAscending: _sortAscending,
                     headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
                     columns: [
-                      const DataColumn(
+                      DataColumn(
                           label: Expanded(
                               child: Text('STT',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Tên nhân viên',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Loại',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Trạng thái',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
+                                  style: _tableHeaderStyle()))),
                       DataColumn(
-                          label: const Expanded(
+                          label: Expanded(
                               child: Text('Ngày mới',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12))),
+                                  style: _tableHeaderStyle())),
                           onSort: (_, asc) {
                             setState(() {
                               _sortColumn = 'newDate';
@@ -1698,41 +1712,31 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                             });
                             _loadData();
                           }),
-                      const DataColumn(
+                      DataColumn(
                           label: Expanded(
                               child: Text('Giờ mới',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Ngày cũ',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Giờ cũ',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Lý do',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
+                                  style: _tableHeaderStyle()))),
                       DataColumn(
-                          label: const Expanded(
+                          label: Expanded(
                               child: Text('Ngày tạo',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12))),
+                                  style: _tableHeaderStyle())),
                           onSort: (_, asc) {
                             setState(() {
                               _sortColumn = 'createdAt';
@@ -1740,20 +1744,16 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                             });
                             _loadData();
                           }),
-                      const DataColumn(
+                      DataColumn(
                           label: Expanded(
                               child: Text('Người duyệt',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
+                                  style: _tableHeaderStyle()))),
                       DataColumn(
-                          label: const Expanded(
+                          label: Expanded(
                               child: Text('Ngày duyệt',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12))),
+                                  style: _tableHeaderStyle())),
                           onSort: (_, asc) {
                             setState(() {
                               _sortColumn = 'approvedDate';
@@ -1761,27 +1761,21 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                             });
                             _loadData();
                           }),
-                      const DataColumn(
+                      DataColumn(
                           label: Expanded(
                               child: Text('Ghi chú duyệt',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Tiến trình',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
-                      const DataColumn(
+                                  style: _tableHeaderStyle()))),
+                      DataColumn(
                           label: Expanded(
                               child: Text('Hành động',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)))),
+                                  style: _tableHeaderStyle()))),
                     ],
                     rows: _filteredRequests.asMap().entries.map((entry) {
                       final idx = entry.key;
@@ -1793,16 +1787,16 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                         cells: [
                           DataCell(Center(
                               child: Text('${startIndex + idx + 1}',
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(req['employeeName'] ?? '',
-                                    style: const TextStyle(
+                                    style: vietnameseTextStyle(const TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w500)),
+                                        fontWeight: FontWeight.w500))),
                                 Text(req['employeeCode'] ?? '',
                                     style: TextStyle(
                                         fontSize: 11, color: Colors.grey[600])),
@@ -1820,11 +1814,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                               ),
                               child: Text(
                                 _getActionLabel(req['action']),
-                                style: TextStyle(
+                                style: vietnameseTextStyle(TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: _getActionColor(req['action']),
-                                ),
+                                )),
                               ),
                             ),
                           )),
@@ -1839,26 +1833,26 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                               ),
                               child: Text(
                                 _getStatusLabel(status),
-                                style: TextStyle(
+                                style: vietnameseTextStyle(TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: _getStatusColor(status),
-                                ),
+                                )),
                               ),
                             ),
                           )),
                           DataCell(Center(
                               child: Text(_formatDate(req['newDate']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                               child: Text(_formatTime(req['newTime']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                               child: Text(_formatDate(req['oldDate']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                               child: Text(_formatTime(req['oldTime']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 150),
@@ -1870,13 +1864,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                           )),
                           DataCell(Center(
                               child: Text(_formatDateTime(req['createdAt']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                               child: Text(req['approvedByName'] ?? '--',
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                               child: Text(_formatDateTime(req['approvedDate']),
-                                  style: const TextStyle(fontSize: 12)))),
+                                  style: _tableCellStyle()))),
                           DataCell(Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 120),
@@ -1964,8 +1958,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                               Text(
                                   [
                                     req['employeeCode'] ?? '',
-                                    '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}'
-                                  ].where((s) => s.isNotEmpty).join(' · '),
+                    '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}'
+                  ].where((s) => s.isNotEmpty).join(' • '),
                                   style: const TextStyle(
                                       color: Color(0xFF71717A), fontSize: 12),
                                   maxLines: 1,
@@ -2157,11 +2151,17 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       children: [
         Text(
           'Hiển thị $start-$end / $_totalCount',
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          style: vietnameseTextStyle(
+            TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
         ),
         const SizedBox(width: 8),
-        Text('Số dòng:',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(
+          'Số dòng:',
+          style: vietnameseTextStyle(
+            TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ),
         const SizedBox(width: 4),
         Container(
           height: 30,
@@ -2174,7 +2174,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
             value: _itemsPerPage,
             underline: const SizedBox(),
             isDense: true,
-            style: const TextStyle(fontSize: 12, color: Colors.black87),
+            style: vietnameseTextStyle(
+              const TextStyle(fontSize: 12, color: Colors.black87),
+            ),
             items: _pageSizeOptions
                 .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
                 .toList(),

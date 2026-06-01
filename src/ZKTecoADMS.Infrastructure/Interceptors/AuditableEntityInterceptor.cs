@@ -30,8 +30,8 @@ public class AuditableEntityInterceptor : SaveChangesInterceptor
                 case EntityState.Added:
                     if (string.IsNullOrEmpty(entry.Entity.CreatedBy))
                         entry.Entity.CreatedBy = "API";
-                    entry.Entity.CreatedAt = DateTime.Now;
-                    entry.Entity.LastModified = DateTime.Now;
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                    entry.Entity.LastModified = DateTime.UtcNow;
                     if (string.IsNullOrEmpty(entry.Entity.LastModifiedBy))
                         entry.Entity.LastModifiedBy = entry.Entity.CreatedBy;
                     break;
@@ -41,7 +41,7 @@ public class AuditableEntityInterceptor : SaveChangesInterceptor
                         entry.Entity.LastModifiedBy = "API";
                     break;
                 case EntityState.Deleted:
-                    entry.Entity.Deleted = DateTime.Now;
+                    entry.Entity.Deleted = DateTime.UtcNow;
                     entry.Entity.DeletedBy = "API";
                     break;
             }

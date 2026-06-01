@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 class AgentsTab extends StatefulWidget {
   const AgentsTab({super.key});
@@ -153,7 +154,7 @@ class AgentsTabState extends State<AgentsTab> {
                   ),
                 ),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _showCreateAgentDialog,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Thêm đại lý'),
@@ -253,7 +254,7 @@ class AgentsTabState extends State<AgentsTab> {
         child: Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: const Color(0xFF1E3A5F),
+            backgroundColor: HrmPageChrome.primaryNavy,
             child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           ),
           const SizedBox(width: 12),
@@ -386,7 +387,7 @@ class AgentsTabState extends State<AgentsTab> {
               },
               child: const Text('Sao chép'),
             ),
-            ElevatedButton(
+            FilledButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Đóng')),
           ],
@@ -438,7 +439,7 @@ class AgentsTabState extends State<AgentsTab> {
           TextButton(
               onPressed: saving ? null : () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: saving ? null : () async {
               final pwd = passwordCtrl.text.trim();
               if (nameCtrl.text.trim().isEmpty) {
@@ -534,7 +535,7 @@ class AgentsTabState extends State<AgentsTab> {
             },
             child: const Text('Sao chép'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Đóng'),
           ),
@@ -567,7 +568,7 @@ class AgentsTabState extends State<AgentsTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               await _apiService.updateAgent(
                   id: agent['id']?.toString(),

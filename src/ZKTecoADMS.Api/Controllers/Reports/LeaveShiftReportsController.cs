@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -9,7 +11,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers.Reports;
 
 /// <summary>
-/// Cluster 2 â€” Nghá»‰ phÃ©p & ca kÃ­p: sá»‘ dÆ° phÃ©p, SLA duyá»‡t Ä‘Æ¡n, quota ca, Ä‘á»•i ca.
+/// Cluster 2 — Nghỉ phép & ca kíp: số dư phép, SLA duyệt đơn, quota ca, đổi ca.
 /// </summary>
 [ApiController]
 [Route("api/reports/leave-shift")]
@@ -19,11 +21,12 @@ public class LeaveShiftReportsController(
     ILogger<LeaveShiftReportsController> logger
 ) : AuthenticatedControllerBase
 {
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 1. LEAVE BALANCE â€” Sá»‘ dÆ° phÃ©p theo nhÃ¢n viÃªn/nÄƒm
+    // ═════════════════════════════════════════════════════════════════════
+    // 1. LEAVE BALANCE — Số dư phép theo nhân viên/năm
     // GET /api/reports/leave-shift/leave-balance?year=&department=&format=
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═════════════════════════════════════════════════════════════════════
     [HttpGet("leave-balance")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetLeaveBalance(
         [FromQuery] int? year = null,
         [FromQuery] string? department = null,
@@ -131,10 +134,8 @@ public class LeaveShiftReportsController(
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
                 return ReportHelpers.ExcelFile($"Leave balance {y}",
-                    new[] { "STT", "MÃ£ NV", "Há» tÃªn", "PhÃ²ng ban", "Äá»‹nh má»©c", "ÄÃ£ dÃ¹ng (phÃ©p)", "CÃ²n láº¡i", "KhÃ´ng lÆ°Æ¡ng", "Nghá»‰ á»‘m", "KhÃ¡c", "% dÃ¹ng" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    new[] { "STT", "Mã NV", "Họ tên", "Phòng ban", "Định mức", "Đã dùng (phép)", "Còn lại", "Không lương", "Nghỉ ốm", "Khác", "% dùng" },
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in report.Items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -151,7 +152,7 @@ public class LeaveShiftReportsController(
                             row++;
                         }
                     },
-                    $"leave-balance-{y}.xlsx");
+                    $"leave-balance-{y}.xlsx", user: User);
             }
 
             return Ok(AppResponse<LeaveBalanceReportDto>.Success(report));
@@ -163,11 +164,12 @@ public class LeaveShiftReportsController(
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 2. LEAVE APPROVAL SLA â€” Thá»i gian duyá»‡t + tá»· lá»‡ duyá»‡t/tá»« chá»‘i
+    // ═════════════════════════════════════════════════════════════════════
+    // 2. LEAVE APPROVAL SLA — Thời gian duyệt + tỷ lệ duyệt/từ chối
     // GET /api/reports/leave-shift/leave-approval-sla?from=&to=
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═════════════════════════════════════════════════════════════════════
     [HttpGet("leave-approval-sla")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetLeaveApprovalSla(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -235,11 +237,9 @@ public class LeaveShiftReportsController(
 
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
-                return ReportHelpers.ExcelFile("SLA duyá»‡t phÃ©p",
-                    new[] { "NgÆ°á»i duyá»‡t", "Tá»•ng", "Duyá»‡t", "Tá»« chá»‘i", "Trung bÃ¬nh (giá»)" },
-                    ws =>
-                    {
-                        int row = 2;
+                return ReportHelpers.ExcelFile("SLA duyệt phép",
+                    new[] { "Người duyệt", "Tổng", "Duyệt", "Từ chối", "Trung bình (giờ)" },
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var a in perApprover)
                         {
                             ws.Cell(row, 1).Value = a.ApproverName;
@@ -250,7 +250,7 @@ public class LeaveShiftReportsController(
                             row++;
                         }
                     },
-                    $"leave-approval-sla-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"leave-approval-sla-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<LeaveApprovalSlaReportDto>.Success(report));
@@ -262,11 +262,12 @@ public class LeaveShiftReportsController(
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 3. SHIFT COVERAGE â€” So sÃ¡nh quota vs Ä‘Äƒng kÃ½ thá»±c táº¿
+    // ═════════════════════════════════════════════════════════════════════
+    // 3. SHIFT COVERAGE — So sánh quota vs đăng ký thực tế
     // GET /api/reports/leave-shift/shift-coverage?from=&to=&department=
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═════════════════════════════════════════════════════════════════════
     [HttpGet("shift-coverage")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetShiftCoverage(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -302,16 +303,16 @@ public class LeaveShiftReportsController(
                         .Where(s => s.ShiftId == q.ShiftTemplateId && s.Date.Date == d)
                         .Sum(s => s.Registered);
 
-                    var status = registered < q.MinEmployees ? "Thiáº¿u"
-                        : registered <= q.WarningThreshold ? "Cáº£nh bÃ¡o"
-                        : registered > q.MaxEmployees ? "VÆ°á»£t" : "Äáº¡t";
+                    var status = registered < q.MinEmployees ? "Thiếu"
+                        : registered <= q.WarningThreshold ? "Cảnh báo"
+                        : registered > q.MaxEmployees ? "Vượt" : "Đạt";
 
                     items.Add(new ShiftCoverageItemDto
                     {
                         Date = d,
                         ShiftId = q.ShiftTemplateId,
                         ShiftName = q.ShiftName ?? "-",
-                        Department = q.Department ?? "(ToÃ n cÃ´ng ty)",
+                        Department = q.Department ?? "(Toàn công ty)",
                         MinRequired = q.MinEmployees,
                         MaxAllowed = q.MaxEmployees,
                         Registered = registered,
@@ -325,18 +326,16 @@ public class LeaveShiftReportsController(
             {
                 From = fromLocal, To = toLocal,
                 Items = items.OrderBy(i => i.Date).ThenBy(i => i.ShiftName).ToList(),
-                UnderCount = items.Count(i => i.Status == "Thiáº¿u"),
-                OverCount = items.Count(i => i.Status == "VÆ°á»£t"),
-                OkCount = items.Count(i => i.Status == "Äáº¡t")
+                UnderCount = items.Count(i => i.Status == "Thiếu"),
+                OverCount = items.Count(i => i.Status == "Vượt"),
+                OkCount = items.Count(i => i.Status == "Đạt")
             };
 
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
                 return ReportHelpers.ExcelFile("Shift coverage",
-                    new[] { "NgÃ y", "Ca", "PhÃ²ng ban", "Min", "Max", "ÄÄƒng kÃ½", "Thiáº¿u", "Tráº¡ng thÃ¡i" },
-                    ws =>
-                    {
-                        int row = 2;
+                    new[] { "Ngày", "Ca", "Phòng ban", "Min", "Max", "Đăng ký", "Thiếu", "Trạng thái" },
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in report.Items)
                         {
                             ReportHelpers.DateCell(ws.Cell(row, 1), i.Date);
@@ -350,7 +349,7 @@ public class LeaveShiftReportsController(
                             row++;
                         }
                     },
-                    $"shift-coverage-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"shift-coverage-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<ShiftCoverageReportDto>.Success(report));
@@ -362,11 +361,12 @@ public class LeaveShiftReportsController(
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 4. SHIFT SWAPS â€” Táº§n suáº¥t Ä‘á»•i ca theo nhÃ¢n viÃªn
+    // ═════════════════════════════════════════════════════════════════════
+    // 4. SHIFT SWAPS — Tần suất đổi ca theo nhân viên
     // GET /api/reports/leave-shift/shift-swaps?from=&to=
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ═════════════════════════════════════════════════════════════════════
     [HttpGet("shift-swaps")]
+    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetShiftSwaps(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -423,10 +423,8 @@ public class LeaveShiftReportsController(
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
                 return ReportHelpers.ExcelFile("Shift swaps",
-                    new[] { "MÃ£ NV", "Há» tÃªn", "PhÃ²ng ban", "YÃªu cáº§u", "Duyá»‡t", "Tá»« chá»‘i", "Chá»" },
-                    ws =>
-                    {
-                        int row = 2;
+                    new[] { "Mã NV", "Họ tên", "Phòng ban", "Yêu cầu", "Duyệt", "Từ chối", "Chờ" },
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in perEmp)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -439,7 +437,7 @@ public class LeaveShiftReportsController(
                             row++;
                         }
                     },
-                    $"shift-swaps-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"shift-swaps-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<ShiftSwapReportDto>.Success(report));
@@ -452,7 +450,7 @@ public class LeaveShiftReportsController(
     }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DTOs (Cluster 2) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════ DTOs (Cluster 2) ═══════════════════════════
 
 public class LeaveBalanceReportDto
 {
@@ -540,3 +538,4 @@ public class ShiftSwapItemDto
     public int Rejected { get; set; }
     public int Pending { get; set; }
 }
+

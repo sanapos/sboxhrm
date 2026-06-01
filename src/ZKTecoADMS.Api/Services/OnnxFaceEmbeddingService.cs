@@ -213,6 +213,83 @@ public class OnnxFaceEmbeddingService : IDisposable
     }
 
     /// <summary>
+    /// Extract embedding directly from JPEG/PNG bytes (punch photo) without persisting to disk first.
+    /// </summary>
+    public async Task<float[]?> GetEmbeddingFromBytesAsync(byte[] imageBytes)
+    {
+        if (imageBytes == null || imageBytes.Length < 16) return null;
+
+        if (!string.IsNullOrWhiteSpace(_sidecarUrl) && _httpClientFactory != null)
+        {
+            var fromSidecar = await TryGetEmbeddingFromSidecarBytesAsync(imageBytes);
+            if (fromSidecar != null) return fromSidecar;
+        }
+
+        EnsureInitialized();
+        if (_session == null) return null;
+
+        try
+        {
+            using var ms = new MemoryStream(imageBytes);
+            using var image = await Image.LoadAsync<Rgb24>(ms);
+            using var flipped = image.Clone();
+            flipped.Mutate(x => x.Flip(FlipMode.Horizontal));
+
+            var emb1 = RunInference(image);
+            var emb2 = RunInference(flipped);
+            var fused = new float[emb1.Length];
+            double norm = 0.0;
+            for (var i = 0; i < fused.Length; i++)
+            {
+                fused[i] = emb1[i] + emb2[i];
+                norm += fused[i] * fused[i];
+            }
+            norm = Math.Sqrt(norm);
+            if (norm > 1e-9)
+            {
+                for (var i = 0; i < fused.Length; i++) fused[i] = (float)(fused[i] / norm);
+            }
+            return fused;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ONNX embedding extraction failed for in-memory punch image");
+            return null;
+        }
+    }
+
+    private async Task<float[]?> TryGetEmbeddingFromSidecarBytesAsync(byte[] imageBytes)
+    {
+        try
+        {
+            var client = _httpClientFactory!.CreateClient("face-sidecar");
+            client.Timeout = TimeSpan.FromSeconds(6);
+            using var form = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(imageBytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+            form.Add(fileContent, "file", "punch.jpg");
+            var url = _sidecarUrl!.TrimEnd('/') + "/embed";
+            using var resp = await client.PostAsync(url, form);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await System.Text.Json.JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("ok", out var okEl) || !okEl.GetBoolean()) return null;
+            if (!root.TryGetProperty("embedding", out var embEl) || embEl.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return null;
+            var emb = new float[embEl.GetArrayLength()];
+            var i = 0;
+            foreach (var v in embEl.EnumerateArray()) emb[i++] = v.GetSingle();
+            return emb;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Face sidecar bytes embed failed");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Same as <see cref="GetEmbeddingAsync(string)"/> but resolves a wwwroot-relative
     /// path (e.g. "/uploads/face-verifications/foo.jpg") to an absolute one.
     /// </summary>

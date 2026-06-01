@@ -1,10 +1,11 @@
-using ZKTecoADMS.Application.DTOs.Devices;
+﻿using ZKTecoADMS.Application.DTOs.Devices;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Application.Queries.Devices.GetDevicesByUser;
 using ZKTecoADMS.Application.Queries.Devices.GetAllDevices;
 using ZKTecoADMS.Application.Queries.Devices.GetDeviceById;
 using Mapster;
 using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Devices.ToggleActive;
 using ZKTecoADMS.Application.Commands.Devices.AddDevice;
@@ -28,6 +29,7 @@ public class DevicesController(
 {
     [HttpGet("users/{CurrentUserId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> GetDevicesByUser(Guid CurrentUserId)
     {
         var query = new GetDevicesByUserQuery(CurrentUserId);
@@ -35,6 +37,7 @@ public class DevicesController(
     }
     
     [HttpGet]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetAllDevices([FromQuery] bool? storeOnly)
     {
         var query = new GetAllDevicesQuery(
@@ -48,6 +51,7 @@ public class DevicesController(
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> GetDeviceById(Guid id)
     {
         var query = new GetDeviceByIdQuery(id);
@@ -56,6 +60,7 @@ public class DevicesController(
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> AddDevice([FromBody] AddDeviceRequest request)
     {
         try
@@ -75,12 +80,13 @@ public class DevicesController(
             Console.WriteLine($"[AddDevice] Stack: {ex.StackTrace}");
             if (ex.InnerException != null)
                 Console.WriteLine($"[AddDevice] Inner: {ex.InnerException.Message}");
-            return Ok(AppResponse<DeviceDto>.Error($"Lỗi thêm thiết bị: {ex.Message}"));
+            return Ok(AppResponse<DeviceDto>.Error($"Lá»—i thÃªm thiáº¿t bá»‹: {ex.Message}"));
         }
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<Guid>>> DeleteDevice(Guid id)
     {
         // Verify device belongs to user's store (Admin can delete any)
@@ -88,9 +94,9 @@ public class DevicesController(
         {
             var device = await deviceRepository.GetByIdAsync(id);
             if (device == null)
-                return Ok(AppResponse<Guid>.Error("Không tìm thấy thiết bị"));
+                return Ok(AppResponse<Guid>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
             if (device.StoreId != GetCurrentStoreId())
-                return Ok(AppResponse<Guid>.Error("Bạn không có quyền xóa thiết bị này"));
+                return Ok(AppResponse<Guid>.Error("Báº¡n khÃ´ng cÃ³ quyá»n xÃ³a thiáº¿t bá»‹ nÃ y"));
         }
 
         var cmd = new DeleteDeviceCommand(id);
@@ -99,6 +105,7 @@ public class DevicesController(
 
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [HttpPut("{id}/toggle-active")]
+    [RequireModulePermission("Device", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> ActiveDevice(Guid id)
     {
         var cmd = new ToggleActiveCommand(id);
@@ -107,6 +114,7 @@ public class DevicesController(
     
     [HttpGet("{deviceId}/device-info")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceInfoDto>>> GetDeviceInfo(Guid deviceId)
     {
         var query = new GetDeviceInfoQuery(deviceId);
@@ -114,15 +122,16 @@ public class DevicesController(
     }
 
     /// <summary>
-    /// Refresh trạng thái online/offline của thiết bị dựa trên LastOnline thực tế
+    /// Refresh tráº¡ng thÃ¡i online/offline cá»§a thiáº¿t bá»‹ dá»±a trÃªn LastOnline thá»±c táº¿
     /// </summary>
     [HttpGet("{deviceId}/refresh-status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> RefreshDeviceStatus(Guid deviceId)
     {
         var device = await deviceRepository.GetByIdAsync(deviceId);
         if (device == null)
-            return NotFound(AppResponse<object>.Fail("Thiết bị không tồn tại"));
+            return NotFound(AppResponse<object>.Fail("Thiáº¿t bá»‹ khÃ´ng tá»“n táº¡i"));
 
         var isOnline = device.LastOnline != null && 
                        DateTime.UtcNow.Subtract(device.LastOnline.Value).TotalSeconds <= 90;
@@ -148,10 +157,11 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Lấy danh sách thiết bị đang chờ duyệt (Pending)
+    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘ang chá» duyá»‡t (Pending)
     /// </summary>
     [HttpGet("pending")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetPendingDevices()
     {
         var devices = await deviceService.GetPendingDevicesAsync();
@@ -168,10 +178,11 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Lấy danh sách thiết bị đang kết nối (online trong 5 phút gần đây)
+    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘ang káº¿t ná»‘i (online trong 5 phÃºt gáº§n Ä‘Ã¢y)
     /// </summary>
     [HttpGet("connected")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetConnectedDevices()
     {
         var devices = await deviceService.GetConnectedDevicesAsync();
@@ -188,16 +199,17 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Duyệt thiết bị - chuyển từ Pending sang Active (Admin only)
+    /// Duyá»‡t thiáº¿t bá»‹ - chuyá»ƒn tá»« Pending sang Active (Admin only)
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AdminOnly)]
+    [RequireModulePermission("Device", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> ApproveDevice(Guid id, [FromBody] ApproveDeviceRequest request)
     {
         var device = await deviceService.ApproveDeviceAsync(id, request.DeviceName, request.Description, request.Location);
         if (device == null)
         {
-            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
+            return Ok(AppResponse<DeviceDto>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
         }
         
         var deviceDto = device.Adapt<DeviceDto>();
@@ -205,16 +217,17 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Từ chối thiết bị - xóa khỏi danh sách (Admin only)
+    /// Tá»« chá»‘i thiáº¿t bá»‹ - xÃ³a khá»i danh sÃ¡ch (Admin only)
     /// </summary>
     [HttpDelete("{id}/reject")]
     [Authorize(Policy = PolicyNames.AdminOnly)]
+    [RequireModulePermission("Device", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> RejectDevice(Guid id)
     {
         var result = await deviceService.RejectDeviceAsync(id);
         if (!result)
         {
-            return Ok(AppResponse<bool>.Error("Không tìm thấy thiết bị"));
+            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
         }
         
         return Ok(AppResponse<bool>.Success(true));
@@ -223,10 +236,11 @@ public class DevicesController(
     // ==================== USER CLAIM DEVICE APIs ====================
     
     /// <summary>
-    /// Lấy danh sách thiết bị đã claim của user hiện tại
+    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘Ã£ claim cá»§a user hiá»‡n táº¡i
     /// </summary>
     [HttpGet("my-devices")]
     [Authorize]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetMyDevices()
     {
         var devices = await deviceService.GetDevicesByOwnerAsync(CurrentUserId);
@@ -235,11 +249,12 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// User claim thiết bị bằng Serial Number
-    /// Nếu thiết bị đã kết nối với server và chưa được claim, sẽ gán cho user
+    /// User claim thiáº¿t bá»‹ báº±ng Serial Number
+    /// Náº¿u thiáº¿t bá»‹ Ä‘Ã£ káº¿t ná»‘i vá»›i server vÃ  chÆ°a Ä‘Æ°á»£c claim, sáº½ gÃ¡n cho user
     /// </summary>
     [HttpPost("claim")]
     [Authorize]
+    [RequireModulePermission("Device", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> ClaimDevice([FromBody] ClaimDeviceRequest request)
     {
         var result = await deviceService.ClaimDeviceAsync(
@@ -259,7 +274,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Kiểm tra Serial Number có tồn tại và available không
+    /// Kiá»ƒm tra Serial Number cÃ³ tá»“n táº¡i vÃ  available khÃ´ng
     /// </summary>
     [HttpGet("check-serial/{serialNumber}")]
     [Authorize]
@@ -275,20 +290,21 @@ public class DevicesController(
             IsClaimed = device?.IsClaimed ?? false,
             LastOnline = device?.LastOnline,
             Message = device == null 
-                ? "Thiết bị chưa kết nối với server" 
+                ? "Thiáº¿t bá»‹ chÆ°a káº¿t ná»‘i vá»›i server" 
                 : device.IsClaimed 
-                    ? "Thiết bị đã được đăng ký bởi tài khoản khác" 
-                    : "Thiết bị sẵn sàng để đăng ký"
+                    ? "Thiáº¿t bá»‹ Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ bá»Ÿi tÃ i khoáº£n khÃ¡c" 
+                    : "Thiáº¿t bá»‹ sáºµn sÃ ng Ä‘á»ƒ Ä‘Äƒng kÃ½"
         };
         
         return Ok(AppResponse<DeviceAvailabilityDto>.Success(availability));
     }
     
     /// <summary>
-    /// User unclaim thiết bị - trả lại thiết bị về trạng thái available
+    /// User unclaim thiáº¿t bá»‹ - tráº£ láº¡i thiáº¿t bá»‹ vá» tráº¡ng thÃ¡i available
     /// </summary>
     [HttpPost("{id}/unclaim")]
     [Authorize]
+    [RequireModulePermission("Device", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> UnclaimDevice(Guid id)
     {
         var result = await deviceService.UnclaimDeviceAsync(id, CurrentUserId);
@@ -301,22 +317,23 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Cập nhật thông tin thiết bị (tên, vị trí, mô tả)
+    /// Cáº­p nháº­t thÃ´ng tin thiáº¿t bá»‹ (tÃªn, vá»‹ trÃ­, mÃ´ táº£)
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> UpdateDevice(Guid id, [FromBody] UpdateDeviceRequest request)
     {
         var device = await deviceRepository.GetByIdAsync(id);
         if (device == null)
         {
-            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
+            return Ok(AppResponse<DeviceDto>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
         }
 
         // Verify device belongs to user's store (Admin can update any)
         if (!IsAdmin && device.StoreId != GetCurrentStoreId())
         {
-            return Ok(AppResponse<DeviceDto>.Error("Bạn không có quyền cập nhật thiết bị này"));
+            return Ok(AppResponse<DeviceDto>.Error("Báº¡n khÃ´ng cÃ³ quyá»n cáº­p nháº­t thiáº¿t bá»‹ nÃ y"));
         }
         
         if (!string.IsNullOrWhiteSpace(request.DeviceName))
@@ -335,7 +352,7 @@ public class DevicesController(
 }
 
 /// <summary>
-/// Request model cho việc duyệt thiết bị (Admin)
+/// Request model cho viá»‡c duyá»‡t thiáº¿t bá»‹ (Admin)
 /// </summary>
 public class ApproveDeviceRequest
 {
@@ -345,7 +362,7 @@ public class ApproveDeviceRequest
 }
 
 /// <summary>
-/// Request model cho user claim thiết bị
+/// Request model cho user claim thiáº¿t bá»‹
 /// </summary>
 public class ClaimDeviceRequest
 {
@@ -356,7 +373,7 @@ public class ClaimDeviceRequest
 }
 
 /// <summary>
-/// DTO kiểm tra tình trạng thiết bị
+/// DTO kiá»ƒm tra tÃ¬nh tráº¡ng thiáº¿t bá»‹
 /// </summary>
 public class DeviceAvailabilityDto
 {
@@ -369,7 +386,7 @@ public class DeviceAvailabilityDto
 }
 
 /// <summary>
-/// Request model cho việc cập nhật thông tin thiết bị
+/// Request model cho viá»‡c cáº­p nháº­t thÃ´ng tin thiáº¿t bá»‹
 /// </summary>
 public class UpdateDeviceRequest
 {
@@ -377,3 +394,4 @@ public class UpdateDeviceRequest
     public string? Description { get; set; }
     public string? Location { get; set; }
 }
+

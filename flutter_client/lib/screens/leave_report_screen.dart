@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
-import '../utils/file_saver.dart' as file_saver;
-import '../widgets/notification_overlay.dart';
+import '../utils/report_screen_helpers.dart';
 import '../providers/permission_provider.dart';
-import 'package:excel/excel.dart' as excel_lib;
 
 const _lRowH = 54.0;
 const _lHdrH = 44.0;
@@ -25,25 +24,25 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
 
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
+  String _datePreset = 'this_month';
   int? _statusFilter; // 0=pending,1=approved,2=rejected,3=cancelled
   bool _loading = false;
   List<Map<String, dynamic>> _leaves = [];
   String _empSearch = '';
   String? _selectedBranchId;
-  List<Map<String, dynamic>> _branches = [];
-  List<Map<String, dynamic>> _employeesList = [];
+  final _branchFilter = ReportBranchFilter();
 
   List<Map<String, dynamic>> get _filtered {
     Set<String>? branchIds;
     if (_selectedBranchId != null) {
-      branchIds = _employeesList
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
-          .map((e) => e['id']?.toString() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet();
+      branchIds = _branchFilter.userIdsForBranch(_selectedBranchId);
+      if (branchIds.isEmpty) return [];
     }
     return _leaves.where((l) {
-      if (branchIds != null && !branchIds.contains(l['employeeId']?.toString())) {
+      final empKey = l['employeeUserId']?.toString() ??
+          l['employeeId']?.toString() ??
+          '';
+      if (branchIds != null && !branchIds.contains(empKey)) {
         return false;
       }
       if (_empSearch.isNotEmpty &&
@@ -60,25 +59,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   void initState() {
     super.initState();
     _load();
-    _loadBranches();
-  }
-
-  Future<void> _loadBranches() async {
-    try {
-      final emps = await _api.getEmployees(pageSize: 1000);
-      if (mounted) {
-        setState(() => _employeesList =
-            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
-      }
-    } catch (_) {}
-    try {
-      final br = await _api.getBranchesForSelect();
-      final bd = br['data'];
-      if (bd is List && mounted) {
-        setState(() => _branches =
-            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
-      }
-    } catch (_) {}
+    _branchFilter.loadBranches(_api).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -122,16 +105,35 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
 
   Future<void> _exportExcel() async {
     final data = _filtered;
-    if (data.isEmpty) {
-      NotificationOverlayManager()
-          .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
-      return;
+    final rows = <List<dynamic>>[];
+    for (int i = 0; i < data.length; i++) {
+      final l = data[i];
+      final startDate = l['startDate'] != null
+          ? DateTime.tryParse(l['startDate'].toString())
+          : null;
+      final endDate =
+          l['endDate'] != null ? DateTime.tryParse(l['endDate'].toString()) : null;
+      final days = (startDate != null && endDate != null)
+          ? endDate.difference(startDate).inDays + 1
+          : 1;
+      rows.add([
+        i + 1,
+        l['employeeName']?.toString() ?? '',
+        _leaveTypeName(l['type'] ?? l['leaveType']),
+        startDate != null ? _fmtDate.format(startDate) : '',
+        endDate != null ? _fmtDate.format(endDate) : '',
+        days,
+        l['reason']?.toString() ?? '',
+        _statusLabel(_normalizeStatus(l['status'])),
+        l['approvedByName']?.toString() ?? '',
+      ]);
     }
-    try {
-      final wb = excel_lib.Excel.createExcel();
-      final sh = wb['Báo cáo nghỉ phép'];
-      wb.delete('Sheet1');
-      sh.appendRow([
+    await ClientExcelExport.export(
+      context: context,
+      title: 'Báo cáo nghỉ phép',
+      sheetName: 'Bao cao nghi phep',
+      filePrefix: 'BaoCaoNghiPhep',
+      headers: const [
         'STT',
         'Nhân viên',
         'Loại phép',
@@ -140,50 +142,11 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         'Số ngày',
         'Lý do',
         'Trạng thái',
-        'Người duyệt'
-      ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < data.length; i++) {
-        final l = data[i];
-        final startDate = l['startDate'] != null
-            ? DateTime.tryParse(l['startDate'].toString())
-            : null;
-        final endDate = l['endDate'] != null
-            ? DateTime.tryParse(l['endDate'].toString())
-            : null;
-        final days = (startDate != null && endDate != null)
-            ? endDate.difference(startDate).inDays + 1
-            : 1;
-        sh.appendRow([
-          excel_lib.IntCellValue(i + 1),
-          excel_lib.TextCellValue(l['employeeName']?.toString() ?? ''),
-          excel_lib.TextCellValue(_leaveTypeName(l['type'] ?? l['leaveType'])),
-          excel_lib.TextCellValue(
-              startDate != null ? _fmtDate.format(startDate) : ''),
-          excel_lib.TextCellValue(
-              endDate != null ? _fmtDate.format(endDate) : ''),
-          excel_lib.IntCellValue(days),
-          excel_lib.TextCellValue(l['reason']?.toString() ?? ''),
-          excel_lib.TextCellValue(_statusLabel(_normalizeStatus(l['status']))),
-          excel_lib.TextCellValue(l['approvedByName']?.toString() ?? ''),
-        ]);
-      }
-      final bytes = wb.encode();
-      if (bytes != null) {
-        final fn =
-            'BaoCaoNghiPhep_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
-        await file_saver.saveFileBytes(bytes, fn,
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted) {
-          NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
-      }
-    }
+        'Người duyệt',
+      ],
+      rows: rows,
+      periodLabel: '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}',
+    );
   }
 
   int _normalizeStatus(dynamic s) {
@@ -248,34 +211,10 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     }
   }
 
-  Future<void> _pickFrom() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _from,
-        firstDate: DateTime(2020),
-        lastDate: _to);
-    if (d != null) {
-      setState(() => _from = d);
-      _load();
-    }
-  }
-
-  Future<void> _pickTo() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _to,
-        firstDate: _from,
-        lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (d != null) {
-      setState(() => _to = d);
-      _load();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         title: const Text('Báo cáo nghỉ phép'),
         backgroundColor: _lTheme,
@@ -292,12 +231,25 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         ],
       ),
       body: Column(children: [
-        _buildFilters(),
-        _buildSummary(),
         Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildTable()),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildFilters(),
+                _buildSummary(),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(48),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _buildTable(),
+              ],
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -309,18 +261,33 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _dateBtn('T\u1eeb ng\u00e0y', _from, _pickFrom),
-          _dateBtn('\u0110\u1ebfn ng\u00e0y', _to, _pickTo),
+          ReportDateRangeFilterBar(
+            from: _from,
+            to: _to,
+            preset: _datePreset,
+            onChanged: (f, t, p) {
+              setState(() {
+                _from = f;
+                _to = t;
+                _datePreset = p;
+              });
+              _load();
+            },
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
           _statusDrop(),
           SizedBox(
               width: 200,
               child: _buildEmpSearch('T\u00ecm nh\u00e2n vi\u00ean...')),
-          if (_branches.isNotEmpty)
+          if (_branchFilter.branches.isNotEmpty)
             SizedBox(
               width: 170,
               child: Container(
@@ -345,12 +312,15 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     items: [
                       const DropdownMenuItem<String?>(
                           value: null, child: Text('T\u1ea5t c\u1ea3 CN')),
-                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                      ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
                           value: b['id']?.toString(),
                           child: Text(b['name']?.toString() ?? '',
                               overflow: TextOverflow.ellipsis))),
                     ],
-                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                    onChanged: (v) async {
+                      if (v != null) await _branchFilter.ensureEmployees(_api);
+                      if (mounted) setState(() => _selectedBranchId = v);
+                    },
                   ),
                 ),
               ),
@@ -373,6 +343,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                 ),
               ),
             ),
+            ],
+          ),
         ],
       ),
     );
@@ -457,39 +429,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          const Icon(Icons.calendar_today_outlined,
-              size: 14, color: Color(0xFF9CA3AF)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF9CA3AF), height: 1.1)),
-                Text(_fmtDate.format(val),
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2)),
-              ])),
-        ]),
-      ),
     );
   }
 
@@ -654,10 +593,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 1),
-      child: SingleChildScrollView(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // ═══ STICKY: Nhân viên ═══
             Container(
               width: _lStickyW,
@@ -753,7 +691,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'system_admin/system_admin_helpers.dart';
@@ -19,6 +19,7 @@ import 'system_admin/marketing_tab.dart';
 import 'system_admin/content_pages_tab.dart';
 import 'system_admin/consultation_requests_tab.dart';
 import 'system_admin/landing_content_tab.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   const SystemAdminScreen({super.key});
@@ -173,7 +174,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: health['status'] == 'Healthy'
-                        ? const Color(0xFF1E3A5F).withValues(alpha: 0.3)
+                        ? HrmPageChrome.primaryNavy.withValues(alpha: 0.3)
                         : Colors.red.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -299,7 +300,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Huỷ'),
           ),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
             child:

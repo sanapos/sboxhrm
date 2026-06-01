@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
@@ -34,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

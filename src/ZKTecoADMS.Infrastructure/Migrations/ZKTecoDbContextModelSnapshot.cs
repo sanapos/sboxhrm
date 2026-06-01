@@ -1725,6 +1725,10 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<DateTime?>("NewDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("NewPunchType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<TimeSpan?>("NewTime")
                         .HasColumnType("interval");
 
@@ -2640,6 +2644,112 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("CommunicationId");
 
                     b.ToTable("CommunicationReactions");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ConsultationRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ClientIp")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Company")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("Deleted")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("InterestedPlan")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("NormalizedPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Province")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("NormalizedPhone");
+
+                    b.HasIndex("Phone");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("Source", "CreatedAt");
+
+                    b.ToTable("ConsultationRequests");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ContentCategory", b =>
@@ -4592,11 +4702,18 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPublicShareEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("LikeCount")
                         .HasColumnType("integer");
 
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
+
+                    b.Property<string>("PublicShareToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("timestamp without time zone");
@@ -4648,6 +4765,10 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.HasIndex("StoreId");
 
                     b.HasIndex("TargetDepartmentId");
+
+                    b.HasIndex("PublicShareToken")
+                        .IsUnique()
+                        .HasFilter("\"PublicShareToken\" IS NOT NULL");
 
                     b.ToTable("InternalCommunications");
                 });
@@ -6719,7 +6840,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000001"),
                             Code = "attendance",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6629),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3140),
                             DefaultEnabled = true,
                             Description = "Thông báo chấm công vào/ra, trễ giờ, vắng mặt",
                             DisplayName = "Chấm công",
@@ -6731,7 +6852,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000002"),
                             Code = "leave",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6650),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3163),
                             DefaultEnabled = true,
                             Description = "Đơn nghỉ phép, duyệt/từ chối phép",
                             DisplayName = "Nghỉ phép",
@@ -6743,7 +6864,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000003"),
                             Code = "overtime",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6654),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3169),
                             DefaultEnabled = true,
                             Description = "Đăng ký tăng ca, duyệt/từ chối tăng ca",
                             DisplayName = "Tăng ca",
@@ -6755,7 +6876,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000004"),
                             Code = "payroll",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6655),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3172),
                             DefaultEnabled = true,
                             Description = "Phiếu lương, thay đổi lương, thanh toán",
                             DisplayName = "Lương & Phiếu lương",
@@ -6767,7 +6888,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000005"),
                             Code = "task",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6658),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3174),
                             DefaultEnabled = true,
                             Description = "Giao việc, cập nhật tiến độ, deadline",
                             DisplayName = "Công việc",
@@ -6779,7 +6900,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000006"),
                             Code = "approval",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6660),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3176),
                             DefaultEnabled = true,
                             Description = "Yêu cầu phê duyệt, kết quả phê duyệt",
                             DisplayName = "Phê duyệt",
@@ -6791,7 +6912,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000007"),
                             Code = "device",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6662),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3178),
                             DefaultEnabled = true,
                             Description = "Trạng thái máy chấm công online/offline",
                             DisplayName = "Thiết bị",
@@ -6803,7 +6924,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000008"),
                             Code = "hr",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6663),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3180),
                             DefaultEnabled = true,
                             Description = "Hợp đồng, bổ nhiệm, thuyên chuyển",
                             DisplayName = "Nhân sự",
@@ -6815,7 +6936,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         {
                             Id = new Guid("a0000001-0000-0000-0000-000000000009"),
                             Code = "system",
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 231, DateTimeKind.Local).AddTicks(6665),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 918, DateTimeKind.Local).AddTicks(3182),
                             DefaultEnabled = true,
                             Description = "Cập nhật hệ thống, bảo trì, thông báo chung",
                             DisplayName = "Hệ thống",
@@ -7004,7 +7125,8 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId", "DepartmentId", "PositionId")
                         .IsUnique()
-                        .HasDatabaseName("IX_OrgAssignments_Emp_Dept_Pos");
+                        .HasDatabaseName("IX_OrgAssignments_Emp_Dept_Pos_Active")
+                        .HasFilter("\"Deleted\" IS NULL AND \"EndDate\" IS NULL");
 
                     b.ToTable("OrgAssignments");
                 });
@@ -7743,7 +7865,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111001"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(542),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3721),
                             Description = "Xem tổng quan hệ thống",
                             DisplayOrder = 1,
                             Module = "Dashboard",
@@ -7752,7 +7874,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111002"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(557),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3773),
                             Description = "Quản lý thông tin nhân viên",
                             DisplayOrder = 2,
                             Module = "Employee",
@@ -7761,7 +7883,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111003"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(560),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3824),
                             Description = "Quản lý chấm công",
                             DisplayOrder = 3,
                             Module = "Attendance",
@@ -7770,7 +7892,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111004"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(562),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3827),
                             Description = "Quản lý đơn nghỉ phép",
                             DisplayOrder = 4,
                             Module = "Leave",
@@ -7779,7 +7901,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111005"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(563),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3832),
                             Description = "Quản lý ca làm việc",
                             DisplayOrder = 5,
                             Module = "Shift",
@@ -7788,7 +7910,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111006"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(565),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3837),
                             Description = "Quản lý bảng lương",
                             DisplayOrder = 6,
                             Module = "Salary",
@@ -7797,7 +7919,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111007"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(566),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3843),
                             Description = "Quản lý phiếu lương",
                             DisplayOrder = 7,
                             Module = "Payslip",
@@ -7806,7 +7928,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111008"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(569),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3845),
                             Description = "Quản lý thiết bị chấm công",
                             DisplayOrder = 8,
                             Module = "Device",
@@ -7815,7 +7937,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111009"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(570),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3849),
                             Description = "Xem và xuất báo cáo",
                             DisplayOrder = 9,
                             Module = "Report",
@@ -7824,7 +7946,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111010"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(572),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3851),
                             Description = "Cấu hình hệ thống",
                             DisplayOrder = 10,
                             Module = "Settings",
@@ -7833,7 +7955,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111011"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(573),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3856),
                             Description = "Quản lý tài khoản người dùng",
                             DisplayOrder = 11,
                             Module = "Account",
@@ -7842,7 +7964,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111012"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(575),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3857),
                             Description = "Quản lý phân quyền",
                             DisplayOrder = 12,
                             Module = "Role",
@@ -7851,7 +7973,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111013"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(576),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3859),
                             Description = "Quản lý cửa hàng",
                             DisplayOrder = 13,
                             Module = "Store",
@@ -7860,7 +7982,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111014"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(578),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3861),
                             Description = "Quản lý phụ cấp",
                             DisplayOrder = 14,
                             Module = "Allowance",
@@ -7869,7 +7991,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111015"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(579),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3862),
                             Description = "Quản lý ngày lễ",
                             DisplayOrder = 15,
                             Module = "Holiday",
@@ -7878,7 +8000,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111016"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(581),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3868),
                             Description = "Quản lý bảo hiểm",
                             DisplayOrder = 16,
                             Module = "Insurance",
@@ -7887,7 +8009,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111017"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(582),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3869),
                             Description = "Quản lý thuế thu nhập",
                             DisplayOrder = 17,
                             Module = "Tax",
@@ -7896,7 +8018,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111018"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(584),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3871),
                             Description = "Quản lý tạm ứng lương",
                             DisplayOrder = 18,
                             Module = "Advance",
@@ -7905,7 +8027,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111019"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(585),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3873),
                             Description = "Quản lý thông báo",
                             DisplayOrder = 19,
                             Module = "Notification",
@@ -7914,7 +8036,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111020"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(587),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3874),
                             Description = "Quản lý phòng ban",
                             DisplayOrder = 20,
                             Module = "Department",
@@ -7923,7 +8045,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111021"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(596),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3894),
                             Description = "Quản lý tăng ca",
                             DisplayOrder = 21,
                             Module = "Overtime",
@@ -7932,7 +8054,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111022"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(617),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3920),
                             Description = "Quản lý điều chỉnh chấm công",
                             DisplayOrder = 22,
                             Module = "AttendanceCorrection",
@@ -7941,7 +8063,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111023"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(619),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3922),
                             Description = "Quản lý lịch làm việc",
                             DisplayOrder = 23,
                             Module = "WorkSchedule",
@@ -7950,7 +8072,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111024"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(620),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3927),
                             Description = "Quản lý đổi ca",
                             DisplayOrder = 24,
                             Module = "ShiftSwap",
@@ -7959,7 +8081,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111025"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(622),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3928),
                             Description = "Quản lý mẫu ca làm việc",
                             DisplayOrder = 25,
                             Module = "ShiftTemplate",
@@ -7968,7 +8090,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111026"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(623),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3934),
                             Description = "Quản lý bậc lương theo ca",
                             DisplayOrder = 26,
                             Module = "ShiftSalaryLevel",
@@ -7977,7 +8099,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111027"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(625),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3935),
                             Description = "Quản lý phúc lợi",
                             DisplayOrder = 27,
                             Module = "Benefit",
@@ -7986,7 +8108,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111028"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(626),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3947),
                             Description = "Quản lý giao dịch",
                             DisplayOrder = 28,
                             Module = "Transaction",
@@ -7995,7 +8117,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111029"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(628),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3948),
                             Description = "Quản lý thu chi tiền mặt",
                             DisplayOrder = 29,
                             Module = "CashTransaction",
@@ -8004,7 +8126,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111030"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(657),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3950),
                             Description = "Quản lý tài khoản ngân hàng",
                             DisplayOrder = 30,
                             Module = "BankAccount",
@@ -8013,7 +8135,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111031"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(658),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3958),
                             Description = "Quản lý hồ sơ nhân sự",
                             DisplayOrder = 31,
                             Module = "HrDocument",
@@ -8022,7 +8144,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111032"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(660),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3959),
                             Description = "Quản lý công việc",
                             DisplayOrder = 32,
                             Module = "Task",
@@ -8031,7 +8153,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111033"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(661),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3961),
                             Description = "Quản lý KPI",
                             DisplayOrder = 33,
                             Module = "KPI",
@@ -8040,7 +8162,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111034"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(663),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3962),
                             Description = "Quản lý tài sản",
                             DisplayOrder = 34,
                             Module = "Asset",
@@ -8049,7 +8171,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111035"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(664),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3964),
                             Description = "Quản lý vùng địa lý",
                             DisplayOrder = 35,
                             Module = "Geofence",
@@ -8058,7 +8180,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111036"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(666),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3966),
                             Description = "Quản lý sơ đồ tổ chức",
                             DisplayOrder = 36,
                             Module = "OrgChart",
@@ -8067,7 +8189,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111037"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(668),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3968),
                             Description = "Quản lý chi nhánh",
                             DisplayOrder = 37,
                             Module = "Branch",
@@ -8076,7 +8198,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111038"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(669),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3969),
                             Description = "Quản lý truyền thông nội bộ",
                             DisplayOrder = 38,
                             Module = "Communication",
@@ -8085,7 +8207,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111039"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(671),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3971),
                             Description = "Quản lý user trên máy chấm công",
                             DisplayOrder = 39,
                             Module = "DeviceUser",
@@ -8094,7 +8216,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111040"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(672),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3972),
                             Description = "Quản lý tài khoản hệ thống",
                             DisplayOrder = 40,
                             Module = "UserManagement",
@@ -8103,7 +8225,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111041"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(673),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3980),
                             Description = "Phân quyền theo phòng ban",
                             DisplayOrder = 41,
                             Module = "DepartmentPermission",
@@ -8112,11 +8234,290 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111042"),
-                            CreatedAt = new DateTime(2026, 5, 8, 22, 27, 40, 236, DateTimeKind.Local).AddTicks(677),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3981),
                             Description = "Quản lý check-in điểm bán, giao điểm, báo cáo tại điểm",
                             DisplayOrder = 42,
                             Module = "FieldCheckIn",
                             ModuleDisplayName = "Check-in điểm bán"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111043"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3985),
+                            Description = "Màn hình tổng quan menu",
+                            DisplayOrder = 1,
+                            Module = "Home",
+                            ModuleDisplayName = "Trang chủ"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111044"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3987),
+                            Description = "Cấu hình bảng lương",
+                            DisplayOrder = 8,
+                            Module = "SalarySettings",
+                            ModuleDisplayName = "Thiết lập lương"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111045"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3989),
+                            Description = "Bảng tổng hợp chấm công thô",
+                            DisplayOrder = 11,
+                            Module = "AttendanceSummary",
+                            ModuleDisplayName = "Tổng hợp chấm công thô"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111046"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3990),
+                            Description = "Chấm công theo ca làm việc",
+                            DisplayOrder = 12,
+                            Module = "AttendanceByShift",
+                            ModuleDisplayName = "Tổng hợp theo ca"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111047"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3992),
+                            Description = "Duyệt điều chỉnh chấm công",
+                            DisplayOrder = 13,
+                            Module = "AttendanceApproval",
+                            ModuleDisplayName = "Duyệt chấm công"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111048"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3993),
+                            Description = "Duyệt lịch làm việc đăng ký",
+                            DisplayOrder = 14,
+                            Module = "ScheduleApproval",
+                            ModuleDisplayName = "Duyệt lịch làm việc"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111049"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3995),
+                            Description = "Bảng lương nhân viên",
+                            DisplayOrder = 15,
+                            Module = "Payroll",
+                            ModuleDisplayName = "Tổng hợp lương"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111050"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3997),
+                            Description = "Quản lý thưởng phạt",
+                            DisplayOrder = 16,
+                            Module = "BonusPenalty",
+                            ModuleDisplayName = "Thưởng / Phạt"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111051"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(3999),
+                            Description = "Phiếu phạt tự động từ chấm công",
+                            DisplayOrder = 27,
+                            Module = "PenaltyTickets",
+                            ModuleDisplayName = "Phiếu phạt"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111052"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4000),
+                            Description = "Quản lý ứng lương",
+                            DisplayOrder = 17,
+                            Module = "AdvanceRequests",
+                            ModuleDisplayName = "Ứng lương"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111053"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4002),
+                            Description = "Nhập sản lượng, tính lương sản phẩm",
+                            DisplayOrder = 43,
+                            Module = "Production",
+                            ModuleDisplayName = "Sản lượng"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111054"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4003),
+                            Description = "Quản lý đăng ký thiết bị chấm công mobile",
+                            DisplayOrder = 46,
+                            Module = "MobileDeviceRegistration",
+                            ModuleDisplayName = "Đăng ký CC Mobile"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111055"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4008),
+                            Description = "Duyệt yêu cầu chấm công mobile",
+                            DisplayOrder = 47,
+                            Module = "MobileAttendanceApproval",
+                            ModuleDisplayName = "Duyệt CC Mobile"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111056"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4009),
+                            Description = "Quản lý suất ăn ca",
+                            DisplayOrder = 48,
+                            Module = "Meal",
+                            ModuleDisplayName = "Chấm cơm"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111057"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4017),
+                            Description = "Thống kê nhân sự, phòng ban",
+                            DisplayOrder = 23,
+                            Module = "HrReport",
+                            ModuleDisplayName = "Báo cáo nhân sự"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111058"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4024),
+                            Description = "Ngày, tháng, đi muộn, phòng ban",
+                            DisplayOrder = 24,
+                            Module = "AttendanceReport",
+                            ModuleDisplayName = "Báo cáo chấm công"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111059"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4026),
+                            Description = "Chi phí lương, phân bổ",
+                            DisplayOrder = 25,
+                            Module = "PayrollReport",
+                            ModuleDisplayName = "Báo cáo lương"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111060"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4053),
+                            Description = "Trung tâm cài đặt HRM",
+                            DisplayOrder = 26,
+                            Module = "SettingsHub",
+                            ModuleDisplayName = "Thiết lập HRM"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111061"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4057),
+                            Description = "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca",
+                            DisplayOrder = 27,
+                            Module = "ShiftSetup",
+                            ModuleDisplayName = "Thiết lập ca"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111062"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4059),
+                            Description = "Face ID, GPS, vùng chấm công",
+                            DisplayOrder = 28,
+                            Module = "MobileAttendance",
+                            ModuleDisplayName = "Chấm công mobile"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111063"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4060),
+                            Description = "Đi trễ, về sớm, tái phạm, kỷ luật",
+                            DisplayOrder = 32,
+                            Module = "PenaltySetup",
+                            ModuleDisplayName = "Phạt"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111064"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4062),
+                            Description = "Giờ kết thúc ngày, tham số vận hành",
+                            DisplayOrder = 38,
+                            Module = "SystemSettings",
+                            ModuleDisplayName = "Hệ thống"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111065"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4064),
+                            Description = "Nhóm thông báo, bật/tắt nhận thông báo",
+                            DisplayOrder = 39,
+                            Module = "NotificationSettings",
+                            ModuleDisplayName = "Thiết lập thông báo"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111066"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4066),
+                            Description = "Lưu trữ ảnh, service account",
+                            DisplayOrder = 40,
+                            Module = "GoogleDrive",
+                            ModuleDisplayName = "Google Drive"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111067"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4068),
+                            Description = "API key, model, tham số AI",
+                            DisplayOrder = 41,
+                            Module = "AIGemini",
+                            ModuleDisplayName = "Thiết lập AI"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111068"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4069),
+                            Description = "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc",
+                            DisplayOrder = 44,
+                            Module = "ProductSalary",
+                            ModuleDisplayName = "Lương sản phẩm"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111069"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4071),
+                            Description = "Phản ánh, góp ý ẩn danh hoặc công khai",
+                            DisplayOrder = 45,
+                            Module = "Feedback",
+                            ModuleDisplayName = "Phản ánh / Ý kiến"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111070"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4080),
+                            Description = "Thống kê phiếu phạt, kỷ luật",
+                            DisplayOrder = 50,
+                            Module = "PenaltyReport",
+                            ModuleDisplayName = "Báo cáo phạt"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111071"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4082),
+                            Description = "Thống kê ứng lương, tạm ứng",
+                            DisplayOrder = 51,
+                            Module = "AdvanceReport",
+                            ModuleDisplayName = "Báo cáo ứng lương"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111072"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4086),
+                            Description = "Thống kê nghỉ phép, ngày nghỉ",
+                            DisplayOrder = 52,
+                            Module = "LeaveReport",
+                            ModuleDisplayName = "Báo cáo nghỉ phép"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111073"),
+                            CreatedAt = new DateTime(2026, 5, 26, 12, 43, 30, 923, DateTimeKind.Local).AddTicks(4091),
+                            Description = "Thống kê thu chi tiền mặt",
+                            DisplayOrder = 53,
+                            Module = "CashReport",
+                            ModuleDisplayName = "Báo cáo thu chi"
                         });
                 });
 
@@ -8441,6 +8842,72 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleApprovalRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ActualUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActualUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedUserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("ScheduleRegistrationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StepName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActualUserId");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("ScheduleRegistrationId");
+
+                    b.ToTable("ScheduleApprovalRecords");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleRegistration", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8458,6 +8925,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<int>("CurrentApprovalStep")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp without time zone");
@@ -8500,6 +8970,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("TotalApprovalLevels")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -10169,9 +10642,9 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("StoreId");
 
-                    b.HasIndex("EmployeeUserId", "Date")
+                    b.HasIndex("EmployeeUserId", "Date", "ShiftId")
                         .IsUnique()
-                        .HasDatabaseName("IX_WorkSchedules_Employee_Date");
+                        .HasDatabaseName("IX_WorkSchedules_Employee_Date_Shift");
 
                     b.ToTable("WorkSchedules");
                 });
@@ -10860,6 +11333,15 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Communication");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ConsultationRequest", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ContentCategory", b =>
@@ -12086,6 +12568,29 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleApprovalRecord", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ActualUser")
+                        .WithMany()
+                        .HasForeignKey("ActualUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.ScheduleRegistration", "ScheduleRegistration")
+                        .WithMany("ApprovalRecords")
+                        .HasForeignKey("ScheduleRegistrationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ActualUser");
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("ScheduleRegistration");
+                });
+
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleRegistration", b =>
                 {
                     b.HasOne("ZKTecoADMS.Domain.Entities.ApplicationUser", "ApprovedBy")
@@ -12780,6 +13285,11 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                     b.Navigation("PriceTiers");
 
                     b.Navigation("ProductionEntries");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ScheduleRegistration", b =>
+                {
+                    b.Navigation("ApprovalRecords");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ServicePackage", b =>

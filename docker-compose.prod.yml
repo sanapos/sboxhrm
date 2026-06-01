@@ -106,6 +106,7 @@ services:
       - DatabaseTools__PgDumpPath=pg_dump
       - DatabaseTools__PgRestorePath=pg_restore
       - Fcm__CredentialPath=/app/secrets/fcm-service-account.json
+      - Storage__ForceLocal=true
     depends_on:
       postgres:
         condition: service_healthy

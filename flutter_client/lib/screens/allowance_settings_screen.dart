@@ -1,14 +1,15 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class AllowanceSettingsScreen extends StatefulWidget {
   const AllowanceSettingsScreen({super.key});
 
@@ -25,8 +26,6 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedType = 'all';
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -137,62 +136,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return 0;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text('Thiết lập Phụ cấp',
-            style: TextStyle(
-                color: Color(0xFF18181B),
-                fontWeight: FontWeight.bold,
-                fontSize: 18),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1),
-        leading: Responsive.isMobile(context)
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => SettingsHubScreen.goBack(context),
-              ),
-        actions: Responsive.isMobile(context)
+  List<Widget> _allowanceToolbarActions(BuildContext context) {
+    return Responsive.isMobile(context)
             ? [
                 IconButton(
                   tooltip: 'Thêm phụ cấp',
                   icon: const Icon(Icons.add_circle_outline,
-                      color: Color(0xFF1E3A5F)),
+                      color: HrmPageChrome.primaryNavy),
                   onPressed: () => _showAllowanceDialog(),
-                ),
-                IconButton(
-                  tooltip: 'Bộ lọc',
-                  icon: Stack(
-                    children: [
-                      Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        color: _showMobileFilters
-                            ? Colors.orange
-                            : const Color(0xFF71717A),
-                      ),
-                      if (_searchQuery.isNotEmpty || _selectedType != 'all')
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: Colors.orange, shape: BoxShape.circle),
-                          ),
-                        ),
-                    ],
-                  ),
-                  onPressed: () =>
-                      setState(() => _showMobileFilters = !_showMobileFilters),
                 ),
                 PopupMenuButton<String>(
                   tooltip: 'Thêm thao tác',
@@ -237,8 +188,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     icon: const Icon(Icons.add, size: 16),
                     label: const Text('Thêm PC'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF1E3A5F),
-                      side: const BorderSide(color: Color(0xFF1E3A5F)),
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                       padding: const EdgeInsets.symmetric(
@@ -266,7 +217,18 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                   ),
                 ),
-              ],
+              ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final toolbarActions = _allowanceToolbarActions(context);
+
+    return Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        title: 'Thiết lập Phụ cấp',
+        actions: toolbarActions,
       ),
       body: _isLoading
           ? const LoadingWidget()
@@ -275,66 +237,27 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Statistics cards row
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth >= 900) {
-                        return Row(
-                          children: [
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.receipt_long,
-                                    '$_totalAllowances',
-                                    'Tổng phụ cấp',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.lock,
-                                    '$_fixedAllowances',
-                                    'Cố định',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.calendar_today,
-                                    '$_dailyAllowances',
-                                    'Theo ngày',
-                                    const Color(0xFFF59E0B))),
-                          ],
-                        );
-                      } else {
-                        return Row(
-                          children: [
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.receipt_long,
-                                    '$_totalAllowances',
-                                    'Tổng',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.lock,
-                                    '$_fixedAllowances',
-                                    'Cố định',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.calendar_today,
-                                    '$_dailyAllowances',
-                                    'Theo ngày',
-                                    const Color(0xFFF59E0B))),
-                          ],
-                        );
-                      }
-                    },
+                  if (HrmPageChrome.isEmbedded) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: toolbarActions,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  HrmPageChrome.horizontalStatCards(
+                    cards: [
+                      _buildStatCard(Icons.receipt_long, '$_totalAllowances',
+                          'Tổng phụ cấp', HrmPageChrome.primaryNavy),
+                      _buildStatCard(Icons.lock, '$_fixedAllowances', 'Cố định',
+                          HrmPageChrome.primaryNavy),
+                      _buildStatCard(Icons.calendar_today, '$_dailyAllowances',
+                          'Theo ngày', const Color(0xFFF59E0B)),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
                   // Filter bar
-                  if (!Responsive.isMobile(context) || _showMobileFilters)
+                  
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -390,7 +313,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFF1E3A5F)),
+                                              color: HrmPageChrome.primaryNavy),
                                         ),
                                       ),
                                       onChanged: (value) =>
@@ -432,7 +355,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFF1E3A5F)),
+                                              color: HrmPageChrome.primaryNavy),
                                         ),
                                         filled: true,
                                         fillColor: Colors.white,
@@ -512,7 +435,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: const BorderSide(
-                                            color: Color(0xFF1E3A5F)),
+                                            color: HrmPageChrome.primaryNavy),
                                       ),
                                     ),
                                     onChanged: (value) =>
@@ -554,7 +477,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                               borderSide: const BorderSide(
-                                                  color: Color(0xFF1E3A5F)),
+                                                  color: HrmPageChrome.primaryNavy),
                                             ),
                                             filled: true,
                                             fillColor: Colors.white,
@@ -622,6 +545,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         )
                       : LayoutBuilder(
                           builder: (context, constraints) {
+                            // Web: một phụ cấp một dòng (bảng gọn).
+                            if (kIsWeb) {
+                              return _buildAllowanceWebList();
+                            }
+
                             int crossAxisCount = 4;
                             if (constraints.maxWidth < 600) {
                               crossAxisCount = 1;
@@ -670,71 +598,253 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
 
   Widget _buildStatCard(
       IconData icon, String value, String label, Color color) {
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
+    );
+  }
+
+  ({String label, IconData icon, Color color}) _allowanceTypeMeta(
+      Map<String, dynamic> allowance) {
+    final typeValue = _parseType(allowance['type']);
+    if (typeValue == 1) {
+      return (
+        label: 'Theo ngày',
+        icon: Icons.calendar_today_outlined,
+        color: const Color(0xFFF59E0B)
+      );
+    }
+    if (typeValue == 2) {
+      return (
+        label: 'Theo giờ',
+        icon: Icons.access_time,
+        color: HrmPageChrome.primaryNavy
+      );
+    }
+    if (typeValue == 3) {
+      return (
+        label: 'Theo sự kiện',
+        icon: Icons.event,
+        color: const Color(0xFF7C3AED)
+      );
+    }
+    return (
+      label: 'Cố định',
+      icon: Icons.lock_outline,
+      color: HrmPageChrome.primaryNavy
+    );
+  }
+
+  Widget _buildAllowanceWebList() {
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
-      child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Color(0xFF18181B),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  label,
-                  style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
+          _buildAllowanceWebListHeader(),
+          for (var i = 0; i < _filteredAllowances.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE4E4E7)),
+            _buildAllowanceWebRow(_filteredAllowances[i]),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildAllowanceDeckItem(Map<String, dynamic> allowance) {
-    final typeValue = _parseType(allowance['type']);
+  Widget _buildAllowanceWebListHeader() {
+    TextStyle style = const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFF71717A),
+      letterSpacing: 0.2,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFFF8FAFC),
+      child: Row(
+        children: [
+          const SizedBox(width: 48),
+          Expanded(flex: 4, child: Text('Phụ cấp', style: style)),
+          Expanded(flex: 2, child: Text('Loại', style: style)),
+          Expanded(flex: 2, child: Text('Giá trị', style: style)),
+          SizedBox(width: 88, child: Text('Trạng thái', style: style)),
+          SizedBox(width: 88, child: Text('Thao tác', style: style)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllowanceWebRow(Map<String, dynamic> allowance) {
+    final meta = _allowanceTypeMeta(allowance);
     final isActive = allowance['isActive'] ?? true;
     final amount = _parseAmount(allowance['amount']);
     final empIds = _parseEmployeeIds(allowance['employeeIds']);
-    String typeLabel = 'Cố định';
-    IconData typeIcon = Icons.lock_outline;
-    Color typeColor = const Color(0xFF1E3A5F);
-    if (typeValue == 1) {
-      typeLabel = 'Theo ngày';
-      typeIcon = Icons.calendar_today_outlined;
-      typeColor = const Color(0xFFF59E0B);
-    } else if (typeValue == 2) {
-      typeLabel = 'Theo giờ';
-      typeIcon = Icons.access_time;
-      typeColor = const Color(0xFF0F2340);
-    } else if (typeValue == 3) {
-      typeLabel = 'Theo sự kiện';
-      typeIcon = Icons.event;
-      typeColor = const Color(0xFF7C3AED);
-    }
+    final code = allowance['code']?.toString() ?? '';
+    final empLabel = empIds.isEmpty
+        ? 'Tất cả NV'
+        : '${empIds.length} nhân viên';
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => _showAllowanceDialog(allowance: allowance),
+        hoverColor: const Color(0xFFF1F5F9),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? meta.color.withValues(alpha: 0.12)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  meta.icon,
+                  size: 20,
+                  color: isActive ? meta.color : const Color(0xFFA1A1AA),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      allowance['name']?.toString() ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isActive
+                            ? const Color(0xFF18181B)
+                            : const Color(0xFF71717A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      code.isNotEmpty ? '$code · $empLabel' : empLabel,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF71717A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(meta.icon, size: 14, color: meta.color),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        meta.label,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: meta.color),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '${_currencyFormat.format(amount)}đ',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                width: 88,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      isActive ? 'Bật' : 'Tắt',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isActive
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFF71717A),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 88,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      tooltip: 'Sửa',
+                      onPressed: () =>
+                          _showAllowanceDialog(allowance: allowance),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      color: HrmPageChrome.primaryNavy,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                    IconButton(
+                      tooltip: 'Xóa',
+                      onPressed: () => _deleteAllowance(allowance),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      color: const Color(0xFFEF4444),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllowanceDeckItem(Map<String, dynamic> allowance) {
+    final meta = _allowanceTypeMeta(allowance);
+    final typeLabel = meta.label;
+    final typeIcon = meta.icon;
+    final typeColor = meta.color;
+    final isActive = allowance['isActive'] ?? true;
+    final amount = _parseAmount(allowance['amount']);
+    final empIds = _parseEmployeeIds(allowance['employeeIds']);
 
     return Card(
       margin: EdgeInsets.zero,
@@ -884,8 +994,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             label: const Text('Xem / Sửa',
                                 style: TextStyle(fontSize: 12)),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1E3A5F),
-                              side: const BorderSide(color: Color(0xFF1E3A5F)),
+                              foregroundColor: HrmPageChrome.primaryNavy,
+                              side: const BorderSide(color: HrmPageChrome.primaryNavy),
                               padding: const EdgeInsets.symmetric(
                                   vertical: 6, horizontal: 8),
                               minimumSize: const Size(0, 32),
@@ -971,14 +1081,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
+                          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                           : const Color(0xFFA1A1AA).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.receipt_long,
                       color: isActive
-                          ? const Color(0xFF1E3A5F)
+                          ? HrmPageChrome.primaryNavy
                           : const Color(0xFFA1A1AA),
                       size: 22,
                     ),
@@ -1030,14 +1140,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5F)
+                              color: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'Mã: ${allowance['code']}',
                               style: const TextStyle(
-                                color: Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1087,7 +1197,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   '${_currencyFormat.format(amount)} đ',
                   style: TextStyle(
                     color: isActive
-                        ? const Color(0xFF1E3A5F)
+                        ? HrmPageChrome.primaryNavy
                         : const Color(0xFFA1A1AA),
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -1235,7 +1345,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 isActive ? 'Đang bật' : 'Đã tắt',
                 style: TextStyle(
                   color: isActive
-                      ? const Color(0xFF1E3A5F)
+                      ? HrmPageChrome.primaryNavy
                       : const Color(0xFFA1A1AA),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -1245,7 +1355,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               Switch(
                 value: isActive,
                 onChanged: (value) => setDialogState(() => isActive = value),
-                activeTrackColor: const Color(0xFF1E3A5F),
+                activeTrackColor: HrmPageChrome.primaryNavy,
               ),
             ],
           );
@@ -1295,7 +1405,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  const BorderSide(color: Color(0xFF1E3A5F)),
+                                  const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
                           ),
                         ),
@@ -1334,7 +1444,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  const BorderSide(color: Color(0xFF1E3A5F)),
+                                  const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
                           ),
                         ),
@@ -1380,7 +1490,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  const BorderSide(color: Color(0xFF1E3A5F)),
+                                  const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
                           ),
                           child: DropdownButtonHideUnderline(
@@ -1447,7 +1557,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  const BorderSide(color: Color(0xFF1E3A5F)),
+                                  const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
                           ),
                         ),
@@ -1616,7 +1726,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                        borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                   ),
@@ -1637,7 +1747,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       value: isTaxable,
                       onChanged: (value) =>
                           setDialogState(() => isTaxable = value ?? true),
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                     ),
                     const Text('Tính thuế TNCN',
                         style:
@@ -1681,7 +1791,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       value: isInsuranceApplicable,
                       onChanged: (value) => setDialogState(
                           () => isInsuranceApplicable = value ?? false),
-                      activeColor: const Color(0xFF1E3A5F),
+                      activeColor: HrmPageChrome.primaryNavy,
                     ),
                     const Text('Tính bảo hiểm',
                         style:
@@ -1749,7 +1859,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             style: TextStyle(
                               color: selectedEmployeeIds.isEmpty
                                   ? const Color(0xFF16A34A)
-                                  : const Color(0xFF0F2340),
+                                  : HrmPageChrome.primaryNavy,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1780,8 +1890,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       icon: const Icon(Icons.person_add, size: 16),
                       label: const Text('Chọn nhân viên'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0F2340),
-                        side: const BorderSide(color: Color(0xFF0F2340)),
+                        foregroundColor: HrmPageChrome.primaryNavy,
+                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                       ),
@@ -1841,7 +1951,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Row(
                       children: [
                         Icon(isEditing ? Icons.edit : Icons.add_circle,
-                            color: const Color(0xFF1E3A5F), size: 22),
+                            color: HrmPageChrome.primaryNavy, size: 22),
                         const SizedBox(width: 10),
                         Text(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp',
                             style: const TextStyle(
@@ -1888,17 +1998,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           child: const Text('Hủy'),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: onSave,
                           icon: const Icon(Icons.save, size: 18),
                           label: Text(isEditing ? 'Cập nhật' : 'Thêm phụ cấp'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ],
@@ -1964,7 +2071,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF1E3A5F))),
+                    borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
               ),
               onChanged: (v) => setDialogState(() => searchText = v),
             ),
@@ -1991,7 +2098,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           ? Icons.check_box
                           : Icons.check_box_outline_blank,
                       size: 20,
-                      color: const Color(0xFF1E3A5F)),
+                      color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 10),
                   Text('Chọn tất cả (${tempIds.length}/${_employees.length})',
                       style: const TextStyle(
@@ -2011,10 +2118,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 final id = emp['id'].toString();
                 final checked = tempIds.contains(id);
                 final colors = [
-                  const Color(0xFF1E3A5F),
-                  const Color(0xFF1E3A5F),
+                  HrmPageChrome.primaryNavy,
+                  HrmPageChrome.primaryNavy,
                   const Color(0xFFF59E0B),
-                  const Color(0xFF0F2340),
+                  HrmPageChrome.primaryNavy,
                   const Color(0xFFEF4444)
                 ];
                 final color = colors[i % colors.length];
@@ -2039,7 +2146,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 : Icons.check_box_outline_blank,
                             size: 20,
                             color: checked
-                                ? const Color(0xFF1E3A5F)
+                                ? HrmPageChrome.primaryNavy
                                 : Colors.grey[400]),
                         const SizedBox(width: 10),
                         CircleAvatar(
@@ -2122,7 +2229,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Row(
                       children: [
                         const Icon(Icons.people,
-                            color: Color(0xFF1E3A5F), size: 20),
+                            color: HrmPageChrome.primaryNavy, size: 20),
                         const SizedBox(width: 8),
                         const Expanded(
                             child: Text('Chọn nhân viên',
@@ -2174,13 +2281,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           child: const Text('Hủy'),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: onConfirm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                           ),
                           child: Text('Xác nhận (${tempIds.length})'),
                         ),
@@ -2215,7 +2319,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             child:
                 const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
@@ -2241,11 +2345,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text('Xóa'),
           ),

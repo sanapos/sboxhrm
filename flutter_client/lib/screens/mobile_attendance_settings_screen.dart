@@ -7,11 +7,10 @@ import 'package:permission_handler/permission_handler.dart';
 import '../utils/responsive_helper.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/map_location_picker.dart';
 import '../widgets/camera_face_capture.dart';
-import 'settings_hub_screen.dart';
-
 class MobileAttendanceSettingsScreen extends StatefulWidget {
   const MobileAttendanceSettingsScreen({super.key});
 
@@ -35,8 +34,6 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   List<FaceRegistration> _faceRegistrations = [];
   List<AuthorizedDevice> _authorizedDevices = [];
   List<Map<String, dynamic>> _deviceChangeRequests = [];
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -126,29 +123,30 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
   @override
   Widget build(BuildContext context) {
+    final embedded = HrmPageChrome.isEmbedded;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        leading: Responsive.isMobile(context) ? null : IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-          onPressed: () => SettingsHubScreen.goBack(context),
-        ),
-        title: const Text(
-          'Chấm Công Mobile',
-          style: TextStyle(
-            color: Color(0xFF18181B),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        leading: null,
+        toolbarHeight: embedded ? 0 : kToolbarHeight,
+        title: embedded
+            ? null
+            : const Text(
+                'Chấm Công Mobile',
+                style: TextStyle(
+                  color: Color(0xFF18181B),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          labelColor: const Color(0xFF1E3A5F),
+          labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: const Color(0xFF71717A),
-          indicatorColor: const Color(0xFF1E3A5F),
+          indicatorColor: HrmPageChrome.primaryNavy,
           tabs: const [
             Tab(icon: Icon(Icons.settings), text: 'Cài đặt'),
             Tab(icon: Icon(Icons.location_on), text: 'Vị trí'),
@@ -181,7 +179,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _buildSettingsCard(
             title: 'Phương thức xác thực',
             icon: Icons.verified_user,
-            color: const Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
             children: [
               _buildSwitchTile(
                 title: 'Bật xác thực Face ID',
@@ -260,7 +258,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _buildSettingsCard(
             title: 'Cài đặt GPS',
             icon: Icons.gps_fixed,
-            color: const Color(0xFF1E3A5F),
+            color: HrmPageChrome.primaryNavy,
             children: [
               _buildSliderTile(
                 title: 'Bán kính cho phép',
@@ -305,7 +303,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _buildSettingsCard(
             title: 'Cài đặt Face ID',
             icon: Icons.face_retouching_natural,
-            color: const Color(0xFF0F2340),
+            color: HrmPageChrome.primaryNavy,
             children: [
               _buildSliderTile(
                 title: 'Độ chính xác tối thiểu',
@@ -405,19 +403,15 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _isSaving ? null : _saveSettings,
               icon: _isSaving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save),
               label: Text(_isSaving ? 'Đang lưu...' : 'Lưu cài đặt'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
             ),
           ),
@@ -573,23 +567,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1E3A5F).withValues(alpha: 0.1) : const Color(0xFFF4F4F5),
+          color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : const Color(0xFFF4F4F5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFE4E4E7),
+            color: selected ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7),
             width: selected ? 2 : 1,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A), size: 24),
+            Icon(icon, color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A), size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+                color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
               ),
             ),
             Text(
@@ -597,7 +591,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10,
-                color: selected ? const Color(0xFF1E3A5F).withValues(alpha: 0.7) : const Color(0xFF71717A),
+                color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.7) : const Color(0xFF71717A),
               ),
             ),
           ],
@@ -642,7 +636,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: const Color(0xFF1E3A5F),
+            activeThumbColor: HrmPageChrome.primaryNavy,
           ),
         ],
       ),
@@ -682,7 +676,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -690,7 +684,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -703,7 +697,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             min: min,
             max: max,
             divisions: divisions,
-            activeColor: const Color(0xFF1E3A5F),
+            activeColor: HrmPageChrome.primaryNavy,
             onChanged: onChanged,
           ),
         ],
@@ -760,7 +754,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              if (!Responsive.isMobile(context) || _showMobileFilters)
+              
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -779,51 +773,15 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   ),
                 ),
               ),
-              if (!Responsive.isMobile(context) || _showMobileFilters)
+              
               const SizedBox(width: 12),
-              if (Responsive.isMobile(context)) ...[
-                GestureDetector(
-                  onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _showMobileFilters ? Colors.orange.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Stack(
-                      children: [
-                        Icon(
-                          _showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
-                          color: _showMobileFilters ? Colors.orange : const Color(0xFF71717A),
-                          size: 22,
-                        ),
-                        if (_locationSearchQuery.isNotEmpty)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () => _showAddLocationDialog(),
                 icon: const Icon(Icons.add_location_alt),
                 label: const Text('Thêm'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ],
@@ -873,10 +831,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.location_on, size: 18, color: Color(0xFF1E3A5F)),
+              child: const Icon(Icons.location_on, size: 18, color: HrmPageChrome.primaryNavy),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -897,10 +855,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text('Hoạt động', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                child: const Text('Hoạt động', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
               ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
@@ -1020,7 +978,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(
-                            icon: const Icon(Icons.wifi_find, color: Color(0xFF1E3A5F)),
+                            icon: const Icon(Icons.wifi_find, color: HrmPageChrome.primaryNavy),
                             tooltip: 'Lấy MAC WiFi đang kết nối',
                             onPressed: () async {
                               setDialogState(() => isDetectingBssid = true);
@@ -1096,7 +1054,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       border: Border.all(
                         color: selectedLat != null
                             ? const Color(0xFF16A34A).withValues(alpha: 0.3)
-                            : const Color(0xFF1E3A5F).withValues(alpha: 0.2),
+                            : HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(
@@ -1105,7 +1063,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           selectedLat != null ? Icons.check_circle : Icons.map,
                           color: selectedLat != null
                               ? const Color(0xFF16A34A)
-                              : const Color(0xFF1E3A5F),
+                              : HrmPageChrome.primaryNavy,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
@@ -1122,7 +1080,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   fontWeight: FontWeight.w600,
                                   color: selectedLat != null
                                       ? const Color(0xFF16A34A)
-                                      : const Color(0xFF1E3A5F),
+                                      : HrmPageChrome.primaryNavy,
                                 ),
                               ),
                               if (selectedLat != null) ...[
@@ -1175,9 +1133,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: onSave,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                          style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                           child: const Text('Thêm'),
                         ),
                       ],
@@ -1193,7 +1151,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.add_location_alt, color: Color(0xFF1E3A5F)),
+                Icon(Icons.add_location_alt, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
                 Text('Thêm vị trí làm việc', style: TextStyle(color: Color(0xFF18181B))),
               ],
@@ -1204,9 +1162,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: onSave,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Thêm'),
               ),
             ],
@@ -1242,17 +1200,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () => _showRegisterFaceDialog(),
                 icon: const Icon(Icons.face),
                 label: const Text('Đăng ký'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F2340),
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ],
@@ -1268,7 +1222,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   icon: Icons.face,
                   value: _faceRegistrations.length.toString(),
                   label: 'Đã đăng ký',
-                  color: const Color(0xFF0F2340),
+                  color: HrmPageChrome.primaryNavy,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1277,7 +1231,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   icon: Icons.verified,
                   value: _faceRegistrations.where((f) => f.isVerified).length.toString(),
                   label: 'Đã xác thực',
-                  color: const Color(0xFF1E3A5F),
+                  color: HrmPageChrome.primaryNavy,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1346,6 +1300,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           const SizedBox(height: 6),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1355,6 +1312,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF71717A),
@@ -1366,7 +1326,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   }
 
   Widget _buildFaceDeckItem(FaceRegistration registration) {
-    final statusColor = registration.isVerified ? const Color(0xFF1E3A5F) : const Color(0xFFF59E0B);
+    final statusColor = registration.isVerified ? HrmPageChrome.primaryNavy : const Color(0xFFF59E0B);
     final hasPhotos = registration.faceImages.isNotEmpty;
 
     return InkWell(
@@ -1502,7 +1462,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.face, color: Color(0xFF0F2340)),
+                Icon(Icons.face, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
                 Text('Đăng ký khuôn mặt', style: TextStyle(color: Color(0xFF18181B))),
               ],
@@ -1541,10 +1501,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             children: [
                               CircleAvatar(
                                 radius: 16,
-                                backgroundColor: const Color(0xFF0F2340).withValues(alpha: 0.1),
+                                backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                                 child: Text(
                                   name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                  style: const TextStyle(color: Color(0xFF0F2340), fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1591,16 +1551,16 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F2340).withValues(alpha: 0.05),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF0F2340).withValues(alpha: 0.2)),
+                        border: Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundColor: const Color(0xFF0F2340).withValues(alpha: 0.1),
-                            child: const Icon(Icons.person, color: Color(0xFF0F2340)),
+                            backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                            child: const Icon(Icons.person, color: HrmPageChrome.primaryNavy),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1618,7 +1578,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               ],
                             ),
                           ),
-                          const Icon(Icons.camera_alt, color: Color(0xFF0F2340), size: 28),
+                          const Icon(Icons.camera_alt, color: HrmPageChrome.primaryNavy, size: 28),
                         ],
                       ),
                     ),
@@ -1652,7 +1612,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: selectedEmployee == null
                     ? null
                     : () {
@@ -1661,9 +1621,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       },
                 icon: const Icon(Icons.camera_alt),
                 label: const Text('Bắt đầu chụp'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F2340),
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   disabledBackgroundColor: const Color(0xFFE4E4E7),
                 ),
               ),
@@ -1697,7 +1656,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: Color(0xFF0F2340)),
+                CircularProgressIndicator(color: HrmPageChrome.primaryNavy),
                 SizedBox(height: 16),
                 Text('Đang đăng ký khuôn mặt...', style: TextStyle(fontWeight: FontWeight.w600)),
               ],
@@ -1766,17 +1725,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: () => _showAddDeviceDialog(),
                 icon: const Icon(Icons.add),
                 label: const Text('Cấp quyền'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ],
@@ -1874,12 +1829,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               decoration: BoxDecoration(
                 color: isPending
                     ? const Color(0xFFF59E0B).withValues(alpha: 0.1)
-                    : const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                    : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 device.deviceModel.toLowerCase().contains('iphone') ? Icons.phone_iphone : Icons.phone_android,
-                size: 18, color: isPending ? const Color(0xFFF59E0B) : const Color(0xFF1E3A5F),
+                size: 18, color: isPending ? const Color(0xFFF59E0B) : HrmPageChrome.primaryNavy,
               ),
             ),
             const SizedBox(width: 12),
@@ -1932,7 +1887,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Switch(
                 value: device.isAuthorized,
                 onChanged: (v) => _toggleDeviceAuthorization(device, v),
-                activeThumbColor: const Color(0xFF1E3A5F),
+                activeThumbColor: HrmPageChrome.primaryNavy,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
           ],
@@ -1949,7 +1904,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.phone_android, color: Color(0xFF1E3A5F)),
+            Icon(Icons.phone_android, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 12),
             Text('Cấp quyền thiết bị', style: TextStyle(color: Color(0xFF18181B))),
           ],
@@ -2012,12 +1967,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info_outline, color: Color(0xFF1E3A5F), size: 20),
+                  Icon(Icons.info_outline, color: HrmPageChrome.primaryNavy, size: 20),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Nhân viên cần cài ứng dụng ZKTeco Mobile để quét mã',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF1E3A5F)),
+                      style: TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy),
                     ),
                   ),
                 ],
@@ -2083,9 +2038,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         content: Text('Xóa vị trí "${location.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),
         ],
@@ -2117,9 +2072,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         content: Text('Xóa thiết bị "${device.deviceName}" của ${device.employeeName ?? 'nhân viên'}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),
         ],
@@ -2244,7 +2199,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(
-                            icon: const Icon(Icons.wifi_find, color: Color(0xFF1E3A5F)),
+                            icon: const Icon(Icons.wifi_find, color: HrmPageChrome.primaryNavy),
                             tooltip: 'Lấy MAC WiFi đang kết nối',
                             onPressed: () async {
                               setDialogState(() => isDetectingBssid = true);
@@ -2317,7 +2272,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       border: Border.all(
                         color: hasCoords
                             ? const Color(0xFF16A34A).withValues(alpha: 0.3)
-                            : const Color(0xFF1E3A5F).withValues(alpha: 0.2),
+                            : HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(
@@ -2326,7 +2281,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           hasCoords ? Icons.check_circle : Icons.map,
                           color: hasCoords
                               ? const Color(0xFF16A34A)
-                              : const Color(0xFF1E3A5F),
+                              : HrmPageChrome.primaryNavy,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
@@ -2343,7 +2298,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   fontWeight: FontWeight.w600,
                                   color: hasCoords
                                       ? const Color(0xFF16A34A)
-                                      : const Color(0xFF1E3A5F),
+                                      : HrmPageChrome.primaryNavy,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -2398,9 +2353,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: onSave,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                          style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                           child: const Text('Lưu'),
                         ),
                       ],
@@ -2436,9 +2391,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: onSave,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Lưu'),
               ),
             ],
@@ -2458,9 +2413,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             content: Text('Xóa đăng ký khuôn mặt của "${registration.employeeName}"?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
                 child: const Text('Xóa'),
               ),
             ],
@@ -2503,7 +2458,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0F2340),
+            backgroundColor: HrmPageChrome.primaryNavy,
             foregroundColor: Colors.white,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
             title: Column(
@@ -2615,16 +2570,15 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     label: const Text('Xóa', style: TextStyle(color: Color(0xFFEF4444))),
                   ),
                   const Spacer(),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _retakeFaceRegistration(registration);
                     },
                     icon: const Icon(Icons.camera_alt, size: 18),
                     label: const Text('Chụp lại'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F2340),
-                      foregroundColor: Colors.white,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
                     ),
                   ),
                 ],
@@ -2696,9 +2650,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         content: Text('Ảnh khuôn mặt cũ của "${registration.employeeName}" sẽ bị xóa và chụp lại ảnh mới.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F2340)),
+            style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             child: const Text('Tiếp tục'),
           ),
         ],
@@ -2735,7 +2689,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: Color(0xFF0F2340)),
+                CircularProgressIndicator(color: HrmPageChrome.primaryNavy),
                 SizedBox(height: 16),
                 Text('Đang đăng ký lại khuôn mặt...', style: TextStyle(fontWeight: FontWeight.w600)),
               ],
@@ -2931,9 +2885,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy'),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
                 child: const Text('Từ chối'),
               ),
             ],
@@ -2998,9 +2952,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy'),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
                 child: const Text('Từ chối'),
               ),
             ],
@@ -3053,7 +3007,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0F2340),
+            backgroundColor: HrmPageChrome.primaryNavy,
             foregroundColor: Colors.white,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
             title: Column(
@@ -3176,28 +3130,26 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   ),
                   if (isPending) ...[
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
                         _approveDevice(device, false);
                       },
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Từ chối'),
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
                       ),
                     ),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
                         _approveDevice(device, true);
                       },
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Duyệt'),
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF22C55E),
-                        foregroundColor: Colors.white,
                       ),
                     ),
                   ],

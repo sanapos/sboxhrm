@@ -14,6 +14,8 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../utils/responsive_helper.dart';
 
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
@@ -187,7 +189,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   @override
@@ -731,7 +732,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         _devices.where((d) => _isDeviceOnline(d.lastOnline)).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           // Gradient header
@@ -812,45 +813,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          GestureDetector(
-                            onTap: () => setState(
-                                () => _showMobileFilters = !_showMobileFilters),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(
-                                    alpha: _showMobileFilters ? 0.25 : 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                      _showMobileFilters
-                                          ? Icons.filter_alt
-                                          : Icons.filter_alt_outlined,
-                                      size: 16,
-                                      color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(_showMobileFilters ? 'Ẩn lọc' : 'Bộ lọc',
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.white)),
-                                  if (_selectedDeviceId != null ||
-                                      _searchQuery.isNotEmpty) ...[
-                                    const SizedBox(width: 4),
-                                    Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                            color: Colors.orangeAccent,
-                                            shape: BoxShape.circle)),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Expanded(
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -892,122 +854,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           ),
 
           Expanded(
-            child: Padding(
+            child: HrmResponsiveListLayout(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                children: [
-                  // Stats cards
-                  if (Responsive.isMobile(context)) ...[
-                    InkWell(
-                      onTap: () => setState(
-                          () => _showMobileSummary = !_showMobileSummary),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.analytics_outlined,
-                                size: 16, color: Colors.blue.shade700),
-                            const SizedBox(width: 6),
-                            Text('Tổng quan',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Colors.blue.shade700)),
-                            const Spacer(),
-                            Icon(
-                                _showMobileSummary
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 20,
-                                color: Colors.blue.shade700),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_showMobileSummary) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _buildStatCard(
-                              _l10n.totalUsers,
-                              '${_deviceUsers.length}',
-                              Icons.people_outline,
-                              const Color(0xFF1E3A5F)),
-                          const SizedBox(width: 10),
-                          _buildStatCard(_l10n.linkedUsers, '$linkedCount',
-                              Icons.link, const Color(0xFF1E3A5F)),
-                          const SizedBox(width: 10),
-                          _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
-                              Icons.link_off, const Color(0xFFF59E0B)),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                              _l10n.onlineDevices,
-                              '$onlineDevices/${_devices.length}',
-                              Icons.router,
-                              const Color(0xFF0F2340)),
-                        ],
-                      ),
-                    ],
-                  ] else ...[
-                    Row(
-                      children: [
-                        _buildStatCard(
-                            _l10n.totalUsers,
-                            '${_deviceUsers.length}',
-                            Icons.people_outline,
-                            const Color(0xFF1E3A5F)),
-                        const SizedBox(width: 10),
-                        _buildStatCard(_l10n.linkedUsers, '$linkedCount',
-                            Icons.link, const Color(0xFF1E3A5F)),
-                        const SizedBox(width: 10),
-                        _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
-                            Icons.link_off, const Color(0xFFF59E0B)),
-                        const SizedBox(width: 10),
-                        _buildStatCard(
-                            _l10n.onlineDevices,
-                            '$onlineDevices/${_devices.length}',
-                            Icons.router,
-                            const Color(0xFF0F2340)),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-
-                  // Filters
-                  if (!Responsive.isMobile(context) || _showMobileFilters) ...[
-                    _buildFilters(),
-                    const SizedBox(height: 12),
-                  ],
-
-                  // Content
-                  Expanded(
-                    child: _isLoading
-                        ? const LoadingWidget(message: 'Đang tải...')
-                        : _devices.isEmpty
-                            ? const EmptyState(
-                                icon: Icons.devices,
-                                title: 'Chưa có thiết bị',
-                                description: 'Hãy kết nối máy chấm công trước',
-                              )
-                            : _filteredUsers.isEmpty
-                                ? EmptyState(
-                                    icon: Icons.people,
-                                    title: 'Chưa có user',
-                                    description:
-                                        'Thêm user hoặc đồng bộ từ nhân viên',
-                                    actionLabel: _l10n.addUser,
-                                    onAction: _showAddUserDialog,
-                                  )
-                                : _buildUsersList(),
-                  ),
-                ],
-              ),
+              headerSections: _buildUsersPageHeaderSections(
+                  linkedCount, unlinkedCount, onlineDevices),
+              desktopBody: _buildUsersListDesktopBody(),
+              mobileSlivers: (ctx) => _buildUsersListMobileSlivers(),
             ),
           ),
         ],
@@ -1138,7 +990,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   Icon(Icons.circle,
                                       size: 8,
                                       color: _isDeviceOnline(d.lastOnline)
-                                          ? const Color(0xFF1E3A5F)
+                                          ? HrmPageChrome.primaryNavy
                                           : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
                                   Expanded(
@@ -1167,7 +1019,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 Icon(Icons.circle,
                                     size: 8,
                                     color: _isDeviceOnline(d.lastOnline)
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                         : const Color(0xFFA1A1AA)),
                                 const SizedBox(width: 6),
                                 Expanded(
@@ -1291,7 +1143,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   Icon(Icons.circle,
                                       size: 8,
                                       color: _isDeviceOnline(d.lastOnline)
-                                          ? const Color(0xFF1E3A5F)
+                                          ? HrmPageChrome.primaryNavy
                                           : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
                                   Expanded(
@@ -1320,7 +1172,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 Icon(Icons.circle,
                                     size: 8,
                                     color: _isDeviceOnline(d.lastOnline)
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                         : const Color(0xFFA1A1AA)),
                                 const SizedBox(width: 6),
                                 Expanded(
@@ -1402,6 +1254,200 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         },
       ),
     );
+  }
+
+  List<Widget> _buildUsersPageHeaderSections(
+      int linkedCount, int unlinkedCount, int onlineDevices) {
+    return [
+      if (Responsive.isMobile(context)) ...[
+        InkWell(
+          onTap: () =>
+              setState(() => _showMobileSummary = !_showMobileSummary),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    size: 16, color: Colors.blue.shade700),
+                const SizedBox(width: 6),
+                Text('Tổng quan',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.blue.shade700)),
+                const Spacer(),
+                Icon(
+                    _showMobileSummary
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    size: 20,
+                    color: Colors.blue.shade700),
+              ],
+            ),
+          ),
+        ),
+        if (_showMobileSummary) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                SizedBox(
+                    width: 120,
+                    child: _buildStatCard(
+                        _l10n.totalUsers,
+                        '${_deviceUsers.length}',
+                        Icons.people_outline,
+                        HrmPageChrome.primaryNavy)),
+                const SizedBox(width: 10),
+                SizedBox(
+                    width: 120,
+                    child: _buildStatCard(_l10n.linkedUsers, '$linkedCount',
+                        Icons.link, HrmPageChrome.primaryNavy)),
+                const SizedBox(width: 10),
+                SizedBox(
+                    width: 120,
+                    child: _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
+                        Icons.link_off, const Color(0xFFF59E0B))),
+                const SizedBox(width: 10),
+                SizedBox(
+                    width: 120,
+                    child: _buildStatCard(
+                        _l10n.onlineDevices,
+                        '$onlineDevices/${_devices.length}',
+                        Icons.router,
+                        HrmPageChrome.primaryNavy)),
+              ],
+            ),
+          ),
+        ],
+      ] else ...[
+        Row(
+          children: [
+            Expanded(
+                child: _buildStatCard(
+                    _l10n.totalUsers,
+                    '${_deviceUsers.length}',
+                    Icons.people_outline,
+                    HrmPageChrome.primaryNavy)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildStatCard(_l10n.linkedUsers, '$linkedCount',
+                    Icons.link, HrmPageChrome.primaryNavy)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
+                    Icons.link_off, const Color(0xFFF59E0B))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildStatCard(
+                    _l10n.onlineDevices,
+                    '$onlineDevices/${_devices.length}',
+                    Icons.router,
+                    HrmPageChrome.primaryNavy)),
+          ],
+        ),
+      ],
+      const SizedBox(height: 12),
+      _buildFilters(),
+      const SizedBox(height: 12),
+    ];
+  }
+
+  Widget _buildUsersListDesktopBody() {
+    if (_isLoading) {
+      return const LoadingWidget(message: 'Đang tải...');
+    }
+    if (_devices.isEmpty) {
+      return const EmptyState(
+        icon: Icons.devices,
+        title: 'Chưa có thiết bị',
+        description: 'Hãy kết nối máy chấm công trước',
+      );
+    }
+    if (_filteredUsers.isEmpty) {
+      return EmptyState(
+        icon: Icons.people,
+        title: 'Chưa có user',
+        description: 'Thêm user hoặc đồng bộ từ nhân viên',
+        actionLabel: _l10n.addUser,
+        onAction: _showAddUserDialog,
+      );
+    }
+    return _buildUsersList();
+  }
+
+  List<Widget> _buildUsersListMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const LoadingWidget(message: 'Đang tải...')),
+      ];
+    }
+    if (_devices.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.devices,
+            title: 'Chưa có thiết bị',
+            description: 'Hãy kết nối máy chấm công trước',
+          ),
+        ),
+      ];
+    }
+    if (_filteredUsers.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: EmptyState(
+            icon: Icons.people,
+            title: 'Chưa có user',
+            description: 'Thêm user hoặc đồng bộ từ nhân viên',
+            actionLabel: _l10n.addUser,
+            onAction: _showAddUserDialog,
+          ),
+        ),
+      ];
+    }
+    return _mobileUserListSlivers(_filteredUsers);
+  }
+
+  List<Widget> _mobileUserListSlivers(List<DeviceUser> users) {
+    const pad = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+    if (_branches.isEmpty) {
+      return HrmScrollSlivers.fromListViewBuilder(
+        itemCount: users.length,
+        padding: pad,
+        itemBuilder: (_, i) => _buildMobileUserCard(users[i]),
+      );
+    }
+    final Map<String, List<DeviceUser>> groupMap = {};
+    for (final u in users) {
+      final brName = _getBranchNameForUser(u);
+      final key = brName.isEmpty ? '__none__' : brName;
+      groupMap.putIfAbsent(key, () => []).add(u);
+    }
+    final List<String> branchOrder =
+        _branches.map((b) => b['name']?.toString() ?? '').toList();
+    final List<String> keys = [
+      ...branchOrder.where((n) => groupMap.containsKey(n)),
+      ...groupMap.keys
+          .where((k) => !branchOrder.contains(k) && k != '__none__'),
+      if (groupMap.containsKey('__none__')) '__none__',
+    ];
+    final children = <Widget>[];
+    for (final key in keys) {
+      children.add(_buildBranchGroupHeader(
+          key == '__none__' ? 'Chưa có chi nhánh' : key, groupMap[key]!.length));
+      for (final user in groupMap[key]!) {
+        children.add(_buildMobileUserCard(user));
+      }
+    }
+    return [HrmScrollSlivers.childList(children: children, padding: pad)];
   }
 
   Widget _buildUsersList() {
@@ -1621,46 +1667,91 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           onTap: () => _showUserActionsDialog(user),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundImage:
-                    avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
-                onBackgroundImageError:
-                    avatarFullUrl != null ? (_, __) {} : null,
-                backgroundColor: Colors.grey[200],
-                child: avatarFullUrl == null
-                    ? Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                        style: TextStyle(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14))
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundImage: avatarFullUrl != null
+                          ? NetworkImage(avatarFullUrl)
+                          : null,
+                      onBackgroundImageError:
+                          avatarFullUrl != null ? (_, __) {} : null,
+                      backgroundColor: Colors.grey[200],
+                      child: avatarFullUrl == null
+                          ? Text(
+                              user.name.isNotEmpty
+                                  ? user.name[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14))
+                          : null,
+                    ),
+                    const SizedBox(height: 6),
+                    _buildPrivilegeChip(user.privilege, compact: true),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                          user.name.isNotEmpty ? user.name : 'User ${user.pin}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                        user.name.isNotEmpty ? user.name : 'User ${user.pin}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 2),
                       Text(
-                          [
-                            user.pin,
-                            user.deviceName ?? '',
-                            user.employeeName ?? 'Chưa liên kết'
-                          ].where((s) => s.isNotEmpty).join(' · '),
+                          [user.pin, user.deviceName ?? '']
+                              .where((s) => s.isNotEmpty)
+                              .join(' · '),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            user.employeeId != null
+                                ? Icons.link
+                                : Icons.link_off,
+                            size: 14,
+                            color: user.employeeId != null
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFEA580C),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              user.employeeId != null
+                                  ? _getFullEmployeeName(user)
+                                  : (_l10n.notLinked),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: user.employeeId != null
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFFEA580C),
+                                fontWeight: user.employeeId != null
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
                       Row(children: [
                         Icon(Icons.lock_outline,
                             size: 12,
@@ -1705,13 +1796,16 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     ? const Color(0xFFEA580C)
                                     : const Color(0xFFA1A1AA))),
                       ]),
-                    ]),
-              ),
-              _buildPrivilegeChip(user.privilege),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: Color(0xFFA1A1AA)),
-            ]),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.chevron_right,
+                      size: 18, color: Color(0xFFA1A1AA)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2648,7 +2742,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: ElevatedButton.icon(
+                                    child: FilledButton.icon(
                                       onPressed: () async {
                                         await _enrollFingerprintAndRefresh(
                                             user,
@@ -2663,7 +2757,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             : 'Đăng ký',
                                         style: const TextStyle(fontSize: 13),
                                       ),
-                                      style: ElevatedButton.styleFrom(
+                                      style: FilledButton.styleFrom(
                                         backgroundColor: Colors.purple,
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 12),
@@ -2857,7 +2951,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: ElevatedButton.icon(
+                                child: FilledButton.icon(
                                   onPressed: () async {
                                     // Đăng ký vân tay và cập nhật dialog (không đóng)
                                     await _enrollFingerprintAndRefresh(
@@ -2874,7 +2968,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         : 'Đăng ký',
                                     style: const TextStyle(fontSize: 13),
                                   ),
-                                  style: ElevatedButton.styleFrom(
+                                  style: FilledButton.styleFrom(
                                     backgroundColor: Colors.purple,
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
@@ -3298,7 +3392,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         // Nút đăng ký
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
+                          child: FilledButton.icon(
                             onPressed: () async {
                               await _showFaceNotSupportedMessage();
                             },
@@ -3309,12 +3403,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   : 'Đăng ký khuôn mặt',
                               style: const TextStyle(fontSize: 14),
                             ),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
                               backgroundColor: Colors.teal,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
                             ),
                           ),
                         ),
@@ -3417,8 +3508,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           'Giao diện máy chấm công không hỗ trợ. Quý khách vui lòng đăng ký trực tiếp trên máy.',
         ),
         actions: [
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+            ),
             child: const Text('Đã hiểu'),
           ),
         ],
@@ -3455,8 +3549,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(_l10n.cancel),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+            ),
             child: const Text('Đồng bộ ngay'),
           ),
         ],
@@ -3747,20 +3844,28 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     }
   }
 
-  Widget _buildPrivilegeChip(int privilege) {
+  Widget _buildPrivilegeChip(int privilege, {bool compact = false}) {
     // ZKTeco chỉ có 2 loại: 0 = Người dùng, 14 = Quản trị viên
     final isAdmin = privilege == 14;
     final text = isAdmin ? 'Admin' : 'User';
     final color = isAdmin ? Colors.red : Colors.blue;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(compact ? 8 : 12),
       ),
-      child: Text(text,
-          style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: compact ? 10 : 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -4230,8 +4335,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: ElevatedButton(
+                      child: FilledButton(
                         onPressed: onSubmit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                        ),
                         child: Text(isEditing ? 'Cập nhật' : 'Thêm'),
                       ),
                     ),
@@ -4260,8 +4368,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 onPressed: () => Navigator.pop(context),
                 child: Text(_l10n.cancel),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: onSubmit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
                 child: Text(isEditing ? 'Cập nhật' : 'Thêm'),
               ),
             ],
@@ -4378,7 +4489,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text(_l10n.cancel),
             ),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () async {
                 if (selectedEmployee == null || pinController.text.isEmpty) {
                   _showError('Vui lòng chọn nhân viên và nhập PIN');
@@ -4420,6 +4531,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               },
               icon: const Icon(Icons.sync),
               label: const Text('Đồng bộ'),
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+              ),
             ),
           ],
         ),
@@ -4471,7 +4585,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text(_l10n.cancel),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (selectedEmployee == null) {
                   _showError('Vui lòng chọn nhân viên');
@@ -4494,6 +4608,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 }
                 if (mounted) setState(() => _isLoading = false);
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+              ),
               child: const Text('Liên kết'),
             ),
           ],
@@ -4881,7 +4998,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
             child: Text(_status == 'error' ? 'Đóng' : 'Hủy'),
           ),
         if (_status == 'error')
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               setState(() {
                 _status = 'sending';
@@ -4891,6 +5008,9 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
               });
               _startEnrollment();
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+            ),
             child: const Text('Thử lại'),
           ),
       ],
@@ -5156,7 +5276,7 @@ class _FaceEnrollmentProgressDialogState
             child: Text(_status == 'error' ? 'Đóng' : 'Hủy'),
           ),
         if (_status == 'error')
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               setState(() {
                 _status = 'sending';
@@ -5165,6 +5285,9 @@ class _FaceEnrollmentProgressDialogState
               });
               _startEnrollment();
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+            ),
             child: const Text('Thử lại'),
           ),
       ],

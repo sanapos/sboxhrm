@@ -274,7 +274,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       // Send OTP button
                       SizedBox(
                         height: 52,
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: _isLoading ? null : _handleSendOtp,
                           child: _isLoading
                               ? const SizedBox(
@@ -401,7 +401,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       // Verify OTP button
                       SizedBox(
                         height: 52,
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: _isLoading ? null : _handleVerifyOtp,
                           child: _isLoading
                               ? const SizedBox(

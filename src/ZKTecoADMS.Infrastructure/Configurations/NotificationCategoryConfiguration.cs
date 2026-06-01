@@ -131,6 +131,28 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayOrder = 9,
                 IsSystem = true,
                 DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000010"),
+                Code = "kpi",
+                DisplayName = "KPI",
+                Description = "Đánh giá KPI, lương KPI, mục tiêu",
+                Icon = "trending_up",
+                DisplayOrder = 10,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000011"),
+                Code = "internal_comm",
+                DisplayName = "Truyền thông nội bộ",
+                Description = "Thông báo nội bộ, tin tức công ty",
+                Icon = "campaign",
+                DisplayOrder = 11,
+                IsSystem = true,
+                DefaultEnabled = true
             }
         );
     }

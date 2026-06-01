@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -18,8 +20,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   String _searchQuery = '';
   int _currentPage = 1;
   final int _pageSize = 20;
-  bool _showMobileFilters = false;
-
   @override
   void initState() {
     super.initState();
@@ -55,26 +55,82 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Color _getRoleColor(String? role) {
     switch (role?.toLowerCase()) {
       case 'admin': return const Color(0xFFDC2626);
-      case 'manager': return const Color(0xFF0F2340);
-      case 'hr': return const Color(0xFF0F2340);
-      case 'user': case 'employee': return const Color(0xFF1E3A5F);
+      case 'manager': return HrmPageChrome.primaryNavy;
+      case 'hr': return HrmPageChrome.primaryNavy;
+      case 'user': case 'employee': return HrmPageChrome.primaryNavy;
       default: return const Color(0xFF6B7280);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
+          if (!isMobile) _buildHeader(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildUserList(),
+            child: isMobile
+                ? HrmResponsiveListLayout(
+                    headerSections: [_buildHeader()],
+                    desktopBody: const SizedBox.shrink(),
+                    mobileSlivers: (_) => _userMobileSlivers(),
+                  )
+                : _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildUserList(),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _userMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const Center(child: CircularProgressIndicator())),
+      ];
+    }
+    final filtered = _filteredUsers;
+    if (filtered.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.person_search, size: 80, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text(
+                  _searchQuery.isNotEmpty
+                      ? 'Không tìm thấy tài khoản'
+                      : 'Chưa có tài khoản',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+            ]),
+          ),
+        ),
+      ];
+    }
+    return HrmScrollSlivers.fromListViewBuilder(
+      itemCount: filtered.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE4E4E7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: _buildUserDeckItem(filtered[i]),
+        ),
       ),
     );
   }
@@ -134,22 +190,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 _buildStatChip(Icons.check_circle_outline, '$activeCount', 'Hoạt động'),
                 const SizedBox(width: 10),
                 _buildStatChip(Icons.lock_outline, '$lockedCount', 'Bị khóa'),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => setState(() => _showMobileFilters = !_showMobileFilters),
-                  child: Stack(
-                    children: [
-                      Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined, color: Colors.white, size: 22),
-                      if (_searchQuery.isNotEmpty)
-                        Positioned(right: 0, top: 0, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle))),
-                    ],
-                  ),
-                ),
               ],
             ),
-            if (_showMobileFilters) ...[            const SizedBox(height: 10),
+            const SizedBox(height: 10),
             searchField,
-            ],
           ] else
             Row(
               children: [
@@ -391,7 +435,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         content: Text(content),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xác nhận')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xác nhận')),
         ],
       ),
     ) ?? false;
@@ -418,7 +462,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (selectedRole != null) {
                 try {
@@ -467,7 +511,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (pwdCtrl.text.isNotEmpty) {
                   try {

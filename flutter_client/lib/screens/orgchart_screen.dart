@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 /// Màn hình Sơ đồ tổ chức & Luồng duyệt
 class OrgChartScreen extends StatefulWidget {
@@ -722,7 +723,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               Text('Gán chức vụ (${_assignments.length})',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _showCreateAssignmentDialog,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Gán mới'),
@@ -888,7 +889,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               Text('Luồng duyệt (${_approvalFlows.length})',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: _showCreateApprovalFlowDialog,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Thêm luồng'),
@@ -1124,7 +1125,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             ]),
           ),
-          const Icon(Icons.assignment_ind, size: 18, color: Color(0xFF1E3A5F)),
+          const Icon(Icons.assignment_ind, size: 18, color: HrmPageChrome.primaryNavy),
         ]),
       ),
     );
@@ -1148,7 +1149,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           '${emp.position != null ? ' • ${emp.position}' : ''}',
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
-        trailing: ElevatedButton.icon(
+        trailing: FilledButton.icon(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           ),
@@ -1256,7 +1257,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       children: [
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+                        FilledButton(onPressed: onSave, child: const Text('Lưu')),
                       ],
                     ),
                   ),
@@ -1269,7 +1270,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             content: formContent,
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+              FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
         },
@@ -1285,7 +1286,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         content: Text('Bạn có chắc muốn xóa chức vụ "${position.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1413,7 +1414,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       children: [
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: const Text('Gán')),
+                        FilledButton(onPressed: onSave, child: const Text('Gán')),
                       ],
                     ),
                   ),
@@ -1426,7 +1427,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             content: formContent,
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSave, child: const Text('Gán')),
+              FilledButton(onPressed: onSave, child: const Text('Gán')),
             ],
           );
         },
@@ -1488,7 +1489,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       children: [
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+                        FilledButton(onPressed: onSave, child: const Text('Lưu')),
                       ],
                     ),
                   ),
@@ -1501,7 +1502,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             content: formContent,
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+              FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
         },
@@ -1517,7 +1518,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         content: Text('Xóa "${assign.positionName}" của "${assign.employeeName}" tại "${assign.departmentName}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1689,7 +1690,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       children: [
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: const Text('Tạo')),
+                        FilledButton(onPressed: onSave, child: const Text('Tạo')),
                       ],
                     ),
                   ),
@@ -1702,7 +1703,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             content: SizedBox(width: 500, child: formContent),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSave, child: const Text('Tạo')),
+              FilledButton(onPressed: onSave, child: const Text('Tạo')),
             ],
           );
         },
@@ -1858,7 +1859,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       children: [
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
                         const SizedBox(width: 12),
-                        ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+                        FilledButton(onPressed: onSave, child: const Text('Lưu')),
                       ],
                     ),
                   ),
@@ -1871,7 +1872,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             content: SizedBox(width: 500, child: formContent),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-              ElevatedButton(onPressed: onSave, child: const Text('Lưu')),
+              FilledButton(onPressed: onSave, child: const Text('Lưu')),
             ],
           );
         },
@@ -1887,7 +1888,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         content: Text('Bạn có chắc muốn xóa luồng duyệt "${flow.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);

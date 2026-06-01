@@ -7,6 +7,7 @@ public record GetHrDocumentsQuery(
     Guid StoreId,
     PaginationRequest PaginationRequest,
     Guid? EmployeeUserId = null,
+    Guid? EmployeeId = null,
     HrDocumentType? DocumentType = null,
     bool? ExpiredOnly = null,
     bool? ExpiringOnly = null,

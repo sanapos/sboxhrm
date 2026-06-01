@@ -24,6 +24,10 @@ public class AttendanceConfiguration : IEntityTypeConfiguration<Attendance>
         builder.HasIndex(e => new { e.PIN, e.AttendanceTime })
             .HasDatabaseName("IX_Attendance_PIN_Time");
 
+        builder.HasIndex(e => new { e.DeviceId, e.PIN, e.AttendanceTime })
+            .IsUnique()
+            .HasDatabaseName("UX_Attendance_Device_Pin_Time");
+
         builder.HasOne(e => e.Device)
             .WithMany(d => d.AttendanceLogs)
             .HasForeignKey(e => e.DeviceId)

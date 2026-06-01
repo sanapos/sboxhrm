@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.WorkSchedules;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -46,14 +47,17 @@ public class CreateWorkScheduleHandler(
                 }
             }
 
-            // Check if there's already a schedule for this user on this date
             var existingSchedules = await workScheduleRepository.GetAllAsync(
                 ws => ws.EmployeeUserId == employee.Id && ws.Date.Date == request.Date.Date && ws.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
-            
-            if (existingSchedules.Any())
+
+            if (WorkScheduleDuplicateHelper.AnyConflict(
+                    existingSchedules, employee.Id, request.Date, request.ShiftId, request.IsDayOff))
             {
-                return AppResponse<WorkScheduleDto>.Error("There's already a schedule for this user on this date");
+                return AppResponse<WorkScheduleDto>.Error(
+                    request.IsDayOff
+                        ? "Nhân viên đã có ngày nghỉ trong ngày này"
+                        : "Nhân viên đã được xếp ca này trong ngày");
             }
 
             var workSchedule = new WorkSchedule
@@ -144,12 +148,14 @@ public class BulkCreateWorkSchedulesHandler(
                           && ws.Date <= request.EndDate.Date 
                           && ws.StoreId == request.StoreId,
                     cancellationToken: cancellationToken);
-                var existingDates = existingSchedules.Select(ws => ws.Date.Date).ToHashSet();
+                var existingKeys = existingSchedules
+                    .Select(ws => (ws.Date.Date, ws.ShiftId))
+                    .ToHashSet();
 
                 for (var date = request.StartDate.Date; date <= request.EndDate.Date; date = date.AddDays(1))
                 {
                     if (!request.WorkDays.Contains(date.DayOfWeek)) continue;
-                    if (existingDates.Contains(date)) continue;
+                    if (existingKeys.Contains((date, request.ShiftId))) continue;
 
                     schedulesToCreate.Add(new WorkSchedule
                     {
@@ -182,7 +188,7 @@ public class BulkCreateWorkSchedulesHandler(
                 foreach (var empId in affectedEmployeeIds)
                 {
                     var emp = await employeeRepository.GetSingleAsync(
-                        filter: e => e.Id == empId && e.StoreId == request.StoreId,
+                        filter: e => (e.Id == empId || e.ApplicationUserId == empId) && e.StoreId == request.StoreId,
                         cancellationToken: cancellationToken);
                     if (emp?.ApplicationUserId.HasValue == true)
                         targetUserIds.Add(emp.ApplicationUserId.Value);
@@ -281,22 +287,25 @@ public class DeleteWorkScheduleHandler(
         {
             var workSchedule = await workScheduleRepository.GetSingleAsync(
                 filter: w => w.Id == request.Id && w.StoreId == request.StoreId,
+                includeProperties: [nameof(WorkSchedule.Employee)],
                 cancellationToken: cancellationToken);
             if (workSchedule == null)
             {
                 return AppResponse<bool>.Error("Work schedule not found");
             }
 
-            var employeeUserId = workSchedule.EmployeeUserId;
             var scheduleDate = workSchedule.Date;
+            var notifyUserId = workSchedule.Employee?.ApplicationUserId;
 
             await workScheduleRepository.DeleteAsync(workSchedule, cancellationToken);
 
             // Notify employee about schedule removal
             try
             {
+                if (!notifyUserId.HasValue) return AppResponse<bool>.Success(true);
+
                 await notificationService.CreateAndSendAsync(
-                    targetUserId: employeeUserId,
+                    targetUserId: notifyUserId.Value,
                     type: NotificationType.Warning,
                     title: "Xóa lịch làm việc",
                     message: $"Lịch làm việc ngày {scheduleDate:dd/MM/yyyy} đã bị xóa.",
@@ -326,6 +335,8 @@ public record CreateScheduleRegistrationCommand(
 
 public class CreateScheduleRegistrationHandler(
     IRepository<ScheduleRegistration> registrationRepository,
+    IRepository<ScheduleApprovalRecord> scheduleApprovalRecordRepository,
+    IRepository<AppSettings> appSettingsRepository,
     IRepository<Employee> employeeRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
@@ -344,6 +355,25 @@ public class CreateScheduleRegistrationHandler(
                 return AppResponse<ScheduleRegistrationDto>.Error("Employee not found");
             }
 
+            var duplicateReg = await registrationRepository.GetSingleAsync(
+                filter: r => r.EmployeeUserId == employee.Id
+                             && r.Date.Date == request.Date.Date
+                             && r.StoreId == request.StoreId
+                             && r.ShiftId == request.ShiftId
+                             && r.IsDayOff == request.IsDayOff
+                             && r.Status != ScheduleRegistrationStatus.Rejected,
+                cancellationToken: cancellationToken);
+            if (duplicateReg != null)
+            {
+                return AppResponse<ScheduleRegistrationDto>.Error(
+                    request.IsDayOff
+                        ? "Đã có đăng ký nghỉ cho ngày này"
+                        : "Đã có đăng ký ca này cho ngày");
+            }
+
+            var approvalLevels = await ScheduleApprovalChainHelper.GetApprovalLevelsAsync(
+                appSettingsRepository, request.StoreId, cancellationToken);
+
             var registration = new ScheduleRegistration
             {
                 StoreId = request.StoreId,
@@ -352,36 +382,54 @@ public class CreateScheduleRegistrationHandler(
                 ShiftId = request.ShiftId,
                 IsDayOff = request.IsDayOff,
                 Note = request.Note,
-                Status = ScheduleRegistrationStatus.Pending
+                Status = ScheduleRegistrationStatus.Pending,
+                TotalApprovalLevels = approvalLevels,
+                CurrentApprovalStep = 0
             };
 
             var created = await registrationRepository.AddAsync(registration, cancellationToken);
+
+            var employeeAppUserId = employee.ApplicationUserId ?? request.EmployeeUserId;
+            var approvalChain = await ScheduleApprovalChainHelper.BuildApprovalChainAsync(
+                employeeAppUserId, request.StoreId, approvalLevels,
+                employeeRepository, userManager, cancellationToken);
+            foreach (var record in approvalChain)
+            {
+                record.ScheduleRegistrationId = created.Id;
+                record.StoreId = request.StoreId;
+                await scheduleApprovalRecordRepository.AddAsync(record, cancellationToken);
+            }
+
             var result = await registrationRepository.GetSingleAsync(
                 filter: r => r.Id == created.Id && r.StoreId == request.StoreId,
-                includeProperties: [nameof(ScheduleRegistration.Employee), nameof(ScheduleRegistration.Shift)], 
+                includeProperties: [
+                    nameof(ScheduleRegistration.Employee),
+                    nameof(ScheduleRegistration.Shift),
+                    nameof(ScheduleRegistration.ApprovalRecords)
+                ],
                 cancellationToken: cancellationToken);
-            
-            // Notify managers about new schedule registration
+
             try
             {
-                var employeeName = employee.ApplicationUserId.HasValue 
-                    ? $"{employee.LastName} {employee.FirstName}".Trim()
-                    : "Nhân viên";
-                var managers = await userManager.GetUsersInRoleAsync(nameof(Roles.Manager));
-                var admins = await userManager.GetUsersInRoleAsync(nameof(Roles.Admin));
-                var targetUsers = managers.Concat(admins)
-                    .Where(u => u.StoreId == request.StoreId && u.Id != employee.ApplicationUserId)
-                    .Select(u => u.Id)
-                    .Distinct()
+                var employeeName = $"{employee.LastName} {employee.FirstName}".Trim();
+                if (string.IsNullOrWhiteSpace(employeeName))
+                    employeeName = "Nhân viên";
+
+                var firstApprover = approvalChain
+                    .Where(r => r.StepOrder == 1 && r.AssignedUserId.HasValue)
+                    .Select(r => r.AssignedUserId!.Value)
                     .ToList();
-                if (targetUsers.Count > 0)
+
+                if (firstApprover.Count > 0)
                 {
                     await notificationService.CreateAndSendToUsersAsync(
-                        targetUsers, NotificationType.ApprovalRequired,
+                        firstApprover, NotificationType.ApprovalRequired,
                         "Đăng ký lịch làm việc mới",
-                        $"{employeeName} đăng ký lịch ngày {request.Date:dd/MM/yyyy}",
+                        $"{employeeName} đăng ký lịch ngày {request.Date:dd/MM/yyyy}" +
+                        (approvalLevels > 1 ? $" (cấp 1/{approvalLevels})" : ""),
                         relatedEntityId: created.Id, relatedEntityType: "ScheduleRegistration",
-                        fromUserId: employee.ApplicationUserId, categoryCode: "attendance", storeId: request.StoreId);
+                        fromUserId: employee.ApplicationUserId, categoryCode: "approval",
+                        storeId: request.StoreId);
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -402,7 +450,9 @@ public record DeleteScheduleRegistrationCommand(
 
 public class DeleteScheduleRegistrationHandler(
     IRepository<ScheduleRegistration> registrationRepository,
+    IRepository<ScheduleApprovalRecord> scheduleApprovalRecordRepository,
     IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<Employee> employeeRepository,
     ISystemNotificationService notificationService
 ) : ICommandHandler<DeleteScheduleRegistrationCommand, AppResponse<bool>>
 {
@@ -419,8 +469,10 @@ public class DeleteScheduleRegistrationHandler(
                 return AppResponse<bool>.Error("Không tìm thấy đăng ký");
             }
 
-            var employeeUserId = registration.EmployeeUserId;
             var registrationDate = registration.Date;
+            var employee = await employeeRepository.GetSingleAsync(
+                filter: e => e.Id == registration.EmployeeUserId && e.StoreId == request.StoreId,
+                cancellationToken: cancellationToken);
 
             // If approved, also delete the associated work schedule
             if (registration.Status == ScheduleRegistrationStatus.Approved)
@@ -438,19 +490,28 @@ public class DeleteScheduleRegistrationHandler(
                 }
             }
 
+            var approvalRecords = await scheduleApprovalRecordRepository.GetAllAsync(
+                r => r.ScheduleRegistrationId == registration.Id,
+                cancellationToken: cancellationToken);
+            foreach (var ar in approvalRecords)
+                await scheduleApprovalRecordRepository.DeleteAsync(ar, cancellationToken);
+
             await registrationRepository.DeleteAsync(registration, cancellationToken);
 
             // Notify employee about registration deletion
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: employeeUserId,
-                    type: NotificationType.Warning,
-                    title: "Xóa đăng ký lịch",
-                    message: $"Đăng ký lịch ngày {registrationDate:dd/MM/yyyy} đã bị xóa.",
-                    relatedEntityType: "WorkSchedule",
-                    categoryCode: "attendance",
-                    storeId: request.StoreId);
+                if (employee?.ApplicationUserId.HasValue == true)
+                {
+                    await notificationService.CreateAndSendAsync(
+                        targetUserId: employee.ApplicationUserId.Value,
+                        type: NotificationType.Warning,
+                        title: "Xóa đăng ký lịch",
+                        message: $"Đăng ký lịch ngày {registrationDate:dd/MM/yyyy} đã bị xóa.",
+                        relatedEntityType: "WorkSchedule",
+                        categoryCode: "attendance",
+                        storeId: request.StoreId);
+                }
             }
             catch { /* Don't fail delete if notification fails */ }
 
@@ -473,7 +534,11 @@ public record ApproveScheduleRegistrationCommand(
 
 public class ApproveScheduleRegistrationHandler(
     IRepository<ScheduleRegistration> registrationRepository,
+    IRepository<ScheduleApprovalRecord> scheduleApprovalRecordRepository,
     IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<ShiftStaffingQuota> staffingQuotaRepository,
+    IRepository<Employee> employeeRepository,
+    UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
 ) : ICommandHandler<ApproveScheduleRegistrationCommand, AppResponse<ScheduleRegistrationDto>>
 {
@@ -483,81 +548,213 @@ public class ApproveScheduleRegistrationHandler(
         {
             var registration = await registrationRepository.GetSingleAsync(
                 filter: r => r.Id == request.RequestId && r.StoreId == request.StoreId,
-                includeProperties: [nameof(ScheduleRegistration.Employee), nameof(ScheduleRegistration.Shift), nameof(ScheduleRegistration.ApprovedBy)], 
+                includeProperties: [
+                    nameof(ScheduleRegistration.Employee),
+                    nameof(ScheduleRegistration.Shift),
+                    nameof(ScheduleRegistration.ApprovedBy),
+                    nameof(ScheduleRegistration.ApprovalRecords)
+                ],
                 cancellationToken: cancellationToken);
-            
+
             if (registration == null)
-            {
                 return AppResponse<ScheduleRegistrationDto>.Error("Schedule registration not found");
-            }
 
             if (registration.Status != ScheduleRegistrationStatus.Pending)
-            {
                 return AppResponse<ScheduleRegistrationDto>.Error("This registration has already been processed");
+
+            var allRecords = (await scheduleApprovalRecordRepository.GetAllAsync(
+                r => r.ScheduleRegistrationId == request.RequestId,
+                cancellationToken: cancellationToken))
+                .OrderBy(r => r.StepOrder).ToList();
+
+            var currentRecord = allRecords.FirstOrDefault(r => r.Status == ApprovalStatus.Pending);
+
+            if (allRecords.Count == 0)
+            {
+                currentRecord = new ScheduleApprovalRecord
+                {
+                    ScheduleRegistrationId = request.RequestId,
+                    StepOrder = 1,
+                    StepName = "Phê duyệt",
+                    AssignedUserId = request.ApprovedById,
+                    Status = ApprovalStatus.Pending,
+                    StoreId = request.StoreId
+                };
+                await scheduleApprovalRecordRepository.AddAsync(currentRecord, cancellationToken);
+                allRecords.Add(currentRecord);
+                registration.TotalApprovalLevels = Math.Max(1, registration.TotalApprovalLevels);
             }
 
-            registration.Status = request.IsApproved ? ScheduleRegistrationStatus.Approved : ScheduleRegistrationStatus.Rejected;
-            registration.ApprovedById = request.ApprovedById;
-            registration.ApprovedDate = DateTime.UtcNow;
-            registration.RejectionReason = request.IsApproved ? null : request.RejectionReason;
+            if (currentRecord == null)
+                return AppResponse<ScheduleRegistrationDto>.Error("Không còn bước duyệt nào cần xử lý");
 
-            // If approved, create or update the work schedule
-            if (request.IsApproved)
+            var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
+            var isAdmin = approver?.Role is "Admin" or "SuperAdmin";
+            var isAssigned = currentRecord.AssignedUserId == request.ApprovedById;
+            if (!isAdmin && !isAssigned)
+                return AppResponse<ScheduleRegistrationDto>.Error("Bạn không có quyền duyệt bước này");
+
+            if (!request.IsApproved)
             {
-                var existingSchedule = await workScheduleRepository.GetSingleAsync(
-                    filter: ws => ws.EmployeeUserId == registration.EmployeeUserId
-                                  && ws.Date.Date == registration.Date.Date
-                                  && ws.StoreId == request.StoreId,
-                    cancellationToken: cancellationToken);
+                currentRecord.ActualUserId = request.ApprovedById;
+                currentRecord.ActualUserName = approver?.FullName ?? approver?.Email;
+                currentRecord.Status = ApprovalStatus.Rejected;
+                currentRecord.Note = request.RejectionReason;
+                currentRecord.ActionDate = DateTime.UtcNow;
+                await scheduleApprovalRecordRepository.UpdateAsync(currentRecord, cancellationToken);
 
-                if (existingSchedule != null)
+                registration.Status = ScheduleRegistrationStatus.Rejected;
+                registration.ApprovedById = request.ApprovedById;
+                registration.ApprovedDate = DateTime.UtcNow;
+                registration.RejectionReason = request.RejectionReason;
+                registration.CurrentApprovalStep = currentRecord.StepOrder;
+                await registrationRepository.UpdateAsync(registration, cancellationToken);
+
+                try
                 {
-                    existingSchedule.ShiftId = registration.ShiftId;
-                    existingSchedule.IsDayOff = registration.IsDayOff;
-                    existingSchedule.Note = registration.Note;
-                    await workScheduleRepository.UpdateAsync(existingSchedule, cancellationToken);
-                }
-                else
-                {
-                    var workSchedule = new WorkSchedule
+                    if (registration.Employee?.ApplicationUserId.HasValue == true)
                     {
-                        StoreId = request.StoreId,
-                        EmployeeUserId = registration.EmployeeUserId,
-                        ShiftId = registration.ShiftId,
-                        Date = registration.Date,
-                        IsDayOff = registration.IsDayOff,
-                        Note = registration.Note
-                    };
-                    await workScheduleRepository.AddAsync(workSchedule, cancellationToken);
+                        await notificationService.CreateAndSendAsync(
+                            registration.Employee.ApplicationUserId.Value, NotificationType.Warning,
+                            "Đăng ký lịch bị từ chối",
+                            $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} bị từ chối ở cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}. " +
+                            (string.IsNullOrEmpty(request.RejectionReason) ? "" : $"Lý do: {request.RejectionReason}"),
+                            relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
+                            fromUserId: request.ApprovedById, categoryCode: "attendance", storeId: request.StoreId);
+                    }
                 }
+                catch { }
+
+                return AppResponse<ScheduleRegistrationDto>.Success(registration.Adapt<ScheduleRegistrationDto>());
             }
 
-            await registrationRepository.UpdateAsync(registration, cancellationToken);
-
-            try
+            var nextPending = allRecords.FirstOrDefault(r =>
+                r.StepOrder > currentRecord.StepOrder && r.Status == ApprovalStatus.Pending);
+            if (nextPending == null)
             {
-                if (registration.Employee?.ApplicationUserId.HasValue == true)
-                {
-                    var statusText = request.IsApproved ? "được duyệt" : "bị từ chối";
-                    var notifType = request.IsApproved ? NotificationType.Success : NotificationType.Warning;
-                    var message = $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã {statusText}";
-                    if (!request.IsApproved && !string.IsNullOrEmpty(request.RejectionReason))
-                        message += $". Lý do: {request.RejectionReason}";
-                    await notificationService.CreateAndSendAsync(
-                        registration.Employee.ApplicationUserId.Value, notifType,
-                        "Kết quả đăng ký lịch",
-                        message,
-                        relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                        fromUserId: request.ApprovedById, categoryCode: "attendance", storeId: request.StoreId);
-                }
+                var quotaError = await ScheduleStaffingQuotaHelper.GetQuotaExceededMessageAsync(
+                    staffingQuotaRepository, workScheduleRepository, registrationRepository,
+                    employeeRepository, registration, request.StoreId, cancellationToken);
+                if (quotaError != null)
+                    return AppResponse<ScheduleRegistrationDto>.Error(quotaError);
             }
-            catch { /* Notification failure should not affect main operation */ }
-            
-            return AppResponse<ScheduleRegistrationDto>.Success(registration.Adapt<ScheduleRegistrationDto>());
+
+            currentRecord.ActualUserId = request.ApprovedById;
+            currentRecord.ActualUserName = approver?.FullName ?? approver?.Email;
+            currentRecord.Status = ApprovalStatus.Approved;
+            currentRecord.Note = "Đã phê duyệt";
+            currentRecord.ActionDate = DateTime.UtcNow;
+            await scheduleApprovalRecordRepository.UpdateAsync(currentRecord, cancellationToken);
+
+            registration.CurrentApprovalStep = currentRecord.StepOrder;
+
+            if (nextPending == null)
+            {
+                registration.Status = ScheduleRegistrationStatus.Approved;
+                registration.ApprovedById = request.ApprovedById;
+                registration.ApprovedDate = DateTime.UtcNow;
+                registration.RejectionReason = null;
+
+                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
+                await registrationRepository.UpdateAsync(registration, cancellationToken);
+
+                try
+                {
+                    if (registration.Employee?.ApplicationUserId.HasValue == true)
+                    {
+                        await notificationService.CreateAndSendAsync(
+                            registration.Employee.ApplicationUserId.Value, NotificationType.Success,
+                            "Đăng ký lịch đã duyệt",
+                            registration.TotalApprovalLevels > 1
+                                ? $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã được phê duyệt qua {registration.TotalApprovalLevels} cấp"
+                                : $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã được duyệt",
+                            relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
+                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                    }
+                }
+                catch { }
+            }
+            else
+            {
+                await registrationRepository.UpdateAsync(registration, cancellationToken);
+
+                try
+                {
+                    if (nextPending.AssignedUserId.HasValue)
+                    {
+                        await notificationService.CreateAndSendAsync(
+                            nextPending.AssignedUserId.Value, NotificationType.ApprovalRequired,
+                            "Đăng ký lịch cần duyệt",
+                            $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} - cấp {nextPending.StepOrder}/{registration.TotalApprovalLevels}",
+                            relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
+                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                    }
+
+                    if (registration.Employee?.ApplicationUserId.HasValue == true)
+                    {
+                        await notificationService.CreateAndSendAsync(
+                            registration.Employee.ApplicationUserId.Value, NotificationType.Info,
+                            "Tiến trình duyệt lịch",
+                            $"Đăng ký lịch đã được duyệt cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}. Đang chờ cấp {nextPending.StepOrder}",
+                            relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
+                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                    }
+                }
+                catch { }
+            }
+
+            var refreshed = await registrationRepository.GetSingleAsync(
+                filter: r => r.Id == registration.Id && r.StoreId == request.StoreId,
+                includeProperties: [
+                    nameof(ScheduleRegistration.Employee),
+                    nameof(ScheduleRegistration.Shift),
+                    nameof(ScheduleRegistration.ApprovalRecords)
+                ],
+                cancellationToken: cancellationToken);
+
+            return AppResponse<ScheduleRegistrationDto>.Success(refreshed!.Adapt<ScheduleRegistrationDto>());
         }
         catch (Exception ex)
         {
             return AppResponse<ScheduleRegistrationDto>.Error(ex.Message);
+        }
+    }
+
+    private static async Task ApplyApprovedScheduleAsync(
+        ScheduleRegistration registration,
+        Guid storeId,
+        IRepository<WorkSchedule> workScheduleRepository,
+        CancellationToken cancellationToken)
+    {
+        var daySchedules = await workScheduleRepository.GetAllAsync(
+            ws => ws.EmployeeUserId == registration.EmployeeUserId
+                  && ws.Date.Date == registration.Date.Date
+                  && ws.StoreId == storeId,
+            cancellationToken: cancellationToken);
+
+        var existingSchedule = daySchedules.FirstOrDefault(ws =>
+            WorkScheduleDuplicateHelper.ConflictsWith(
+                ws, registration.EmployeeUserId, registration.Date, registration.ShiftId, registration.IsDayOff));
+
+        if (existingSchedule != null)
+        {
+            existingSchedule.ShiftId = registration.ShiftId;
+            existingSchedule.IsDayOff = registration.IsDayOff;
+            existingSchedule.Note = registration.Note;
+            await workScheduleRepository.UpdateAsync(existingSchedule, cancellationToken);
+        }
+        else
+        {
+            var workSchedule = new WorkSchedule
+            {
+                StoreId = storeId,
+                EmployeeUserId = registration.EmployeeUserId,
+                ShiftId = registration.ShiftId,
+                Date = registration.Date,
+                IsDayOff = registration.IsDayOff,
+                Note = registration.Note
+            };
+            await workScheduleRepository.AddAsync(workSchedule, cancellationToken);
         }
     }
 }
@@ -569,6 +766,7 @@ public record UndoScheduleRegistrationApprovalCommand(
 
 public class UndoScheduleRegistrationApprovalHandler(
     IRepository<ScheduleRegistration> registrationRepository,
+    IRepository<ScheduleApprovalRecord> scheduleApprovalRecordRepository,
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<Employee> employeeRepository,
     ISystemNotificationService notificationService
@@ -594,13 +792,27 @@ public class UndoScheduleRegistrationApprovalHandler(
 
             var wasApproved = registration.Status == ScheduleRegistrationStatus.Approved;
 
-            // Set back to Pending
             registration.Status = ScheduleRegistrationStatus.Pending;
             registration.ApprovedById = null;
             registration.ApprovedDate = null;
             registration.RejectionReason = null;
+            registration.CurrentApprovalStep = 0;
             registration.UpdatedAt = DateTime.Now;
             await registrationRepository.UpdateAsync(registration, cancellationToken);
+
+            var approvalRecords = (await scheduleApprovalRecordRepository.GetAllAsync(
+                r => r.ScheduleRegistrationId == registration.Id,
+                cancellationToken: cancellationToken))
+                .OrderBy(r => r.StepOrder).ToList();
+            foreach (var ar in approvalRecords)
+            {
+                ar.Status = ApprovalStatus.Pending;
+                ar.ActualUserId = null;
+                ar.ActualUserName = null;
+                ar.Note = null;
+                ar.ActionDate = null;
+                await scheduleApprovalRecordRepository.UpdateAsync(ar, cancellationToken);
+            }
 
             // If was approved, delete the associated work schedule
             if (wasApproved)
@@ -630,7 +842,7 @@ public class UndoScheduleRegistrationApprovalHandler(
                         "Hoàn tác duyệt lịch",
                         $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã bị hoàn tác về trạng thái chờ duyệt",
                         relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                        categoryCode: "attendance", storeId: request.StoreId);
+                        categoryCode: "approval", storeId: request.StoreId);
                 }
             }
             catch { /* Notification failure should not affect main operation */ }

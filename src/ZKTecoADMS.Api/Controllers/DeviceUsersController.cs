@@ -1,6 +1,7 @@
-using Mapster;
+﻿using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.DeviceUsers.Create;
 using ZKTecoADMS.Application.Commands.DeviceUsers.Delete;
@@ -22,6 +23,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
 {
     [HttpPost("devices")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.Create)]
     public async Task<ActionResult<IEnumerable<DeviceUserDto>>> GetDeviceUsersByDevices([FromBody] GetDeviceUsersByDevicesRequest request)
     {
         var query = request.Adapt<GetDeviceUserDevicesQuery>();
@@ -30,6 +32,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     }
 
     [HttpPost]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<DeviceUserDto>>> CreateDeviceUser([FromBody] CreateDeviceUserRequest request)
     {
         // Log request data for debugging
@@ -42,6 +45,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     }
 
     [HttpPut("{deviceUserId}")]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateDeviceUser(Guid deviceUserId, [FromBody] UpdateDeviceUserRequest request)
     {
         var cmd = new UpdateDeviceUserCommand(
@@ -60,14 +64,18 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     }
 
     [HttpDelete("{deviceUserId}")]
-    public async Task<IActionResult> DeleteDeviceUser(Guid deviceUserId)
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.Delete)]
+    public async Task<IActionResult> DeleteDeviceUser(
+        Guid deviceUserId,
+        [FromQuery] bool syncToDevice = true)
     {
-        var cmd = new DeleteDeviceUserCommand(deviceUserId);
+        var cmd = new DeleteDeviceUserCommand(deviceUserId, syncToDevice);
 
         return Ok(await bus.Send(cmd));
     }
 
     [HttpPost("{deviceUserId}/map-employee/{employeeId}")]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<EmployeeDto>>> MapDeviceUserToEmployee(Guid deviceUserId, Guid employeeId)
     {
         var cmd = new MapDeviceUserToEmployeeCommand(deviceUserId, employeeId);
@@ -75,10 +83,11 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     }
 
     /// <summary>
-    /// Lấy danh sách vân tay đã đăng ký cho device user
+    /// Láº¥y danh sÃ¡ch vÃ¢n tay Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
     /// </summary>
     [HttpGet("{deviceUserId}/fingerprints")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<FingerprintDto>>>> GetFingerprints(Guid deviceUserId)
     {
         try
@@ -99,15 +108,16 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lỗi lấy vân tay: {ex.Message}"));
+            return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lá»—i láº¥y vÃ¢n tay: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Lấy danh sách khuôn mặt đã đăng ký cho device user
+    /// Láº¥y danh sÃ¡ch khuÃ´n máº·t Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
     /// </summary>
     [HttpGet("{deviceUserId}/faces")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("DeviceUser", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<FaceDto>>>> GetFaces(Guid deviceUserId)
     {
         try
@@ -128,7 +138,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<IEnumerable<FaceDto>>.Fail($"Lỗi lấy khuôn mặt: {ex.Message}"));
+            return Ok(AppResponse<IEnumerable<FaceDto>>.Fail($"Lá»—i láº¥y khuÃ´n máº·t: {ex.Message}"));
         }
     }
 }
@@ -150,3 +160,4 @@ public record FaceDto
     public int Version { get; init; }
     public DateTime CreatedAt { get; init; }
 }
+

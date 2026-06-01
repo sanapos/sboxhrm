@@ -1,4 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -9,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace ZKTecoADMS.API.Controllers;
 
 /// <summary>
-/// API Controller để quản lý Google Sheets Integration
+/// API Controller Ä‘á»ƒ quáº£n lÃ½ Google Sheets Integration
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -37,9 +39,10 @@ public class GoogleSheetsController(
         return (date.Date, date.Date.AddDays(1));
     }
     /// <summary>
-    /// Kiểm tra kết nối Google Sheets
+    /// Kiá»ƒm tra káº¿t ná»‘i Google Sheets
     /// </summary>
     [HttpGet("test-connection")]
+    [RequireModulePermission("Report", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<bool>>> TestConnection()
     {
         var result = await googleSheetService.TestConnectionAsync();
@@ -47,13 +50,14 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<bool>.Success(true));
         }
-        return Ok(AppResponse<bool>.Fail("Không thể kết nối Google Sheets"));
+        return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ káº¿t ná»‘i Google Sheets"));
     }
 
     /// <summary>
-    /// Khởi tạo Google Sheets với SpreadsheetId mới
+    /// Khá»Ÿi táº¡o Google Sheets vá»›i SpreadsheetId má»›i
     /// </summary>
     [HttpPost("initialize")]
+    [RequireModulePermission("Report", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> Initialize([FromBody] InitializeGoogleSheetRequest request)
     {
         var result = await googleSheetService.InitializeAsync(request.SpreadsheetId, request.CredentialsPath ?? string.Empty);
@@ -61,13 +65,14 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<bool>.Success(true));
         }
-        return Ok(AppResponse<bool>.Fail("Không thể khởi tạo Google Sheets"));
+        return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ khá»Ÿi táº¡o Google Sheets"));
     }
 
     /// <summary>
-    /// Đồng bộ tất cả thiết bị lên Google Sheet
+    /// Äá»“ng bá»™ táº¥t cáº£ thiáº¿t bá»‹ lÃªn Google Sheet
     /// </summary>
     [HttpPost("sync-devices")]
+    [RequireModulePermission("Report", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> SyncDevices()
     {
         var storeId = RequiredStoreId;
@@ -78,13 +83,14 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<bool>.Success(true));
         }
-        return Ok(AppResponse<bool>.Fail("Không thể đồng bộ thiết bị"));
+        return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ Ä‘á»“ng bá»™ thiáº¿t bá»‹"));
     }
 
     /// <summary>
-    /// Đồng bộ tất cả nhân viên lên Google Sheet
+    /// Äá»“ng bá»™ táº¥t cáº£ nhÃ¢n viÃªn lÃªn Google Sheet
     /// </summary>
     [HttpPost("sync-employees")]
+    [RequireModulePermission("Report", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> SyncEmployees()
     {
         var storeId = RequiredStoreId;
@@ -95,13 +101,14 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<bool>.Success(true));
         }
-        return Ok(AppResponse<bool>.Fail("Không thể đồng bộ nhân viên"));
+        return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ Ä‘á»“ng bá»™ nhÃ¢n viÃªn"));
     }
 
     /// <summary>
-    /// Đồng bộ dữ liệu chấm công theo ngày
+    /// Äá»“ng bá»™ dá»¯ liá»‡u cháº¥m cÃ´ng theo ngÃ y
     /// </summary>
     [HttpPost("sync-attendances")]
+    [RequireModulePermission("Report", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> SyncAttendances([FromBody] SyncAttendancesRequest request)
     {
         var storeId = RequiredStoreId;
@@ -117,13 +124,14 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<bool>.Success(true));
         }
-        return Ok(AppResponse<bool>.Fail("Không thể đồng bộ dữ liệu chấm công"));
+        return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ Ä‘á»“ng bá»™ dá»¯ liá»‡u cháº¥m cÃ´ng"));
     }
 
     /// <summary>
-    /// Đồng bộ toàn bộ dữ liệu
+    /// Äá»“ng bá»™ toÃ n bá»™ dá»¯ liá»‡u
     /// </summary>
     [HttpPost("sync-all")]
+    [RequireModulePermission("Report", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SyncAllResult>>> SyncAll()
     {
         var storeId = RequiredStoreId;
@@ -152,7 +160,7 @@ public class GoogleSheetsController(
         {
             return Ok(AppResponse<SyncAllResult>.Success(result));
         }
-        return Ok(AppResponse<SyncAllResult>.Fail("Một số dữ liệu không thể đồng bộ"));
+        return Ok(AppResponse<SyncAllResult>.Fail("Má»™t sá»‘ dá»¯ liá»‡u khÃ´ng thá»ƒ Ä‘á»“ng bá»™"));
     }
 }
 
@@ -168,3 +176,4 @@ public class SyncAllResult
     public bool AttendancesSynced { get; set; }
     public int AttendancesCount { get; set; }
 }
+

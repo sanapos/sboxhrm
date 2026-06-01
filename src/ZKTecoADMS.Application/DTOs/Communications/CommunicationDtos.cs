@@ -39,6 +39,38 @@ public class InternalCommunicationDto
     public DateTime? UpdatedAt { get; set; }
     public bool HasUserReacted { get; set; }
     public ReactionType? UserReactionType { get; set; }
+    public bool IsPublicShareEnabled { get; set; }
+    public string? PublicShareToken { get; set; }
+    public string? PublicShareUrl { get; set; }
+}
+
+/// <summary>
+/// Bài viết xem qua link công khai (không đăng nhập).
+/// </summary>
+public class PublicCommunicationViewDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string? Summary { get; set; }
+    public string? ThumbnailUrl { get; set; }
+    public List<string> AttachedImages { get; set; } = new();
+    public CommunicationType Type { get; set; }
+    public string TypeName { get; set; } = string.Empty;
+    public string? AuthorName { get; set; }
+    public string? StoreName { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public int ViewCount { get; set; }
+    public string? Tags { get; set; }
+}
+
+/// <summary>
+/// Bật/tắt chia sẻ link công khai.
+/// </summary>
+public class CommunicationPublicShareDto
+{
+    public bool Enabled { get; set; }
+    public bool RegenerateToken { get; set; }
 }
 
 /// <summary>
@@ -59,6 +91,12 @@ public class CreateCommunicationDto
     public bool IsPinned { get; set; }
     public string? Tags { get; set; }
     public bool PublishImmediately { get; set; } = false;
+
+    /// <summary>Gửi chờ duyệt (tự động khi user không có quyền duyệt).</summary>
+    public bool SubmitForApproval { get; set; } = false;
+
+    /// <summary>Cho phép xem qua link công khai sau khi xuất bản.</summary>
+    public bool IsPublicShareEnabled { get; set; }
     
     // AI generation metadata
     public bool IsAiGenerated { get; set; }
@@ -84,6 +122,7 @@ public class UpdateCommunicationDto
     public DateTime? ExpiresAt { get; set; }
     public bool? IsPinned { get; set; }
     public string? Tags { get; set; }
+    public bool? IsPublicShareEnabled { get; set; }
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -10,6 +11,7 @@ import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
@@ -54,7 +56,6 @@ class _LeaveScreenState extends State<LeaveScreen>
   final List<int> _pageSizeOptions = [25, 50, 100, 200];
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   AppLocalizations get _l10n => AppLocalizations.of(context);
@@ -339,13 +340,14 @@ class _LeaveScreenState extends State<LeaveScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           _buildHeader(theme),
-          if (_tabController != null) _buildTabBar(theme),
+          if (!isMobile && _tabController != null) _buildTabBar(theme),
           Expanded(
             child: _isLoading || _tabController == null
                 ? Center(
@@ -359,91 +361,143 @@ class _LeaveScreenState extends State<LeaveScreen>
                       ],
                     ),
                   )
-                : Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      Responsive.isMobile(context) ? 10 : 16,
-                      Responsive.isMobile(context) ? 10 : 16,
-                      Responsive.isMobile(context) ? 10 : 16,
-                      8,
-                    ),
-                    child: Column(
-                      children: [
-                        if (Responsive.isMobile(context)) ...[
-                          InkWell(
-                            onTap: () => setState(
-                                () => _showMobileSummary = !_showMobileSummary),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.analytics_outlined,
-                                      size: 16, color: Colors.blue.shade700),
-                                  const SizedBox(width: 6),
-                                  Text('Tổng quan',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                          color: Colors.blue.shade700)),
-                                  const Spacer(),
-                                  Icon(
-                                      _showMobileSummary
-                                          ? Icons.expand_less
-                                          : Icons.expand_more,
-                                      size: 20,
-                                      color: Colors.blue.shade700),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (_showMobileSummary) ...[
-                            const SizedBox(height: 8),
-                            _buildStatsRow(theme),
-                          ],
-                        ] else ...[
-                          _buildStatsRow(theme),
-                        ],
-                        const SizedBox(height: 12),
-                        if (!Responsive.isMobile(context) ||
-                            _showMobileFilters) ...[
-                          _buildFilterBar(theme),
-                          const SizedBox(height: 12),
-                        ],
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
+                : isMobile
+                    ? HrmMobileNestedTabLayout(
+                        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                        headerSections: _leavePageHeaderSections(theme),
+                        tabBar: _leaveTabBar(theme),
+                        tabBarView: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            RefreshIndicator(
+                                onRefresh: _loadData,
+                                child: _buildLeaveList(
+                                    _applyFilters(_myLeaves),
+                                    isMyLeaves: true)),
+                            if (_isManager) ...[
                               RefreshIndicator(
                                   onRefresh: _loadData,
                                   child: _buildLeaveList(
-                                      _applyFilters(_myLeaves),
-                                      isMyLeaves: true)),
-                              if (_isManager) ...[
-                                RefreshIndicator(
-                                    onRefresh: _loadData,
-                                    child: _buildLeaveList(
-                                        _applyFilters(_pendingLeaves),
-                                        showApprovalActions: true)),
-                                RefreshIndicator(
-                                    onRefresh: _loadData,
-                                    child: _buildLeaveList(
-                                        _applyFilters(_allLeaves),
-                                        isAllTab: true)),
-                              ],
+                                      _applyFilters(_pendingLeaves),
+                                      showApprovalActions: true)),
+                              RefreshIndicator(
+                                  onRefresh: _loadData,
+                                  child: _buildLeaveList(
+                                      _applyFilters(_allLeaves),
+                                      isAllTab: true)),
                             ],
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Column(
+                          children: [
+                            _buildStatsRow(theme),
+                            const SizedBox(height: 12),
+                            _buildFilterBar(theme),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  RefreshIndicator(
+                                      onRefresh: _loadData,
+                                      child: _buildLeaveList(
+                                          _applyFilters(_myLeaves),
+                                          isMyLeaves: true)),
+                                  if (_isManager) ...[
+                                    RefreshIndicator(
+                                        onRefresh: _loadData,
+                                        child: _buildLeaveList(
+                                            _applyFilters(_pendingLeaves),
+                                            showApprovalActions: true)),
+                                    RefreshIndicator(
+                                        onRefresh: _loadData,
+                                        child: _buildLeaveList(
+                                            _applyFilters(_allLeaves),
+                                            isAllTab: true)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _leavePageHeaderSections(ThemeData theme) => [
+        InkWell(
+          onTap: () =>
+              setState(() => _showMobileSummary = !_showMobileSummary),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    size: 16, color: Colors.blue.shade700),
+                const SizedBox(width: 6),
+                Text('Tổng quan',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.blue.shade700)),
+                const Spacer(),
+                Icon(
+                    _showMobileSummary ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: Colors.blue.shade700),
+              ],
+            ),
+          ),
+        ),
+        if (_showMobileSummary) ...[
+          const SizedBox(height: 8),
+          _buildStatsRow(theme),
+        ],
+        const SizedBox(height: 12),
+        _buildFilterBar(theme),
+        const SizedBox(height: 12),
+      ];
+
+  TabBar _leaveTabBar(ThemeData theme) {
+    return TabBar(
+      controller: _tabController,
+      labelColor: theme.primaryColor,
+      unselectedLabelColor: Colors.grey,
+      indicatorColor: theme.primaryColor,
+      indicatorWeight: 3,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      tabs: [
+        Tab(
+            icon: const Icon(Icons.person_outline_rounded, size: 20),
+            text: _l10n.myRequests),
+        if (_isManager) ...[
+          Tab(
+            icon: Badge(
+              label: Text('${_pendingLeaves.length}',
+                  style: const TextStyle(fontSize: 10)),
+              isLabelVisible: _pendingLeaves.isNotEmpty,
+              backgroundColor: Colors.red,
+              child: const Icon(Icons.pending_actions_rounded, size: 20),
+            ),
+            text: _l10n.pending,
+          ),
+          Tab(
+              icon: const Icon(Icons.list_alt_rounded, size: 20),
+              text: _l10n.all),
+        ],
+      ],
     );
   }
 
@@ -504,42 +558,6 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
           ),
           const SizedBox(width: 8),
-          if (isMobile)
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              child: Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: Colors.white
-                      .withValues(alpha: _showMobileFilters ? 0.25 : 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Stack(
-                  children: [
-                    Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        size: 18,
-                        color: Colors.white),
-                    if (_filterLeaveType != null ||
-                        _filterStatus != null ||
-                        _filterEmployeeId != null ||
-                        _filterTimePreset != 'all')
-                      Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                  color: Colors.orangeAccent,
-                                  shape: BoxShape.circle))),
-                  ],
-                ),
-              ),
-            ),
           Material(
             color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10),
@@ -1310,7 +1328,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     bool isAllTab = false,
   }) {
     if (leaves.isEmpty) {
-      return Center(
+      final emptyContent = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1339,6 +1357,18 @@ class _LeaveScreenState extends State<LeaveScreen>
           ],
         ),
       );
+      if (Responsive.isMobile(context)) {
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle:
+                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverFillRemaining(child: emptyContent),
+          ],
+        );
+      }
+      return emptyContent;
     }
 
     final totalPages = (leaves.length / _itemsPerPage).ceil();
@@ -1369,44 +1399,90 @@ class _LeaveScreenState extends State<LeaveScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 600) {
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  itemCount: pageLeaves.length,
-                  itemBuilder: (context, index) {
-                    final leave = pageLeaves[index] is Map<String, dynamic>
-                        ? pageLeaves[index] as Map<String, dynamic>
-                        : Map<String, dynamic>.from(pageLeaves[index]);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+          if (leaves.isEmpty) {
+            return CustomScrollView(
+              slivers: [
+                SliverOverlapInjector(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                      context),
+                ),
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.event_busy_outlined,
+                            size: 72, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          showApprovalActions
+                              ? _l10n.noPendingRequests
+                              : _l10n.noLeaveRequests,
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w500),
                         ),
-                        child: _buildLeaveDeckItem(
-                          leave,
-                          isMyLeaves: isMyLeaves,
-                          showApprovalActions: showApprovalActions,
-                          isAllTab: isAllTab,
+                        if (isMyLeaves) ...[
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: () => _showLeaveFormDialog(),
+                            icon: const Icon(Icons.add_rounded),
+                            label: Text(_l10n.createNewRequest),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          return CustomScrollView(
+            slivers: [
+              SliverOverlapInjector(
+                handle:
+                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+              ),
+              SliverPadding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final leave = pageLeaves[index] is Map<String, dynamic>
+                          ? pageLeaves[index] as Map<String, dynamic>
+                          : Map<String, dynamic>.from(pageLeaves[index]);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE4E4E7)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: _buildLeaveDeckItem(
+                            leave,
+                            isMyLeaves: isMyLeaves,
+                            showApprovalActions: showApprovalActions,
+                            isAllTab: isAllTab,
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                    childCount: pageLeaves.length,
+                  ),
                 ),
               ),
-              if (totalPages > 1) _buildMobilePagination(leaves),
+              if (totalPages > 1)
+                SliverToBoxAdapter(child: _buildMobilePagination(leaves)),
             ],
           );
         }

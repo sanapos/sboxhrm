@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using ZKTecoADMS.Api.Hubs;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -36,7 +37,7 @@ public class SystemNotificationService : ISystemNotificationService
     {
         try
         {
-            var dto = MapToDto(notification);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
             await _hubContext.Clients.Group($"user_{userId}").SendAsync("NewNotification", dto);
             _logger.LogInformation("📢 Sent notification to user {UserId}: {Title}", userId, notification.Title);
         }
@@ -54,11 +55,7 @@ public class SystemNotificationService : ISystemNotificationService
         {
             await _push.PushToUserAsync(userId, notification.Title ?? string.Empty, notification.Message,
                 notification.RelatedUrl,
-                new Dictionary<string, string>
-                {
-                    ["notificationId"] = notification.Id.ToString(),
-                    ["type"] = notification.Type.ToString(),
-                });
+                NotificationDtoMapper.ToFcmData(notification));
         }
         catch (Exception ex)
         {
@@ -71,7 +68,7 @@ public class SystemNotificationService : ISystemNotificationService
         var idList = userIds as IList<Guid> ?? userIds.ToList();
         try
         {
-            var dto = MapToDto(notification);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
             var groupNames = idList.Select(id => $"user_{id}").ToList();
             await _hubContext.Clients.Groups(groupNames).SendAsync("NewNotification", dto);
             _logger.LogInformation("📢 Sent notification to {Count} users: {Title}", groupNames.Count, notification.Title);
@@ -85,11 +82,7 @@ public class SystemNotificationService : ISystemNotificationService
         {
             await _push.PushToUsersAsync(idList, notification.Title ?? string.Empty, notification.Message,
                 notification.RelatedUrl,
-                new Dictionary<string, string>
-                {
-                    ["notificationId"] = notification.Id.ToString(),
-                    ["type"] = notification.Type.ToString(),
-                });
+                NotificationDtoMapper.ToFcmData(notification));
         }
         catch (Exception ex)
         {
@@ -99,11 +92,26 @@ public class SystemNotificationService : ISystemNotificationService
 
     public async Task SendToAllAsync(Notification notification)
     {
+        // SECURITY: previously this used Clients.All which leaks notifications across
+        // tenants/stores. We now restrict the broadcast to the originating store if
+        // we have one; only fall back to a true all-clients broadcast for genuinely
+        // system-wide notifications (StoreId == null). Callers should target a store
+        // explicitly to avoid the cross-tenant leak that motivated this fix.
         try
         {
-            var dto = MapToDto(notification);
-            await _hubContext.Clients.All.SendAsync("NewNotification", dto);
-            _logger.LogInformation("📢 Broadcast notification to all clients: {Title}", notification.Title);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
+            if (notification.StoreId.HasValue)
+            {
+                await _hubContext.Clients.Group($"store_{notification.StoreId.Value}")
+                    .SendAsync("NewNotification", dto);
+                _logger.LogInformation("📢 Broadcast notification to store {StoreId}: {Title}",
+                    notification.StoreId.Value, notification.Title);
+            }
+            else
+            {
+                await _hubContext.Clients.All.SendAsync("NewNotification", dto);
+                _logger.LogInformation("📢 Broadcast notification to all clients (system-wide): {Title}", notification.Title);
+            }
         }
         catch (Exception ex)
         {
@@ -132,14 +140,11 @@ public class SystemNotificationService : ISystemNotificationService
             // for it appearing in their list later.
             if (targetUserId.HasValue && !string.IsNullOrEmpty(categoryCode))
             {
-                var pref = await _preferenceRepository.GetSingleAsync(
-                    p => p.UserId == targetUserId.Value && p.CategoryCode == categoryCode
-                         && (p.StoreId == null || p.StoreId == storeId));
-                if (pref != null && !pref.IsEnabled)
+                if (await IsCategoryDisabledForUserAsync(targetUserId.Value, categoryCode, storeId))
                 {
                     _logger.LogInformation(
                         "Notification skipped: user {UserId} disabled category {Category} in store {StoreId}",
-                        targetUserId.Value, categoryCode, storeId);
+                        targetUserId.Value, NotificationCategoryCodes.Normalize(categoryCode), storeId);
                     return;
                 }
             }
@@ -158,7 +163,7 @@ public class SystemNotificationService : ISystemNotificationService
                 RelatedUrl = relatedUrl,
                 RelatedEntityId = relatedEntityId,
                 RelatedEntityType = relatedEntityType,
-                CategoryCode = categoryCode,
+                CategoryCode = NotificationCategoryCodes.Normalize(categoryCode) ?? categoryCode,
                 StoreId = storeId
             };
 
@@ -205,13 +210,9 @@ public class SystemNotificationService : ISystemNotificationService
             if (userIdList.Count == 0) return;
 
             // Load preferences for all users in one query
-            var disabledUserIds = new HashSet<Guid>();
-            if (!string.IsNullOrEmpty(categoryCode))
-            {
-                var disabledPrefs = await _preferenceRepository.GetAllAsync(
-                    p => userIdList.Contains(p.UserId) && p.CategoryCode == categoryCode && !p.IsEnabled);
-                disabledUserIds = disabledPrefs.Select(p => p.UserId).ToHashSet();
-            }
+            var disabledUserIds = string.IsNullOrEmpty(categoryCode)
+                ? new HashSet<Guid>()
+                : await GetDisabledUserIdsAsync(userIdList, categoryCode, storeId);
 
             var notifications = new List<Notification>();
 
@@ -232,7 +233,7 @@ public class SystemNotificationService : ISystemNotificationService
                     RelatedUrl = relatedUrl,
                     RelatedEntityId = relatedEntityId,
                     RelatedEntityType = relatedEntityType,
-                    CategoryCode = categoryCode,
+                    CategoryCode = NotificationCategoryCodes.Normalize(categoryCode) ?? categoryCode,
                     StoreId = storeId
                 });
             }
@@ -252,7 +253,7 @@ public class SystemNotificationService : ISystemNotificationService
                 {
                     try
                     {
-                        var dto = MapToDto(notification);
+                        var dto = NotificationDtoMapper.ToSignalRPayload(notification);
                         await _hubContext.Clients.Group($"user_{notification.TargetUserId.Value}")
                             .SendAsync("NewNotification", dto);
                     }
@@ -266,6 +267,22 @@ public class SystemNotificationService : ISystemNotificationService
                 }
             }
 
+            // Best-effort FCM batch (one payload, per-user badges computed inside push service).
+            try
+            {
+                var firstWithRelated = notifications.First();
+                await _push.PushToUsersAsync(
+                    notifications.Select(n => n.TargetUserId!.Value),
+                    title,
+                    message,
+                    relatedUrl,
+                    NotificationDtoMapper.ToFcmData(firstWithRelated));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FCM batch push failed for {Count} notifications", notifications.Count);
+            }
+
             _logger.LogInformation("📢 Batch created and sent {Count} notifications: {Title}", notifications.Count, title);
         }
         catch (Exception ex)
@@ -274,22 +291,29 @@ public class SystemNotificationService : ISystemNotificationService
         }
     }
 
-    private static object MapToDto(Notification notification)
+    private async Task<bool> IsCategoryDisabledForUserAsync(Guid userId, string categoryCode, Guid? storeId)
     {
-        return new
-        {
-            id = notification.Id.ToString(),
-            userId = notification.TargetUserId?.ToString() ?? "",
-            title = notification.Title ?? "",
-            message = notification.Message ?? "",
-            type = (int)notification.Type,
-            isRead = notification.IsRead,
-            readAt = notification.ReadAt?.ToString("O"),
-            actionUrl = notification.RelatedUrl,
-            relatedEntityId = notification.RelatedEntityId?.ToString(),
-            relatedEntityType = notification.RelatedEntityType,
-            categoryCode = notification.CategoryCode ?? "",
-            createdAt = notification.Timestamp.ToString("O")
-        };
+        var normalized = NotificationCategoryCodes.Normalize(categoryCode);
+        if (normalized == null) return false;
+
+        var pref = await _preferenceRepository.GetSingleAsync(
+            p => p.UserId == userId
+                 && p.CategoryCode == normalized
+                 && (p.StoreId == null || p.StoreId == storeId));
+        return pref is { IsEnabled: false };
+    }
+
+    private async Task<HashSet<Guid>> GetDisabledUserIdsAsync(
+        IList<Guid> userIds, string categoryCode, Guid? storeId)
+    {
+        var normalized = NotificationCategoryCodes.Normalize(categoryCode);
+        if (normalized == null || userIds.Count == 0) return new HashSet<Guid>();
+
+        var disabledPrefs = await _preferenceRepository.GetAllAsync(
+            p => userIds.Contains(p.UserId)
+                 && p.CategoryCode == normalized
+                 && !p.IsEnabled
+                 && (p.StoreId == null || p.StoreId == storeId));
+        return disabledPrefs.Select(p => p.UserId).ToHashSet();
     }
 }

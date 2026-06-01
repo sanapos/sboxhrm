@@ -49,21 +49,44 @@ public class AttendanceOperationService(
                    .ToList();
     }
 
+    private static string BatchDedupeKey(string pin, DateTime attendanceTime) =>
+        $"{pin}|{attendanceTime:yyyy-MM-dd HH:mm:ss}";
+
     private async Task<List<Attendance>> ProcessAttendanceLinesAsync(Device device, List<string> lines)
     {
         var attendances = new List<Attendance>();
-        int duplicateCount = 0;
-        int parseFailCount = 0;
-        int invalidFieldCount = 0;
+        var batchKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var duplicateCount = 0;
+        var inBatchDupCount = 0;
+        var parseFailCount = 0;
+        var invalidFieldCount = 0;
 
         foreach (var line in lines)
         {
             try
             {
-                var attendance = await TryProcessAttendanceLineAsync(device, line);
+                var fields = SplitLineIntoFields(line);
+                if (!ValidateFieldCount(fields, line))
+                {
+                    invalidFieldCount++;
+                    continue;
+                }
+
+                var attendance = await TryProcessAttendanceLineAsync(device, line, fields, batchKeys);
                 if (attendance != null)
                 {
                     attendances.Add(attendance);
+                }
+                else if (fields.Length >= MIN_FIELD_COUNT)
+                {
+                    var data = ParseAttendanceFields(fields);
+                    if (data == null)
+                        parseFailCount++;
+                    else if (!batchKeys.Contains(BatchDedupeKey(data.PIN, data.AttendanceTime))
+                             && await IsDuplicateAttendanceAsync(device.Id, data))
+                        duplicateCount++;
+                    else
+                        inBatchDupCount++;
                 }
             }
             catch (Exception ex)
@@ -73,16 +96,19 @@ public class AttendanceOperationService(
             }
         }
 
-        logger.LogWarning("Device {DeviceId}: Processed {Total} lines -> {Valid} valid, {Dup} duplicates, {ParseFail} parse failures, {FieldFail} field count failures",
-            device.Id, lines.Count, attendances.Count, duplicateCount, parseFailCount, invalidFieldCount);
+        logger.LogWarning(
+            "Device {DeviceId}: Processed {Total} lines -> {Valid} valid, {Dup} db-dup, {InBatch} in-batch-dup, {ParseFail} parse failures, {FieldFail} field failures",
+            device.Id, lines.Count, attendances.Count, duplicateCount, inBatchDupCount, parseFailCount, invalidFieldCount);
 
         return attendances;
     }
 
-    private async Task<Attendance?> TryProcessAttendanceLineAsync(Device device, string line)
+    private async Task<Attendance?> TryProcessAttendanceLineAsync(
+        Device device,
+        string line,
+        string[] fields,
+        HashSet<string> batchKeys)
     {
-        var fields = SplitLineIntoFields(line);
-
         if (!ValidateFieldCount(fields, line))
         {
             return null;
@@ -92,6 +118,15 @@ public class AttendanceOperationService(
         if (attendanceData == null)
         {
             logger.LogWarning("Failed to parse attendance data from line: {Line}", line);
+            return null;
+        }
+
+        var batchKey = BatchDedupeKey(attendanceData.PIN, attendanceData.AttendanceTime);
+        if (!batchKeys.Add(batchKey))
+        {
+            logger.LogWarning(
+                "Duplicate line in same ATTLOG batch skipped for PIN {PIN} at {Time} on device {DeviceId}",
+                attendanceData.PIN, attendanceData.AttendanceTime, device.Id);
             return null;
         }
 
@@ -107,7 +142,30 @@ public class AttendanceOperationService(
 
     private static string[] SplitLineIntoFields(string line)
     {
-        return line.Split('\t', StringSplitOptions.None);
+        if (line.Contains('\t'))
+        {
+            return line.Split('\t', StringSplitOptions.None);
+        }
+
+        // Một số firmware PUSH: "PIN yyyy-MM-dd HH:mm:ss state verify ..."
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 5
+            && parts[1].Length == 10
+            && parts[1][4] == '-'
+            && parts[2].Length >= 8
+            && parts[2][2] == ':')
+        {
+            return
+            [
+                parts[0],
+                $"{parts[1]} {parts[2]}",
+                parts[3],
+                parts.Length > 4 ? parts[4] : "0",
+                parts.Length > 5 ? parts[5] : "0"
+            ];
+        }
+
+        return parts;
     }
 
     private bool ValidateFieldCount(string[] fields, string line)

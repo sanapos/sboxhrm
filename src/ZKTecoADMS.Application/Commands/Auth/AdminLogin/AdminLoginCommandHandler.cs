@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Auth;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces.Auth;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -17,12 +18,9 @@ public class AdminLoginCommandHandler(
 {
     public async Task<AppResponse<AuthenticateResponse>> Handle(AdminLoginCommand request, CancellationToken cancellationToken)
     {
-        // Find user by username/email (no store check for admin)
+        // Find user by username/email — không Include Employee/Store để tránh lỗi schema DB lệch migration.
         var user = await userManager.Users
             .Where(e => e.UserName == request.UserName || e.Email == request.UserName)
-            .Include(e => e.Employee)
-            .Include(e => e.Manager)
-            .Include(e => e.Store)
             .FirstOrDefaultAsync(cancellationToken);
         
         if (user == null)
@@ -53,8 +51,9 @@ public class AdminLoginCommandHandler(
 
         // Check if the user account is locked out
         if (await userManager.IsLockedOutAsync(user))
-        {   
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị khóa.");
+        {
+            return AppResponse<AuthenticateResponse>.Error(
+                LockoutMessageHelper.GetLockedMessage(user, adminPortal: true));
         }
 
         // Validate password
@@ -62,6 +61,12 @@ public class AdminLoginCommandHandler(
         if (!passwordValid)
         {
             await userManager.AccessFailedAsync(user);
+            var refreshed = await userManager.FindByIdAsync(user.Id.ToString());
+            if (refreshed != null && await userManager.IsLockedOutAsync(refreshed))
+            {
+                return AppResponse<AuthenticateResponse>.Error(
+                    LockoutMessageHelper.GetLockedMessage(refreshed, adminPortal: true));
+            }
             return AppResponse<AuthenticateResponse>.Error("Mật khẩu không đúng.");
         }
 

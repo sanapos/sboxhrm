@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -62,9 +64,10 @@ public class ProductionController(
 
     #endregion
 
-    // ══════════════════ PRODUCT GROUPS ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PRODUCT GROUPS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("groups")]
+    [RequireModulePermission("Production", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ProductGroupDto>>>> GetGroups()
     {
         var storeId = RequiredStoreId;
@@ -79,6 +82,7 @@ public class ProductionController(
     }
 
     [HttpPost("groups")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ProductGroupDto>>> CreateGroup([FromBody] ProductGroupCreateDto dto)
     {
         var storeId = RequiredStoreId;
@@ -98,12 +102,13 @@ public class ProductionController(
     }
 
     [HttpPut("groups/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ProductGroupDto>>> UpdateGroup(Guid id, [FromBody] ProductGroupCreateDto dto)
     {
         var storeId = RequiredStoreId;
         var group = await dbContext.ProductGroups.AsTracking()
             .FirstOrDefaultAsync(g => g.Id == id && g.StoreId == storeId && g.Deleted == null);
-        if (group == null) return NotFound(AppResponse<ProductGroupDto>.Fail("Không tìm thấy nhóm sản phẩm"));
+        if (group == null) return NotFound(AppResponse<ProductGroupDto>.Fail("KhÃ´ng tÃ¬m tháº¥y nhÃ³m sáº£n pháº©m"));
 
         group.Name = dto.Name;
         group.Description = dto.Description;
@@ -118,12 +123,13 @@ public class ProductionController(
     }
 
     [HttpDelete("groups/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteGroup(Guid id)
     {
         var storeId = RequiredStoreId;
         var group = await dbContext.ProductGroups.AsTracking()
             .FirstOrDefaultAsync(g => g.Id == id && g.StoreId == storeId && g.Deleted == null);
-        if (group == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy nhóm sản phẩm"));
+        if (group == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y nhÃ³m sáº£n pháº©m"));
 
         group.Deleted = DateTime.Now;
         group.DeletedBy = CurrentUserId.ToString();
@@ -131,9 +137,10 @@ public class ProductionController(
         return Ok(AppResponse<bool>.Success(true));
     }
 
-    // ══════════════════ PRODUCT ITEMS ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PRODUCT ITEMS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("items")]
+    [RequireModulePermission("Production", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ProductItemDto>>>> GetItems([FromQuery] Guid? groupId)
     {
         var storeId = RequiredStoreId;
@@ -157,6 +164,7 @@ public class ProductionController(
     }
 
     [HttpPost("items")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ProductItemDto>>> CreateItem([FromBody] ProductItemCreateDto dto)
     {
         var storeId = RequiredStoreId;
@@ -208,13 +216,14 @@ public class ProductionController(
     }
 
     [HttpPut("items/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ProductItemDto>>> UpdateItem(Guid id, [FromBody] ProductItemCreateDto dto)
     {
         var storeId = RequiredStoreId;
         var item = await dbContext.ProductItems.AsTracking()
             .Include(p => p.PriceTiers)
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
-        if (item == null) return NotFound(AppResponse<ProductItemDto>.Fail("Không tìm thấy sản phẩm"));
+        if (item == null) return NotFound(AppResponse<ProductItemDto>.Fail("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m"));
 
         item.Code = dto.Code;
         item.Name = dto.Name;
@@ -261,12 +270,13 @@ public class ProductionController(
     }
 
     [HttpDelete("items/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteItem(Guid id)
     {
         var storeId = RequiredStoreId;
         var item = await dbContext.ProductItems.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
-        if (item == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy sản phẩm"));
+        if (item == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m"));
 
         item.Deleted = DateTime.Now;
         item.DeletedBy = CurrentUserId.ToString();
@@ -274,9 +284,10 @@ public class ProductionController(
         return Ok(AppResponse<bool>.Success(true));
     }
 
-    // ══════════════════ PRODUCTION ENTRIES ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PRODUCTION ENTRIES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("entries")]
+    [RequireModulePermission("Production", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetEntries(
         [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate,
         [FromQuery] Guid? employeeId, [FromQuery] Guid? productGroupId,
@@ -310,6 +321,7 @@ public class ProductionController(
     }
 
     [HttpPost("entries")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ProductionEntryDto>>> CreateEntry([FromBody] ProductionEntryCreateDto dto)
     {
         var storeId = RequiredStoreId;
@@ -344,8 +356,8 @@ public class ProductionController(
             await notificationService.CreateAndSendAsync(
                 targetUserId: entry.Employee.ApplicationUserId,
                 type: NotificationType.Info,
-                title: "Sản lượng mới",
-                message: $"Đã ghi nhận {entry.Quantity} {entry.ProductItem.Unit ?? "SP"} - {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy}",
+                title: "Sáº£n lÆ°á»£ng má»›i",
+                message: $"ÄÃ£ ghi nháº­n {entry.Quantity} {entry.ProductItem.Unit ?? "SP"} - {entry.ProductItem.Name} ngÃ y {entry.WorkDate:dd/MM/yyyy}",
                 relatedEntityId: entry.Id,
                 relatedEntityType: "ProductionEntry",
                 categoryCode: "production",
@@ -360,6 +372,7 @@ public class ProductionController(
     }
 
     [HttpPost("entries/batch")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CreateBatch([FromBody] ProductionEntryBatchDto dto)
     {
         var storeId = RequiredStoreId;
@@ -416,8 +429,8 @@ public class ProductionController(
                 await notificationService.CreateAndSendToUsersAsync(
                     targetUserIds: empUserIds,
                     type: NotificationType.Info,
-                    title: "Nhập sản lượng hàng loạt",
-                    message: $"Đã ghi nhận {entries.Count} bản ghi sản lượng ngày {DateTime.Now:dd/MM/yyyy}",
+                    title: "Nháº­p sáº£n lÆ°á»£ng hÃ ng loáº¡t",
+                    message: $"ÄÃ£ ghi nháº­n {entries.Count} báº£n ghi sáº£n lÆ°á»£ng ngÃ y {DateTime.Now:dd/MM/yyyy}",
                     categoryCode: "production",
                     storeId: storeId);
             }
@@ -428,6 +441,7 @@ public class ProductionController(
     }
 
     [HttpPut("entries/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ProductionEntryDto>>> UpdateEntry(Guid id, [FromBody] ProductionEntryCreateDto dto)
     {
         var storeId = RequiredStoreId;
@@ -435,7 +449,7 @@ public class ProductionController(
             .Include(e => e.Employee)
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)
             .FirstOrDefaultAsync(e => e.Id == id && e.StoreId == storeId && e.Deleted == null);
-        if (entry == null) return NotFound(AppResponse<ProductionEntryDto>.Fail("Không tìm thấy bản ghi"));
+        if (entry == null) return NotFound(AppResponse<ProductionEntryDto>.Fail("KhÃ´ng tÃ¬m tháº¥y báº£n ghi"));
 
         var amount = await CalculateAmount(dto.ProductItemId, dto.Quantity, dto.EmployeeId, dto.WorkDate, storeId, id);
 
@@ -462,8 +476,8 @@ public class ProductionController(
             await notificationService.CreateAndSendAsync(
                 targetUserId: entry.Employee.ApplicationUserId,
                 type: NotificationType.Info,
-                title: "Cập nhật sản lượng",
-                message: $"Sản lượng {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy} đã cập nhật: {entry.Quantity} {entry.ProductItem.Unit ?? "SP"}",
+                title: "Cáº­p nháº­t sáº£n lÆ°á»£ng",
+                message: $"Sáº£n lÆ°á»£ng {entry.ProductItem.Name} ngÃ y {entry.WorkDate:dd/MM/yyyy} Ä‘Ã£ cáº­p nháº­t: {entry.Quantity} {entry.ProductItem.Unit ?? "SP"}",
                 relatedEntityId: entry.Id,
                 relatedEntityType: "ProductionEntry",
                 categoryCode: "production",
@@ -478,6 +492,7 @@ public class ProductionController(
     }
 
     [HttpDelete("entries/{id}")]
+    [RequireModulePermission("Production", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteEntry(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -485,7 +500,7 @@ public class ProductionController(
             .Include(e => e.Employee)
             .Include(e => e.ProductItem)
             .FirstOrDefaultAsync(e => e.Id == id && e.StoreId == storeId && e.Deleted == null);
-        if (entry == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy bản ghi"));
+        if (entry == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y báº£n ghi"));
 
         var empUserId = entry.Employee?.ApplicationUserId;
         var productName = entry.ProductItem?.Name;
@@ -504,8 +519,8 @@ public class ProductionController(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: empUserId.Value,
                     type: NotificationType.Warning,
-                    title: "Xóa sản lượng",
-                    message: $"Đã xóa {qty} {productName} ngày {workDate:dd/MM/yyyy}",
+                    title: "XÃ³a sáº£n lÆ°á»£ng",
+                    message: $"ÄÃ£ xÃ³a {qty} {productName} ngÃ y {workDate:dd/MM/yyyy}",
                     relatedEntityId: id,
                     relatedEntityType: "ProductionEntry",
                     categoryCode: "production",
@@ -517,9 +532,10 @@ public class ProductionController(
         return Ok(AppResponse<bool>.Success(true));
     }
 
-    // ══════════════════ SUMMARY ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SUMMARY â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("summary")]
+    [RequireModulePermission("Production", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ProductionSummaryDto>>>> GetSummary(
         [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate,
         [FromQuery] Guid? employeeId, [FromQuery] Guid? productGroupId)
@@ -558,9 +574,10 @@ public class ProductionController(
         return Ok(AppResponse<List<ProductionSummaryDto>>.Success(result));
     }
 
-    // ══════════════════ EXPORT ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• EXPORT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("export")]
+    [RequireModulePermission("Production", ModulePermissionAction.Export)]
     public async Task<ActionResult<AppResponse<List<ProductionExportRowDto>>>> ExportEntries(
         [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate,
         [FromQuery] Guid? employeeId, [FromQuery] Guid? productGroupId)
@@ -588,13 +605,14 @@ public class ProductionController(
         return Ok(AppResponse<List<ProductionExportRowDto>>.Success(rows));
     }
 
-    // ══════════════════ IMPORT ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• IMPORT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpPost("import")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> ImportFromExcel([FromBody] ProductionImportDto dto)
     {
         if (dto.Rows == null || dto.Rows.Count == 0)
-            return Ok(AppResponse<object>.Fail("Không có dữ liệu import"));
+            return Ok(AppResponse<object>.Fail("KhÃ´ng cÃ³ dá»¯ liá»‡u import"));
 
         var storeId = RequiredStoreId;
         var employees = await dbContext.Employees
@@ -619,7 +637,7 @@ public class ProductionController(
                 NormalizeCode(e.EmployeeCode ?? "").Equals(normalizedEmpCode, StringComparison.OrdinalIgnoreCase));
             if (emp == null)
             {
-                errors.Add($"Không tìm thấy NV '{row.EmployeeCode}'");
+                errors.Add($"KhÃ´ng tÃ¬m tháº¥y NV '{row.EmployeeCode}'");
                 continue;
             }
 
@@ -628,7 +646,7 @@ public class ProductionController(
                 (p.Code ?? "").Trim().Equals(normalizedProdCode, StringComparison.OrdinalIgnoreCase));
             if (prod == null)
             {
-                errors.Add($"Không tìm thấy SP '{row.ProductCode}'");
+                errors.Add($"KhÃ´ng tÃ¬m tháº¥y SP '{row.ProductCode}'");
                 continue;
             }
 
@@ -672,8 +690,8 @@ public class ProductionController(
             await notificationService.CreateAndSendAsync(
                 targetUserId: CurrentUserId,
                 type: NotificationType.Success,
-                title: "Import sản lượng hoàn tất",
-                message: $"Đã import {created}/{dto.Rows.Count} dòng từ Excel",
+                title: "Import sáº£n lÆ°á»£ng hoÃ n táº¥t",
+                message: $"ÄÃ£ import {created}/{dto.Rows.Count} dÃ²ng tá»« Excel",
                 categoryCode: "production",
                 storeId: storeId);
         }
@@ -688,13 +706,14 @@ public class ProductionController(
     }
 
     [HttpPost("gsheet/test-connection")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> TestGSheetConnection([FromBody] ProductionGSheetSyncDto dto)
     {
         try
         {
             var spreadsheetId = ExtractSpreadsheetId(dto.SpreadsheetUrl);
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("URL Google Sheet không hợp lệ"));
+                return Ok(AppResponse<object>.Fail("URL Google Sheet khÃ´ng há»£p lá»‡"));
 
             var sheetNames = await kpiSheetService.GetSheetNamesAsync(spreadsheetId);
             return Ok(AppResponse<object>.Success(new
@@ -707,43 +726,45 @@ public class ProductionController(
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<object>.Fail($"Lỗi kết nối: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lá»—i káº¿t ná»‘i: {ex.Message}"));
         }
     }
 
     [HttpPost("gsheet/sheet-names")]
+    [RequireModulePermission("Production", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<List<string>>>> GetGSheetNames([FromBody] ProductionGSheetSyncDto dto)
     {
         try
         {
             var spreadsheetId = ExtractSpreadsheetId(dto.SpreadsheetUrl);
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<List<string>>.Fail("URL không hợp lệ"));
+                return Ok(AppResponse<List<string>>.Fail("URL khÃ´ng há»£p lá»‡"));
 
             var names = await kpiSheetService.GetSheetNamesAsync(spreadsheetId);
             return Ok(AppResponse<List<string>>.Success(names));
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<List<string>>.Fail($"Lỗi: {ex.Message}"));
+            return Ok(AppResponse<List<string>>.Fail($"Lá»—i: {ex.Message}"));
         }
     }
 
     [HttpPost("gsheet/sync")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SyncFromGSheet([FromBody] ProductionGSheetSyncDto dto)
     {
         try
         {
             var spreadsheetId = ExtractSpreadsheetId(dto.SpreadsheetUrl);
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("URL Google Sheet không hợp lệ"));
+                return Ok(AppResponse<object>.Fail("URL Google Sheet khÃ´ng há»£p lá»‡"));
 
             var storeId = RequiredStoreId;
 
             // Read all data from sheet
             var sheetData = await kpiSheetService.ReadKpiDataAsync(spreadsheetId, dto.SheetName);
             if (sheetData.Count == 0)
-                return Ok(AppResponse<object>.Fail("Không có dữ liệu trong sheet"));
+                return Ok(AppResponse<object>.Fail("KhÃ´ng cÃ³ dá»¯ liá»‡u trong sheet"));
 
             // Load employees and products
             var employees = await dbContext.Employees
@@ -773,7 +794,7 @@ public class ProductionController(
                     NormalizeCode(e.EmployeeCode ?? "").Equals(normalizedEmpCode, StringComparison.OrdinalIgnoreCase));
                 if (emp == null)
                 {
-                    errors.Add($"Không tìm thấy NV '{row.EmployeeCode}'");
+                    errors.Add($"KhÃ´ng tÃ¬m tháº¥y NV '{row.EmployeeCode}'");
                     continue;
                 }
 
@@ -790,7 +811,7 @@ public class ProductionController(
                         || (p.Name ?? "").Trim().Equals(columnName, StringComparison.OrdinalIgnoreCase));
                     if (prod == null)
                     {
-                        errors.Add($"Không tìm thấy SP '{columnName}'");
+                        errors.Add($"KhÃ´ng tÃ¬m tháº¥y SP '{columnName}'");
                         continue;
                     }
 
@@ -823,21 +844,22 @@ public class ProductionController(
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<object>.Fail($"Lỗi đồng bộ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lá»—i Ä‘á»“ng bá»™: {ex.Message}"));
         }
     }
 
     [HttpPost("gsheet/sync-multi")]
+    [RequireModulePermission("Production", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SyncMultiFromGSheet([FromBody] ProductionGSheetMultiSyncDto dto)
     {
         try
         {
             var spreadsheetId = ExtractSpreadsheetId(dto.SpreadsheetUrl);
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("URL Google Sheet không hợp lệ"));
+                return Ok(AppResponse<object>.Fail("URL Google Sheet khÃ´ng há»£p lá»‡"));
 
             if (dto.Tabs == null || dto.Tabs.Count == 0)
-                return Ok(AppResponse<object>.Fail("Chưa chọn sheet nào"));
+                return Ok(AppResponse<object>.Fail("ChÆ°a chá»n sheet nÃ o"));
 
             var storeId = RequiredStoreId;
             var employees = await dbContext.Employees
@@ -868,7 +890,7 @@ public class ProductionController(
                             NormalizeCode(e.EmployeeCode ?? "").Equals(normalizedEmpCode, StringComparison.OrdinalIgnoreCase));
                         if (emp == null)
                         {
-                            errors.Add($"[{tab.SheetName}] Không tìm thấy NV '{row.EmployeeCode}'");
+                            errors.Add($"[{tab.SheetName}] KhÃ´ng tÃ¬m tháº¥y NV '{row.EmployeeCode}'");
                             continue;
                         }
 
@@ -883,7 +905,7 @@ public class ProductionController(
                                 || (p.Name ?? "").Trim().Equals(columnName, StringComparison.OrdinalIgnoreCase));
                             if (prod == null)
                             {
-                                errors.Add($"[{tab.SheetName}] Không tìm thấy SP '{columnName}'");
+                                errors.Add($"[{tab.SheetName}] KhÃ´ng tÃ¬m tháº¥y SP '{columnName}'");
                                 continue;
                             }
 
@@ -907,7 +929,7 @@ public class ProductionController(
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"[{tab.SheetName}] Lỗi: {ex.Message}");
+                    errors.Add($"[{tab.SheetName}] Lá»—i: {ex.Message}");
                 }
             }
 
@@ -921,11 +943,11 @@ public class ProductionController(
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<object>.Fail($"Lỗi đồng bộ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lá»—i Ä‘á»“ng bá»™: {ex.Message}"));
         }
     }
 
-    // ══════════════════ HELPERS ══════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• HELPERS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private async Task<(decimal unitPrice, decimal total)> CalculateAmount(
         Guid productItemId, decimal quantity, Guid employeeId, DateTime workDate, Guid storeId,
@@ -964,22 +986,22 @@ public class ProductionController(
     }
 
     /// <summary>
-    /// Tính tổng tiền lũy tiến theo bậc cho một số lượng cho trước.
-    /// Ví dụ: Bậc 1 (1-100) = 5000đ, Bậc 2 (101-200) = 6000đ
-    /// → 150 SP = 100×5000 + 50×6000 = 800.000đ
+    /// TÃ­nh tá»•ng tiá»n lÅ©y tiáº¿n theo báº­c cho má»™t sá»‘ lÆ°á»£ng cho trÆ°á»›c.
+    /// VÃ­ dá»¥: Báº­c 1 (1-100) = 5000Ä‘, Báº­c 2 (101-200) = 6000Ä‘
+    /// â†’ 150 SP = 100Ã—5000 + 50Ã—6000 = 800.000Ä‘
     /// </summary>
     private static decimal CalculateProgressiveTotal(List<ProductPriceTier> tiers, decimal quantity)
     {
         if (quantity <= 0) return 0;
 
         decimal total = 0;
-        decimal counted = 0; // số lượng đã tính qua các bậc trước
+        decimal counted = 0; // sá»‘ lÆ°á»£ng Ä‘Ã£ tÃ­nh qua cÃ¡c báº­c trÆ°á»›c
 
         foreach (var tier in tiers.OrderBy(t => t.TierLevel))
         {
             if (counted >= quantity) break;
 
-            // Số lượng thuộc bậc này = min(quantity, maxOfTier) - counted
+            // Sá»‘ lÆ°á»£ng thuá»™c báº­c nÃ y = min(quantity, maxOfTier) - counted
             decimal tierEnd = tier.MaxQuantity.HasValue ? tier.MaxQuantity.Value : quantity;
             decimal qtyInTier = Math.Min(quantity, tierEnd) - counted;
             if (qtyInTier <= 0) continue;
@@ -988,7 +1010,7 @@ public class ProductionController(
             counted += qtyInTier;
         }
 
-        // Nếu vượt tất cả bậc, phần dư dùng giá bậc cao nhất
+        // Náº¿u vÆ°á»£t táº¥t cáº£ báº­c, pháº§n dÆ° dÃ¹ng giÃ¡ báº­c cao nháº¥t
         if (counted < quantity && tiers.Any())
         {
             total += (quantity - counted) * tiers.Last().UnitPrice;
@@ -1014,7 +1036,7 @@ public class ProductionController(
     }
 
     /// <summary>
-    /// Validate bậc giá không chồng lấn (overlap)
+    /// Validate báº­c giÃ¡ khÃ´ng chá»“ng láº¥n (overlap)
     /// </summary>
     private static string? ValidatePriceTiers(List<ProductPriceTierCreateDto> tiers)
     {
@@ -1025,9 +1047,9 @@ public class ProductionController(
             var prev = sorted[i - 1];
             var curr = sorted[i];
             if (prev.MaxQuantity.HasValue && curr.MinQuantity <= prev.MaxQuantity.Value)
-                return $"Bậc giá {prev.TierLevel} và {curr.TierLevel} bị chồng lấn: [{prev.MinQuantity}-{prev.MaxQuantity}] vs [{curr.MinQuantity}-{curr.MaxQuantity}]";
+                return $"Báº­c giÃ¡ {prev.TierLevel} vÃ  {curr.TierLevel} bá»‹ chá»“ng láº¥n: [{prev.MinQuantity}-{prev.MaxQuantity}] vs [{curr.MinQuantity}-{curr.MaxQuantity}]";
             if (!prev.MaxQuantity.HasValue && curr.MinQuantity > 0)
-                return $"Bậc {prev.TierLevel} không giới hạn trên (MaxQuantity=null) nhưng có bậc {curr.TierLevel} phía sau";
+                return $"Báº­c {prev.TierLevel} khÃ´ng giá»›i háº¡n trÃªn (MaxQuantity=null) nhÆ°ng cÃ³ báº­c {curr.TierLevel} phÃ­a sau";
         }
         return null;
     }
@@ -1041,3 +1063,4 @@ public class ProductionController(
         return match.Success ? match.Groups[1].Value : null;
     }
 }
+

@@ -125,6 +125,17 @@ public class InternalCommunication : Entity<Guid>
     /// </summary>
     public Guid? CategoryId { get; set; }
 
+    /// <summary>
+    /// Cho phép xem bài qua link công khai (không cần đăng nhập).
+    /// </summary>
+    public bool IsPublicShareEnabled { get; set; }
+
+    /// <summary>
+    /// Token ngẫu nhiên trong URL chia sẻ (/share/{token}).
+    /// </summary>
+    [MaxLength(64)]
+    public string? PublicShareToken { get; set; }
+
     // Navigation properties
     public virtual Store? Store { get; set; }
     public virtual ApplicationUser? Author { get; set; }

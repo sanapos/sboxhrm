@@ -367,6 +367,150 @@ public record AssetByStatusDto
 }
 #endregion
 
+#region Report DTOs
+public record AssetRegisterReportDto
+{
+    public int TotalCount { get; init; }
+    public decimal TotalPurchaseValue { get; init; }
+    public decimal TotalCurrentValue { get; init; }
+    public List<AssetRegisterRowDto> Items { get; init; } = [];
+}
+
+public record AssetRegisterRowDto
+{
+    public string AssetCode { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string AssetTypeName { get; init; } = string.Empty;
+    public string? CategoryName { get; init; }
+    public string StatusName { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public string Unit { get; init; } = string.Empty;
+    public decimal PurchasePrice { get; init; }
+    public decimal? CurrentValue { get; init; }
+    public string? Location { get; init; }
+    public string? AssigneeName { get; init; }
+    public DateTime? AssignedDate { get; init; }
+    public DateTime? WarrantyExpiry { get; init; }
+    public string? SerialNumber { get; init; }
+}
+
+public record AssetReportAssignmentDto
+{
+    public int TotalAssets { get; init; }
+    public int AssignedCount { get; init; }
+    public int InStockCount { get; init; }
+    public int BrokenCount { get; init; }
+    public int LostCount { get; init; }
+    public int DisposedCount { get; init; }
+    public decimal TotalValue { get; init; }
+    public List<AssetByStatusDto> ByStatus { get; init; } = [];
+    public List<AssetReportAssignmentRowDto> Assignments { get; init; } = [];
+}
+
+public record AssetReportAssignmentRowDto
+{
+    public string AssetCode { get; init; } = string.Empty;
+    public string AssetName { get; init; } = string.Empty;
+    public string? Brand { get; init; }
+    public string? SerialNumber { get; init; }
+    public string StatusName { get; init; } = string.Empty;
+    public string? EmployeeCode { get; init; }
+    public string? EmployeeName { get; init; }
+    public string? Department { get; init; }
+    public DateTime? AssignedDate { get; init; }
+    public decimal Value { get; init; }
+}
+
+public record AssetTransferReportDto
+{
+    public int TotalCount { get; init; }
+    public List<AssetTransferReportRowDto> Items { get; init; } = [];
+}
+
+public record AssetTransferReportRowDto
+{
+    public DateTime TransferDate { get; init; }
+    public string TransferTypeName { get; init; } = string.Empty;
+    public string AssetCode { get; init; } = string.Empty;
+    public string AssetName { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public string? FromUserName { get; init; }
+    public string? ToUserName { get; init; }
+    public string? Reason { get; init; }
+    public bool IsConfirmed { get; init; }
+}
+
+public record AssetStockLedgerReportDto
+{
+    public int TotalCount { get; init; }
+    public int TotalStockIn { get; init; }
+    public int TotalStockOut { get; init; }
+    public int TotalAdjustments { get; init; }
+    public List<AssetStockLedgerRowDto> Items { get; init; } = [];
+}
+
+public record AssetStockLedgerRowDto
+{
+    public DateTime TransactionDate { get; init; }
+    public string TransactionTypeName { get; init; } = string.Empty;
+    public string AssetCode { get; init; } = string.Empty;
+    public string AssetName { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public int BalanceAfter { get; init; }
+    public string? ReferenceCode { get; init; }
+    public string? Reason { get; init; }
+    public string? PerformedByName { get; init; }
+}
+
+public record AssetInventoryVarianceReportDto
+{
+    public int TotalCount { get; init; }
+    public int VarianceCount { get; init; }
+    public int IssueCount { get; init; }
+    public List<AssetInventoryVarianceRowDto> Items { get; init; } = [];
+}
+
+public record AssetInventoryVarianceRowDto
+{
+    public string InventoryCode { get; init; } = string.Empty;
+    public string InventoryName { get; init; } = string.Empty;
+    public string InventoryStatusName { get; init; } = string.Empty;
+    public string AssetCode { get; init; } = string.Empty;
+    public string AssetName { get; init; } = string.Empty;
+    public int ExpectedQuantity { get; init; }
+    public int? ActualQuantity { get; init; }
+    public int Variance { get; init; }
+    public bool QuantityMismatch { get; init; }
+    public bool HasIssue { get; init; }
+    public string? ConditionName { get; init; }
+    public string? IssueDescription { get; init; }
+    public string? ActualLocation { get; init; }
+    public DateTime? CheckedAt { get; init; }
+}
+
+public record AssetWarrantyExpiringReportDto
+{
+    public int DaysWindow { get; init; }
+    public int TotalCount { get; init; }
+    public int ExpiredCount { get; init; }
+    public int ExpiringSoonCount { get; init; }
+    public List<AssetWarrantyExpiringRowDto> Items { get; init; } = [];
+}
+
+public record AssetWarrantyExpiringRowDto
+{
+    public string AssetCode { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string? CategoryName { get; init; }
+    public string StatusName { get; init; } = string.Empty;
+    public DateTime? WarrantyExpiry { get; init; }
+    public int DaysRemaining { get; init; }
+    public bool IsExpired { get; init; }
+    public string? AssigneeName { get; init; }
+    public string? SerialNumber { get; init; }
+}
+#endregion
+
 #region QR / Scan DTOs
 /// <summary>
 /// DTO cho việc quét QR kiểm kê - tìm item theo mã QR/AssetCode trong đợt kiểm kê

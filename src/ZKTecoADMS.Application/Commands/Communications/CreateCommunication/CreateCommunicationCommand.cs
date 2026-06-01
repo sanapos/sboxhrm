@@ -19,6 +19,8 @@ public record CreateCommunicationCommand(
     bool IsPinned,
     string? Tags,
     bool PublishImmediately,
+    bool SubmitForApproval,
+    bool IsPublicShareEnabled,
     bool IsAiGenerated,
     string? AiPrompt
 ) : ICommand<AppResponse<Guid>>;

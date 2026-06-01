@@ -1,20 +1,16 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Interfaces;
-using ZKTecoADMS.Domain.Entities;
 
 namespace ZKTecoADMS.Infrastructure.Services;
 
 /// <summary>
-/// Factory giải quyết IFileStorageService: Google Drive nếu đã cấu hình, ngược lại dùng Local
+/// File storage: local wwwroot only (Google Drive removed from product).
 /// </summary>
 public class FileStorageResolver : IFileStorageService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FileStorageResolver> _logger;
-    private IFileStorageService? _resolvedService;
-    private bool _resolved;
 
     public FileStorageResolver(
         IServiceProvider serviceProvider,
@@ -22,124 +18,35 @@ public class FileStorageResolver : IFileStorageService
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _logger.LogInformation("File storage: local wwwroot only");
     }
 
-    private async Task<IFileStorageService> ResolveAsync()
-    {
-        if (_resolved && _resolvedService != null)
-            return _resolvedService;
+    private LocalFileStorageService Local =>
+        _serviceProvider.GetRequiredService<LocalFileStorageService>();
 
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
-            
-            // Check if Google Drive is enabled
-            // IgnoreQueryFilters: Google Drive settings may have NULL StoreId (global config)
-            // and multi-tenant query filters would exclude them
-            var gdEnabled = await dbContext.Set<AppSettings>()
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveEnabled);
+    public Task<string> UploadAsync(Stream fileStream, string fileName, string folder = "uploads")
+        => Local.UploadAsync(fileStream, fileName, folder);
 
-            if (gdEnabled?.Value?.ToLower() == "true")
-            {
-                var gdCredentials = await dbContext.Set<AppSettings>()
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveCredentialsJson);
-                
-                var gdFolderId = await dbContext.Set<AppSettings>()
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveFolderId);
-
-                var gdImpersonateEmail = await dbContext.Set<AppSettings>()
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == AppSettingKeys.GoogleDriveImpersonateEmail);
-
-                if (!string.IsNullOrWhiteSpace(gdCredentials?.Value))
-                {
-                    var gdService = scope.ServiceProvider.GetRequiredService<GoogleDriveStorageService>();
-                    var initialized = await gdService.InitializeAsync(
-                        gdCredentials.Value, gdFolderId?.Value, gdImpersonateEmail?.Value);
-                    
-                    if (initialized)
-                    {
-                        _resolvedService = gdService;
-                        _resolved = true;
-                        _logger.LogInformation("File storage resolved to Google Drive");
-                        return _resolvedService;
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve Google Drive storage, falling back to local");
-        }
-
-        // Fallback to local storage
-        _resolvedService = _serviceProvider.GetRequiredService<LocalFileStorageService>();
-        _resolved = true;
-        _logger.LogInformation("File storage resolved to Local storage");
-        return _resolvedService;
-    }
-
-    /// <summary>
-    /// Clear cache khi user thay đổi cấu hình storage
-    /// </summary>
-    public void InvalidateCache()
-    {
-        _resolved = false;
-        _resolvedService = null;
-    }
-
-    public async Task<string> UploadAsync(Stream fileStream, string fileName, string folder = "uploads")
-    {
-        var service = await ResolveAsync();
-        try
-        {
-            return await service.UploadAsync(fileStream, fileName, folder);
-        }
-        catch (Exception ex) when (service is GoogleDriveStorageService)
-        {
-            // Google Drive upload failed (e.g. quota issue), fallback to local
-            _logger.LogWarning(ex, "Google Drive upload failed, falling back to local storage for: {FileName}", fileName);
-            
-            // Reset stream position before retry
-            if (fileStream.CanSeek)
-                fileStream.Position = 0;
-                
-            var localService = _serviceProvider.GetRequiredService<LocalFileStorageService>();
-            return await localService.UploadAsync(fileStream, fileName, folder);
-        }
-    }
-
-    public async Task<bool> DeleteAsync(string filePath)
-    {
-        var service = await ResolveAsync();
-        return await service.DeleteAsync(filePath);
-    }
+    public Task<bool> DeleteAsync(string filePath) => Local.DeleteAsync(filePath);
 
     public string GetFileUrl(string filePath)
     {
         if (string.IsNullOrEmpty(filePath))
             return string.Empty;
 
-        // Google Drive URLs
-        if (filePath.StartsWith("gdrive://") || filePath.Contains("drive.google.com"))
+        // Legacy gdrive:// paths: serve via API/static fallback if file was migrated
+        if (filePath.StartsWith("gdrive://", StringComparison.OrdinalIgnoreCase)
+            || filePath.Contains("drive.google.com", StringComparison.OrdinalIgnoreCase))
         {
-            var gdService = new GoogleDriveStorageService(_serviceProvider.GetRequiredService<ILogger<GoogleDriveStorageService>>());
-            return gdService.GetFileUrl(filePath);
+            _logger.LogDebug("Legacy Google Drive path requested: {Path}", filePath);
+            return filePath;
         }
 
-        // Local file URLs
-        if (filePath.StartsWith("http"))
+        if (filePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             return filePath;
 
-        var localService = _serviceProvider.GetRequiredService<LocalFileStorageService>();
-        return localService.GetFileUrl(filePath);
+        return Local.GetFileUrl(filePath);
     }
+
+    public void InvalidateCache() { }
 }

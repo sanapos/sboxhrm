@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Shifts.CreateShift;
 using ZKTecoADMS.Application.Commands.Shifts.DeleteShift;
@@ -22,6 +23,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 {
     [HttpGet("my-shifts")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Shift", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ShiftDto>>>> GetMyShifts([FromQuery]ShiftStatus? status, [FromQuery]Guid? employeeUserId, [FromQuery]PaginationRequest request)
     {
         var query = new GetShiftsByEmployeeQuery(RequiredStoreId, request, employeeUserId ?? CurrentUserId, status);
@@ -31,6 +33,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.HourlyEmployeeOnly)]
+    [RequireModulePermission("Shift", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ShiftDto>>> CreateShift([FromBody] CreateShiftRequest request)
     {
         var command = new CreateShiftCommand(
@@ -50,6 +53,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Shift", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteShift(Guid id)
     {
         var command = new DeleteShiftCommand(RequiredStoreId, id);
@@ -60,6 +64,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
     // Manager endpoints - can view and approve/reject shifts
     [HttpGet("pending")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Shift", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftDto>>>> GetPendingShifts([FromQuery]PaginationRequest request)
     {
         List<Guid>? subordinateUserIds = null;
@@ -72,6 +77,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpGet("managed")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Shift", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftDto>>>> GetManagedShifts([FromQuery] PaginationRequest request)
     {
         List<Guid>? subordinateUserIds = null;
@@ -84,6 +90,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Shift", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<ShiftDto>>> ApproveShift(Guid id)
     {
         var command = new ApproveShiftCommand(RequiredStoreId, id, CurrentUserId);
@@ -93,6 +100,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPost("{id}/reject")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Shift", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<ShiftDto>>> RejectShift(Guid id, [FromBody] RejectShiftRequest request)
     {
         var command = new RejectShiftCommand(RequiredStoreId, id, CurrentUserId, request.RejectionReason);
@@ -102,6 +110,7 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpPut("{id}/times")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Shift", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftDto>>> UpdateShiftTimes(Guid id, [FromBody] UpdateShiftTimesRequest request)
     {
         var command = new UpdateShiftCommand(RequiredStoreId, id, CurrentUserId, request.CheckInTime, request.CheckOutTime);
@@ -109,3 +118,4 @@ public class ShiftsController(IMediator mediator, IDataScopeService dataScopeSer
         return Ok(result);
     }
 }
+

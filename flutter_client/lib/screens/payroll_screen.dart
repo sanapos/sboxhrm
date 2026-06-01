@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/vietnamese_font.dart';
+import '../utils/attendance_bootstrap_loader.dart';
 import 'attendance/payroll_summary_tab.dart';
 import 'main_layout.dart';
 import 'package:provider/provider.dart';
@@ -90,23 +93,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
       if (deviceIds.isNotEmpty) {
         final now = DateTime.now();
         final fromDate = DateTime(now.year, now.month, 1);
-        int page = 1;
-        const pageSize = 200;
-        while (true) {
-          final result = await _apiService.getAttendances(
-            deviceIds: deviceIds,
-            fromDate: fromDate,
-            toDate: now,
-            page: page,
-            pageSize: pageSize,
-          );
-          final items = (result['items'] as List?) ?? [];
-          allAttendances.addAll(
-            items.map((a) => Attendance.fromJson(a as Map<String, dynamic>)),
-          );
-          if (items.length < pageSize) break;
-          page++;
-        }
+        final bootstrap = await loadAttendanceBootstrap(
+          _apiService,
+          fromDate: fromDate,
+          toDate: now,
+          loadShiftMeta: false,
+        );
+        allAttendances = bootstrap.attendances;
       }
 
       if (mounted) {
@@ -122,16 +115,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final isMobile = Responsive.isMobile(context);
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: Column(
-        children: [
-          // ═══ Gradient Header ═══
-          Container(
+  List<Widget> _payrollPageChromeSections(bool isMobile) => [
+        Container(
             padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
                 isMobile ? 14 : 24, isMobile ? 12 : 18),
             decoration: BoxDecoration(
@@ -166,15 +151,15 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Tổng hợp lương',
-                          style: TextStyle(
+                          style: vietnameseTextStyle(TextStyle(
                               color: Colors.white,
                               fontSize: isMobile ? 16 : 20,
-                              fontWeight: FontWeight.bold)),
+                              fontWeight: FontWeight.bold))),
                       if (!isMobile)
                         Text('Bảng lương chi tiết nhân viên',
-                            style: TextStyle(
+                            style: vietnameseTextStyle(TextStyle(
                                 color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 13)),
+                                fontSize: 13))),
                     ],
                   ),
                 ),
@@ -203,29 +188,29 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       if (Provider.of<PermissionProvider>(context,
                               listen: false)
                           .canExport('Payroll'))
-                        const PopupMenuItem(
+                        PopupMenuItem(
                             value: 'excel',
                             child: Row(children: [
-                              Icon(Icons.table_chart_outlined, size: 18),
-                              SizedBox(width: 10),
-                              Text('Xuất Excel')
+                              const Icon(Icons.table_chart_outlined, size: 18),
+                              const SizedBox(width: 10),
+                              Text('Xuất Excel', style: vietnameseTextStyle())
                             ])),
                       if (Provider.of<PermissionProvider>(context,
                               listen: false)
                           .canExport('Payroll'))
-                        const PopupMenuItem(
+                        PopupMenuItem(
                             value: 'png',
                             child: Row(children: [
-                              Icon(Icons.image_outlined, size: 18),
-                              SizedBox(width: 10),
-                              Text('Xuất PNG')
+                              const Icon(Icons.image_outlined, size: 18),
+                              const SizedBox(width: 10),
+                              Text('Xuất PNG', style: vietnameseTextStyle())
                             ])),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'cols',
                           child: Row(children: [
-                            Icon(Icons.view_column_outlined, size: 18),
-                            SizedBox(width: 10),
-                            Text('Chọn cột')
+                            const Icon(Icons.view_column_outlined, size: 18),
+                            const SizedBox(width: 10),
+                            Text('Chọn cột', style: vietnameseTextStyle())
                           ])),
                     ],
                   )
@@ -308,6 +293,19 @@ class _PayrollScreenState extends State<PayrollScreen> {
                 ),
               ),
             ),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isMobile = Responsive.isMobile(context);
+    final chrome = _payrollPageChromeSections(isMobile);
+
+    return Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      body: Column(
+        children: [
+          if (!isMobile) ...chrome,
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -318,6 +316,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     fromDate: DateTime(now.year, now.month, 1),
                     toDate: now,
                     branchId: _selectedBranchId,
+                    mobileLeadingSections: isMobile ? chrome : null,
                   ),
           ),
         ],

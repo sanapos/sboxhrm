@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Models.Responses;
 using ZKTecoADMS.Application.Constants;
@@ -14,6 +15,7 @@ using ZKTecoADMS.Application.Queries.Dashboard.GetCurrentAttendance;
 using ZKTecoADMS.Application.Queries.Dashboard.GetAttendanceStats;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -32,6 +34,7 @@ public class DashboardController(
     /// <returns>Dashboard data with employees on leave, absent, late, and attendance rate</returns>
     [HttpGet("manager")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<ManagerDashboardDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -40,7 +43,8 @@ public class DashboardController(
     {
         try
         {
-            var targetDate = date ?? DateTime.Today;
+            // Default to VN-local today (server may run in UTC — DateTime.Today would be wrong).
+            var targetDate = date?.Date ?? DateTime.UtcNow.AddHours(7).Date;
 
             var query = new GetManagerDashboardQuery(
                 CurrentUserId,
@@ -68,6 +72,7 @@ public class DashboardController(
     /// <param name="period">Period for attendance stats (week, month, year)</param>
     [HttpGet("employee")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<EmployeeDashboardDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AppResponse<EmployeeDashboardDto>>> GetEmployeeDashboard([FromQuery] string period = "week")
@@ -90,6 +95,7 @@ public class DashboardController(
     /// </summary>
     [HttpGet("shifts/today")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<ShiftInfoDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AppResponse<ShiftInfoDto>>> GetTodayShift()
@@ -112,6 +118,7 @@ public class DashboardController(
     /// </summary>
     [HttpGet("shifts/next")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<ShiftInfoDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AppResponse<ShiftInfoDto>>> GetNextShift()
@@ -134,6 +141,7 @@ public class DashboardController(
     /// </summary>
     [HttpGet("attendance/current")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<AttendanceInfoDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AppResponse<AttendanceInfoDto>>> GetCurrentAttendance()
@@ -157,6 +165,7 @@ public class DashboardController(
     /// <param name="period">Period for stats (week, month, year)</param>
     [HttpGet("attendance/stats")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<AttendanceStatsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -180,7 +189,11 @@ public class DashboardController(
     /// </summary>
     [HttpGet("attendance-trends")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    public async Task<IActionResult> GetAttendanceTrends([FromQuery] int days = 30)
+    [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetAttendanceTrends(
+        [FromQuery] int days = 30,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
@@ -192,8 +205,12 @@ public class DashboardController(
             var utcRangeEnd = endDate.AddDays(1).AddHours(-7);
 
             // Load employees with ApplicationUserId for WorkSchedule lookup
-            var employeeData = await dbContext.Employees
-                .Where(e => e.StoreId == storeId && e.Deleted == null)
+            var employeesQuery = dbContext.Employees
+                .Where(e => e.StoreId == storeId && e.Deleted == null);
+            employeesQuery = await BranchQueryHelper.ApplyBranchFilterAsync(
+                employeesQuery, dbContext, storeId, branchId, includeChildBranches);
+
+            var employeeData = await employeesQuery
                 .Select(e => new { e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
                 .ToListAsync();
 
@@ -214,9 +231,12 @@ public class DashboardController(
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
-            // DB stores VN local time directly (EnableLegacyTimestampBehavior=true – no conversion needed)
+            // AttendanceTime is stored as UTC (EnableLegacyTimestampBehavior=true, Kind=Unspecified).
+            // Convert to VN (UTC+7) once here so every Date / TimeOfDay comparison below is in VN.
+            // Earlier code used `a.AttendanceTime` directly here while the query window was UTC —
+            // that made trend data drift by 7h (evening punches landed on the next day's bucket).
             var vnAttendances = attendances
-                .Select(a => new { a.PIN, VnTime = a.AttendanceTime, a.AttendanceState })
+                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
                 .ToList();
 
             // Load ShiftTemplates for the store (used as fallback when no WorkSchedule exists)

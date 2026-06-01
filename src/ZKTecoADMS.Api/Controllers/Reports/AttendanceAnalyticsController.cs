@@ -2,6 +2,8 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -27,6 +29,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/compliance?year=&month=&department=&employeeCode=&format=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("compliance")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetCompliance(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -195,9 +198,7 @@ public class AttendanceAnalyticsController(
         return ReportHelpers.ExcelFile(
             $"Compliance {r.Month:D2}-{r.Year}",
             headers,
-            ws =>
-            {
-                int row = 2;
+            (ws, dataStartRow) => { int row = dataStartRow;
                 int idx = 1;
                 foreach (var i in r.Items)
                 {
@@ -214,7 +215,7 @@ public class AttendanceAnalyticsController(
                     row++;
                 }
             },
-            $"attendance-compliance-{r.Year}-{r.Month:D2}.xlsx");
+            $"attendance-compliance-{r.Year}-{r.Month:D2}.xlsx", user: User);
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -222,6 +223,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/absence?from=&to=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("absence")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAbsence(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -330,9 +332,7 @@ public class AttendanceAnalyticsController(
                 return ReportHelpers.ExcelFile(
                     "Vắng không phép",
                     new[] { "STT", "Ngày", "Thứ", "Mã NV", "Họ tên", "Phòng ban" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in report.Items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -344,7 +344,7 @@ public class AttendanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"attendance-absence-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"attendance-absence-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<AbsenceReportDto>.Success(report));
@@ -361,6 +361,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/no-show?from=&to=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("no-show")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetNoShow(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -453,9 +454,7 @@ public class AttendanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("No-show",
                     new[] { "STT", "Ngày xếp lịch", "Thứ", "Mã NV", "Họ tên", "Phòng ban" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in report.Items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -467,7 +466,7 @@ public class AttendanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"attendance-noshow-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"attendance-noshow-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<NoShowReportDto>.Success(report));
@@ -484,6 +483,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/anomalies?from=&to=&department=&minPunchesPerDay=&earlyMinutes=&lateMinutes=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("anomalies")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAnomalies(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -570,9 +570,7 @@ public class AttendanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Anomalies",
                     new[] { "STT", "Ngày", "Mã NV", "Họ tên", "Phòng ban", "Vào đầu", "Ra cuối", "Số lần", "Bất thường" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in report.Items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -587,7 +585,7 @@ public class AttendanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"attendance-anomalies-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"attendance-anomalies-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<AnomalyReportDto>.Success(report));
@@ -604,6 +602,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/field-summary?from=&to=&employeeCode=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("field-summary")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetFieldSummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -652,9 +651,7 @@ public class AttendanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Field summary",
                     new[] { "STT", "Mã NV", "Họ tên", "Số lần thăm", "Điểm khác nhau", "Tổng phút", "Lần đầu", "Lần cuối" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -668,7 +665,7 @@ public class AttendanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"field-summary-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"field-summary-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<FieldSummaryReportDto>.Success(report));
@@ -685,6 +682,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/mobile-usage?from=&to=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("mobile-usage")]
+    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetMobileUsage(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -731,9 +729,7 @@ public class AttendanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Mobile usage",
                     new[] { "STT", "Mã NV", "Họ tên", "Tổng lần", "Check-in", "Check-out", "Face/GPS", "WiFi", "Chờ duyệt", "Từ chối", "Số thiết bị" },
-                    ws =>
-                    {
-                        int row = 2; int idx = 1;
+                    (ws, dataStartRow) => { int row = dataStartRow; int idx = 1;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = idx++;
@@ -750,7 +746,7 @@ public class AttendanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"mobile-usage-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx");
+                    $"mobile-usage-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<MobileUsageReportDto>.Success(report));
@@ -912,3 +908,4 @@ public class MobileUsageItemDto
     public int RejectedCount { get; set; }
     public int DevicesUsed { get; set; }
 }
+

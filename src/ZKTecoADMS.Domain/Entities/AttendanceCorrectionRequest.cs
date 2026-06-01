@@ -62,6 +62,12 @@ public class AttendanceCorrectionRequest : AuditableEntity<Guid>
     public TimeSpan? NewTime { get; set; }
 
     /// <summary>
+    /// Loại chấm khi thêm mới: CheckIn / CheckOut
+    /// </summary>
+    [MaxLength(20)]
+    public string? NewPunchType { get; set; }
+
+    /// <summary>
     /// Lý do yêu cầu sửa
     /// </summary>
     [Required]

@@ -605,7 +605,7 @@ class DevicesTabState extends State<DevicesTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Hủy')),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: selectedStoreId == null
                   ? null
                   : () => Navigator.pop(ctx, selectedStoreId),
@@ -778,7 +778,7 @@ class DevicesTabState extends State<DevicesTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () {
               if (pinCtrl.text.trim().isEmpty) {
                 AdminHelpers.showError(ctx, 'Vui lòng nhập mã PIN');

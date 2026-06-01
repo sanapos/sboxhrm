@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.AdvanceRequests;
 using ZKTecoADMS.Application.Queries.AdvanceRequests;
@@ -16,6 +17,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<AdvanceRequestDto>>>> GetAdvanceRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -31,6 +33,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpGet("my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<AdvanceRequestDto>>>> GetMyAdvanceRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -43,6 +46,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> GetAdvanceRequestById(Guid id)
     {
         var query = new GetAdvanceRequestByIdQuery(RequiredStoreId, id);
@@ -52,6 +56,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> CreateAdvanceRequest([FromBody] CreateAdvanceRequestDto request)
     {
         // Manager/Admin creating for a specific employee: they provide employeeUserId and/or employeeId.
@@ -75,6 +80,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> ApproveAdvanceRequest(
         Guid id, 
         [FromBody] ApproveAdvanceRequestDto request)
@@ -92,6 +98,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAdvanceRequest(Guid id)
     {
         var command = new DeleteAdvanceRequestCommand(RequiredStoreId, id);
@@ -101,6 +108,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("{id}/undo-approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> UndoApproveAdvanceRequest(Guid id)
     {
         var command = new UndoApproveAdvanceRequestCommand(
@@ -114,6 +122,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("{id}/cancel")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelAdvanceRequest(Guid id)
     {
         var command = new CancelAdvanceRequestCommand(
@@ -127,6 +136,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("{id}/pay")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> PayAdvanceRequest(Guid id, [FromBody] PayAdvanceRequestDto? request = null)
     {
         var command = new PayAdvanceRequestCommand(
@@ -141,6 +151,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("bulk-approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<BulkResultDto>>> BulkApprove([FromBody] BulkApproveDto request)
     {
         int success = 0, failed = 0;
@@ -159,6 +170,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("bulk-reject")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<BulkResultDto>>> BulkReject([FromBody] BulkRejectDto request)
     {
         int success = 0, failed = 0;
@@ -177,6 +189,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
 
     [HttpPost("bulk-pay")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<BulkResultDto>>> BulkPay([FromBody] BulkPayDto request)
     {
         int success = 0, failed = 0;

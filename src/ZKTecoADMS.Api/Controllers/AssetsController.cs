@@ -1,7 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Assets;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -40,57 +42,58 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
 
     private static string GetAssetTypeName(AssetType type) => type switch
     {
-        AssetType.Electronics => "Thiết bị điện tử",
-        AssetType.Furniture => "Nội thất",
-        AssetType.Vehicle => "Phương tiện",
-        AssetType.Tool => "Công cụ dụng cụ",
-        AssetType.Machinery => "Máy móc",
-        AssetType.Software => "Phần mềm",
-        _ => "Khác"
+        AssetType.Electronics => "Thiáº¿t bá»‹ Ä‘iá»‡n tá»­",
+        AssetType.Furniture => "Ná»™i tháº¥t",
+        AssetType.Vehicle => "PhÆ°Æ¡ng tiá»‡n",
+        AssetType.Tool => "CÃ´ng cá»¥ dá»¥ng cá»¥",
+        AssetType.Machinery => "MÃ¡y mÃ³c",
+        AssetType.Software => "Pháº§n má»m",
+        _ => "KhÃ¡c"
     };
 
     private static string GetAssetStatusName(AssetStatus status) => status switch
     {
-        AssetStatus.Active => "Đang sử dụng",
-        AssetStatus.InMaintenance => "Đang bảo trì",
-        AssetStatus.Broken => "Hỏng",
-        AssetStatus.Disposed => "Đã thanh lý",
-        AssetStatus.Lost => "Đã mất",
+        AssetStatus.Active => "Äang sá»­ dá»¥ng",
+        AssetStatus.InMaintenance => "Äang báº£o trÃ¬",
+        AssetStatus.Broken => "Há»ng",
+        AssetStatus.Disposed => "ÄÃ£ thanh lÃ½",
+        AssetStatus.Lost => "ÄÃ£ máº¥t",
         AssetStatus.InStock => "Trong kho",
-        _ => "Không xác định"
+        _ => "KhÃ´ng xÃ¡c Ä‘á»‹nh"
     };
 
     private static string GetTransferTypeName(AssetTransferType type) => type switch
     {
-        AssetTransferType.Assignment => "Cấp mới",
-        AssetTransferType.Transfer => "Chuyển giao",
-        AssetTransferType.Return => "Thu hồi",
-        AssetTransferType.Maintenance => "Bảo trì",
-        AssetTransferType.Disposal => "Thanh lý",
-        _ => "Khác"
+        AssetTransferType.Assignment => "Cáº¥p má»›i",
+        AssetTransferType.Transfer => "Chuyá»ƒn giao",
+        AssetTransferType.Return => "Thu há»“i",
+        AssetTransferType.Maintenance => "Báº£o trÃ¬",
+        AssetTransferType.Disposal => "Thanh lÃ½",
+        _ => "KhÃ¡c"
     };
 
     private static string GetConditionName(InventoryCondition? condition) => condition switch
     {
-        InventoryCondition.Good => "Tốt",
-        InventoryCondition.Fair => "Bình thường",
-        InventoryCondition.Poor => "Kém",
-        InventoryCondition.Damaged => "Hỏng",
-        InventoryCondition.NotFound => "Không tìm thấy",
-        _ => "Chưa kiểm"
+        InventoryCondition.Good => "Tá»‘t",
+        InventoryCondition.Fair => "BÃ¬nh thÆ°á»ng",
+        InventoryCondition.Poor => "KÃ©m",
+        InventoryCondition.Damaged => "Há»ng",
+        InventoryCondition.NotFound => "KhÃ´ng tÃ¬m tháº¥y",
+        _ => "ChÆ°a kiá»ƒm"
     };
 
     private static string GetInventoryStatusName(int status) => status switch
     {
-        0 => "Đang tiến hành",
-        1 => "Hoàn thành",
-        2 => "Đã hủy",
-        _ => "Không xác định"
+        0 => "Äang tiáº¿n hÃ nh",
+        1 => "HoÃ n thÃ nh",
+        2 => "ÄÃ£ há»§y",
+        _ => "KhÃ´ng xÃ¡c Ä‘á»‹nh"
     };
     #endregion
 
     #region Asset Categories
     [HttpGet("categories")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetCategories()
     {
         var categories = await _context.AssetCategories
@@ -128,6 +131,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("categories")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateCategory([FromBody] CreateAssetCategoryDto request)
     {
         var category = new AssetCategory
@@ -159,6 +163,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPut("categories/{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateAssetCategoryDto request)
     {
         var category = await _context.AssetCategories
@@ -166,7 +171,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
         if (category == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy danh mục"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
 
         category.Name = request.Name;
         category.Description = request.Description;
@@ -176,10 +181,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         category.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Cập nhật danh mục thành công"));
+        return Ok(AppResponse<string>.Success("Cáº­p nháº­t danh má»¥c thÃ nh cÃ´ng"));
     }
 
     [HttpDelete("categories/{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteCategory(Guid id)
     {
         var category = await _context.AssetCategories
@@ -188,22 +194,23 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
         if (category == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy danh mục"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
 
         if (category.Assets.Any())
-            return BadRequest(AppResponse<object>.Error("Không thể xóa danh mục đang có tài sản"));
+            return BadRequest(AppResponse<object>.Error("KhÃ´ng thá»ƒ xÃ³a danh má»¥c Ä‘ang cÃ³ tÃ i sáº£n"));
 
         if (category.SubCategories.Any())
-            return BadRequest(AppResponse<object>.Error("Không thể xóa danh mục đang có danh mục con"));
+            return BadRequest(AppResponse<object>.Error("KhÃ´ng thá»ƒ xÃ³a danh má»¥c Ä‘ang cÃ³ danh má»¥c con"));
 
         _context.AssetCategories.Remove(category);
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Xóa danh mục thành công"));
+        return Ok(AppResponse<string>.Success("XÃ³a danh má»¥c thÃ nh cÃ´ng"));
     }
     #endregion
 
     #region Assets CRUD
     [HttpGet]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAssets([FromQuery] AssetQueryParams query)
     {
         var q = _context.Assets
@@ -318,6 +325,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpGet("{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAsset(Guid id)
     {
         var asset = await _context.Assets
@@ -332,7 +340,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync();
 
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         var dto = new AssetDetailDto
         {
@@ -409,6 +417,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateAsset([FromBody] CreateAssetDto request)
     {
         var asset = new Asset
@@ -467,11 +476,12 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPut("{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateAsset(Guid id, [FromBody] UpdateAssetDto request)
     {
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == id && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         asset.Name = request.Name;
         asset.Description = request.Description;
@@ -503,32 +513,34 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         asset.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Cập nhật tài sản thành công"));
+        return Ok(AppResponse<string>.Success("Cáº­p nháº­t tÃ i sáº£n thÃ nh cÃ´ng"));
     }
 
     [HttpDelete("{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteAsset(Guid id)
     {
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == id && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         asset.IsActive = false;
         asset.UpdatedAt = DateTime.UtcNow;
         asset.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Xóa tài sản thành công"));
+        return Ok(AppResponse<string>.Success("XÃ³a tÃ i sáº£n thÃ nh cÃ´ng"));
     }
     #endregion
 
     #region Asset Images
     [HttpPost("{assetId}/images")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> AddImage(Guid assetId, [FromBody] AddAssetImageDto request)
     {
         var asset = await _context.Assets.AsTracking().Include(a => a.Images).FirstOrDefaultAsync(a => a.Id == assetId && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         if (request.IsPrimary)
         {
@@ -564,18 +576,20 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpDelete("{assetId}/images/{imageId}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteImage(Guid assetId, Guid imageId)
     {
         var image = await _context.AssetImages.FirstOrDefaultAsync(i => i.Id == imageId && i.AssetId == assetId);
         if (image == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy hình ảnh"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y hÃ¬nh áº£nh"));
 
         _context.AssetImages.Remove(image);
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Xóa hình ảnh thành công"));
+        return Ok(AppResponse<string>.Success("XÃ³a hÃ¬nh áº£nh thÃ nh cÃ´ng"));
     }
 
     [HttpPatch("{assetId}/images/{imageId}/primary")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> SetPrimaryImage(Guid assetId, Guid imageId)
     {
         var images = await _context.AssetImages.AsTracking().Where(i => i.AssetId == assetId).ToListAsync();
@@ -583,7 +597,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             img.IsPrimary = img.Id == imageId;
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Đặt hình chính thành công"));
+        return Ok(AppResponse<string>.Success("Äáº·t hÃ¬nh chÃ­nh thÃ nh cÃ´ng"));
     }
     #endregion
 
@@ -603,21 +617,22 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("assign")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> AssignAsset([FromBody] AssignAssetDto request)
     {
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         if (asset.CurrentAssigneeId != null)
-            return BadRequest(AppResponse<object>.Error("Tài sản đã được cấp cho người khác. Vui lòng thu hồi trước."));
+            return BadRequest(AppResponse<object>.Error("TÃ i sáº£n Ä‘Ã£ Ä‘Æ°á»£c cáº¥p cho ngÆ°á»i khÃ¡c. Vui lÃ²ng thu há»“i trÆ°á»›c."));
 
         if (request.Quantity > asset.Quantity)
-            return BadRequest(AppResponse<object>.Error("Số lượng cấp vượt quá số lượng có"));
+            return BadRequest(AppResponse<object>.Error("Sá»‘ lÆ°á»£ng cáº¥p vÆ°á»£t quÃ¡ sá»‘ lÆ°á»£ng cÃ³"));
 
         var employeeId = await ValidateEmployeeIdAsync(request.ToUserId);
         if (employeeId == null)
-            return BadRequest(AppResponse<object>.Error("Không tìm thấy nhân viên"));
+            return BadRequest(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn"));
 
         var transfer = new AssetTransfer
         {
@@ -641,23 +656,24 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         _context.AssetTransfers.Add(transfer);
         await _context.SaveChangesAsync();
 
-        return Ok(AppResponse<string>.Success("Cấp tài sản thành công"));
+        return Ok(AppResponse<string>.Success("Cáº¥p tÃ i sáº£n thÃ nh cÃ´ng"));
     }
 
     [HttpPost("transfer")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> TransferAsset([FromBody] TransferAssetDto request)
     {
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         // Validate FromUserId as EmployeeId
         if (!Guid.TryParse(request.FromUserId, out var fromEmployeeId) || asset.CurrentAssigneeId != fromEmployeeId)
-            return BadRequest(AppResponse<object>.Error("Tài sản không thuộc người chuyển giao"));
+            return BadRequest(AppResponse<object>.Error("TÃ i sáº£n khÃ´ng thuá»™c ngÆ°á»i chuyá»ƒn giao"));
 
         var toEmployeeId = await ValidateEmployeeIdAsync(request.ToUserId);
         if (toEmployeeId == null)
-            return BadRequest(AppResponse<object>.Error("Không tìm thấy nhân viên nhận"));
+            return BadRequest(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn nháº­n"));
 
         var transfer = new AssetTransfer
         {
@@ -681,18 +697,19 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         _context.AssetTransfers.Add(transfer);
         await _context.SaveChangesAsync();
 
-        return Ok(AppResponse<string>.Success("Chuyển giao tài sản thành công"));
+        return Ok(AppResponse<string>.Success("Chuyá»ƒn giao tÃ i sáº£n thÃ nh cÃ´ng"));
     }
 
     [HttpPost("return")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> ReturnAsset([FromBody] ReturnAssetDto request)
     {
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n"));
 
         if (!Guid.TryParse(request.FromUserId, out var fromEmployeeId) || asset.CurrentAssigneeId != fromEmployeeId)
-            return BadRequest(AppResponse<object>.Error("Tài sản không thuộc người này"));
+            return BadRequest(AppResponse<object>.Error("TÃ i sáº£n khÃ´ng thuá»™c ngÆ°á»i nÃ y"));
 
         var transfer = new AssetTransfer
         {
@@ -717,10 +734,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         _context.AssetTransfers.Add(transfer);
         await _context.SaveChangesAsync();
 
-        return Ok(AppResponse<string>.Success("Thu hồi tài sản thành công"));
+        return Ok(AppResponse<string>.Success("Thu há»“i tÃ i sáº£n thÃ nh cÃ´ng"));
     }
 
     [HttpPost("transfers/{transferId}/confirm")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> ConfirmTransfer(Guid transferId, [FromBody] ConfirmTransferDto request)
     {
         var transfer = await _context.AssetTransfers
@@ -729,22 +747,23 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync(t => t.Id == transferId && t.Asset!.StoreId == RequiredStoreId);
 
         if (transfer == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy chuyển giao"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y chuyá»ƒn giao"));
 
         // ToUserId is now EmployeeId, resolve current user's EmployeeId for comparison
         var currentEmployee = await _context.Employees.FirstOrDefaultAsync(e => e.ApplicationUserId == CurrentUserId);
         if (currentEmployee == null || transfer.ToUserId != currentEmployee.Id)
-            return BadRequest(AppResponse<object>.Error("Bạn không phải người nhận tài sản này"));
+            return BadRequest(AppResponse<object>.Error("Báº¡n khÃ´ng pháº£i ngÆ°á»i nháº­n tÃ i sáº£n nÃ y"));
 
         transfer.IsConfirmed = true;
         transfer.ConfirmedAt = DateTime.UtcNow;
         transfer.Notes = transfer.Notes != null ? $"{transfer.Notes}\n{request.Notes}" : request.Notes;
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Xác nhận nhận tài sản thành công"));
+        return Ok(AppResponse<string>.Success("XÃ¡c nháº­n nháº­n tÃ i sáº£n thÃ nh cÃ´ng"));
     }
 
     [HttpGet("transfers")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetTransfers([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, [FromQuery] AssetTransferType? type)
     {
         var q = _context.AssetTransfers
@@ -792,6 +811,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpGet("my-assets")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetMyAssets()
     {
         var assets = await _context.Assets
@@ -825,10 +845,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
 
     #region QR / Lookup
     [HttpGet("lookup")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> LookupAsset([FromQuery] string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-            return BadRequest(AppResponse<object>.Error("Mã không hợp lệ"));
+            return BadRequest(AppResponse<object>.Error("MÃ£ khÃ´ng há»£p lá»‡"));
 
         var asset = await _context.Assets
             .Where(a => a.StoreId == RequiredStoreId && a.IsActive &&
@@ -839,7 +860,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync();
 
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản với mã: " + code));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i sáº£n vá»›i mÃ£: " + code));
 
         var dto = new AssetDetailDto
         {
@@ -884,6 +905,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("inventories/{id}/scan")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> ScanInventoryItem(Guid id, [FromBody] ScanInventoryItemDto request)
     {
         var inventory = await _context.AssetInventories
@@ -891,16 +913,16 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
 
         if (inventory == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t kiá»ƒm kÃª"));
 
         if (inventory.Status != 0)
-            return BadRequest(AppResponse<object>.Error("Đợt kiểm kê đã kết thúc"));
+            return BadRequest(AppResponse<object>.Error("Äá»£t kiá»ƒm kÃª Ä‘Ã£ káº¿t thÃºc"));
 
         var item = inventory.Items.FirstOrDefault(i =>
             i.Asset != null && (i.Asset.QrCode == request.Code || i.Asset.AssetCode == request.Code));
 
         if (item == null)
-            return NotFound(AppResponse<object>.Error("Tài sản với mã " + request.Code + " không nằm trong đợt kiểm kê này"));
+            return NotFound(AppResponse<object>.Error("TÃ i sáº£n vá»›i mÃ£ " + request.Code + " khÃ´ng náº±m trong Ä‘á»£t kiá»ƒm kÃª nÃ y"));
 
         item.IsChecked = true;
         item.CheckedAt = DateTime.UtcNow;
@@ -921,11 +943,12 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             assetName = item.Asset?.Name,
             isChecked = true,
             checkedAt = item.CheckedAt,
-            message = "Kiểm kê tài sản thành công: " + (item.Asset?.Name ?? request.Code)
+            message = "Kiá»ƒm kÃª tÃ i sáº£n thÃ nh cÃ´ng: " + (item.Asset?.Name ?? request.Code)
         }));
     }
 
     [HttpGet("{assetId}/inventory-history")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAssetInventoryHistory(Guid assetId)
     {
         var items = await _context.AssetInventoryItems
@@ -963,6 +986,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
 
     #region Asset Inventory
     [HttpGet("inventories")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetInventories([FromQuery] int? status)
     {
         var q = _context.AssetInventories
@@ -1001,6 +1025,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpGet("inventories/{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetInventory(Guid id)
     {
         var inventory = await _context.AssetInventories
@@ -1013,7 +1038,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync();
 
         if (inventory == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t kiá»ƒm kÃª"));
 
         var dto = new AssetInventoryDetailDto
         {
@@ -1060,6 +1085,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("inventories")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateInventory([FromBody] CreateAssetInventoryDto request)
     {
         var responsibleId = !string.IsNullOrEmpty(request.ResponsibleUserId) && Guid.TryParse(request.ResponsibleUserId, out var rGuid) 
@@ -1139,6 +1165,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("inventories/items/check")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> CheckInventoryItem([FromBody] CheckInventoryItemDto request)
     {
         var item = await _context.AssetInventoryItems
@@ -1147,10 +1174,10 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .FirstOrDefaultAsync(i => i.Id == request.InventoryItemId && i.Inventory!.StoreId == RequiredStoreId);
 
         if (item == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy mục kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y má»¥c kiá»ƒm kÃª"));
 
         if (item.Inventory!.Status != 0)
-            return BadRequest(AppResponse<object>.Error("Đợt kiểm kê đã kết thúc"));
+            return BadRequest(AppResponse<object>.Error("Äá»£t kiá»ƒm kÃª Ä‘Ã£ káº¿t thÃºc"));
 
         item.IsChecked = true;
         item.CheckedAt = DateTime.UtcNow;
@@ -1163,10 +1190,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         item.Notes = request.Notes;
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Cập nhật kiểm kê thành công"));
+        return Ok(AppResponse<string>.Success("Cáº­p nháº­t kiá»ƒm kÃª thÃ nh cÃ´ng"));
     }
 
     [HttpPatch("inventories/{id}/complete")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> CompleteInventory(Guid id)
     {
         var inventory = await _context.AssetInventories
@@ -1174,10 +1202,10 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
         if (inventory == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t kiá»ƒm kÃª"));
 
         if (inventory.Status != 0)
-            return BadRequest(AppResponse<object>.Error("Đợt kiểm kê không ở trạng thái đang tiến hành"));
+            return BadRequest(AppResponse<object>.Error("Äá»£t kiá»ƒm kÃª khÃ´ng á»Ÿ tráº¡ng thÃ¡i Ä‘ang tiáº¿n hÃ nh"));
 
         // Auto-adjust stock for items with quantity mismatch
         var checkedItems = inventory.Items.Where(i => i.IsChecked && i.ActualQuantity.HasValue).ToList();
@@ -1201,11 +1229,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 TransactionType = StockTransactionType.Adjustment,
                 Quantity = diff,
                 BalanceAfter = asset.Quantity,
-                Reason = $"Điều chỉnh từ kiểm kê {inventory.InventoryCode}",
+                Reason = $"Äiá»u chá»‰nh tá»« kiá»ƒm kÃª {inventory.InventoryCode}",
                 ReferenceCode = $"DC-{inventory.InventoryCode}",
                 RelatedInventoryId = inventory.Id,
                 PerformedById = CurrentUserId,
-                Notes = $"Tồn kho: {item.ExpectedQuantity} → Thực tế: {item.ActualQuantity.Value} (chênh lệch: {(diff > 0 ? "+" : "")}{diff})",
+                Notes = $"Tá»“n kho: {item.ExpectedQuantity} â†’ Thá»±c táº¿: {item.ActualQuantity.Value} (chÃªnh lá»‡ch: {(diff > 0 ? "+" : "")}{diff})",
                 StoreId = RequiredStoreId,
                 TransactionDate = DateTime.UtcNow
             });
@@ -1217,18 +1245,19 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         inventory.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(new { message = "Hoàn thành kiểm kê", adjustedItems = adjustedCount }));
+        return Ok(AppResponse<object>.Success(new { message = "HoÃ n thÃ nh kiá»ƒm kÃª", adjustedItems = adjustedCount }));
     }
 
     [HttpPatch("inventories/{id}/cancel")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> CancelInventory(Guid id)
     {
         var inventory = await _context.AssetInventories.AsTracking().FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
         if (inventory == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t kiá»ƒm kÃª"));
 
         if (inventory.Status == 1)
-            return BadRequest(AppResponse<object>.Error("Không thể hủy đợt kiểm kê đã hoàn thành"));
+            return BadRequest(AppResponse<object>.Error("KhÃ´ng thá»ƒ há»§y Ä‘á»£t kiá»ƒm kÃª Ä‘Ã£ hoÃ n thÃ nh"));
 
         inventory.Status = 2;
         inventory.EndDate = DateTime.UtcNow;
@@ -1236,10 +1265,11 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         inventory.UpdatedBy = CurrentUserId.ToString();
 
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Đã hủy đợt kiểm kê"));
+        return Ok(AppResponse<string>.Success("ÄÃ£ há»§y Ä‘á»£t kiá»ƒm kÃª"));
     }
 
     [HttpDelete("inventories/{id}")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteInventory(Guid id)
     {
         var inventory = await _context.AssetInventories
@@ -1247,12 +1277,12 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == RequiredStoreId);
         if (inventory == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy đợt kiểm kê"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t kiá»ƒm kÃª"));
 
         _context.AssetInventoryItems.RemoveRange(inventory.Items);
         _context.AssetInventories.Remove(inventory);
         await _context.SaveChangesAsync();
-        return Ok(AppResponse<string>.Success("Đã xóa đợt kiểm kê"));
+        return Ok(AppResponse<string>.Success("ÄÃ£ xÃ³a Ä‘á»£t kiá»ƒm kÃª"));
     }
     #endregion
 
@@ -1260,10 +1290,10 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     
     private string GetTransactionTypeName(StockTransactionType type) => type switch
     {
-        StockTransactionType.StockIn => "Nhập kho",
-        StockTransactionType.StockOut => "Xuất kho",
-        StockTransactionType.Adjustment => "Điều chỉnh",
-        _ => "Khác"
+        StockTransactionType.StockIn => "Nháº­p kho",
+        StockTransactionType.StockOut => "Xuáº¥t kho",
+        StockTransactionType.Adjustment => "Äiá»u chá»‰nh",
+        _ => "KhÃ¡c"
     };
 
     private string GenerateTransactionCode(StockTransactionType type)
@@ -1279,14 +1309,15 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("stock/in")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> StockIn([FromBody] CreateStockTransactionDto request)
     {
         if (request.Quantity <= 0)
-            return BadRequest(AppResponse<object>.Error("Số lượng phải lớn hơn 0"));
+            return BadRequest(AppResponse<object>.Error("Sá»‘ lÆ°á»£ng pháº£i lá»›n hÆ¡n 0"));
 
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId && a.IsActive);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy sản phẩm"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m"));
 
         asset.Quantity += request.Quantity;
 
@@ -1316,17 +1347,18 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpPost("stock/out")]
+    [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> StockOut([FromBody] CreateStockTransactionDto request)
     {
         if (request.Quantity <= 0)
-            return BadRequest(AppResponse<object>.Error("Số lượng phải lớn hơn 0"));
+            return BadRequest(AppResponse<object>.Error("Sá»‘ lÆ°á»£ng pháº£i lá»›n hÆ¡n 0"));
 
         var asset = await _context.Assets.AsTracking().FirstOrDefaultAsync(a => a.Id == request.AssetId && a.StoreId == RequiredStoreId && a.IsActive);
         if (asset == null)
-            return NotFound(AppResponse<object>.Error("Không tìm thấy sản phẩm"));
+            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m"));
 
         if (asset.Quantity < request.Quantity)
-            return BadRequest(AppResponse<object>.Error($"Tồn kho không đủ. Hiện có: {asset.Quantity}, yêu cầu: {request.Quantity}"));
+            return BadRequest(AppResponse<object>.Error($"Tá»“n kho khÃ´ng Ä‘á»§. Hiá»‡n cÃ³: {asset.Quantity}, yÃªu cáº§u: {request.Quantity}"));
 
         asset.Quantity -= request.Quantity;
 
@@ -1356,6 +1388,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpGet("stock/transactions")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetStockTransactions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -1394,7 +1427,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 AssetCode = t.Asset!.AssetCode,
                 AssetName = t.Asset.Name,
                 TransactionType = (int)t.TransactionType,
-                TransactionTypeName = t.TransactionType == StockTransactionType.StockIn ? "Nhập kho" : t.TransactionType == StockTransactionType.StockOut ? "Xuất kho" : "Điều chỉnh",
+                TransactionTypeName = t.TransactionType == StockTransactionType.StockIn ? "Nháº­p kho" : t.TransactionType == StockTransactionType.StockOut ? "Xuáº¥t kho" : "Äiá»u chá»‰nh",
                 Quantity = t.Quantity,
                 BalanceAfter = t.BalanceAfter,
                 Reason = t.Reason,
@@ -1411,6 +1444,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     }
 
     [HttpGet("stock/summary")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetStockSummary()
     {
         var assets = await _context.Assets
@@ -1446,6 +1480,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
 
     #region Statistics
     [HttpGet("statistics")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetStatistics()
     {
         var assets = await _context.Assets

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.DTOs.AttendanceCorrections;
@@ -16,6 +17,7 @@ public class AttendanceCorrectionRequestDto
     public string? OldType { get; set; }
     public DateTime? NewDate { get; set; }
     public TimeSpan? NewTime { get; set; }
+    public string? NewPunchType { get; set; }
     public string? Reason { get; set; }
     public CorrectionStatus Status { get; set; }
     public Guid? ApprovedById { get; set; }
@@ -48,12 +50,19 @@ public class CreateAttendanceCorrectionDto
     public Guid? EmployeeUserId { get; set; }
     public string? EmployeeName { get; set; }
     public string? EmployeeCode { get; set; }
+
+    /// <summary>Device PIN (UID) when <see cref="EmployeeCode"/> is not the HR code.</summary>
+    public string? Pin { get; set; }
     public Guid? AttendanceId { get; set; }
     public CorrectionAction Action { get; set; }
     public DateTime? OldDate { get; set; }
     public TimeSpan? OldTime { get; set; }
     public DateTime? NewDate { get; set; }
     public TimeSpan? NewTime { get; set; }
+
+    [JsonPropertyName("newType")]
+    public string? NewPunchType { get; set; }
+
     public string? Reason { get; set; }
 }
 

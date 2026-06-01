@@ -1,6 +1,7 @@
 import '../utils/file_saver.dart' as file_saver;
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +14,7 @@ import '../providers/permission_provider.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class CashTransactionScreen extends StatefulWidget {
   const CashTransactionScreen({super.key});
@@ -51,7 +53,6 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   CashTransactionStatus? _statusFilter;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSummary = false;
 
   // Inline summary for transactions tab
@@ -93,10 +94,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           start: DateTime(now.year, now.month, 1),
           end: DateTime(now.year, now.month + 1, 0, 23, 59, 59));
       case 'lastMonth':
-        final lastMonth = DateTime(now.year, now.month - 1, 1);
+        final firstThis = DateTime(now.year, now.month, 1);
+        final lastDayPrev = firstThis.subtract(const Duration(days: 1));
         return DateTimeRange(
-          start: lastMonth,
-          end: DateTime(now.year, now.month, 0, 23, 59, 59));
+          start: DateTime(lastDayPrev.year, lastDayPrev.month, 1),
+          end: DateTime(lastDayPrev.year, lastDayPrev.month, lastDayPrev.day,
+              23, 59, 59));
       case 'custom':
         if (_customDateRange != null) return _customDateRange!;
         return DateTimeRange(
@@ -342,24 +345,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         title: const Text('Quản lý Thu Chi', overflow: TextOverflow.ellipsis, maxLines: 1),
         actions: [
-          if (Responsive.isMobile(context))
-            IconButton(
-              icon: Stack(
-                children: [
-                  Icon(_showMobileFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
-                  if (_typeFilter != null || _statusFilter != null || _categoryFilter != null || _datePreset != 'thisMonth')
-                    Positioned(
-                      right: 0, top: 0,
-                      child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle)),
-                    ),
-                ],
-              ),
-              onPressed: () => setState(() => _showMobileFilters = !_showMobileFilters),
-              tooltip: 'Bộ lọc',
-            ),
           IconButton(
             icon: const Icon(Icons.category_outlined),
             onPressed: () => _showCategoryManagement(),
@@ -621,40 +610,94 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
   Widget _buildTransactionsTab() {
     final isMobile = Responsive.isMobile(context);
-    return Column(
-      children: [
-        if (!isMobile || _showMobileFilters) _buildFilterBar(),
+    return HrmResponsiveListLayout(
+      headerSections: _cashTransactionsHeaderSections(isMobile),
+      desktopBody: Column(
+        children: [
+          Expanded(child: _buildTransactionList()),
+          _buildPaginationControls(),
+        ],
+      ),
+      mobileSlivers: (_) => _cashTransactionsMobileSlivers(),
+    );
+  }
+
+  List<Widget> _cashTransactionsHeaderSections(bool isMobile) => [
+        _buildFilterBar(),
         if (isMobile) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: InkWell(
-              onTap: () => setState(() => _showMobileSummary = !_showMobileSummary),
+              onTap: () =>
+                  setState(() => _showMobileSummary = !_showMobileSummary),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.analytics_outlined, size: 16, color: Colors.blue.shade700),
+                    Icon(Icons.analytics_outlined,
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue.shade700)),
+                    Text('Tổng quan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Colors.blue.shade700)),
                     const Spacer(),
-                    Icon(_showMobileSummary ? Icons.expand_less : Icons.expand_more, size: 20, color: Colors.blue.shade700),
+                    Icon(
+                        _showMobileSummary
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 20,
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
             ),
           ),
           if (_showMobileSummary) _buildInlineSummaryRow(),
-        ] else ...[
+        ] else
           _buildInlineSummaryRow(),
-        ],
-        Expanded(child: _buildTransactionList()),
-        if (!isMobile) _buildPaginationControls(),
-      ],
+      ];
+
+  List<Widget> _cashTransactionsMobileSlivers() {
+    if (_transactions.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.receipt_long,
+            title: 'Chưa có giao dịch',
+            description: 'Nhấn nút + để thêm giao dịch thu/chi mới',
+          ),
+        ),
+      ];
+    }
+    return HrmScrollSlivers.fromListViewBuilder(
+      itemCount: _transactions.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE4E4E7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: _buildTxDeckItem(_transactions[i]),
+        ),
+      ),
     );
   }
 

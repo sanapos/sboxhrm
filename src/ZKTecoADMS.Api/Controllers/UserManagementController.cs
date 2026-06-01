@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Attributes;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Commons;
@@ -15,7 +16,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Controller để quản lý người dùng trong cửa hàng
+/// Controller Ä‘á»ƒ quáº£n lÃ½ ngÆ°á»i dÃ¹ng trong cá»­a hÃ ng
 /// </summary>
 [ApiController]
 [Route("api/users")]
@@ -29,11 +30,12 @@ public class UserManagementController(
     #region List Users
     
     /// <summary>
-    /// Lấy danh sách tất cả users trong cửa hàng (có phân trang)
+    /// Láº¥y danh sÃ¡ch táº¥t cáº£ users trong cá»­a hÃ ng (cÃ³ phÃ¢n trang)
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.View)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<UserDto>>>> GetUsers(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
@@ -120,11 +122,12 @@ public class UserManagementController(
     }
 
     /// <summary>
-    /// Lấy thông tin chi tiết user theo ID
+    /// Láº¥y thÃ´ng tin chi tiáº¿t user theo ID
     /// </summary>
     [HttpGet("{userId}")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.View)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<UserDto>>> GetUserById(Guid userId)
     {
         var user = await userManager.Users
@@ -164,11 +167,12 @@ public class UserManagementController(
     #region Change Role
 
     /// <summary>
-    /// Thay đổi role của user
+    /// Thay Ä‘á»•i role cá»§a user
     /// </summary>
     [HttpPut("{userId}/role")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Role", PermissionAction.Edit)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> ChangeUserRole(Guid userId, [FromBody] ChangeRoleRequest request)
     {
         var user = await userManager.Users
@@ -179,30 +183,30 @@ public class UserManagementController(
             return NotFound(AppResponse<bool>.Error("User not found"));
         }
 
-        // Không cho phép tự đổi role của chính mình
+        // KhÃ´ng cho phÃ©p tá»± Ä‘á»•i role cá»§a chÃ­nh mÃ¬nh
         if (userId == CurrentUserId)
         {
-            return BadRequest(AppResponse<bool>.Error("Không thể thay đổi role của chính mình"));
+            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ thay Ä‘á»•i role cá»§a chÃ­nh mÃ¬nh"));
         }
 
-        // Kiểm tra role có tồn tại không
+        // Kiá»ƒm tra role cÃ³ tá»“n táº¡i khÃ´ng
         if (!await roleManager.RoleExistsAsync(request.NewRole))
         {
-            return BadRequest(AppResponse<bool>.Error($"Role '{request.NewRole}' không tồn tại"));
+            return BadRequest(AppResponse<bool>.Error($"Role '{request.NewRole}' khÃ´ng tá»“n táº¡i"));
         }
 
-        // Xóa tất cả role hiện tại
+        // XÃ³a táº¥t cáº£ role hiá»‡n táº¡i
         var currentRoles = await userManager.GetRolesAsync(user);
         await userManager.RemoveFromRolesAsync(user, currentRoles);
 
-        // Thêm role mới
+        // ThÃªm role má»›i
         var result = await userManager.AddToRoleAsync(user, request.NewRole);
         if (!result.Succeeded)
         {
             return BadRequest(AppResponse<bool>.Error(result.Errors.Select(e => e.Description)));
         }
 
-        // Đồng bộ cột Role để UI và dữ liệu hiển thị luôn khớp với Identity role
+        // Äá»“ng bá»™ cá»™t Role Ä‘á»ƒ UI vÃ  dá»¯ liá»‡u hiá»ƒn thá»‹ luÃ´n khá»›p vá»›i Identity role
         user.Role = request.NewRole;
         var updateResult = await userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
@@ -214,10 +218,11 @@ public class UserManagementController(
     }
 
     /// <summary>
-    /// Lấy danh sách roles có sẵn
+    /// Láº¥y danh sÃ¡ch roles cÃ³ sáºµn
     /// </summary>
     [HttpGet("available-roles")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<string>>>> GetAvailableRoles()
     {
         var roles = await roleManager.Roles.Select(r => r.Name!).ToListAsync();
@@ -229,11 +234,12 @@ public class UserManagementController(
     #region Lock/Unlock User
 
     /// <summary>
-    /// Khóa tài khoản user
+    /// KhÃ³a tÃ i khoáº£n user
     /// </summary>
     [HttpPost("{userId}/lock")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.Edit)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> LockUser(Guid userId, [FromBody] LockUserRequest request)
     {
         var user = await userManager.Users
@@ -244,16 +250,16 @@ public class UserManagementController(
             return NotFound(AppResponse<bool>.Error("User not found"));
         }
 
-        // Không cho phép tự khóa chính mình
+        // KhÃ´ng cho phÃ©p tá»± khÃ³a chÃ­nh mÃ¬nh
         if (userId == CurrentUserId)
         {
-            return BadRequest(AppResponse<bool>.Error("Không thể khóa tài khoản của chính mình"));
+            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ khÃ³a tÃ i khoáº£n cá»§a chÃ­nh mÃ¬nh"));
         }
 
-        // Thiết lập thời gian khóa
+        // Thiáº¿t láº­p thá»i gian khÃ³a
         var lockoutEnd = request.LockoutDays.HasValue 
             ? DateTimeOffset.UtcNow.AddDays(request.LockoutDays.Value)
-            : DateTimeOffset.UtcNow.AddYears(100); // Khóa vĩnh viễn
+            : DateTimeOffset.UtcNow.AddYears(100); // KhÃ³a vÄ©nh viá»…n
 
         await userManager.SetLockoutEndDateAsync(user, lockoutEnd);
         await userManager.SetLockoutEnabledAsync(user, true);
@@ -262,11 +268,12 @@ public class UserManagementController(
     }
 
     /// <summary>
-    /// Mở khóa tài khoản user
+    /// Má»Ÿ khÃ³a tÃ i khoáº£n user
     /// </summary>
     [HttpPost("{userId}/unlock")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.Edit)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> UnlockUser(Guid userId)
     {
         var user = await userManager.Users
@@ -288,11 +295,12 @@ public class UserManagementController(
     #region Reset Password
 
     /// <summary>
-    /// Admin reset mật khẩu cho user
+    /// Admin reset máº­t kháº©u cho user
     /// </summary>
     [HttpPost("{userId}/reset-password")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.Edit)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<string>>> ResetPassword(Guid userId, [FromBody] ResetPasswordRequest request)
     {
         var user = await userManager.Users
@@ -313,7 +321,7 @@ public class UserManagementController(
             return BadRequest(AppResponse<string>.Error(result.Errors.Select(e => e.Description)));
         }
 
-        return Ok(AppResponse<string>.Success("Đã reset mật khẩu thành công"));
+        return Ok(AppResponse<string>.Success("ÄÃ£ reset máº­t kháº©u thÃ nh cÃ´ng"));
     }
 
     #endregion
@@ -321,11 +329,12 @@ public class UserManagementController(
     #region Update User
 
     /// <summary>
-    /// Cập nhật thông tin user
+    /// Cáº­p nháº­t thÃ´ng tin user
     /// </summary>
     [HttpPut("{userId}")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.Edit)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<UserDto>>> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request)
     {
         var user = await userManager.Users
@@ -387,11 +396,12 @@ public class UserManagementController(
     #region Delete User
 
     /// <summary>
-    /// Xóa user (soft delete - chỉ deactivate)
+    /// XÃ³a user (soft delete - chá»‰ deactivate)
     /// </summary>
     [HttpDelete("{userId}")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     [RequirePermission("Account", PermissionAction.Delete)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteUser(Guid userId)
     {
         var user = await userManager.Users
@@ -402,17 +412,17 @@ public class UserManagementController(
             return NotFound(AppResponse<bool>.Error("User not found"));
         }
 
-        // Không cho phép xóa chính mình
+        // KhÃ´ng cho phÃ©p xÃ³a chÃ­nh mÃ¬nh
         if (userId == CurrentUserId)
         {
-            return BadRequest(AppResponse<bool>.Error("Không thể xóa tài khoản của chính mình"));
+            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a tÃ i khoáº£n cá»§a chÃ­nh mÃ¬nh"));
         }
 
-        // Kiểm tra user có phải owner của store không
+        // Kiá»ƒm tra user cÃ³ pháº£i owner cá»§a store khÃ´ng
         var isOwner = await context.Stores.AnyAsync(s => s.OwnerId == userId);
         if (isOwner)
         {
-            return BadRequest(AppResponse<bool>.Error("Không thể xóa tài khoản owner của cửa hàng"));
+            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a tÃ i khoáº£n owner cá»§a cá»­a hÃ ng"));
         }
 
         // Hard delete user
@@ -457,7 +467,7 @@ public class ChangeRoleRequest
 public class LockUserRequest
 {
     /// <summary>
-    /// Số ngày khóa. Null = khóa vĩnh viễn
+    /// Sá»‘ ngÃ y khÃ³a. Null = khÃ³a vÄ©nh viá»…n
     /// </summary>
     public int? LockoutDays { get; set; }
 }
@@ -476,3 +486,4 @@ public class UpdateUserRequest
 }
 
 #endregion
+

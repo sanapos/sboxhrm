@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -25,6 +27,7 @@ public class PayrollAnalyticsController(
     // GET /api/reports/payroll/cost-by-department?year=&month=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("cost-by-department")]
+    [RequireModulePermission("PayrollReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetCostByDepartment(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -107,9 +110,7 @@ public class PayrollAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"Lương {m:D2}-{y}",
                     new[] { "Phòng ban", "Số NV", "Lương CB", "OT+Holiday+Night", "Thưởng", "Phụ cấp", "Khấu trừ", "BH", "Thuế", "Gross", "Net", "% Gross" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = i.Department;
@@ -127,7 +128,7 @@ public class PayrollAnalyticsController(
                             row++;
                         }
                     },
-                    $"payroll-cost-{y}-{m:D2}.xlsx");
+                    $"payroll-cost-{y}-{m:D2}.xlsx", user: User);
             }
 
             return Ok(AppResponse<PayrollCostReportDto>.Success(report));
@@ -144,6 +145,7 @@ public class PayrollAnalyticsController(
     // GET /api/reports/payroll/ot-cost-ratio?year=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("ot-cost-ratio")]
+    [RequireModulePermission("PayrollReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetOtCostRatio(
         [FromQuery] int? year = null,
         [FromQuery] string? department = null,
@@ -199,9 +201,7 @@ public class PayrollAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"OT ratio {y}",
                     new[] { "Tháng", "Lương CB", "OT Pay", "OT Units", "Tỷ lệ %" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var m in months)
                         {
                             ws.Cell(row, 1).Value = $"{m.Month:D2}/{y}";
@@ -212,7 +212,7 @@ public class PayrollAnalyticsController(
                             row++;
                         }
                     },
-                    $"ot-cost-ratio-{y}.xlsx");
+                    $"ot-cost-ratio-{y}.xlsx", user: User);
             }
 
             return Ok(AppResponse<OtCostReportDto>.Success(report));
@@ -229,6 +229,7 @@ public class PayrollAnalyticsController(
     // GET /api/reports/payroll/bonus-allowance?year=&month=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("bonus-allowance")]
+    [RequireModulePermission("PayrollReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetBonusAllowance(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -285,9 +286,7 @@ public class PayrollAnalyticsController(
                 var label = month.HasValue ? $"{month:D2}-{y}" : $"{y}";
                 return ReportHelpers.ExcelFile($"Thưởng-phụ cấp {label}",
                     new[] { "Phòng ban", "Số NV", "Tổng thưởng", "Tổng phụ cấp", "Khấu trừ", "TB thưởng", "TB phụ cấp" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byDept)
                         {
                             ws.Cell(row, 1).Value = i.Department;
@@ -300,7 +299,7 @@ public class PayrollAnalyticsController(
                             row++;
                         }
                     },
-                    $"bonus-allowance-{label}.xlsx");
+                    $"bonus-allowance-{label}.xlsx", user: User);
             }
 
             return Ok(AppResponse<BonusAllowanceReportDto>.Success(report));
@@ -317,6 +316,7 @@ public class PayrollAnalyticsController(
     // GET /api/reports/payroll/status-distribution?year=&month=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("status-distribution")]
+    [RequireModulePermission("PayrollReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetPayslipStatus(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -365,9 +365,7 @@ public class PayrollAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"Payslip status {m:D2}-{y}",
                     new[] { "Trạng thái", "Số bảng lương", "Gross tổng", "Net tổng", "Tỷ lệ %" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in items)
                         {
                             ws.Cell(row, 1).Value = i.Status;
@@ -378,7 +376,7 @@ public class PayrollAnalyticsController(
                             row++;
                         }
                     },
-                    $"payslip-status-{y}-{m:D2}.xlsx");
+                    $"payslip-status-{y}-{m:D2}.xlsx", user: User);
             }
 
             return Ok(AppResponse<PayslipStatusReportDto>.Success(report));
@@ -476,3 +474,4 @@ public class PayslipStatusItemDto
     public decimal TotalNet { get; set; }
     public double Percent { get; set; }
 }
+

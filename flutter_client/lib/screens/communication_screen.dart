@@ -9,9 +9,11 @@ import '../services/signalr_service.dart';
 import '../widgets/rich_editor.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class CommunicationScreen extends StatefulWidget {
   const CommunicationScreen({super.key});
@@ -50,8 +52,6 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   String _viewMode = 'grid'; // grid or list
 
   // Mobile UI state
-  bool _showMobileFilters = false;
-
   // Tab definitions: Dashboard + type categories
   final _tabs = <_TabDef>[
     const _TabDef('Dashboard', Icons.dashboard_rounded, null),
@@ -317,15 +317,29 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           Expanded(
             child: _tabController.index == 0
                 ? _buildDashboard()
-                : Column(
-                    children: [
-                      if (!Responsive.isMobile(context) || _showMobileFilters)
-                        _buildFilterBar(),
-                      Expanded(child: _buildContent()),
-                      if (_totalPages > 1 && !Responsive.isMobile(context))
-                        _buildPagination(),
-                    ],
-                  ),
+                : Responsive.isMobile(context)
+                    ? HrmResponsiveListLayout(
+                        headerSections: [_buildFilterBar()],
+                        desktopBody: Column(
+                          children: [
+                            Expanded(child: _buildContent()),
+                            if (_totalPages > 1) _buildPagination(),
+                          ],
+                        ),
+                        mobileSlivers: (_) => [
+                          SliverFillRemaining(
+                            hasScrollBody: true,
+                            child: _buildContent(),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          _buildFilterBar(),
+                          Expanded(child: _buildContent()),
+                          if (_totalPages > 1) _buildPagination(),
+                        ],
+                      ),
           ),
         ],
       ),
@@ -346,7 +360,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                  colors: [Color(0xFF1E3A5F), Color(0xFF0F2340)]),
+                  colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.campaign_rounded,
@@ -362,50 +376,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           ),
           const SizedBox(width: 8),
           if (Responsive.isMobile(context)) ...[
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: _showMobileFilters
-                      ? const Color(0xFF1E3A5F).withValues(alpha: 0.1)
-                      : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Stack(
-                  children: [
-                    Icon(
-                        _showMobileFilters
-                            ? Icons.filter_alt
-                            : Icons.filter_alt_outlined,
-                        size: 18,
-                        color: const Color(0xFF1E3A5F)),
-                    if (_searchTerm.isNotEmpty ||
-                        _filterPriority != null ||
-                        _filterStatus != null ||
-                        _sortBy != 'newest')
-                      Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                  color: Colors.orangeAccent,
-                                  shape: BoxShape.circle))),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
             if (Provider.of<PermissionProvider>(context, listen: false)
                 .canCreate('Communication'))
               IconButton(
                 onPressed: () => _openCreateDialog(),
                 icon: const Icon(Icons.add, size: 20),
                 style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -420,7 +397,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               icon: const Icon(Icons.add, size: 20),
               label: const Text('Tạo bài mới'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
+                backgroundColor: HrmPageChrome.primaryNavy,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -442,9 +419,9 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       child: TabBar(
         controller: _tabController,
         isScrollable: true,
-        indicatorColor: const Color(0xFF1E3A5F),
+        indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
-        labelColor: const Color(0xFF1E3A5F),
+        labelColor: HrmPageChrome.primaryNavy,
         unselectedLabelColor: const Color(0xFFA1A1AA),
         tabAlignment: TabAlignment.start,
         labelPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -497,7 +474,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Tổng bài viết',
                         totalPosts.toString(),
                         Icons.article,
-                        const Color(0xFF1E3A5F),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFE8F0FE),
                         onTap: () => _goToListWithStatus(null)),
                     const SizedBox(width: 8),
@@ -523,7 +500,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Lượt xem',
                         _formatNumber(totalViews),
                         Icons.visibility,
-                        const Color(0xFF1E3A5F),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFEFF6FF)),
                   ]),
                   const SizedBox(height: 8),
@@ -539,7 +516,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Bình luận',
                         _formatNumber(totalComments),
                         Icons.chat_bubble,
-                        const Color(0xFF0F2340),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFF5F3FF)),
                   ]),
                 ] else ...[
@@ -549,7 +526,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           'Tổng bài viết',
                           totalPosts.toString(),
                           Icons.article,
-                          const Color(0xFF1E3A5F),
+                          HrmPageChrome.primaryNavy,
                           const Color(0xFFE8F0FE),
                           onTap: () => _goToListWithStatus(null)),
                       const SizedBox(width: 12),
@@ -577,7 +554,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           'Tổng lượt xem',
                           _formatNumber(totalViews),
                           Icons.visibility,
-                          const Color(0xFF1E3A5F),
+                          HrmPageChrome.primaryNavy,
                           const Color(0xFFEFF6FF)),
                       const SizedBox(width: 12),
                       _statCard(
@@ -591,7 +568,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           'Bình luận',
                           _formatNumber(totalComments),
                           Icons.chat_bubble,
-                          const Color(0xFF0F2340),
+                          HrmPageChrome.primaryNavy,
                           const Color(0xFFF5F3FF)),
                     ],
                   ),
@@ -603,7 +580,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Tổng bài viết',
                         totalPosts.toString(),
                         Icons.article,
-                        const Color(0xFF1E3A5F),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFE8F0FE),
                         onTap: () => _goToListWithStatus(null)),
                     const SizedBox(width: 16),
@@ -627,7 +604,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Tổng lượt xem',
                         _formatNumber(totalViews),
                         Icons.visibility,
-                        const Color(0xFF1E3A5F),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFEFF6FF)),
                     const SizedBox(width: 16),
                     _statCard(
@@ -641,7 +618,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Bình luận',
                         _formatNumber(totalComments),
                         Icons.chat_bubble,
-                        const Color(0xFF0F2340),
+                        HrmPageChrome.primaryNavy,
                         const Color(0xFFF5F3FF)),
                   ],
                 ),
@@ -744,13 +721,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   Widget _buildTypeDistribution(List<Map<String, dynamic>> dist) {
     final typeConfigs = {
-      'News': ('Tin tức', Icons.newspaper, const Color(0xFF1E3A5F)),
+      'News': ('Tin tức', Icons.newspaper, HrmPageChrome.primaryNavy),
       'Announcement': ('Thông báo', Icons.campaign, const Color(0xFFF59E0B)),
-      'Event': ('Sự kiện', Icons.event, const Color(0xFF0F2340)),
-      'Policy': ('Chính sách', Icons.policy, const Color(0xFF0F2340)),
+      'Event': ('Sự kiện', Icons.event, HrmPageChrome.primaryNavy),
+      'Policy': ('Chính sách', Icons.policy, HrmPageChrome.primaryNavy),
       'Training': ('Đào tạo', Icons.school, const Color(0xFF22C55E)),
       'Culture': ('Văn hóa', Icons.diversity_3, const Color(0xFFEC4899)),
-      'Recruitment': ('Tuyển dụng', Icons.person_add, const Color(0xFF1E3A5F)),
+      'Recruitment': ('Tuyển dụng', Icons.person_add, HrmPageChrome.primaryNavy),
       'Regulation': ('Nội quy', Icons.gavel, const Color(0xFFEF4444)),
       'Other': ('Khác', Icons.article, const Color(0xFFA1A1AA)),
     };
@@ -767,7 +744,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         children: [
           const Row(
             children: [
-              Icon(Icons.pie_chart, size: 20, color: Color(0xFF1E3A5F)),
+              Icon(Icons.pie_chart, size: 20, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
               Text('Phân bổ theo loại',
                   style: TextStyle(
@@ -855,7 +832,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.access_time, size: 20, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.access_time, size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               const Text('Bài viết gần đây',
                   style: TextStyle(
@@ -868,7 +845,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   _tabController.animateTo(1);
                 },
                 child: const Text('Xem tất cả →',
-                    style: TextStyle(color: Color(0xFF1E3A5F), fontSize: 13)),
+                    style: TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 13)),
               ),
             ],
           ),
@@ -1161,7 +1138,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: sel ? const Color(0xFF1E3A5F) : Colors.transparent,
+          color: sel ? HrmPageChrome.primaryNavy : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon,
@@ -1174,7 +1151,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF1E3A5F)));
+          child: CircularProgressIndicator(color: HrmPageChrome.primaryNavy));
     }
     if (_errorMessage != null) {
       return Center(
@@ -1221,7 +1198,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               icon: const Icon(Icons.add),
               label: const Text('Tạo bài mới'),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+                  backgroundColor: HrmPageChrome.primaryNavy),
             ),
           ],
         ),
@@ -1451,11 +1428,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           CircleAvatar(
                             radius: 10,
                             backgroundColor:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             child: Text(c.authorName![0].toUpperCase(),
                                 style: const TextStyle(
                                     fontSize: 9,
-                                    color: Color(0xFF1E3A5F),
+                                    color: HrmPageChrome.primaryNavy,
                                     fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 6),
@@ -1653,11 +1630,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           CircleAvatar(
                             radius: 12,
                             backgroundColor:
-                                const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             child: Text(c.authorName![0].toUpperCase(),
                                 style: const TextStyle(
                                     fontSize: 10,
-                                    color: Color(0xFF1E3A5F),
+                                    color: HrmPageChrome.primaryNavy,
                                     fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 8),
@@ -1860,13 +1837,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       };
 
   static Color _typeColor(CommunicationType t) => switch (t) {
-        CommunicationType.news => const Color(0xFF1E3A5F),
+        CommunicationType.news => HrmPageChrome.primaryNavy,
         CommunicationType.announcement => const Color(0xFFF59E0B),
-        CommunicationType.event => const Color(0xFF0F2340),
-        CommunicationType.policy => const Color(0xFF0F2340),
+        CommunicationType.event => HrmPageChrome.primaryNavy,
+        CommunicationType.policy => HrmPageChrome.primaryNavy,
         CommunicationType.training => const Color(0xFF22C55E),
         CommunicationType.culture => const Color(0xFFEC4899),
-        CommunicationType.recruitment => const Color(0xFF1E3A5F),
+        CommunicationType.recruitment => HrmPageChrome.primaryNavy,
         CommunicationType.regulation => const Color(0xFFEF4444),
         CommunicationType.other => const Color(0xFFA1A1AA),
       };
@@ -2081,7 +2058,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                         foregroundColor: const Color(0xFF52525B)),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.article, size: 20, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.article, size: 20, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   const Expanded(
                       child: Text('Chi tiết bài viết',
@@ -2094,7 +2071,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     icon: const Icon(Icons.edit_outlined, size: 18),
                     tooltip: 'Chỉnh sửa',
                     style: IconButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F)),
+                        foregroundColor: HrmPageChrome.primaryNavy),
                   ),
                   if (c.status != CommunicationStatus.published)
                     IconButton(
@@ -2237,12 +2214,12 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           if (c.authorName != null) ...[
                             CircleAvatar(
                               radius: 14,
-                              backgroundColor: const Color(0xFF1E3A5F)
+                              backgroundColor: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.1),
                               child: Text(c.authorName![0].toUpperCase(),
                                   style: const TextStyle(
                                       fontSize: 11,
-                                      color: Color(0xFF1E3A5F),
+                                      color: HrmPageChrome.primaryNavy,
                                       fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 8),
@@ -2278,7 +2255,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Icon(Icons.summarize,
-                                  size: 16, color: Color(0xFF1E3A5F)),
+                                  size: 16, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 8),
                               Expanded(
                                   child: Text(c.summary!,
@@ -2317,7 +2294,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                     child: Text('#${t.trim()}',
                                         style: const TextStyle(
                                             fontSize: 11,
-                                            color: Color(0xFF1E3A5F))),
+                                            color: HrmPageChrome.primaryNavy)),
                                   ))
                               .toList(),
                         ),
@@ -2443,13 +2420,13 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? const Color(0xFF1E3A5F)
+                                    ? HrmPageChrome.primaryNavy
                                         .withValues(alpha: 0.1)
                                     : const Color(0xFFFAFAFA),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                     color: isActive
-                                        ? const Color(0xFF1E3A5F)
+                                        ? HrmPageChrome.primaryNavy
                                         : const Color(0xFFE4E4E7)),
                               ),
                               child: Row(
@@ -2465,7 +2442,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                                 ? FontWeight.w600
                                                 : FontWeight.normal,
                                             color: isActive
-                                                ? const Color(0xFF1E3A5F)
+                                                ? HrmPageChrome.primaryNavy
                                                 : const Color(0xFF71717A))),
                                   ]),
                             ),
@@ -2481,7 +2458,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       Row(
                         children: [
                           const Icon(Icons.chat_bubble_outline,
-                              size: 18, color: Color(0xFF1E3A5F)),
+                              size: 18, color: HrmPageChrome.primaryNavy),
                           const SizedBox(width: 8),
                           Text('Bình luận (${_comments.length})',
                               style: const TextStyle(
@@ -2506,11 +2483,11 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           child: Row(
                             children: [
                               const Icon(Icons.reply,
-                                  size: 14, color: Color(0xFF1E3A5F)),
+                                  size: 14, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 8),
                               Text('Trả lời $_replyToName',
                                   style: const TextStyle(
-                                      fontSize: 12, color: Color(0xFF1E3A5F))),
+                                      fontSize: 12, color: HrmPageChrome.primaryNavy)),
                               const Spacer(),
                               InkWell(
                                 onTap: () => setState(() {
@@ -2556,7 +2533,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           const SizedBox(width: 8),
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5F),
+                              color: HrmPageChrome.primaryNavy,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: IconButton(
@@ -2618,12 +2595,12 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
             children: [
               CircleAvatar(
                 radius: depth > 0 ? 12 : 14,
-                backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 child: Text(
                   (cm.userName ?? '?')[0].toUpperCase(),
                   style: TextStyle(
                       fontSize: depth > 0 ? 9 : 11,
-                      color: const Color(0xFF1E3A5F),
+                      color: HrmPageChrome.primaryNavy,
                       fontWeight: FontWeight.bold),
                 ),
               ),
@@ -2675,7 +2652,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             child: Text('Trả lời',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF1E3A5F),
+                                    color: HrmPageChrome.primaryNavy,
                                     fontWeight: FontWeight.w500)),
                           ),
                         ),
@@ -3014,7 +2991,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               ),
               const SizedBox(height: 16),
               const Row(children: [
-                Icon(Icons.edit_document, size: 18, color: Color(0xFF1E3A5F)),
+                Icon(Icons.edit_document, size: 18, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text('Nội dung bài viết *',
                     style: TextStyle(
@@ -3062,7 +3039,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   children: [
                     Row(children: [
                       const Icon(Icons.image_outlined,
-                          color: Color(0xFF1E3A5F), size: 20),
+                          color: HrmPageChrome.primaryNavy, size: 20),
                       const SizedBox(width: 8),
                       const Text('Hình ảnh',
                           style: TextStyle(
@@ -3087,8 +3064,8 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               ? 'Đổi ảnh bìa'
                               : 'Chọn ảnh bìa'),
                           style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1E3A5F),
-                              side: const BorderSide(color: Color(0xFF1E3A5F)),
+                              foregroundColor: HrmPageChrome.primaryNavy,
+                              side: const BorderSide(color: HrmPageChrome.primaryNavy),
                               padding:
                                   const EdgeInsets.symmetric(vertical: 10)),
                         ),
@@ -3257,7 +3234,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                 value: _isPinned,
                 onChanged: (v) => setState(() => _isPinned = v),
                 contentPadding: EdgeInsets.zero,
-                activeThumbColor: const Color(0xFF1E3A5F),
+                activeThumbColor: HrmPageChrome.primaryNavy,
               ),
               if (!_isEditing)
                 SwitchListTile(
@@ -3268,7 +3245,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   value: _publishImmediately,
                   onChanged: (v) => setState(() => _publishImmediately = v),
                   contentPadding: EdgeInsets.zero,
-                  activeThumbColor: const Color(0xFF1E3A5F),
+                  activeThumbColor: HrmPageChrome.primaryNavy,
                 ),
               const Divider(height: 32),
               // AI Section - only show when at least one provider is enabled
@@ -3277,24 +3254,24 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(colors: [
-                      const Color(0xFF1E3A5F).withValues(alpha: 0.05),
-                      const Color(0xFF0F2340).withValues(alpha: 0.05)
+                      HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
+                      HrmPageChrome.primaryNavy.withValues(alpha: 0.05)
                     ]),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                        color: const Color(0xFF1E3A5F).withValues(alpha: 0.2)),
+                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Row(children: [
                         Icon(Icons.auto_awesome,
-                            color: Color(0xFF1E3A5F), size: 20),
+                            color: HrmPageChrome.primaryNavy, size: 20),
                         SizedBox(width: 8),
                         Text('Viết bài với AI',
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E3A5F))),
+                                color: HrmPageChrome.primaryNavy)),
                       ]),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -3388,7 +3365,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               ? 'Đang tạo...'
                               : 'Tạo nội dung AI'),
                           style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E3A5F),
+                              backgroundColor: HrmPageChrome.primaryNavy,
                               padding:
                                   const EdgeInsets.symmetric(vertical: 12)),
                         ),
@@ -3445,7 +3422,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               ? 'Đang lưu...'
               : (_isEditing ? 'Cập nhật' : 'Tạo bài')),
           style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
+              backgroundColor: HrmPageChrome.primaryNavy,
               padding:
                   const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
         ),
@@ -3496,7 +3473,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                          colors: [Color(0xFF1E3A5F), Color(0xFF0F2340)]),
+                          colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(_isEditing ? Icons.edit : Icons.add,

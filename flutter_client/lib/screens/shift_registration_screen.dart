@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class ShiftRegistrationScreen extends StatefulWidget {
   const ShiftRegistrationScreen({super.key});
@@ -384,7 +385,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
 
           // ── TABLE 2: NV cố định → chọn ca theo thứ ──
           _buildSectionTitle(Icons.people, 'Theo nhân viên',
-              'Nhân viên cố định → chọn ca theo thứ', const Color(0xFF0F2340)),
+              'Nhân viên cố định → chọn ca theo thứ', HrmPageChrome.primaryNavy),
           const SizedBox(height: 8),
           _buildEmployeeTable(dayNames, days, todayStr),
         ],
@@ -493,7 +494,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             ...employees.map((ws) => _chip(
                 ws['employeeName'] ?? ws['employeeCode'] ?? '?',
-                const Color(0xFF1E3A5F))),
+                HrmPageChrome.primaryNavy)),
             ...pending.map((r) => _chip(
                 r['employeeName'] ?? '?', const Color(0xFFF59E0B),
                 isPending: true)),
@@ -532,7 +533,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             },
             children: [
               TableRow(
-                decoration: const BoxDecoration(color: Color(0xFF0F2340)),
+                decoration: const BoxDecoration(color: HrmPageChrome.primaryNavy),
                 children: [
                   _headerCell('Nhân viên'),
                   for (int i = 0; i < 7; i++)
@@ -540,7 +541,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         dayNames[i],
                         days[i],
                         DateFormat('yyyy-MM-dd').format(days[i]) == todayStr,
-                        const Color(0xFF0F2340)),
+                        HrmPageChrome.primaryNavy),
                 ],
               ),
               for (final emp in pageEmps) _employeeRow(emp, days, todayStr),
@@ -638,7 +639,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             ...shifts.map((ws) {
               final sName = ws['shiftName'] ?? '';
-              return _chip(sName.toString(), const Color(0xFF0F2340));
+              return _chip(sName.toString(), HrmPageChrome.primaryNavy);
             }),
             if (shifts.isEmpty)
               Center(
@@ -856,7 +857,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 icon: const Icon(Icons.work_history, size: 18),
                 label: const Text('Thêm ca'),
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F2340)),
+                    backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ]),
           ),
@@ -880,9 +881,9 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor:
-                                const Color(0xFF0F2340).withValues(alpha: 0.1),
+                                HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             child: const Icon(Icons.work,
-                                color: Color(0xFF0F2340), size: 18),
+                                color: HrmPageChrome.primaryNavy, size: 18),
                           ),
                           title: Text(ws['shiftName'] ?? 'N/A',
                               style:
@@ -925,10 +926,10 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           side: BorderSide(color: Colors.grey.shade200)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+          backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
           child: Text((ws['employeeName'] ?? '?')[0].toUpperCase(),
               style: const TextStyle(
-                  color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold)),
+                  color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold)),
         ),
         title: Text(ws['employeeName'] ?? 'N/A',
             style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -965,7 +966,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               icon: const Icon(Icons.close, color: Colors.red, size: 20),
               onPressed: () => _rejectRegistration(reg['id']?.toString())),
           IconButton(
-              icon: const Icon(Icons.check, color: Color(0xFF1E3A5F), size: 20),
+              icon: const Icon(Icons.check, color: HrmPageChrome.primaryNavy, size: 20),
               onPressed: () => _approveRegistration(reg['id']?.toString())),
         ]),
       ),
@@ -1126,9 +1127,9 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                       leading: CircleAvatar(
                         backgroundColor: done
                             ? Colors.grey[200]
-                            : const Color(0xFF0F2340).withValues(alpha: 0.1),
+                            : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                         child: Icon(Icons.work,
-                            color: done ? Colors.grey : const Color(0xFF0F2340),
+                            color: done ? Colors.grey : HrmPageChrome.primaryNavy,
                             size: 18),
                       ),
                       title: Text(sName.toString(),
@@ -1144,7 +1145,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                   style: TextStyle(fontSize: 11)),
                               backgroundColor: Color(0xFFE5E7EB))
                           : const Icon(Icons.add_circle_outline,
-                              color: Color(0xFF0F2340)),
+                              color: HrmPageChrome.primaryNavy),
                       onTap: done
                           ? null
                           : () async {
@@ -1229,14 +1230,14 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                   emp['employeeCode'] ?? emp['code'] ?? '';
                               return ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: const Color(0xFF0F2340)
+                                  backgroundColor: HrmPageChrome.primaryNavy
                                       .withValues(alpha: 0.1),
                                   child: Text(
                                       name.toString().isNotEmpty
                                           ? name.toString()[0].toUpperCase()
                                           : '?',
                                       style: const TextStyle(
-                                          color: Color(0xFF0F2340),
+                                          color: HrmPageChrome.primaryNavy,
                                           fontWeight: FontWeight.bold)),
                                 ),
                                 title: Text(name.toString()),
@@ -1469,7 +1470,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                 }),
                             IconButton(
                                 icon: const Icon(Icons.check,
-                                    color: Color(0xFF1E3A5F), size: 20),
+                                    color: HrmPageChrome.primaryNavy, size: 20),
                                 onPressed: () {
                                   Navigator.pop(ctx);
                                   _approveRegistration(r['id']?.toString());

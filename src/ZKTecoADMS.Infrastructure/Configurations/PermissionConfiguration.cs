@@ -72,7 +72,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             // ══════════ MODULES BỔ SUNG (đồng bộ DbInitializer) ══════════
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111043"), Module = "Home", ModuleDisplayName = "Trang chủ", Description = "Màn hình tổng quan menu", DisplayOrder = 1 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111044"), Module = "SalarySettings", ModuleDisplayName = "Thiết lập lương", Description = "Cấu hình bảng lương", DisplayOrder = 8 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111045"), Module = "AttendanceSummary", ModuleDisplayName = "Tổng hợp chấm công", Description = "Bảng tổng hợp chấm công", DisplayOrder = 11 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111045"), Module = "AttendanceSummary", ModuleDisplayName = "Tổng hợp chấm công thô", Description = "Bảng tổng hợp chấm công thô", DisplayOrder = 11 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111046"), Module = "AttendanceByShift", ModuleDisplayName = "Tổng hợp theo ca", Description = "Chấm công theo ca làm việc", DisplayOrder = 12 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111047"), Module = "AttendanceApproval", ModuleDisplayName = "Duyệt chấm công", Description = "Duyệt điều chỉnh chấm công", DisplayOrder = 13 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111048"), Module = "ScheduleApproval", ModuleDisplayName = "Duyệt lịch làm việc", Description = "Duyệt lịch làm việc đăng ký", DisplayOrder = 14 },
@@ -100,7 +100,17 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111070"), Module = "PenaltyReport", ModuleDisplayName = "Báo cáo phạt", Description = "Thống kê phiếu phạt, kỷ luật", DisplayOrder = 50 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111071"), Module = "AdvanceReport", ModuleDisplayName = "Báo cáo ứng lương", Description = "Thống kê ứng lương, tạm ứng", DisplayOrder = 51 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111072"), Module = "LeaveReport", ModuleDisplayName = "Báo cáo nghỉ phép", Description = "Thống kê nghỉ phép, ngày nghỉ", DisplayOrder = 52 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111073"), Module = "CashReport", ModuleDisplayName = "Báo cáo thu chi", Description = "Thống kê thu chi tiền mặt", DisplayOrder = 53 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111073"), Module = "CashReport", ModuleDisplayName = "Báo cáo thu chi", Description = "Thống kê thu chi tiền mặt", DisplayOrder = 53 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111074"), Module = "AssetReport", ModuleDisplayName = "Báo cáo tài sản", Description = "Danh mục, cấp phát, lịch sử chuyển giao", DisplayOrder = 55 },
+            // Widgets on Dashboard (granular permissions)
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111075"), Module = "DashboardAttendanceOverview", ModuleDisplayName = "Tổng quan chấm công", Description = "KPI chấm công, donut, lọc ngày trên Dashboard", DisplayOrder = 4 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111076"), Module = "DashboardHrInsights", ModuleDisplayName = "Chỉ số nhân sự & vận hành", Description = "Các chip chỉ số HR trên Dashboard", DisplayOrder = 5 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111077"), Module = "DashboardTodaySchedule", ModuleDisplayName = "Lịch làm việc hôm nay", Description = "Khối lịch ca hôm nay trên Dashboard", DisplayOrder = 6 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111078"), Module = "DashboardRealtimeAttendance", ModuleDisplayName = "Chấm công thời gian thực", Description = "Danh sách chấm công realtime", DisplayOrder = 7 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111079"), Module = "DashboardAbsent", ModuleDisplayName = "Nhân viên vắng mặt", Description = "Khối vắng mặt trên Dashboard", DisplayOrder = 8 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111080"), Module = "DashboardLateEarly", ModuleDisplayName = "Đi trễ / về sớm", Description = "Khối trễ sớm theo ca trên Dashboard", DisplayOrder = 9 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111081"), Module = "DashboardKpiPanel", ModuleDisplayName = "KPI (Dashboard)", Description = "Khối KPI trên Dashboard", DisplayOrder = 10 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111082"), Module = "DashboardInternalNews", ModuleDisplayName = "Bản tin nội bộ", Description = "Tin truyền thông trên Dashboard", DisplayOrder = 11 }
         );
     }
 }

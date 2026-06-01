@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace ZKTecoADMS.Api.Controllers.Reports;
 
@@ -65,32 +66,37 @@ internal static class ReportHelpers
     // ── Excel ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Build a single-sheet Excel file and return it as an ActionResult.
-    /// Writer callback receives the sheet and populates rows; headers auto-bolded on row 1 if supplied.
+    /// Build a single-sheet Excel file with standard title / store / export metadata.
+    /// <paramref name="writeRows"/> receives the worksheet and the first data row index.
     /// </summary>
     public static FileContentResult ExcelFile(
         string sheetName,
         IEnumerable<string> headers,
-        Action<IXLWorksheet> writeRows,
-        string fileName)
+        Action<IXLWorksheet, int> writeRows,
+        string fileName,
+        ClaimsPrincipal? user = null,
+        string? reportTitle = null,
+        string? periodLabel = null,
+        string? filterLabel = null,
+        IReadOnlyList<string>? summaryLines = null,
+        int? dataRowCount = null)
     {
+        var hdrs = headers.ToList();
+        var meta = ReportExcelMeta.FromUser(
+            user,
+            reportTitle ?? sheetName,
+            periodLabel,
+            filterLabel,
+            summaryLines,
+            dataRowCount);
+
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(Trim(sheetName, 31));
 
-        var hdrs = headers.ToList();
-        for (int i = 0; i < hdrs.Count; i++)
-        {
-            ws.Cell(1, i + 1).Value = hdrs[i];
-        }
-        var headerRange = ws.Range(1, 1, 1, Math.Max(1, hdrs.Count));
-        headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
-        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-        writeRows(ws);
-
-        ws.Columns().AdjustToContents();
-        ws.SheetView.FreezeRows(1);
+        var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, hdrs.Count);
+        ReportExcelLayout.ApplyHeaderRow(ws, headerRow, hdrs);
+        writeRows(ws, dataStartRow);
+        ReportExcelLayout.FinishSheet(ws, headerRow);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);

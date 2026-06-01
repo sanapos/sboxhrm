@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 /// Shared helper widgets used across all System Admin tabs
 class AdminHelpers {
-  static const Color primary = Color(0xFF1E3A5F);
-  static const Color primaryDark = Color(0xFF0F2340);
+  static const Color primary = HrmPageChrome.primaryNavy;
+  static const Color primaryDark = HrmPageChrome.primaryNavy;
   static const Color success = Color(0xFF059669);
   static const Color danger = Color(0xFFDC2626);
   static const Color warning = Color(0xFFEA580C);
@@ -176,7 +177,7 @@ class AdminHelpers {
           TextButton(
               onPressed: () => Navigator.pop(ctx, null),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
               child: const Text('OK')),
         ],
@@ -195,7 +196,7 @@ class AdminHelpers {
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Xác nhận'),

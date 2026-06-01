@@ -14,5 +14,9 @@ public record AttendanceDto(
     VerifyModes VerifyMode,
     AttendanceStates AttendanceState,
     string? WorkCode,
-    string? Note = null
+    string? Note = null,
+    Guid? MobileAttendanceRecordId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? LocationName = null
 );

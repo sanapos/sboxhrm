@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -25,6 +27,7 @@ public class PerformanceAnalyticsController(
     // GET /api/reports/performance/kpi-summary?periodId=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("kpi-summary")]
+    [RequireModulePermission("KPI", ModulePermissionAction.View)]
     public async Task<IActionResult> GetKpiSummary(
         [FromQuery] Guid? periodId = null,
         [FromQuery] int? year = null,
@@ -125,9 +128,7 @@ public class PerformanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"KPI {periodInfo?.Name ?? "period"}",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Số KPI", "TB hoàn thành %", "Tổng điểm" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -139,7 +140,7 @@ public class PerformanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"kpi-summary-{periodInfo?.Name ?? "period"}.xlsx");
+                    $"kpi-summary-{periodInfo?.Name ?? "period"}.xlsx", user: User);
             }
 
             return Ok(AppResponse<KpiSummaryReportDto>.Success(report));
@@ -156,6 +157,7 @@ public class PerformanceAnalyticsController(
     // GET /api/reports/performance/production-output?from=&to=&department=&productId=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("production-output")]
+    [RequireModulePermission("KPI", ModulePermissionAction.View)]
     public async Task<IActionResult> GetProductionOutput(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -230,9 +232,7 @@ public class PerformanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Sản lượng",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Số ngày", "Tổng SL", "TB/ngày", "Tổng tiền" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -245,7 +245,7 @@ public class PerformanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"production-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx");
+                    $"production-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<ProductionOutputReportDto>.Success(report));
@@ -262,6 +262,7 @@ public class PerformanceAnalyticsController(
     // GET /api/reports/performance/asset-assignment?status=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("asset-assignment")]
+    [RequireModulePermission("KPI", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAssetAssignment(
         [FromQuery] AssetStatus? status = null,
         [FromQuery] string? department = null,
@@ -337,9 +338,7 @@ public class PerformanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Tài sản",
                     new[] { "Mã TS", "Tên", "Hãng", "Serial", "Trạng thái", "Mã NV", "Họ tên", "Phòng ban", "Ngày cấp", "Giá trị" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in assigned)
                         {
                             ws.Cell(row, 1).Value = i.AssetCode;
@@ -355,7 +354,7 @@ public class PerformanceAnalyticsController(
                             row++;
                         }
                     },
-                    "asset-assignment.xlsx");
+                    "asset-assignment.xlsx", user: User);
             }
 
             return Ok(AppResponse<AssetAssignmentReportDto>.Success(report));
@@ -473,3 +472,4 @@ public class AssetAssignmentItemDto
     public DateTime? AssignedDate { get; set; }
     public decimal CurrentValue { get; set; }
 }
+

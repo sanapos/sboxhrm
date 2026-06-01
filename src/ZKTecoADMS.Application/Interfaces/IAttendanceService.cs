@@ -8,4 +8,10 @@ public interface IAttendanceService
     Task<bool> LogExistsAsync(Guid deviceId, string pin, DateTime attendanceTime);
     Task CreateAttendancesAsync(IEnumerable<Attendance> attendances);
     Task<bool> UpdateShiftAttendancesAsync(IEnumerable<Attendance> attendances, Device device);
+
+    /// <summary>
+    /// Re-evaluate late/early/day-completion penalties after an approved attendance correction.
+    /// </summary>
+    Task RecalculatePenaltiesForEmployeeDateAsync(
+        Guid storeId, Guid employeeId, DateTime logicalWorkDate, CancellationToken cancellationToken = default);
 }

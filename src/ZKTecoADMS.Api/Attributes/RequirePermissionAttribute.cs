@@ -73,18 +73,28 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
 
         bool hasRolePermission = rolePermission != null && CheckAction(rolePermission.CanView, rolePermission.CanCreate, rolePermission.CanEdit, rolePermission.CanDelete, rolePermission.CanExport, rolePermission.CanApprove);
 
-        // 2. Kiểm tra quyền theo Phòng ban (DepartmentPermission) - luôn kiểm tra, dùng OR logic với RolePermission
+        // 2. Kiểm tra quyền theo Phòng ban (DepartmentPermission) - OR với RolePermission.
+        // Phải dùng biểu thức EF-translatable (không gọi CheckAction trong LINQ).
         bool hasDeptPermission = false;
         if (userId.HasValue)
         {
-            hasDeptPermission = await dbContext.DepartmentPermissions
-                .Include(dp => dp.Permission)
-                .AnyAsync(dp =>
+            var deptBase = dbContext.DepartmentPermissions
+                .Where(dp =>
                     dp.UserId == userId.Value &&
                     dp.Permission!.Module == Module &&
                     (dp.StoreId == storeId || dp.StoreId == null) &&
-                    dp.IsActive &&
-                    CheckAction(dp.CanView, dp.CanCreate, dp.CanEdit, dp.CanDelete, dp.CanExport, dp.CanApprove));
+                    dp.IsActive);
+
+            hasDeptPermission = Action switch
+            {
+                PermissionAction.View => await deptBase.AnyAsync(dp => dp.CanView),
+                PermissionAction.Create => await deptBase.AnyAsync(dp => dp.CanCreate),
+                PermissionAction.Edit => await deptBase.AnyAsync(dp => dp.CanEdit),
+                PermissionAction.Delete => await deptBase.AnyAsync(dp => dp.CanDelete),
+                PermissionAction.Export => await deptBase.AnyAsync(dp => dp.CanExport),
+                PermissionAction.Approve => await deptBase.AnyAsync(dp => dp.CanApprove),
+                _ => false
+            };
         }
 
         if (!hasRolePermission && !hasDeptPermission)

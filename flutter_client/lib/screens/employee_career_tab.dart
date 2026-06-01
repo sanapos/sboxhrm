@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/employee.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // QUẢN LÝ QUÁ TRÌNH CÔNG TÁC CỦA NHÂN VIÊN
@@ -448,7 +449,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
@@ -479,7 +480,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
@@ -514,14 +515,14 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     required bool isMobile,
     required Future<void> Function() onSave,
   }) {
-    iconColor ??= const Color(0xFF1E3A5F);
+    iconColor ??= HrmPageChrome.primaryNavy;
     final actions = Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
             onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
         const SizedBox(width: 12),
-        ElevatedButton(
+        FilledButton(
           onPressed: onSave,
           child: const Text('Lưu'),
         ),
@@ -574,7 +575,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -616,7 +617,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         onPressed: _showAddPositionDialog,
         icon: const Icon(Icons.add),
         label: const Text('Thêm chức vụ'),
-        backgroundColor: const Color(0xFF1E3A5F),
+        backgroundColor: HrmPageChrome.primaryNavy,
         foregroundColor: Colors.white,
       ),
       body: _loadingAssignments
@@ -686,13 +687,13 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text('Chính',
                             style: TextStyle(
                                 fontSize: 10,
-                                color: Color(0xFF1E3A5F),
+                                color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.w600)),
                       ),
                     if (isActive) ...[

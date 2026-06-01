@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../models/cash_transaction.dart';
-import '../utils/file_saver.dart' as file_saver;
-import '../widgets/notification_overlay.dart';
-import 'package:excel/excel.dart' as excel_lib;
+import '../utils/report_screen_helpers.dart';
 
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
@@ -26,6 +24,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
+  String _datePreset = 'this_month';
   int? _typeFilter;
   bool _loading = false;
   List<Map<String, dynamic>> _items = [];
@@ -114,16 +113,32 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   Future<void> _exportExcel() async {
     final data = _filtered;
-    if (data.isEmpty) {
-      NotificationOverlayManager()
-          .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
-      return;
+    final rows = <List<dynamic>>[];
+    for (int i = 0; i < data.length; i++) {
+      final t = data[i];
+      final date = t['transactionDate'] != null
+          ? DateTime.tryParse(t['transactionDate'].toString())
+          : null;
+      final typeVal = _safeInt(t['type']);
+      rows.add([
+        i + 1,
+        t['transactionCode']?.toString() ?? '',
+        t['categoryName']?.toString() ?? '',
+        typeVal == 1 ? 'Thu' : 'Chi',
+        date != null ? _fmtDate.format(date) : '',
+        _safeDouble(t['amount']),
+        t['description']?.toString() ?? '',
+        _paymentLabel(t['paymentMethod']),
+        _statusLabel(t['status']),
+        t['createdByUserName']?.toString() ?? '',
+      ]);
     }
-    try {
-      final wb = excel_lib.Excel.createExcel();
-      final sh = wb['Báo cáo thu chi'];
-      wb.delete('Sheet1');
-      sh.appendRow([
+    await ClientExcelExport.export(
+      context: context,
+      title: 'Báo cáo thu chi',
+      sheetName: 'Bao cao thu chi',
+      filePrefix: 'BaoCaoThuChi',
+      headers: const [
         'STT',
         'Mã GD',
         'Danh mục',
@@ -133,44 +148,15 @@ class _CashReportScreenState extends State<CashReportScreen> {
         'Mô tả',
         'Phương thức',
         'Trạng thái',
-        'Người tạo'
-      ].map((h) => excel_lib.TextCellValue(h)).toList());
-      for (int i = 0; i < data.length; i++) {
-        final t = data[i];
-        final date = t['transactionDate'] != null
-            ? DateTime.tryParse(t['transactionDate'].toString())
-            : null;
-        final typeVal = _safeInt(t['type']);
-        sh.appendRow([
-          excel_lib.IntCellValue(i + 1),
-          excel_lib.TextCellValue(t['transactionCode']?.toString() ?? ''),
-          excel_lib.TextCellValue(t['categoryName']?.toString() ?? ''),
-          excel_lib.TextCellValue(typeVal == 1 ? 'Thu' : 'Chi'),
-          excel_lib.TextCellValue(date != null ? _fmtDate.format(date) : ''),
-          excel_lib.DoubleCellValue(_safeDouble(t['amount'])),
-          excel_lib.TextCellValue(t['description']?.toString() ?? ''),
-          excel_lib.TextCellValue(_paymentLabel(t['paymentMethod'])),
-          excel_lib.TextCellValue(_statusLabel(t['status'])),
-          excel_lib.TextCellValue(t['createdByUserName']?.toString() ?? ''),
-        ]);
-      }
-      final bytes = wb.encode();
-      if (bytes != null) {
-        final fn =
-            'BaoCaoThuChi_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
-        await file_saver.saveFileBytes(bytes, fn,
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        if (mounted) {
-          NotificationOverlayManager()
-              .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
-      }
-    }
+        'Người tạo',
+      ],
+      rows: rows,
+      periodLabel: '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}',
+      summaryLines: [
+        'Tổng thu: ${_fmtMoney.format(_totalIncome)} đ',
+        'Tổng chi: ${_fmtMoney.format(_totalExpense)} đ',
+      ],
+    );
   }
 
   String _paymentLabel(dynamic v) {
@@ -196,24 +182,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
     return val == 1 ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
   }
 
-  Future<void> _pickFrom() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _from,
-        firstDate: DateTime(2020),
-        lastDate: _to);
-    if (d != null) setState(() => _from = d);
-  }
-
-  Future<void> _pickTo() async {
-    final d = await showDatePicker(
-        context: context,
-        initialDate: _to,
-        firstDate: _from,
-        lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (d != null) setState(() => _to = d);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,12 +202,25 @@ class _CashReportScreenState extends State<CashReportScreen> {
         ],
       ),
       body: Column(children: [
-        _buildFilters(),
-        _buildSummary(),
         Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildTable()),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildFilters(),
+                _buildSummary(),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(48),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _buildTable(),
+              ],
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -249,18 +230,23 @@ class _CashReportScreenState extends State<CashReportScreen> {
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(children: [
-        Row(children: [
-          Expanded(child: _dateBtn('Từ ngày', _from, _pickFrom)),
-          const SizedBox(width: 8),
-          Expanded(child: _dateBtn('Đến ngày', _to, _pickTo)),
-        ]),
-        const SizedBox(height: 6),
+        ReportDateRangeFilterBar(
+          from: _from,
+          to: _to,
+          preset: _datePreset,
+          onChanged: (f, t, p) => setState(() {
+            _from = f;
+            _to = t;
+            _datePreset = p;
+          }),
+        ),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(child: _typeDrop()),
           const SizedBox(width: 8),
           SizedBox(
             height: 40,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               icon: const Icon(Icons.search, size: 16),
               label: const Text('Tìm', style: TextStyle(fontSize: 13)),
               style: ElevatedButton.styleFrom(
@@ -360,39 +346,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _dateBtn(String label, DateTime val, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          const Icon(Icons.calendar_today_outlined,
-              size: 14, color: Color(0xFF9CA3AF)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF9CA3AF), height: 1.1)),
-                Text(_fmtDate.format(val),
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2)),
-              ])),
-        ]),
-      ),
     );
   }
 
@@ -535,10 +488,9 @@ class _CashReportScreenState extends State<CashReportScreen> {
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 1),
-      child: SingleChildScrollView(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // ═══ STICKY: Danh mục ═══
             Container(
               width: _cStickyW,
@@ -646,7 +598,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

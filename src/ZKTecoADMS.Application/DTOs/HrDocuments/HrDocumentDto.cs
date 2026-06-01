@@ -39,7 +39,11 @@ public class HrDocumentDto
 /// </summary>
 public class CreateHrDocumentDto
 {
+    /// <summary>ID ApplicationUser — dùng khi đã biết tài khoản.</summary>
     public Guid EmployeeUserId { get; set; }
+
+    /// <summary>ID Employee — ưu tiên tra cứu ApplicationUserId từ hồ sơ nhân sự.</summary>
+    public Guid? EmployeeId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public HrDocumentType DocumentType { get; set; }

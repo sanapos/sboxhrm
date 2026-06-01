@@ -214,7 +214,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           ]),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 12, children: [
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: _isBackingUp ? null : _performFullBackup,
               icon: _isBackingUp
                   ? const SizedBox(
@@ -507,7 +507,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
               setState(() => _isBackingUp = true);
@@ -677,7 +677,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hủy')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (confirmCtrl.text != 'CONFIRM_DELETE_ALL') {
                 AdminHelpers.showError(

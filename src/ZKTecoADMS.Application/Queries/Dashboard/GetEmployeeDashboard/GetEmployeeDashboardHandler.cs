@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Dashboard;
-using ZKTecoADMS.Application.Extensions;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -10,6 +9,16 @@ using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Queries.Dashboard.GetEmployeeDashboard;
 
+/// <summary>
+/// Trả dashboard cho 1 nhân viên: ca hôm nay, ca tiếp theo, trạng thái chấm
+/// công hôm nay và thống kê chấm công cho period (week/month/year).
+///
+/// Quy ước thời gian (đồng nhất toàn hệ thống):
+///   • Attendance.AttendanceTime lưu UTC (EnableLegacyTimestampBehavior).
+///   • Shift.StartTime/EndTime lưu local VN — không +/- offset khi so sánh.
+///   • Khi so sánh "today" hoặc cắt theo ngày — luôn dùng VN local
+///     (DateTime.UtcNow.AddHours(7)) thay vì DateTime.Now (phụ thuộc giờ server).
+/// </summary>
 public class GetEmployeeDashboardHandler(
     IRepository<Shift> shiftRepository,
     IRepository<Attendance> attendanceRepository,
@@ -17,135 +26,102 @@ public class GetEmployeeDashboardHandler(
     IShiftService shiftService
 ) : IQueryHandler<GetEmployeeDashboardQuery, AppResponse<EmployeeDashboardDto>>
 {
+    private const int VnOffsetHours = 7;
+
     public async Task<AppResponse<EmployeeDashboardDto>> Handle(
         GetEmployeeDashboardQuery request,
         CancellationToken cancellationToken)
     {
-        var user = await userManager.Users.Where(u => u.Id == request.UserId).Include(u => u.Employee).FirstOrDefaultAsync(cancellationToken);
+        var user = await userManager.Users
+            .Where(u => u.Id == request.UserId)
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(cancellationToken);
         if (user == null)
         {
             return AppResponse<EmployeeDashboardDto>.Fail("User not found");
         }
-        var (todayShift, nextShift) = await shiftService.GetTodayShiftAndNextShiftAsync(request.UserId, cancellationToken);
 
-        var currentAttendance = new AttendanceInfoDto
-        {
-            CheckInTime = todayShift?.CheckInAttendance?.AttendanceTime ?? null,
-            CheckOutTime = todayShift?.CheckOutAttendance?.AttendanceTime ?? null,
-            Status = todayShift == null ? "no-shift" :
-                     todayShift.CheckInAttendanceId == null ? "not-started" :
-                     todayShift.CheckOutAttendanceId == null ? "checked-in" : "checked-out",
-        };
+        var (todayShift, nextShift) = await shiftService
+            .GetTodayShiftAndNextShiftAsync(request.UserId, cancellationToken);
+
+        var currentAttendance = await BuildCurrentAttendance(user, todayShift, cancellationToken);
+        var stats = await BuildAttendanceStats(user, request.Period, cancellationToken);
+
         var dashboardData = new EmployeeDashboardDto
         {
             TodayShift = todayShift.Adapt<ShiftInfoDto>(),
             NextShift = nextShift.Adapt<ShiftInfoDto>(),
             CurrentAttendance = currentAttendance,
-            AttendanceStats = await GetAttendanceStats(user, request.Period, cancellationToken)
+            AttendanceStats = stats
         };
 
         return AppResponse<EmployeeDashboardDto>.Success(dashboardData);
     }
 
-    private async Task<(ShiftInfoDto?, ShiftInfoDto?)> GetCurrentShiftAndNextShiftAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var today = DateTime.Now.Date;
-        var todayShifts = await shiftRepository.GetAllAsync(
-            s => s.EmployeeUserId == userId && 
-                s.Status == ShiftStatus.Approved &&
-                s.StartTime.Date == today,
-            cancellationToken: cancellationToken
-        );
-        var currentShift = todayShifts.FirstOrDefault(
-            s => s.StartTime <= DateTime.Now && 
-            s.EndTime >= DateTime.Now);
+    // ─────────────────────────────────────────────────────────────────────
+    // Current attendance — trạng thái chấm công của hôm nay (VN).
+    // ─────────────────────────────────────────────────────────────────────
 
-        var nextShift = await shiftRepository.GetSingleAsync(
-            s => s.EmployeeUserId == userId && 
-            s.Status == ShiftStatus.Approved && 
-            s.StartTime > DateTime.Now,
-            cancellationToken: cancellationToken
-        );
-       
-        var currentShiftDto = currentShift?.Adapt<ShiftInfoDto>();
-        var nextShiftDto = nextShift?.Adapt<ShiftInfoDto>();
-
-        return (currentShiftDto, nextShiftDto);
-    }
-
-    private async Task<AttendanceInfoDto?> GetCurrentAttendance(
+    private async Task<AttendanceInfoDto?> BuildCurrentAttendance(
         ApplicationUser user,
-        ShiftInfoDto? todayShift,
-        ShiftInfoDto? nextShift,
+        Shift? todayShift,
         CancellationToken cancellationToken)
     {
         if (user.Employee == null) return null;
 
-        var today = DateTime.Now.Date;
-        var todayAttendances = await attendanceRepository.GetAllAsync(
-            a => a.EmployeeId == user.Employee.Id && a.AttendanceTime.Date == today,
+        var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
+        var todayLocal = nowVn.Date;
+        var utcStart = todayLocal.AddHours(-VnOffsetHours);
+        var utcEnd = todayLocal.AddDays(1).AddHours(-VnOffsetHours);
+        var employeeId = user.Employee.Id;
+
+        var todayPunches = await attendanceRepository.GetAllAsync(
+            filter: a => a.EmployeeId == employeeId
+                && a.AttendanceTime >= utcStart
+                && a.AttendanceTime < utcEnd,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
-            cancellationToken: cancellationToken
-        );
-        
-        if (!todayAttendances.Any()) return null;
+            cancellationToken: cancellationToken);
 
-        var checkIn = todayAttendances.FirstOrDefault();
-        var checkOut = todayAttendances.LastOrDefault(a => a.AttendanceTime <= (nextShift == null || !nextShift.IsToday ? DateTime.Today.EndOfDay() : nextShift.StartTime));
-
-        var checkInTime = checkIn?.AttendanceTime;
-        var checkOutTime = checkOut?.AttendanceTime;
-
-        // Determine status
-        string status = "not-started";
-        if (checkInTime.HasValue && !checkOutTime.HasValue)
-            status = "checked-in";
-        else if (checkInTime.HasValue && checkOutTime.HasValue)
-            status = "checked-out";
-
-        // Calculate work hours
-        double workHours = 0;
-        if (checkInTime.HasValue && checkOutTime.HasValue)
+        if (todayPunches.Count == 0)
         {
-            workHours = (checkOutTime.Value - checkInTime.Value).TotalHours;
-        }
-        else if (checkInTime.HasValue)
-        {
-            workHours = (DateTime.Now - checkInTime.Value).TotalHours;
+            return new AttendanceInfoDto { Status = "not-started" };
         }
 
-        // Check for late/early
+        var checkIn = todayPunches.FirstOrDefault(a => a.AttendanceState == AttendanceStates.CheckIn)
+            ?? todayPunches.First();
+        var checkOut = todayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut);
+        if (checkOut != null && checkOut.AttendanceTime <= checkIn.AttendanceTime)
+            checkOut = null;
+
+        var checkInVn = checkIn.AttendanceTime.AddHours(VnOffsetHours);
+        DateTime? checkOutVn = checkOut?.AttendanceTime.AddHours(VnOffsetHours);
+
         bool isLate = false;
         int? lateMinutes = null;
         bool isEarlyOut = false;
         int? earlyOutMinutes = null;
 
-        // Get Current Shift to compare
-        if (todayShift != null && checkInTime.HasValue)
+        if (todayShift != null)
         {
-            var expectedStartTime = todayShift.StartTime;
-            if (checkInTime.Value > expectedStartTime)
+            if (checkInVn > todayShift.StartTime)
             {
                 isLate = true;
-                lateMinutes = (int)(checkInTime.Value - expectedStartTime).TotalMinutes;
+                lateMinutes = (int)Math.Round((checkInVn - todayShift.StartTime).TotalMinutes);
             }
-
-            if (checkOutTime.HasValue)
+            if (checkOutVn.HasValue && checkOutVn.Value < todayShift.EndTime)
             {
-                var expectedEndTime = todayShift.EndTime;
-                if (checkOutTime.Value < expectedEndTime)
-                {
-                    isEarlyOut = true;
-                    earlyOutMinutes = (int)(expectedEndTime - checkOutTime.Value).TotalMinutes;
-                }
+                isEarlyOut = true;
+                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutVn.Value).TotalMinutes);
             }
         }
 
+        var status = checkOutVn.HasValue ? "checked-out" : "checked-in";
+
         return new AttendanceInfoDto
         {
-            Id = checkIn?.Id ?? Guid.NewGuid(),
-            CheckInTime = checkInTime,
-            CheckOutTime = checkOutTime,
+            Id = checkIn.Id,
+            CheckInTime = checkInVn,
+            CheckOutTime = checkOutVn,
             Status = status,
             IsLate = isLate,
             IsEarlyOut = isEarlyOut,
@@ -154,7 +130,11 @@ public class GetEmployeeDashboardHandler(
         };
     }
 
-    private async Task<AttendanceStatsDto> GetAttendanceStats(
+    // ─────────────────────────────────────────────────────────────────────
+    // Attendance stats — tổng hợp present/late/early/avg-hours cho period.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private async Task<AttendanceStatsDto> BuildAttendanceStats(
         ApplicationUser user,
         string period,
         CancellationToken cancellationToken)
@@ -164,43 +144,86 @@ public class GetEmployeeDashboardHandler(
             return new AttendanceStatsDto { Period = period };
         }
 
-        var (startDate, endDate) = GetDateRange(period);
-        
-        // Server-side filtered queries instead of loading entire tables
-        var workShifts = (await shiftRepository.GetAllAsync(
+        var (startLocal, endLocal) = GetDateRange(period);
+        var utcStart = startLocal.AddHours(-VnOffsetHours);
+        var utcEnd = endLocal.AddDays(1).AddHours(-VnOffsetHours);
+
+        var employeeId = user.Employee.Id;
+
+        // Approved shifts in the VN window (Shift.StartTime is already local).
+        var shifts = await shiftRepository.GetAllAsync(
             filter: s => s.EmployeeUserId == user.Id
                 && s.Status == ShiftStatus.Approved
-                && s.StartTime.Date >= startDate
-                && s.StartTime.Date <= endDate,
+                && s.StartTime >= startLocal
+                && s.StartTime < endLocal.AddDays(1),
             orderBy: q => q.OrderBy(s => s.StartTime),
-            cancellationToken: cancellationToken
-        )).ToList();
+            cancellationToken: cancellationToken);
 
-        var totalWorkDays = workShifts.Count;
+        var totalWorkDays = shifts.Count;
         if (totalWorkDays == 0)
         {
             return new AttendanceStatsDto
             {
                 Period = period,
-                TotalWorkDays = 0
+                TotalWorkDays = 0,
+                AttendanceRate = 0,
+                PunctualityRate = 100,
+                AverageWorkHours = "0.0"
             };
         }
 
-        int presentDays = 0;
-        int lateCheckIns = 0;
-        int earlyCheckOuts = 0;
-        double totalWorkHours = 0;
+        var attendances = await attendanceRepository.GetAllAsync(
+            filter: a => a.EmployeeId == employeeId
+                && a.AttendanceTime >= utcStart
+                && a.AttendanceTime < utcEnd,
+            orderBy: q => q.OrderBy(a => a.AttendanceTime),
+            cancellationToken: cancellationToken);
 
-        foreach (var shift in workShifts)
+        var attendanceByDate = attendances
+            .GroupBy(a => a.AttendanceTime.AddHours(VnOffsetHours).Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
+
+        var presentDays = 0;
+        var lateCheckIns = 0;
+        var earlyCheckOuts = 0;
+        double totalWorkHours = 0;
+        var workedFullDays = 0;
+
+        foreach (var shift in shifts)
         {
             var shiftDate = shift.StartTime.Date;
-            
+            if (!attendanceByDate.TryGetValue(shiftDate, out var dayPunches) || dayPunches.Count == 0)
+                continue;
+
+            presentDays++;
+            var firstIn = dayPunches.FirstOrDefault(a => a.AttendanceState == AttendanceStates.CheckIn)
+                ?? dayPunches.First();
+            var lastOut = dayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut)
+                ?? dayPunches.Last();
+
+            var inVn = firstIn.AttendanceTime.AddHours(VnOffsetHours);
+            var outVn = lastOut.AttendanceTime.AddHours(VnOffsetHours);
+
+            if (inVn > shift.StartTime) lateCheckIns++;
+            if (outVn < shift.EndTime) earlyCheckOuts++;
+
+            if (outVn > inVn)
+            {
+                totalWorkHours += (outVn - inVn).TotalHours;
+                workedFullDays++;
+            }
         }
 
-        int absentDays = totalWorkDays - presentDays;
-        double attendanceRate = totalWorkDays > 0 ? (presentDays * 100.0 / totalWorkDays) : 0;
-        double punctualityRate = presentDays > 0 ? ((presentDays - lateCheckIns) * 100.0 / presentDays) : 100;
-        string avgWorkHours = presentDays > 0 ? (totalWorkHours / presentDays).ToString("F1") : "0.0";
+        var absentDays = totalWorkDays - presentDays;
+        var attendanceRate = totalWorkDays > 0
+            ? Math.Round(presentDays * 100.0 / totalWorkDays, 2)
+            : 0;
+        var punctualityRate = presentDays > 0
+            ? Math.Round((presentDays - lateCheckIns) * 100.0 / presentDays, 2)
+            : 100;
+        var avgWorkHours = workedFullDays > 0
+            ? (totalWorkHours / workedFullDays).ToString("F1")
+            : "0.0";
 
         return new AttendanceStatsDto
         {
@@ -209,23 +232,22 @@ public class GetEmployeeDashboardHandler(
             AbsentDays = absentDays,
             LateCheckIns = lateCheckIns,
             EarlyCheckOuts = earlyCheckOuts,
-            AttendanceRate = Math.Round(attendanceRate, 2),
-            PunctualityRate = Math.Round(punctualityRate, 2),
+            AttendanceRate = attendanceRate,
+            PunctualityRate = punctualityRate,
             AverageWorkHours = avgWorkHours,
             Period = period
         };
     }
 
-    private static (DateTime startDate, DateTime endDate) GetDateRange(string period)
+    private static (DateTime startLocal, DateTime endLocal) GetDateRange(string period)
     {
-        var now = DateTime.Now;
-        var endDate = now.Date;
-
-        return period.ToLower() switch
+        var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
+        var endLocal = nowVn.Date;
+        return period.ToLowerInvariant() switch
         {
-            "week" => (now.AddDays(-7).Date, endDate),
-            "year" => (now.AddYears(-1).Date, endDate),
-            _ => (now.AddMonths(-1).Date, endDate) // default to month
+            "week" => (nowVn.AddDays(-7).Date, endLocal),
+            "year" => (nowVn.AddYears(-1).Date, endLocal),
+            _ => (nowVn.AddMonths(-1).Date, endLocal),
         };
     }
 }

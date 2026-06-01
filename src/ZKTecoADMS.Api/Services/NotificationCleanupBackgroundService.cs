@@ -55,14 +55,17 @@ public class NotificationCleanupBackgroundService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var notificationRepository = scope.ServiceProvider.GetRequiredService<IRepository<Notification>>();
 
+        // Use Notification.Timestamp (UTC) rather than Entity.CreatedAt (DateTime.Now
+        // = SERVER LOCAL TIME). On a non-UTC server those two diverge by the local
+        // offset, which used to delete notifications a full timezone-offset earlier
+        // or later than the configured retention window.
         var readCutoff = DateTime.UtcNow.AddDays(-ReadRetentionDays);
         var unreadCutoff = DateTime.UtcNow.AddDays(-UnreadRetentionDays);
 
-        // Count for logging
         var readCount = await notificationRepository.CountAsync(
-            n => n.IsRead && n.CreatedAt < readCutoff, stoppingToken);
+            n => n.IsRead && n.Timestamp < readCutoff, stoppingToken);
         var unreadCount = await notificationRepository.CountAsync(
-            n => !n.IsRead && n.CreatedAt < unreadCutoff, stoppingToken);
+            n => !n.IsRead && n.Timestamp < unreadCutoff, stoppingToken);
 
         if (readCount == 0 && unreadCount == 0)
         {
@@ -70,18 +73,16 @@ public class NotificationCleanupBackgroundService : BackgroundService
             return;
         }
 
-        // Delete read notifications older than 30 days
         if (readCount > 0)
         {
             await notificationRepository.DeleteAsync(
-                n => n.IsRead && n.CreatedAt < readCutoff, stoppingToken);
+                n => n.IsRead && n.Timestamp < readCutoff, stoppingToken);
         }
 
-        // Delete unread notifications older than 90 days
         if (unreadCount > 0)
         {
             await notificationRepository.DeleteAsync(
-                n => !n.IsRead && n.CreatedAt < unreadCutoff, stoppingToken);
+                n => !n.IsRead && n.Timestamp < unreadCutoff, stoppingToken);
         }
 
         _logger.LogInformation("🧹 Cleaned up {ReadCount} read (>{ReadDays}d) + {UnreadCount} unread (>{UnreadDays}d) notifications",

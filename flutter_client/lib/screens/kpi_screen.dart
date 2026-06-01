@@ -10,9 +10,11 @@ import 'package:excel/excel.dart' as excel_lib;
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
@@ -22,7 +24,7 @@ class KpiScreen extends StatefulWidget {
 }
 
 class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
-  static const _accent = Color(0xFF1E3A5F);
+  static const _accent = HrmPageChrome.primaryNavy;
   static const _green = Color(0xFF10B981);
   static const _blue = Color(0xFF3B82F6);
   static const _amber = Color(0xFFF59E0B);
@@ -58,8 +60,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _branches = [];
 
   // --- Mobile UI ---
-  bool _showMobileFilters = false;
-
   // --- Export ---
   final GlobalKey _dashboardKey = GlobalKey();
   final GlobalKey _targetsKey = GlobalKey();
@@ -250,7 +250,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0F2340), Color(0xFF1E3A5F), Color(0xFF2A5298)],
+          colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy, Color(0xFF2A5298)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -294,42 +294,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(width: 6),
                 ],
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: Stack(
-                      children: [
-                        Icon(
-                            _showMobileFilters
-                                ? Icons.filter_alt
-                                : Icons.filter_alt_outlined,
-                            color: Colors.white,
-                            size: 18),
-                        if (_filterDepartment != null ||
-                            _filterEmployeeId != null ||
-                            _filterBranchId != null)
-                          Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                      color: Colors.orangeAccent,
-                                      shape: BoxShape.circle))),
-                      ],
-                    ),
-                    onPressed: () => setState(
-                        () => _showMobileFilters = !_showMobileFilters),
-                    tooltip: 'Bộ lọc',
-                    constraints:
-                        const BoxConstraints(minWidth: 34, minHeight: 34),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
               ],
             ),
             if (_periods.isNotEmpty) ...[
@@ -345,7 +309,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 ),
                 child: DropdownButton<String>(
                   value: _selPeriodId,
-                  dropdownColor: const Color(0xFF0F2340),
+                  dropdownColor: HrmPageChrome.primaryNavy,
                   isExpanded: true,
                   isDense: true,
                   style: const TextStyle(
@@ -636,7 +600,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         fontSize: 11,
       );
 
-      // Headers gi?ng Google Sheet: Mã NV, Tên NV, Tổng KPI, Chỉ tiêu
+      // Headers giờng Google Sheet: Mã NV, Tên NV, Tổng KPI, Chỉ tiêu
       final headers = ['Mã NV', 'Tên NV', 'Tổng KPI', 'Chỉ tiêu'];
       for (int i = 0; i < headers.length; i++) {
         final cell = sheet.cell(
@@ -794,7 +758,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       final bytes = workbook.encode();
       if (bytes == null) throw Exception('Không thể tạo file');
       final fileName =
-          'Luong_KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
+          'Lương_KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
       await file_saver.saveFileBytes(bytes, fileName,
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       if (mounted) {
@@ -824,7 +788,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Filter + Export row - compact
-          if (!isMobile || _showMobileFilters)
+          
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: _buildFilterRow(theme),
@@ -908,7 +872,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       _statCard('Tiến độ TB', '${avgPct.toStringAsFixed(1)}%',
                           Icons.analytics, _blue),
                       _statCard('Tổng thưởng', _cur.format(totalBonus),
-                          Icons.monetization_on, const Color(0xFF0F2340)),
+                          Icons.monetization_on, HrmPageChrome.primaryNavy),
                     ];
                     if (isNarrow) {
                       return Wrap(
@@ -1467,7 +1431,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 title: Text(
                     'Ngày: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}'),
                 subtitle: Text(
-                    'Gi?: ${DateFormat('HH:mm').format(DateTime.now().add(const Duration(hours: 1)))}'),
+                    'Giờ: ${DateFormat('HH:mm').format(DateTime.now().add(const Duration(hours: 1)))}'),
               ),
             ],
           ]),
@@ -1823,7 +1787,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A5F),
+                        color: HrmPageChrome.primaryNavy,
                         borderRadius: BorderRadius.circular(6)),
                     child: const Text('ĐANG CHỌN',
                         style: TextStyle(
@@ -2096,7 +2060,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       case 2:
         return _blue;
       case 3:
-        return const Color(0xFF0F2340);
+        return HrmPageChrome.primaryNavy;
       default:
         return Colors.grey;
     }
@@ -2265,156 +2229,191 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 10),
       textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
     );
+    final headerSections = _buildTargetsTabHeaders(theme, filtered, isMobile, btnStyle);
+    if (isMobile) {
+      return HrmResponsiveListLayout(
+        headerSections: headerSections,
+        desktopBody: const SizedBox.shrink(),
+        mobileSlivers: (_) => _targetsTabMobileSlivers(filtered),
+      );
+    }
     return Column(children: [
-      Padding(
-        padding:
-            EdgeInsets.fromLTRB(16, isMobile ? 10 : 16, 16, isMobile ? 6 : 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.track_changes_rounded,
-                  color: _accent, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text('Chỉ tiêu & Tiến độ',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700))),
-          ]),
-          const SizedBox(height: 10),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            OutlinedButton.icon(
-              onPressed: _showBatchUpdateDialog,
-              icon: Icon(Icons.edit_note_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Cập nhật doanh số'),
-              style: btnStyle,
-            ),
-            OutlinedButton.icon(
-              onPressed: _importExcelActuals,
-              icon: Icon(Icons.upload_file_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Nhập Excel'),
-              style: btnStyle,
-            ),
-            OutlinedButton.icon(
-              onPressed: _writeTargetsToGSheet,
-              icon: Icon(Icons.cloud_upload_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Ghi chỉ tiêu → GSheet'),
-              style: btnStyle.copyWith(
-                  foregroundColor: const WidgetStatePropertyAll(_green)),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isExporting ? null : _exportTargetsExcel,
-              icon: Icon(Icons.table_chart_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Xuất Excel'),
-              style: btnStyle,
-            ),
-            OutlinedButton.icon(
-              onPressed: _isExporting
-                  ? null
-                  : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
-              icon: Icon(Icons.image_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Xuất PNG'),
-              style: btnStyle,
-            ),
-            FilledButton.icon(
-              onPressed: Provider.of<PermissionProvider>(context, listen: false)
-                      .canCreate('KPI')
-                  ? _showAddTargetDialog
-                  : null,
-              icon: Icon(Icons.person_add_rounded, size: isMobile ? 16 : 18),
-              label: const Text('Giao chỉ tiêu'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _accent,
-                shape: RoundedRectangleBorder(
+      ...headerSections,
+      Expanded(child: _buildTargetsListBody(filtered)),
+    ]);
+  }
+
+  List<Widget> _buildTargetsTabHeaders(ThemeData theme,
+      List<Map<String, dynamic>> filtered, bool isMobile, ButtonStyle btnStyle) =>
+      [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+              16, isMobile ? 10 : 16, 16, isMobile ? 6 : 16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8)),
-                padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 20,
-                    vertical: isMobile ? 6 : 10),
-                textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
+                child: const Icon(Icons.track_changes_rounded,
+                    color: _accent, size: 18),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text('Chỉ tiêu & Tiến độ',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700))),
+            ]),
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              OutlinedButton.icon(
+                onPressed: _showBatchUpdateDialog,
+                icon: Icon(Icons.edit_note_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Cập nhật doanh số'),
+                style: btnStyle,
+              ),
+              OutlinedButton.icon(
+                onPressed: _importExcelActuals,
+                icon: Icon(Icons.upload_file_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Nhập Excel'),
+                style: btnStyle,
+              ),
+              OutlinedButton.icon(
+                onPressed: _writeTargetsToGSheet,
+                icon: Icon(Icons.cloud_upload_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Ghi chỉ tiêu → GSheet'),
+                style: btnStyle.copyWith(
+                    foregroundColor: const WidgetStatePropertyAll(_green)),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isExporting ? null : _exportTargetsExcel,
+                icon: Icon(Icons.table_chart_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Xuất Excel'),
+                style: btnStyle,
+              ),
+              OutlinedButton.icon(
+                onPressed: _isExporting
+                    ? null
+                    : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+                icon: Icon(Icons.image_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Xuất PNG'),
+                style: btnStyle,
+              ),
+              FilledButton.icon(
+                onPressed: Provider.of<PermissionProvider>(context, listen: false)
+                        .canCreate('KPI')
+                    ? _showAddTargetDialog
+                    : null,
+                icon: Icon(Icons.person_add_rounded, size: isMobile ? 16 : 18),
+                label: const Text('Giao chỉ tiêu'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 12 : 20,
+                      vertical: isMobile ? 6 : 10),
+                  textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
+                ),
+              ),
+            ]),
           ]),
-        ]),
-      ),
-      // Filters
-      if (!Responsive.isMobile(context) || _showMobileFilters)
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _buildFilterRow(theme),
         ),
-      const SizedBox(height: 8),
-      // Progress summary cards
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final isMobile = constraints.maxWidth < 600;
-          final items = [
-            _miniStat('Tổng NV', '${filtered.length}', _accent),
-            _miniStat(
-                'Đạt ≥100%',
-                '${filtered.where((t) => (t['completionRate'] ?? 0) >= 100).length}',
-                _green),
-            _miniStat(
-                '70-99%',
-                '${filtered.where((t) {
-                  final p = (t['completionRate'] ?? 0) as num;
-                  return p >= 70 && p < 100;
-                }).length}',
-                _amber),
-            _miniStat(
-                '<70%',
-                '${filtered.where((t) {
-                  final p = (t['completionRate'] ?? 0) as num;
-                  return t['actualValue'] != null && p < 70;
-                }).length}',
-                _red),
-            _miniStat(
-                'Chưa có DS',
-                '${filtered.where((t) => t['actualValue'] == null).length}',
-                Colors.grey),
-          ];
-          if (isMobile) {
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: items
-                  .map((c) =>
-                      SizedBox(width: (constraints.maxWidth - 8) / 2, child: c))
-                  .toList(),
-            );
-          }
-          return Row(children: [
-            for (int i = 0; i < items.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(child: items[i]),
-            ],
-          ]);
-        }),
-      ),
-      const SizedBox(height: 12),
-      Expanded(
-        child: filtered.isEmpty
-            ? _emptyState('Chưa giao chỉ tiêu cho nhân viên nào',
-                Icons.assignment_outlined)
-            : RepaintBoundary(
-                key: _targetsKey,
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filtered.length,
-                  itemBuilder: (_, i) {
-                    final t = filtered[i];
-                    final pct = ((t['completionRate'] ?? 0) as num).toDouble();
-                    final color = pct >= 100
-                        ? _green
-                        : pct >= 70
-                            ? _amber
-                            : _red;
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final mobileLayout = constraints.maxWidth < 600;
+            final items = [
+              _miniStat('Tổng NV', '${filtered.length}', _accent),
+              _miniStat(
+                  'Đạt ≥100%',
+                  '${filtered.where((t) => (t['completionRate'] ?? 0) >= 100).length}',
+                  _green),
+              _miniStat(
+                  '70-99%',
+                  '${filtered.where((t) {
+                    final p = (t['completionRate'] ?? 0) as num;
+                    return p >= 70 && p < 100;
+                  }).length}',
+                  _amber),
+              _miniStat(
+                  '<70%',
+                  '${filtered.where((t) {
+                    final p = (t['completionRate'] ?? 0) as num;
+                    return t['actualValue'] != null && p < 70;
+                  }).length}',
+                  _red),
+              _miniStat(
+                  'Chưa có DS',
+                  '${filtered.where((t) => t['actualValue'] == null).length}',
+                  Colors.grey),
+            ];
+            if (mobileLayout) {
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: items
+                    .map((c) => SizedBox(
+                        width: (constraints.maxWidth - 8) / 2, child: c))
+                    .toList(),
+              );
+            }
+            return Row(children: [
+              for (int i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: items[i]),
+              ],
+            ]);
+          }),
+        ),
+        const SizedBox(height: 12),
+      ];
 
-                    return Card(
+  List<Widget> _targetsTabMobileSlivers(List<Map<String, dynamic>> filtered) {
+    if (filtered.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: _emptyState('Chưa giao chỉ tiêu cho nhân viên nào',
+              Icons.assignment_outlined),
+        ),
+      ];
+    }
+    return [
+      SliverToBoxAdapter(
+        child: _buildTargetsListBody(filtered, shrinkWrap: true),
+      ),
+    ];
+  }
+
+  Widget _buildTargetsListBody(List<Map<String, dynamic>> filtered,
+      {bool shrinkWrap = false}) {
+    if (filtered.isEmpty) {
+      return _emptyState('Chưa giao chỉ tiêu cho nhân viên nào',
+          Icons.assignment_outlined);
+    }
+    return RepaintBoundary(
+      key: _targetsKey,
+      child: ListView.builder(
+        shrinkWrap: shrinkWrap,
+        physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: filtered.length,
+        itemBuilder: (_, i) => _buildTargetCard(filtered[i]),
+      ),
+    );
+  }
+
+  Widget _buildTargetCard(Map<String, dynamic> t) {
+    final pct = ((t['completionRate'] ?? 0) as num).toDouble();
+    final color = pct >= 100 ? _green : pct >= 70 ? _amber : _red;
+    return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
@@ -2563,11 +2562,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         ]),
                       ),
                     );
-                  },
-                ),
-              ),
-      ),
-    ]);
   }
 
   // Parse bonusTiersJson to list of tier maps
@@ -2665,13 +2659,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         valueHeader = 'VNĐ/1 point vượt';
         hintText = 'VNĐ/point';
         example =
-            'Ví dụ: T? 100% → 120%, thưởng 50.000d cho mởi point vượt. Đến % nhập -1 hoặc 8 = không giới hạn.';
+            'Ví dụ: Từ 100% → 120%, thưởng 50.000d cho mởi point vượt. Đến % nhập -1 hoặc 8 = không giới hạn.';
         break;
       case 1:
         valueHeader = '% trên doanh thu vượt';
         hintText = '% doanh thu';
         example =
-            'Ví dụ: T? 100% → 120%, thưởng 5% trên phần doanh thu vượt chỉ tiêu.';
+            'Ví dụ: Từ 100% → 120%, thưởng 5% trên phần doanh thu vượt chỉ tiêu.';
         break;
       case 2:
         valueHeader = 'Giá trị VNĐ';
@@ -3550,7 +3544,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }).toList();
   }
 
-  /// Tìm s? b?c thưởng t?i da trong tất cả targets
+  /// Tìm sẽ bậc thưởng tối đa trong tất cả targets
   int get _maxTierCount {
     int mx = 0;
     for (final t in _targets) {
@@ -3606,7 +3600,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 OutlinedButton.icon(
                   onPressed: _isExporting
                       ? null
-                      : () => _exportPng(_salaryKey, 'Luong_KPI'),
+                      : () => _exportPng(_salaryKey, 'Lương_KPI'),
                   icon: const Icon(Icons.image_rounded, size: 18),
                   label: const Text('Xuất PNG'),
                   style: OutlinedButton.styleFrom(
@@ -3625,7 +3619,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 ),
               ]),
           const SizedBox(height: 8),
-          if (!Responsive.isMobile(context) || _showMobileFilters)
+          
             _buildFilterRow(theme),
           const SizedBox(height: 12),
           RepaintBoundary(
@@ -4581,7 +4575,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         const SizedBox(height: 8),
         Text(
           'C?n upload file credentials.json (Google Service Account key) d? kết nối Google Sheet. '
-          'T?i file JSON key t? Google Cloud Console ? IAM ? Service Accounts ? Keys.',
+          'Tải file JSON key tế Google Cloud Console ? IAM ? Service Accounts ? Keys.',
           style: TextStyle(color: Colors.grey[700], fontSize: 12.5),
         ),
         const SizedBox(height: 12),
@@ -4730,7 +4724,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           child: Row(children: [
             Expanded(
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.people, size: 18, color: Color(0xFF1E3A5F)),
+              const Icon(Icons.people, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Flexible(
                   child: Text(
@@ -5746,7 +5740,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           child: DropdownButtonFormField<int>(
                             initialValue: selectedHour,
                             decoration: InputDecoration(
-                                labelText: 'Gi?',
+                                labelText: 'Giờ',
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10))),
                             items: List.generate(
@@ -5859,7 +5853,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return;
       }
 
-      // Parse rows: Col A = Mã NV, Col C = Tổng KPI (doanh s? th?c t?)
+      // Parse rows: Col A = Mã NV, Col C = Tổng KPI (doanh sẽ thực tế)
       final List<Map<String, dynamic>> importData = [];
       for (int i = 1; i < table.rows.length; i++) {
         final row = table.rows[i];

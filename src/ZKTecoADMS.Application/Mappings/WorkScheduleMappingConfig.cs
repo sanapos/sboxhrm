@@ -62,7 +62,12 @@ public class WorkScheduleMappingConfig : IRegister
             .Map(dest => dest.ApprovedDate, src => src.ApprovedDate)
             .Map(dest => dest.RejectionReason, src => src.RejectionReason)
             .Map(dest => dest.CreatedAt, src => src.CreatedAt)
-            .Map(dest => dest.UpdatedAt, src => src.UpdatedAt);
+            .Map(dest => dest.UpdatedAt, src => src.UpdatedAt)
+            .Map(dest => dest.TotalApprovalLevels, src => src.TotalApprovalLevels)
+            .Map(dest => dest.CurrentApprovalStep, src => src.CurrentApprovalStep)
+            .Map(dest => dest.ApprovalRecords, src => src.ApprovalRecords);
+
+        config.NewConfig<ScheduleApprovalRecord, ScheduleApprovalRecordDto>();
 
         config.NewConfig<CreateScheduleRegistrationDto, ScheduleRegistration>()
             .Map(dest => dest.EmployeeUserId, src => src.EmployeeUserId)

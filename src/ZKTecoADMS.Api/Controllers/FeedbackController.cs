@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -77,6 +79,7 @@ public class FeedbackController(
     // ══════════════════ GET ALL (Manager/Admin) ══════════════════
 
     [HttpGet]
+    [RequireModulePermission("Feedback", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetAll(
         [FromQuery] string? status, [FromQuery] string? category,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
@@ -189,6 +192,7 @@ public class FeedbackController(
     // ══════════════════ GET MY FEEDBACKS ══════════════════
 
     [HttpGet("my")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<FeedbackDto>>>> GetMyFeedbacks()
     {
         var storeId = RequiredStoreId;
@@ -257,6 +261,7 @@ public class FeedbackController(
     // ══════════════════ CREATE ══════════════════
 
     [HttpPost]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<FeedbackDto>>> Create([FromBody] FeedbackCreateDto dto)
     {
         var storeId = RequiredStoreId;
@@ -319,6 +324,7 @@ public class FeedbackController(
     // ══════════════════ RESPOND (Manager/Admin) ══════════════════
 
     [HttpPut("{id}/respond")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> Respond(Guid id, [FromBody] FeedbackRespondDto dto)
     {
         var storeId = RequiredStoreId;
@@ -373,6 +379,7 @@ public class FeedbackController(
     // ══════════════════ DELETE ══════════════════
 
     [HttpDelete("{id}")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -396,6 +403,7 @@ public class FeedbackController(
     // ══════════════════ GET MANAGERS (for dropdown) ══════════════════
 
     [HttpGet("managers")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<object>>>> GetManagers()
     {
         var storeId = RequiredStoreId;
@@ -419,6 +427,7 @@ public class FeedbackController(
     // ══════════════════ UPLOAD IMAGE ══════════════════
 
     [HttpPost("upload-image")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Create)]
     [RequestSizeLimit(10_000_000)]
     public async Task<ActionResult<AppResponse<object>>> UploadImage(IFormFile file)
     {
@@ -448,6 +457,7 @@ public class FeedbackController(
     // ══════════════════ REPLIES (Chat-style) ══════════════════
 
     [HttpGet("{id}/replies")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetReplies(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -507,6 +517,7 @@ public class FeedbackController(
     }
 
     [HttpPost("{id}/replies")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<FeedbackReplyDto>>> CreateReply(
         Guid id, [FromBody] FeedbackReplyCreateDto dto)
     {

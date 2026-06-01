@@ -16,7 +16,8 @@ public record GetUserNotificationsQuery(
     NotificationType? Type = null) : IQuery<AppResponse<PagedResult<NotificationDto>>>;
 
 public class GetUserNotificationsHandler(
-    IRepository<Notification> notificationRepository
+    IRepository<Notification> notificationRepository,
+    IRepository<Attendance> attendanceRepository
 ) : IQueryHandler<GetUserNotificationsQuery, AppResponse<PagedResult<NotificationDto>>>
 {
     public async Task<AppResponse<PagedResult<NotificationDto>>> Handle(GetUserNotificationsQuery request, CancellationToken cancellationToken)
@@ -38,21 +39,29 @@ public class GetUserNotificationsHandler(
                              (!type.HasValue || n.Type == type.Value);
             }
 
-            var totalCount = await notificationRepository.CountAsync(filter, cancellationToken);
-
             var items = await notificationRepository.GetAllWithIncludeAsync(
                 filter: filter,
                 orderBy: q => q.OrderByDescending(n => n.Timestamp),
                 includes: q => q.Include(n => n.TargetUser).Include(n => n.FromUser),
-                skip: (request.Page - 1) * request.PageSize,
-                take: request.PageSize,
+                skip: 0,
+                take: 5000,
                 cancellationToken: cancellationToken);
 
+            var visible = await FilterOrphanAttendanceNotificationsAsync(items, cancellationToken);
+            var totalCount = visible.Count;
+
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var paged = visible
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
             var result = new PagedResult<NotificationDto>(
-                items.Adapt<List<NotificationDto>>(),
+                paged.Adapt<List<NotificationDto>>(),
                 totalCount,
-                request.Page,
-                request.PageSize);
+                page,
+                pageSize);
 
             return AppResponse<PagedResult<NotificationDto>>.Success(result);
         }
@@ -60,6 +69,33 @@ public class GetUserNotificationsHandler(
         {
             return AppResponse<PagedResult<NotificationDto>>.Error(ex.Message);
         }
+    }
+
+    /// <summary>Ẩn thông báo chấm công khi bản ghi AttendanceLogs đã bị xóa.</summary>
+    private async Task<List<Notification>> FilterOrphanAttendanceNotificationsAsync(
+        List<Notification> items,
+        CancellationToken cancellationToken)
+    {
+        var attendanceNotifs = items
+            .Where(n => n.RelatedEntityType == "Attendance" && n.RelatedEntityId.HasValue)
+            .ToList();
+        if (attendanceNotifs.Count == 0)
+        {
+            return items;
+        }
+
+        var relatedIds = attendanceNotifs.Select(n => n.RelatedEntityId!.Value).Distinct().ToList();
+        var existing = (await attendanceRepository.GetAllAsync(
+                a => relatedIds.Contains(a.Id),
+                cancellationToken: cancellationToken))
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        return items
+            .Where(n => n.RelatedEntityType != "Attendance"
+                        || !n.RelatedEntityId.HasValue
+                        || existing.Contains(n.RelatedEntityId.Value))
+            .ToList();
     }
 }
 

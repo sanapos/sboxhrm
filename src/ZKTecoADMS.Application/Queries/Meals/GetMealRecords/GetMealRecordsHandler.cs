@@ -12,12 +12,18 @@ public class GetMealRecordsHandler(
     public async Task<AppResponse<PagedResult<MealRecordDto>>> Handle(GetMealRecordsQuery request, CancellationToken cancellationToken)
     {
         var date = request.Date.Date;
+        var term = request.SearchTerm?.Trim();
 
         var pagedResult = await repository.GetPagedResultWithIncludesAsync(
             request.PaginationRequest,
             filter: r => r.StoreId == request.StoreId &&
                          r.Date == date &&
-                         (!request.MealSessionId.HasValue || r.MealSessionId == request.MealSessionId.Value),
+                         (!request.MealSessionId.HasValue || r.MealSessionId == request.MealSessionId.Value) &&
+                         (string.IsNullOrEmpty(term) ||
+                          (r.EmployeeUser != null &&
+                           ((r.EmployeeUser.FirstName + " " + r.EmployeeUser.LastName).Contains(term) ||
+                            (r.EmployeeUser.LastName + " " + r.EmployeeUser.FirstName).Contains(term))) ||
+                          (r.PIN != null && r.PIN.Contains(term))),
             includes: q => q.Include(r => r.EmployeeUser).Include(r => r.MealSession).Include(r => r.Device),
             cancellationToken: cancellationToken);
 

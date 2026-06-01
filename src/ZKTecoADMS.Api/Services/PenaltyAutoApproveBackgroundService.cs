@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -157,20 +158,19 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Auto-approves PenaltyTicket records that were auto-created from attendance
-    /// (Status=Pending) where ViolationDate is before today and no manager has cancelled.
-    /// Sets Status=AutoApproved and stamps ProcessedDate; does NOT create a CashTransaction
-    /// (the linked PaymentTransaction handles the cash receipt to avoid double counting).
+    /// Tự duyệt PenaltyTicket Pending quá ngày → AutoApproved + phiếu thu (một nguồn: PenaltyTicket).
     /// </summary>
     private async Task AutoApprovePendingPenaltyTicketsAsync(CancellationToken stoppingToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
 
-        var cutoffDate = DateTime.Now.Date;
+        var cutoffDate = DateTime.UtcNow.AddHours(7).Date;
         var pendingTickets = await dbContext.PenaltyTickets
+            .Include(t => t.Employee)
             .Where(t => t.Status == PenaltyTicketStatus.Pending
-                && t.ViolationDate < cutoffDate)
+                && t.ViolationDate < cutoffDate
+                && t.CashTransactionId == null)
             .ToListAsync(stoppingToken);
 
         if (pendingTickets.Count == 0) return;
@@ -180,8 +180,23 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         var now = DateTime.Now;
         foreach (var ticket in pendingTickets)
         {
-            ticket.Status = PenaltyTicketStatus.AutoApproved;
-            ticket.ProcessedDate = now;
+            try
+            {
+                ticket.Status = PenaltyTicketStatus.AutoApproved;
+                ticket.ProcessedDate = now;
+                ticket.UpdatedAt = now;
+
+                var cash = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
+                    dbContext, ticket, createdByUserId: null, stoppingToken);
+                ticket.CashTransactionId = cash.Id;
+
+                _logger.LogInformation("🔔 Auto-approved PenaltyTicket {Code} - {Amount}đ",
+                    ticket.TicketCode, ticket.Amount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-approving PenaltyTicket {Id}", ticket.Id);
+            }
         }
 
         await dbContext.SaveChangesAsync(stoppingToken);

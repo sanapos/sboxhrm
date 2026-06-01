@@ -49,7 +49,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                 onPressed: _loading ? null : _load,
                 icon: const Icon(Icons.refresh)),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
+            FilledButton.icon(
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.warning,
                   foregroundColor: Colors.white),
@@ -180,7 +180,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                         TextButton(
                             onPressed: () => Navigator.pop(context, false),
                             child: const Text('Huỷ')),
-                        ElevatedButton(
+                        FilledButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white),
@@ -282,7 +282,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Huỷ')),
-            ElevatedButton(
+            FilledButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.warning,
                   foregroundColor: Colors.white),

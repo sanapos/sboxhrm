@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Commons;
@@ -10,6 +11,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -26,6 +28,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<CashTransactionDto>>>> GetTransactions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -130,6 +133,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> GetTransaction(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -181,6 +185,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> CreateTransaction([FromBody] CreateCashTransactionDto request)
     {
         var storeId = RequiredStoreId;
@@ -257,6 +262,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> UpdateTransaction(Guid id, [FromBody] UpdateCashTransactionDto request)
     {
         var storeId = RequiredStoreId;
@@ -332,6 +338,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpPut("{id}/status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> UpdateTransactionStatus(
         Guid id, 
         [FromBody] UpdateCashTransactionStatusDto request)
@@ -391,6 +398,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -449,15 +457,20 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CashTransactionSummaryDto>>> GetSummary(
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
-        
-        // Default to current month if no dates provided to prevent loading all historical data
-        var effectiveFrom = fromDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-        var effectiveTo = toDate ?? DateTime.UtcNow;
+
+        // Default to current month in VN local time — using DateTime.UtcNow.Year/Month would
+        // flip to the wrong month between 00:00 and 07:00 VN at month boundaries.
+        var nowVn = DateTime.UtcNow.AddHours(7);
+        var effectiveFrom = fromDate ?? new DateTime(nowVn.Year, nowVn.Month, 1);
+        var effectiveTo = toDate ?? nowVn;
 
         var query = context.CashTransactions
             .Include(x => x.Category)
@@ -468,6 +481,21 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
                         x.TransactionDate >= effectiveFrom &&
                         x.TransactionDate <= effectiveTo)
             .AsQueryable();
+
+        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+            context, storeId, branchId, includeChildBranches);
+        if (branchScope != null)
+        {
+            if (branchScope.ApplicationUserIds.Count == 0)
+            {
+                return Ok(AppResponse<CashTransactionSummaryDto>.Success(new CashTransactionSummaryDto
+                {
+                    FromDate = fromDate,
+                    ToDate = toDate
+                }));
+            }
+            query = query.Where(x => branchScope.ApplicationUserIds.Contains(x.CreatedByUserId));
+        }
 
         var transactions = await query.ToListAsync();
 
@@ -552,6 +580,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
     /// </summary>
     [HttpPost("vietqr/generate")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<VietQRResponseDto>>> GenerateVietQR([FromBody] GenerateVietQRRequest request)
     {
         string bankCode, accountNumber, accountName, bankName, bankLogo;

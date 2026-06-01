@@ -4,11 +4,11 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
-import 'settings_hub_screen.dart';
-
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
 
@@ -25,8 +25,6 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   String _searchQuery = '';
   String _selectedRole = 'all';
   String _selectedStatus = 'all';
-  bool _showMobileFilters = false;
-
   /// Renders two fields side-by-side on desktop, stacked on mobile.
   List<Widget> _buildFieldPair(
       {required bool isMobile, required Widget first, required Widget second}) {
@@ -145,53 +143,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final isWideScreen = screenWidth >= 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text('Quản lý Tài khoản',
-            style: TextStyle(
-                color: Color(0xFF18181B),
-                fontWeight: FontWeight.bold,
-                fontSize: 18),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1),
-        leading: Responsive.isMobile(context)
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => SettingsHubScreen.goBack(context),
-              ),
-        actions: [
-          if (Responsive.isMobile(context))
-            IconButton(
-              onPressed: () =>
-                  setState(() => _showMobileFilters = !_showMobileFilters),
-              icon: Stack(
-                children: [
-                  Icon(
-                      _showMobileFilters
-                          ? Icons.filter_alt
-                          : Icons.filter_alt_outlined,
-                      color: const Color(0xFF18181B)),
-                  if (_searchQuery.isNotEmpty ||
-                      _selectedRole != 'all' ||
-                      _selectedStatus != 'all')
-                    Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: Colors.orangeAccent,
-                                shape: BoxShape.circle))),
-                ],
-              ),
-              tooltip: 'Bộ lọc',
-            ),
-        ],
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        title: 'Quản lý Tài khoản',
       ),
       body: _isLoading
           ? const LoadingWidget()
@@ -200,169 +154,81 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with title and add button
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF71717A).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                      if (!HrmPageChrome.isEmbedded) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF71717A).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.group,
+                              color: Color(0xFF71717A), size: 20),
                         ),
-                        child: const Icon(Icons.group,
-                            color: Color(0xFF71717A), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Quản lý Tài khoản',
-                              style: TextStyle(
-                                color: Color(0xFF1E3A5F),
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quản lý Tài khoản',
+                                style: TextStyle(
+                                  color: HrmPageChrome.primaryNavy,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Quản lý tài khoản người dùng hệ thống',
-                              style: TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 13),
-                            ),
-                          ],
+                              Text(
+                                'Quản lý tài khoản người dùng hệ thống',
+                                style: TextStyle(
+                                    color: Color(0xFF71717A), fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ] else
+                        const Spacer(),
                       if (Responsive.isMobile(context))
                         IconButton(
                           onPressed: () => _showAccountDialog(),
                           icon: const Icon(Icons.person_add,
-                              color: Color(0xFF0F2340), size: 22),
+                              color: HrmPageChrome.primaryNavy, size: 22),
                           tooltip: 'Thêm tài khoản',
                         )
                       else
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: () => _showAccountDialog(),
                           icon: const Icon(Icons.person_add, size: 18),
                           label: const Text('Thêm tài khoản'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F2340),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
-                  // Statistics cards
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth >= 800) {
-                        return Row(
-                          children: [
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.group,
-                                    '$_totalAccounts',
-                                    'Tổng tài khoản',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.check_circle,
-                                    '$_activeAccounts',
-                                    'Đang hoạt động',
-                                    const Color(0xFF1E3A5F))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.admin_panel_settings,
-                                    '$_adminAccounts',
-                                    'Quản trị viên',
-                                    const Color(0xFF0F2340))),
-                            const SizedBox(width: 16),
-                            Expanded(
-                                child: _buildStatCard(
-                                    Icons.login,
-                                    '$_onlineToday',
-                                    'Online hôm nay',
-                                    const Color(0xFF0F2340))),
-                          ],
-                        );
-                      } else if (constraints.maxWidth >= 350) {
-                        return Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.group,
-                                        '$_totalAccounts',
-                                        'Tổng tài khoản',
-                                        const Color(0xFF1E3A5F))),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.check_circle,
-                                        '$_activeAccounts',
-                                        'Đang hoạt động',
-                                        const Color(0xFF1E3A5F))),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.admin_panel_settings,
-                                        '$_adminAccounts',
-                                        'Quản trị viên',
-                                        const Color(0xFF0F2340))),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                    child: _buildStatCard(
-                                        Icons.login,
-                                        '$_onlineToday',
-                                        'Online hôm nay',
-                                        const Color(0xFF0F2340))),
-                              ],
-                            ),
-                          ],
-                        );
-                      } else {
-                        return Column(
-                          children: [
-                            _buildStatCard(Icons.group, '$_totalAccounts',
-                                'Tổng tài khoản', const Color(0xFF1E3A5F)),
-                            const SizedBox(height: 8),
-                            _buildStatCard(
-                                Icons.check_circle,
-                                '$_activeAccounts',
-                                'Đang hoạt động',
-                                const Color(0xFF1E3A5F)),
-                            const SizedBox(height: 8),
-                            _buildStatCard(
-                                Icons.admin_panel_settings,
-                                '$_adminAccounts',
-                                'Quản trị viên',
-                                const Color(0xFF0F2340)),
-                            const SizedBox(height: 8),
-                            _buildStatCard(Icons.login, '$_onlineToday',
-                                'Online hôm nay', const Color(0xFF0F2340)),
-                          ],
-                        );
-                      }
-                    },
+                  HrmPageChrome.horizontalStatCards(
+                    minCardWidth: 128,
+                    cards: [
+                      _buildStatCard(Icons.group, '$_totalAccounts',
+                          'Tổng TK', HrmPageChrome.primaryNavy),
+                      _buildStatCard(Icons.check_circle, '$_activeAccounts',
+                          'Hoạt động', HrmPageChrome.primaryNavy),
+                      _buildStatCard(Icons.admin_panel_settings,
+                          '$_adminAccounts', 'Quản trị', HrmPageChrome.primaryNavy),
+                      _buildStatCard(Icons.login, '$_onlineToday', 'Online',
+                          HrmPageChrome.primaryNavy),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
                   // Filter bar
-                  if (!Responsive.isMobile(context) || _showMobileFilters)
+                  
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -411,7 +277,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFF1E3A5F)),
+                                      color: HrmPageChrome.primaryNavy),
                                 ),
                               ),
                               onChanged: (value) =>
@@ -446,7 +312,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFF1E3A5F)),
+                                      color: HrmPageChrome.primaryNavy),
                                 ),
                                 filled: true,
                                 fillColor: Colors.white,
@@ -506,7 +372,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFF1E3A5F)),
+                                      color: HrmPageChrome.primaryNavy),
                                 ),
                                 filled: true,
                                 fillColor: Colors.white,
@@ -708,7 +574,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             IconButton(
               onPressed: () => _showChangePasswordDialog(account),
               icon: const Icon(Icons.lock_reset, size: 18),
-              color: const Color(0xFF1E3A5F),
+              color: HrmPageChrome.primaryNavy,
               tooltip: 'Đổi mật khẩu',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -737,54 +603,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
 
   Widget _buildStatCard(
       IconData icon, String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Color(0xFF18181B),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  label,
-                  style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
     );
   }
 
@@ -799,13 +622,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       case 'Director':
         return {'label': 'Giám đốc', 'color': const Color(0xFF7C3AED)};
       case 'Manager':
-        return {'label': 'Quản lý', 'color': const Color(0xFF0F2340)};
+        return {'label': 'Quản lý', 'color': HrmPageChrome.primaryNavy};
       case 'DepartmentHead':
         return {'label': 'Trưởng phòng', 'color': const Color(0xFF2563EB)};
       case 'Accountant':
-        return {'label': 'Kế toán', 'color': const Color(0xFF1E3A5F)};
+        return {'label': 'Kế toán', 'color': HrmPageChrome.primaryNavy};
       case 'Employee':
-        return {'label': 'Nhân viên', 'color': const Color(0xFF1E3A5F)};
+        return {'label': 'Nhân viên', 'color': HrmPageChrome.primaryNavy};
       case 'User':
       default:
         return {'label': 'Người dùng', 'color': const Color(0xFF71717A)};
@@ -1066,8 +889,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       icon: const Icon(Icons.lock_reset, size: 18),
                       label: const Text('Đổi MK'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        foregroundColor: HrmPageChrome.primaryNavy,
+                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1206,7 +1029,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 Row(
                   children: [
                     const Icon(Icons.lock_reset,
-                        color: Color(0xFF1E3A5F), size: 24),
+                        color: HrmPageChrome.primaryNavy, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1261,7 +1084,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1E3A5F))),
+                      borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1295,7 +1118,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1E3A5F))),
+                      borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                 ),
               ),
               if (!isMobile) ...[
@@ -1310,18 +1133,14 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           style: TextStyle(color: Color(0xFF71717A))),
                     ),
                     const Spacer(),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: onSubmit,
                       icon: const Icon(Icons.lock_reset, size: 18),
                       label: const Text('Đổi mật khẩu'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ],
@@ -1361,7 +1180,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       icon: const Icon(Icons.lock_reset, size: 18),
                       label: const Text('Lưu'),
                       style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF1E3A5F)),
+                          foregroundColor: HrmPageChrome.primaryNavy),
                     ),
                   ],
                 ),
@@ -1435,7 +1254,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       {
         'value': 'Manager',
         'label': 'Quản lý',
-        'color': const Color(0xFF0F2340)
+        'color': HrmPageChrome.primaryNavy
       },
       {
         'value': 'DepartmentHead',
@@ -1445,12 +1264,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       {
         'value': 'Accountant',
         'label': 'Kế toán',
-        'color': const Color(0xFF1E3A5F)
+        'color': HrmPageChrome.primaryNavy
       },
       {
         'value': 'Employee',
         'label': 'Nhân viên',
-        'color': const Color(0xFF1E3A5F)
+        'color': HrmPageChrome.primaryNavy
       },
       {
         'value': 'User',
@@ -1597,7 +1416,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide:
-                              const BorderSide(color: Color(0xFF0F2340)),
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
                       ),
                       items: availableEmployees
@@ -1681,7 +1500,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide:
-                              const BorderSide(color: Color(0xFF0F2340)),
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
                       ),
                     ),
@@ -1721,7 +1540,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide:
-                              const BorderSide(color: Color(0xFF0F2340)),
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
                       ),
                     ),
@@ -1773,7 +1592,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide:
-                              const BorderSide(color: Color(0xFF0F2340)),
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
                       ),
                     ),
@@ -1814,7 +1633,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide:
-                              const BorderSide(color: Color(0xFF0F2340)),
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
                       ),
                     ),
@@ -1856,7 +1675,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF0F2340)),
+                        borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                     items: roles.map<DropdownMenuItem<String>>((role) {
@@ -1943,7 +1762,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide:
-                                const BorderSide(color: Color(0xFF0F2340)),
+                                const BorderSide(color: HrmPageChrome.primaryNavy),
                           ),
                         ),
                       ),
@@ -1995,7 +1814,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide:
-                                const BorderSide(color: Color(0xFF0F2340)),
+                                const BorderSide(color: HrmPageChrome.primaryNavy),
                           ),
                         ),
                       ),
@@ -2032,7 +1851,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       icon: const Icon(Icons.save, size: 18),
                       label: Text(isEditing ? 'Cập nhật' : 'Đăng ký'),
                       style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F2340)),
+                          foregroundColor: HrmPageChrome.primaryNavy),
                     ),
                   ],
                 ),
@@ -2094,17 +1913,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         const Spacer(),
                         Expanded(
                           flex: 3,
-                          child: ElevatedButton.icon(
+                          child: FilledButton.icon(
                             onPressed: onSubmit,
                             icon: const Icon(Icons.person_add, size: 18),
                             label: Text(isEditing ? 'Cập nhật' : 'Đăng ký'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0F2340),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: HrmPageChrome.primaryNavy,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
@@ -2151,7 +1966,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             child:
                 const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
@@ -2177,7 +1992,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),

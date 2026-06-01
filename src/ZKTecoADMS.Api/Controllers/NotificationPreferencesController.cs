@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Notifications;
@@ -16,10 +17,11 @@ public class NotificationPreferencesController(
 ) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Lấy danh sách nhóm thông báo
+    /// Láº¥y danh sÃ¡ch nhÃ³m thÃ´ng bÃ¡o
     /// </summary>
     [HttpGet("categories")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("NotificationSettings", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<NotificationCategoryDto>>>> GetCategories()
     {
         var categories = await categoryRepository.GetAllAsync(
@@ -42,10 +44,11 @@ public class NotificationPreferencesController(
     }
 
     /// <summary>
-    /// Lấy thiết lập nhận thông báo của user hiện tại
+    /// Láº¥y thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o cá»§a user hiá»‡n táº¡i
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("NotificationSettings", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<NotificationPreferenceDto>>>> GetPreferences()
     {
         var categories = await categoryRepository.GetAllAsync(
@@ -55,7 +58,12 @@ public class NotificationPreferencesController(
         var preferences = await preferenceRepository.GetAllAsync(
             filter: p => p.UserId == CurrentUserId && (p.StoreId == null || p.StoreId == CurrentStoreId));
 
-        var prefDict = preferences.ToDictionary(p => p.CategoryCode, p => p.IsEnabled);
+        var prefDict = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in preferences)
+        {
+            var code = NotificationCategoryCodes.Normalize(p.CategoryCode) ?? p.CategoryCode;
+            prefDict[code] = p.IsEnabled;
+        }
 
         var dtos = categories.Select(c => new NotificationPreferenceDto
         {
@@ -71,10 +79,11 @@ public class NotificationPreferencesController(
     }
 
     /// <summary>
-    /// Cập nhật thiết lập nhận thông báo
+    /// Cáº­p nháº­t thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o
     /// </summary>
     [HttpPut]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("NotificationSettings", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<List<NotificationPreferenceDto>>>> UpdatePreferences(
         [FromBody] UpdateNotificationPreferencesRequest request)
     {
@@ -87,7 +96,8 @@ public class NotificationPreferencesController(
 
         foreach (var item in request.Preferences)
         {
-            if (existingMap.TryGetValue(item.CategoryCode, out var existing))
+            var categoryCode = NotificationCategoryCodes.Normalize(item.CategoryCode) ?? item.CategoryCode;
+            if (existingMap.TryGetValue(categoryCode, out var existing))
             {
                 existing.IsEnabled = item.IsEnabled;
                 await preferenceRepository.UpdateAsync(existing);
@@ -98,7 +108,7 @@ public class NotificationPreferencesController(
                 {
                     Id = Guid.NewGuid(),
                     UserId = CurrentUserId,
-                    CategoryCode = item.CategoryCode,
+                    CategoryCode = categoryCode,
                     IsEnabled = item.IsEnabled,
                     StoreId = storeId
                 });
@@ -108,3 +118,4 @@ public class NotificationPreferencesController(
         return await GetPreferences();
     }
 }
+

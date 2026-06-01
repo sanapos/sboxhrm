@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SBOX HRM – Phần mềm quản lý nhân sự thông minh</title>
+  <meta name="description" content="SBOX HRM – Giải pháp quản lý nhân sự toàn diện: chấm công khuôn mặt, lịch ca, bảng lương, hồ sơ nhân viên trên nền tảng di động và web." />
+  <meta name="keywords" content="SBOX HRM, phần mềm nhân sự, chấm công khuôn mặt, ZKTeco, bảng lương, quản lý ca, HRM Việt Nam" />
+  <meta name="author" content="SBOX HRM" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://sbox.sana.vn/home.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sbox.sana.vn/home.html" />
+  <meta property="og:title" content="SBOX HRM – Phần mềm quản lý nhân sự thông minh" />
+  <meta property="og:description" content="Chấm công khuôn mặt, quản lý ca, bảng lương tự động – giải pháp HRM cho doanh nghiệp Việt Nam." />
+  <meta property="og:image" content="https://sbox.sana.vn/images/landing/screenshot-01.jpg" />
+  <meta property="og:locale" content="vi_VN" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SBOX HRM – Quản lý nhân sự thông minh" />
+  <meta name="twitter:description" content="Chấm công khuôn mặt, lịch ca, bảng lương – một nền tảng HRM duy nhất." />
+  <meta name="twitter:image" content="https://sbox.sana.vn/images/landing/screenshot-01.jpg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SBOX HRM",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Android, Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND", "description": "Dùng thử miễn phí" },
+    "description": "Phần mềm quản lý nhân sự: chấm công khuôn mặt, ZKTeco, ca làm, bảng lương, phê duyệt đơn từ.",
+    "screenshot": "https://sbox.sana.vn/images/landing/screenshot-01.jpg",
+    "url": "https://sbox.sana.vn/home.html"
+  }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #fff; color: #1a1a2e; overflow-x: hidden; }
+
+    /* ── NAV ─────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo .logo-box {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #1565C0, #42A5F5);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 15px; letter-spacing: -0.5px;
+    }
+    .nav-logo span { font-weight: 700; font-size: 18px; color: #1565C0; }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a { text-decoration: none; color: #555; font-size: 14px; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: #1565C0; }
+    .nav-cta {
+      background: linear-gradient(135deg, #1565C0, #1E88E5);
+      color: #fff; padding: 8px 20px; border-radius: 8px;
+      text-decoration: none; font-size: 14px; font-weight: 600;
+      transition: opacity .2s; white-space: nowrap;
+    }
+    .nav-cta:hover { opacity: 0.88; }
+    .nav-menu-btn {
+      display: none; background: none; border: none; cursor: pointer;
+      padding: 8px; color: #1565C0; font-size: 26px; line-height: 1;
+    }
+    .nav-drawer {
+      display: none; position: fixed; top: 60px; left: 0; right: 0;
+      background: #fff; border-bottom: 1px solid #eee; padding: 16px 24px 20px;
+      z-index: 99; box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .nav-drawer.open { display: block; }
+    .nav-drawer a {
+      display: block; padding: 12px 0; text-decoration: none;
+      color: #333; font-weight: 600; font-size: 15px; border-bottom: 1px solid #f0f0f0;
+    }
+    .nav-drawer a:last-child { border-bottom: none; }
+    @media (max-width: 900px) { .nav-links { display: none; } .nav-menu-btn { display: block; } }
+
+    /* ── CONTACT ─────────────────────────────────────── */
+    .contact-section { background: #fff; }
+    .contact-grid {
+      max-width: 960px; margin: 40px auto 0;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;
+    }
+    .contact-card {
+      background: #F8FAFF; border-radius: 14px; padding: 22px;
+      border: 1px solid #E3F2FD;
+    }
+    .contact-card h4 { font-size: 14px; color: #1565C0; margin-bottom: 8px; font-weight: 700; }
+    .contact-card p, .contact-card a { font-size: 15px; color: #333; line-height: 1.5; text-decoration: none; }
+    .contact-card a:hover { color: #1565C0; text-decoration: underline; }
+
+    /* ── HERO ────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh; padding: 100px 24px 60px;
+      background: linear-gradient(160deg, #0D1B4B 0%, #1565C0 50%, #0288D1 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 30px; padding: 6px 16px; font-size: 13px; color: #90CAF9;
+      font-weight: 500; margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 72px); font-weight: 800;
+      color: #fff; line-height: 1.1; margin-bottom: 16px;
+      letter-spacing: -1px;
+    }
+    .hero h1 span { color: #64B5F6; }
+    .hero p {
+      font-size: clamp(16px, 2.5vw, 20px); color: rgba(255,255,255,0.75);
+      max-width: 580px; line-height: 1.7; margin-bottom: 36px;
+    }
+    .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 60px; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fff; color: #1565C0;
+      padding: 14px 28px; border-radius: 12px;
+      text-decoration: none; font-weight: 700; font-size: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); transition: transform .2s, box-shadow .2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.2); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 2px solid rgba(255,255,255,0.4); color: #fff;
+      padding: 13px 28px; border-radius: 12px;
+      text-decoration: none; font-weight: 600; font-size: 15px;
+      transition: background .2s;
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.1); }
+    .hero-phones {
+      display: flex; gap: 20px; justify-content: center; align-items: flex-end;
+      flex-wrap: wrap; position: relative; z-index: 1;
+    }
+    .phone-wrap {
+      width: clamp(160px, 22vw, 240px);
+      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+      transition: transform .3s;
+    }
+    .phone-wrap:hover { transform: translateY(-8px); }
+    .phone-wrap.center { transform: scale(1.08) translateY(-12px); }
+    .phone-wrap.center:hover { transform: scale(1.08) translateY(-18px); }
+    .phone-wrap img { width: 100%; border-radius: 28px; display: block; }
+
+    /* ── STATS ───────────────────────────────────────── */
+    .stats {
+      background: #fff; padding: 40px 24px;
+      border-bottom: 1px solid #F0F0F0;
+    }
+    .stats-inner {
+      max-width: 960px; margin: 0 auto;
+      display: flex; justify-content: space-around; flex-wrap: wrap; gap: 24px;
+    }
+    .stat-item { text-align: center; }
+    .stat-num { font-size: 36px; font-weight: 800; color: #1565C0; line-height: 1; }
+    .stat-label { font-size: 13px; color: #888; margin-top: 4px; }
+
+    /* ── SECTION COMMON ──────────────────────────────── */
+    section { padding: 80px 24px; }
+    .section-tag {
+      display: inline-block; background: #E3F2FD; color: #1565C0;
+      border-radius: 6px; padding: 4px 12px; font-size: 12px;
+      font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: clamp(26px, 4vw, 40px); font-weight: 800; color: #0D1B4B; line-height: 1.2; margin-bottom: 12px; }
+    .section-sub { font-size: 16px; color: #666; line-height: 1.7; max-width: 500px; }
+    .section-center { text-align: center; }
+    .section-center .section-sub { margin: 0 auto; }
+
+    /* ── FEATURES GRID ───────────────────────────────── */
+    .features-bg { background: #F8FAFF; }
+    .features-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 28px; margin-top: 52px;
+    }
+    .feature-card {
+      background: #fff; border-radius: 16px;
+      padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.1); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; margin-bottom: 18px;
+    }
+    .feature-card h3 { font-size: 17px; font-weight: 700; color: #0D1B4B; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #666; line-height: 1.6; }
+
+    /* ── SHOWCASE (alternating) ──────────────────────── */
+    .showcase-wrap { max-width: 1100px; margin: 0 auto; }
+    .showcase {
+      display: flex; align-items: center; gap: 60px;
+      padding: 60px 0; border-bottom: 1px solid #F0F0F0;
+    }
+    .showcase:last-child { border-bottom: none; }
+    .showcase.reverse { flex-direction: row-reverse; }
+    .showcase-text { flex: 1; min-width: 0; }
+    .showcase-text h3 { font-size: clamp(22px, 3vw, 32px); font-weight: 800; color: #0D1B4B; margin-bottom: 14px; }
+    .showcase-text p { font-size: 15px; color: #555; line-height: 1.8; margin-bottom: 16px; }
+    .showcase-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      background: #E3F2FD; color: #1565C0;
+      border-radius: 30px; padding: 5px 14px; font-size: 13px; font-weight: 600;
+    }
+    .showcase-img { flex: 0 0 auto; width: clamp(220px, 32vw, 340px); }
+    .showcase-img img {
+      width: 100%; border-radius: 28px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.14);
+      display: block;
+    }
+    @media (max-width: 768px) {
+      .showcase { flex-direction: column !important; gap: 32px; }
+      .showcase-img { width: min(100%, 320px); margin: 0 auto; }
+    }
+
+    /* ── TABLET GALLERY ──────────────────────────────── */
+    .tablet-section { background: #0D1B4B; }
+    .tablet-section .section-title { color: #fff; }
+    .tablet-section .section-sub { color: rgba(255,255,255,0.6); }
+    .tablet-section .section-tag { background: rgba(255,255,255,0.12); color: #90CAF9; }
+    .tablet-grid {
+      max-width: 1200px; margin: 52px auto 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+    .tablet-card { position: relative; border-radius: 16px; overflow: hidden; cursor: pointer; }
+    .tablet-card img { width: 100%; display: block; border-radius: 16px; transition: transform .35s; }
+    .tablet-card:hover img { transform: scale(1.03); }
+    .tablet-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%);
+      color: #fff; padding: 20px 16px 14px;
+      font-size: 14px; font-weight: 600;
+    }
+    @media (max-width: 640px) { .tablet-grid { grid-template-columns: 1fr; } }
+
+    /* ── LIGHTBOX ────────────────────────────────────── */
+    .lightbox {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.88); align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; object-fit: contain; }
+    .lightbox-close {
+      position: absolute; top: 20px; right: 24px;
+      color: #fff; font-size: 32px; cursor: pointer; line-height: 1;
+      background: none; border: none; opacity: 0.7;
+    }
+    .lightbox-close:hover { opacity: 1; }
+
+    /* ── HOW IT WORKS ────────────────────────────────── */
+    .steps { max-width: 800px; margin: 52px auto 0; }
+    .step { display: flex; gap: 24px; margin-bottom: 40px; }
+    .step-num {
+      flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #1565C0, #42A5F5);
+      color: #fff; font-weight: 800; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-body h4 { font-size: 17px; font-weight: 700; color: #0D1B4B; margin-bottom: 6px; }
+    .step-body p { font-size: 14px; color: #666; line-height: 1.6; }
+
+    /* ── DOWNLOAD ────────────────────────────────────── */
+    .download-section {
+      background: linear-gradient(135deg, #1565C0 0%, #0288D1 100%);
+      text-align: center; padding: 80px 24px;
+    }
+    .download-section h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; color: #fff; margin-bottom: 12px; }
+    .download-section p { font-size: 16px; color: rgba(255,255,255,0.75); margin-bottom: 36px; }
+    .download-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .store-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: #fff; color: #1565C0;
+      padding: 14px 24px; border-radius: 14px;
+      text-decoration: none; font-weight: 700;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); transition: transform .2s;
+    }
+    .store-btn:hover { transform: translateY(-2px); }
+    .store-btn .store-icon { font-size: 28px; line-height: 1; }
+    .store-btn-text { text-align: left; }
+    .store-btn-text small { display: block; font-size: 11px; font-weight: 500; color: #888; }
+    .store-btn-text span { font-size: 16px; }
+    .web-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      border: 2px solid rgba(255,255,255,0.5); color: #fff;
+      padding: 14px 28px; border-radius: 14px;
+      text-decoration: none; font-weight: 700; font-size: 15px;
+      transition: background .2s;
+    }
+    .web-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── FOOTER ──────────────────────────────────────── */
+    footer {
+      background: #0A1128; color: rgba(255,255,255,0.5);
+      padding: 40px 24px; text-align: center;
+    }
+    footer a { color: #64B5F6; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .footer-links { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; font-size: 14px; }
+    .footer-copy { font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav aria-label="Điều hướng chính">
+  <a class="nav-logo" href="/home.html">
+    <div class="logo-box">SB</div>
+    <span>SBOX HRM</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Tính năng</a></li>
+    <li><a href="#screenshots">Giao diện</a></li>
+    <li><a href="#reports">Báo cáo</a></li>
+    <li><a href="/landing">Bảng giá</a></li>
+    <li><a href="#contact">Liên hệ</a></li>
+    <li><a href="#howto">Hướng dẫn</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:10px">
+    <a class="nav-cta" href="/login-app" style="background:transparent;color:#1565C0;border:2px solid #1565C0;box-shadow:none">Đăng nhập</a>
+    <a class="nav-cta" href="/register">Dùng thử miễn phí</a>
+    <button type="button" class="nav-menu-btn" id="nav-menu-btn" aria-label="Mở menu" aria-expanded="false" aria-controls="nav-drawer">☰</button>
+  </div>
+</nav>
+<div class="nav-drawer" id="nav-drawer" role="navigation" aria-label="Menu di động">
+  <a href="#features" class="nav-drawer-link">Tính năng</a>
+  <a href="#screenshots" class="nav-drawer-link">Giao diện</a>
+  <a href="#reports" class="nav-drawer-link">Báo cáo</a>
+  <a href="/landing">Bảng giá</a>
+  <a href="#contact" class="nav-drawer-link">Liên hệ</a>
+  <a href="#howto" class="nav-drawer-link">Hướng dẫn</a>
+  <a href="/login-app">Đăng nhập</a>
+  <a href="/register">Dùng thử miễn phí</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">✦ Phần mềm HRM thế hệ mới</div>
+  <h1>Quản lý nhân sự<br><span>thông minh & hiện đại</span></h1>
+  <p>Chấm công khuôn mặt, quản lý ca làm việc, bảng lương tự động — tất cả trong một ứng dụng dành cho doanh nghiệp Việt Nam.</p>
+  <div class="hero-btns">
+    <a class="btn-primary" href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">
+      ▶ Google Play
+    </a>
+    <a class="btn-outline" href="/login-app">
+      🌐 Đăng nhập Web
+    </a>
+  </div>
+  <div class="hero-phones">
+    <div class="phone-wrap">
+      <img src="images/landing/screenshot-06.jpg" alt="Hồ sơ nhân sự" width="240" height="520" loading="lazy" decoding="async" />
+    </div>
+    <div class="phone-wrap center">
+      <img src="images/landing/screenshot-01.jpg" alt="Dashboard tổng quan" width="240" height="520" fetchpriority="high" decoding="async" />
+    </div>
+    <div class="phone-wrap">
+      <img src="images/landing/screenshot-02.jpg" alt="Chấm công khuôn mặt" width="240" height="520" loading="lazy" decoding="async" />
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-num">5+</div>
+      <div class="stat-label">Loại hình chấm công</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">30+</div>
+      <div class="stat-label">Tính năng HR tích hợp</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">Realtime</div>
+      <div class="stat-label">Cập nhật theo thời gian thực</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">AI</div>
+      <div class="stat-label">Trợ lý AI tích hợp</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features" class="features-bg">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="section-center">
+      <div class="section-tag">Tính năng</div>
+      <h2 class="section-title">Đầy đủ mọi nghiệp vụ nhân sự</h2>
+      <p class="section-sub">Từ chấm công đến bảng lương, SBOX HRM giúp HR tiết kiệm hàng giờ công việc thủ công mỗi ngày.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#E3F2FD">👤</div>
+        <h3>Chấm công khuôn mặt</h3>
+        <p>Nhận diện khuôn mặt bằng AI ngay trên điện thoại. Xác minh GPS và WiFi để đảm bảo chấm công đúng địa điểm.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#F3E5F5">👆</div>
+        <h3>Quản lý vân tay</h3>
+        <p>Đăng ký và quản lý vân tay từng ngón tay trực tiếp từ app. Tích hợp thiết bị ZKTeco phần cứng.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#E8F5E9">📅</div>
+        <h3>Lịch làm việc & Ca xoay</h3>
+        <p>Xếp lịch ca linh hoạt — Hành chính, Ca sáng, Ca chiều, Ca tối, Ca đêm. Hỗ trợ phê duyệt đổi ca.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#FFF3E0">📊</div>
+        <h3>Bảng điểm danh tổng hợp</h3>
+        <p>Xem tổng hợp chấm công toàn bộ nhân viên theo ngày, tuần, tháng. Lọc theo chi nhánh, trạng thái.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#FCE4EC">💰</div>
+        <h3>Bảng lương tự động</h3>
+        <p>Tính lương theo ca, hệ số ngày lễ, tăng ca, đi trễ về sớm. Xuất phiếu lương PDF cho nhân viên.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#E0F7FA">🗂️</div>
+        <h3>Hồ sơ nhân sự</h3>
+        <p>Quản lý đầy đủ thông tin nhân viên, hợp đồng, phòng ban, ảnh đại diện và lịch sử làm việc.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#F1F8E9">✅</div>
+        <h3>Phê duyệt đơn từ</h3>
+        <p>Xin nghỉ phép, đổi ca, ứng lương — tất cả qua app với quy trình phê duyệt nhiều cấp.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#EDE7F6">🤖</div>
+        <h3>Trợ lý AI</h3>
+        <p>Đặt câu hỏi về chấm công, báo cáo, chính sách — AI trả lời tức thì dựa trên dữ liệu thực tế của bạn.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#E3F2FD">🔔</div>
+        <h3>Thông báo đẩy realtime</h3>
+        <p>Nhận thông báo phê duyệt, sinh nhật nhân viên, cảnh báo thiếu chấm công ngay lập tức qua FCM.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS SHOWCASE -->
+<section id="screenshots" style="background:#fff">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="section-center" style="margin-bottom:8px">
+      <div class="section-tag">Giao diện</div>
+      <h2 class="section-title">Thiết kế hiện đại, dễ sử dụng</h2>
+      <p class="section-sub">Giao diện tối ưu cho cả điện thoại và máy tính bảng, phù hợp mọi cấp nhân viên.</p>
+    </div>
+    <div class="showcase-wrap">
+
+      <div class="showcase">
+        <div class="showcase-text">
+          <div class="section-tag">Dashboard</div>
+          <h3>Tổng quan trong tầm mắt</h3>
+          <p>Màn hình chính hiển thị tỉ lệ có mặt theo thời gian thực, các tác vụ nhanh và biểu đồ phân tích. Truy cập mọi tính năng chỉ với 1 chạm.</p>
+          <div class="showcase-pills">
+            <span class="pill">Tỉ lệ có mặt realtime</span>
+            <span class="pill">Yêu cầu chờ duyệt</span>
+            <span class="pill">Trợ lý AI</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-01.jpg" alt="Dashboard tổng quan SBOX HRM" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase reverse">
+        <div class="showcase-text">
+          <div class="section-tag">Chấm công Mobile</div>
+          <h3>Chấm công bằng khuôn mặt</h3>
+          <p>Nhấn "Quét mặt" để chấm công tức thì. Hệ thống kiểm tra đồng thời thiết bị, khuôn mặt, GPS và WiFi trước khi xác nhận.</p>
+          <div class="showcase-pills">
+            <span class="pill">Face ID / Khuôn mặt</span>
+            <span class="pill">Kiểm tra GPS</span>
+            <span class="pill">Kiểm tra WiFi</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-02.jpg" alt="Chấm công khuôn mặt" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase">
+        <div class="showcase-text">
+          <div class="section-tag">Vân tay</div>
+          <h3>Đăng ký vân tay trực tiếp</h3>
+          <p>Quản lý vân tay từng ngón tay của nhân viên ngay trên app, đồng bộ với thiết bị ZKTeco. Hiển thị trực quan tay trái / tay phải.</p>
+          <div class="showcase-pills">
+            <span class="pill">ZKTeco tích hợp</span>
+            <span class="pill">10 ngón tay</span>
+            <span class="pill">Quản lý từ xa</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-03.jpg" alt="Quản lý vân tay" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase reverse">
+        <div class="showcase-text">
+          <div class="section-tag">Lịch sử chấm công</div>
+          <h3>Theo dõi LIVE theo thời gian thực</h3>
+          <p>Xem danh sách chấm công cập nhật tức thì. Biết ngay ai vừa chấm vào/ra, từ thiết bị nào và tại chi nhánh nào.</p>
+          <div class="showcase-pills">
+            <span class="pill">Cập nhật LIVE</span>
+            <span class="pill">Lọc theo ngày</span>
+            <span class="pill">Đa chi nhánh</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-04.jpg" alt="Lịch sử chấm công realtime" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase">
+        <div class="showcase-text">
+          <div class="section-tag">Tổng hợp chấm công thô</div>
+          <h3>Bảng điểm danh toàn công ty</h3>
+          <p>Nhìn thấy toàn bộ nhân viên theo từng ngày: giờ vào, giờ ra, trạng thái vắng mặt, nghỉ lễ, ngày nghỉ. Lọc nhanh và xuất Excel.</p>
+          <div class="showcase-pills">
+            <span class="pill">Bảng điểm danh</span>
+            <span class="pill">Xuất Excel / PNG</span>
+            <span class="pill">Lọc theo chi nhánh</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-05.jpg" alt="Bảng điểm danh tổng hợp" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase reverse">
+        <div class="showcase-text">
+          <div class="section-tag">Nhân sự</div>
+          <h3>Hồ sơ nhân viên đầy đủ</h3>
+          <p>Danh sách nhân viên với ảnh, phòng ban, chức vụ và thông tin liên lạc. Quản lý nhiều chi nhánh trong cùng một màn hình.</p>
+          <div class="showcase-pills">
+            <span class="pill">Ảnh đại diện</span>
+            <span class="pill">Phân theo phòng ban</span>
+            <span class="pill">Đa chi nhánh</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-06.jpg" alt="Hồ sơ nhân sự" loading="lazy" />
+        </div>
+      </div>
+
+      <div class="showcase">
+        <div class="showcase-text">
+          <div class="section-tag">Lịch làm việc</div>
+          <h3>Xếp lịch ca linh hoạt</h3>
+          <p>Lịch ca theo tuần với đầy đủ loại ca: Hành chính, Ca sáng, Ca chiều, Ca tối, Qua đêm. Nhân viên gửi đề xuất, quản lý duyệt trực tiếp.</p>
+          <div class="showcase-pills">
+            <span class="pill">5+ loại ca</span>
+            <span class="pill">Phê duyệt online</span>
+            <span class="pill">Xuất Excel / PNG</span>
+          </div>
+        </div>
+        <div class="showcase-img">
+          <img src="images/landing/screenshot-07.jpg" alt="Lịch làm việc theo ca" loading="lazy" />
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- TABLET REPORTS -->
+<section id="reports" class="tablet-section">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="section-center">
+      <div class="section-tag">Báo cáo</div>
+      <h2 class="section-title">Báo cáo chi tiết trên máy tính bảng</h2>
+      <p class="section-sub">Giao diện tối ưu cho iPad và tablet — xem bảng tổng hợp chấm công, giờ làm, đi trễ về sớm và công ca trực quan.</p>
+    </div>
+    <div class="tablet-grid">
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-01.png')">
+        <img src="images/landing/table-01.png" alt="Bảng điểm danh" width="800" height="500" loading="lazy" decoding="async" />
+        <div class="tablet-label">📋 Bảng điểm danh</div>
+      </div>
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-02.png')">
+        <img src="images/landing/table-02.png" alt="Bảng giờ làm" width="800" height="500" loading="lazy" decoding="async" />
+        <div class="tablet-label">⏱ Bảng giờ làm việc</div>
+      </div>
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-03.png')">
+        <img src="images/landing/table-03.png" alt="Bảng đi trễ về sớm" width="800" height="500" loading="lazy" decoding="async" />
+        <div class="tablet-label">⚠️ Bảng đi trễ / về sớm</div>
+      </div>
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-04.png')">
+        <img src="images/landing/table-04.png" alt="Bảng công ca" width="800" height="500" loading="lazy" decoding="async" />
+        <div class="tablet-label">✅ Bảng công ca</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Xem ảnh phóng to" onclick="closeLightbox()">
+  <button type="button" class="lightbox-close" aria-label="Đóng" onclick="event.stopPropagation(); closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="Xem báo cáo phóng to" onclick="event.stopPropagation()" />
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="howto" style="background:#F8FAFF">
+  <div style="max-width:1100px;margin:0 auto">
+    <div class="section-center">
+      <div class="section-tag">Bắt đầu</div>
+      <h2 class="section-title">3 bước để bắt đầu</h2>
+      <p class="section-sub">Triển khai nhanh chóng, không cần cài đặt phức tạp.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Tạo tài khoản & cấu hình cửa hàng</h4>
+          <p>Đăng nhập vào <strong>sbox.sana.vn</strong>, tạo cửa hàng, thêm phòng ban và thiết lập ca làm việc phù hợp với doanh nghiệp của bạn.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Thêm nhân viên & đăng ký sinh trắc</h4>
+          <p>Thêm danh sách nhân viên, chụp ảnh khuôn mặt và đăng ký vân tay trực tiếp trên app hoặc qua thiết bị ZKTeco.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Chấm công & xem báo cáo</h4>
+          <p>Nhân viên chấm công bằng khuôn mặt/vân tay hằng ngày. Quản lý xem báo cáo tổng hợp, xuất bảng lương chỉ với vài cú nhấp.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="contact-section">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="section-center">
+      <div class="section-tag">Liên hệ</div>
+      <h2 class="section-title">Hỗ trợ triển khai & tư vấn</h2>
+      <p class="section-sub">Đội ngũ SBOX sẵn sàng hỗ trợ cài đặt, đào tạo và tích hợp thiết bị ZKTeco cho doanh nghiệp của bạn.</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-card">
+        <h4>📞 Hotline</h4>
+        <p><a href="tel:+84935364556">0935 364 556</a></p>
+      </div>
+      <div class="contact-card">
+        <h4>💬 Zalo</h4>
+        <p><a href="https://zalo.me/0935364556" target="_blank" rel="noopener noreferrer">0935 364 556</a></p>
+      </div>
+      <div class="contact-card">
+        <h4>📧 Email</h4>
+        <p><a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a></p>
+      </div>
+      <div class="contact-card">
+        <h4>📍 Địa chỉ</h4>
+        <p>184 Nam Cao, Hòa Khánh, Đà Nẵng</p>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:28px">
+      <a class="btn-primary" href="/landing" style="display:inline-flex">Xem bảng giá &amp; gói dịch vụ</a>
+    </p>
+  </div>
+</section>
+
+<!-- DOWNLOAD CTA -->
+<section class="download-section">
+  <h2>Tải SBOX HRM ngay hôm nay</h2>
+  <p>Miễn phí tải về · Hỗ trợ Android · Giao diện web trên mọi trình duyệt</p>
+  <div class="download-btns">
+    <a class="store-btn" href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">
+      <div class="store-icon">▶</div>
+      <div class="store-btn-text">
+        <small>Tải trên</small>
+        <span>Google Play</span>
+      </div>
+    </a>
+    <a class="web-btn" href="/login-app">
+      🌐 &nbsp;Đăng nhập trên Web
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-links">
+    <a href="/login-app">Truy cập hệ thống</a>
+    <a href="/landing">Bảng giá</a>
+    <a href="/privacy-policy.html">Chính sách quyền riêng tư</a>
+    <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a>
+  </div>
+  <div class="footer-copy">© 2026 SBOX HRM · All rights reserved.</div>
+</footer>
+
+<script>
+  function openLightbox(src) {
+    var img = document.getElementById('lightbox-img');
+    img.src = src;
+    img.alt = src.split('/').pop() || 'Báo cáo';
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+  });
+
+  (function () {
+    var btn = document.getElementById('nav-menu-btn');
+    var drawer = document.getElementById('nav-drawer');
+    if (!btn || !drawer) return;
+    btn.addEventListener('click', function () {
+      var open = drawer.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = open ? '✕' : '☰';
+    });
+    drawer.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        drawer.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.textContent = '☰';
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -2,6 +2,7 @@
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 class ConnectMccScreen extends StatefulWidget {
@@ -122,7 +123,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1E3A5F).withValues(alpha: 0.3)),
+        border: Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -139,10 +140,10 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.add_circle, color: Color(0xFF1E3A5F)),
+                child: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -161,13 +162,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             style: TextStyle(color: Color(0xFF71717A), fontSize: 14),
           ),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showAddDeviceDialog(),
             icon: const Icon(Icons.qr_code),
             label: const Text('Thêm thiết bị bằng SN'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
-              foregroundColor: Colors.white,
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
               minimumSize: const Size(double.infinity, 48),
             ),
           ),
@@ -287,11 +287,10 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 ],
               ),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: _isConnecting ? null : () => _connectAvailableDevice(device),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
               ),
               child: _isConnecting
                   ? const SizedBox(
@@ -313,7 +312,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.devices, color: Color(0xFF1E3A5F)),
+            const Icon(Icons.devices, color: HrmPageChrome.primaryNavy),
             const SizedBox(width: 8),
             const Text(
               'Thiết Bị Của Tôi',
@@ -327,12 +326,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.1),
+                color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '${_myDevices.length}',
-                style: const TextStyle(color: Color(0xFF1E3A5F), fontWeight: FontWeight.bold),
+                style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -482,11 +481,11 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             Row(
               children: [
                 if (device.ipAddress != null) ...[
-                  const Icon(Icons.lan, size: 14, color: Color(0xFF1E3A5F)),
+                  const Icon(Icons.lan, size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 4),
                   Text(
                     device.ipAddress!,
-                    style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 12),
+                    style: const TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 12),
                   ),
                   const SizedBox(width: 16),
                 ],
@@ -515,8 +514,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                   icon: const Icon(Icons.info_outline, size: 18),
                   label: const Text('Chi tiết'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E3A5F),
-                    side: const BorderSide(color: Color(0xFF1E3A5F)),
+                    foregroundColor: HrmPageChrome.primaryNavy,
+                    side: const BorderSide(color: HrmPageChrome.primaryNavy),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -552,7 +551,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.add_circle, color: Color(0xFF1E3A5F)),
+              Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 12),
               Text('Thêm Máy Chấm Công', style: TextStyle(color: Color(0xFF18181B))),
             ],
@@ -584,14 +583,14 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                      borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                     ),
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Barcode scan button
                         IconButton(
-                          icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF0C56D0)),
+                          icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
                           tooltip: 'Quét mã barcode',
                           onPressed: () async {
                             final code = await showDialog<String>(
@@ -644,7 +643,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.search, color: Color(0xFF1E3A5F)),
+                          : const Icon(Icons.search, color: HrmPageChrome.primaryNavy),
                       onPressed: isChecking
                           ? null
                           : () async {
@@ -766,7 +765,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                      borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                     ),
                   ),
                 ),
@@ -782,12 +781,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.info_outline, color: Color(0xFF1E3A5F), size: 18),
+                      Icon(Icons.info_outline, color: HrmPageChrome.primaryNavy, size: 18),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Số SN được in trên nhãn máy chấm công hoặc trong menu thông tin thiết bị.',
-                          style: TextStyle(color: Color(0xFF1E3A5F), fontSize: 12),
+                          style: TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 12),
                         ),
                       ),
                     ],
@@ -801,16 +800,15 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: (isAvailable && nameController.text.isNotEmpty)
                   ? () async {
                       Navigator.pop(context);
                       await _connectDevice(snController.text.trim(), nameController.text.trim());
                     }
                   : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
               ),
               child: const Text('Kết nối'),
             ),
@@ -848,7 +846,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
               ),
             ),
             autofocus: true,
@@ -859,10 +857,10 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, nameController.text),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
             ),
             child: const Text('Kết nối'),
           ),
@@ -962,7 +960,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            _buildInfoRow('Serial Number', device.serialNumber, Icons.qr_code, const Color(0xFF1E3A5F)),
+            _buildInfoRow('Serial Number', device.serialNumber, Icons.qr_code, HrmPageChrome.primaryNavy),
             if (device.ipAddress != null)
               _buildInfoRow('Địa chỉ IP', device.ipAddress!, Icons.lan, const Color(0xFF2D5F8B)),
             if (device.location != null && device.location!.isNotEmpty)
@@ -1030,7 +1028,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               final result = await _apiService.unclaimDevice(device.id);
@@ -1041,7 +1039,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 _showError(result['message'] ?? 'Không thể xóa thiết bị');
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Xóa'),
           ),
         ],
@@ -1103,7 +1101,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                color: Color(0xFF0C56D0),
+                color: HrmPageChrome.primaryNavy,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(
@@ -1227,11 +1225,11 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
               style: TextStyle(color: Color(0xFF586064), fontSize: 11),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => setState(() => _showManualInput = true),
               icon: const Icon(Icons.keyboard, size: 16),
               label: const Text('Nhập mã thủ công'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0C56D0), foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             ),
           ],
         ),
@@ -1245,7 +1243,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.qr_code, color: Color(0xFF0C56D0), size: 40),
+          const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
           const Text('Nhập mã Serial Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 16),
@@ -1265,12 +1263,12 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                 child: const Text('Quay lại camera'),
               ),
               const Spacer(),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final text = _manualController.text.trim();
                   if (text.isNotEmpty) Navigator.pop(context, text);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0C56D0), foregroundColor: Colors.white),
+                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                 child: const Text('Xác nhận'),
               ),
             ],

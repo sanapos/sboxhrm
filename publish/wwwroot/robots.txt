@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /privacy-policy.html
+Disallow: /api/
+Disallow: /hubs/
+Disallow: /admin
+Disallow: /login-app
+Disallow: /register
+
+Sitemap: https://sbox.sana.vn/sitemap.xml

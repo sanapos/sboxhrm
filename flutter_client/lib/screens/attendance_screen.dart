@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import '../utils/file_saver.dart' as file_saver;
@@ -12,6 +12,7 @@ import '../models/device.dart';
 import '../models/employee.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
+import '../utils/attendance_load_utils.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -23,6 +24,8 @@ import 'attendance/attendance_correction_tab.dart'
     show CorrectionRequestInternal, CorrectionStatus;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../l10n/app_localizations.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -54,6 +57,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   DateTime _fromDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _toDate = DateTime.now();
+  int _dayEndHour = 0;
+  int _dayEndMinute = 0;
   List<String> _selectedDevices = [];
   String _searchPin = ''; // Filter theo ID/PIN nhân viên
   String _selectedDatePreset =
@@ -69,7 +74,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _sortAscending = false;
 
   // Mobile UI state
-  bool _showMobileFilters = false;
   bool _showMobileSearch = false;
   bool _showMobileSummary = false;
 
@@ -91,23 +95,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _loadEmployeesAndBranches() async {
-    try {
-      final apiService = ApiService();
-      final emps = await apiService.getEmployees(pageSize: 1000);
-      if (mounted) {
-        setState(() => _employeesList =
-            emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
-      }
-    } catch (_) {}
-    try {
-      final apiService = ApiService();
-      final br = await apiService.getBranchesForSelect();
-      final bd = br['data'];
-      if (bd is List && mounted) {
-        setState(() => _branches =
-            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
-      }
-    } catch (_) {}
+    final apiService = ApiService();
+    final results = await Future.wait([
+      apiService.getEmployees(pageSize: 1000).catchError((_) => <dynamic>[]),
+      apiService
+          .getBranchesForSelect()
+          .catchError((_) => <String, dynamic>{}),
+    ]);
+    if (!mounted) return;
+    final emps = results[0] as List;
+    setState(() => _employeesList =
+        emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+    final br = results[1] as Map<String, dynamic>;
+    final bd = br['data'];
+    if (bd is List) {
+      setState(() => _branches =
+          bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+    }
   }
 
   void _onExternalRefresh() {
@@ -389,19 +393,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _toDate = DateTime.now();
       }
 
-      final result = await _apiService.getAttendances(
-        deviceIds: _selectedDevices,
-        fromDate: _fromDate,
-        toDate: _toDate,
-        pageSize: 500, // Tăng để lấy nhiều dữ liệu hơn
-      );
+      if (_dayEndHour == 0 && _dayEndMinute == 0) {
+        final dayEndResult = await _apiService
+            .getAppSetting('day_end_time')
+            .catchError((_) => <String, dynamic>{});
+        if (dayEndResult['isSuccess'] == true && dayEndResult['data'] is Map) {
+          final value =
+              (dayEndResult['data'] as Map)['value']?.toString() ?? '00:00:00';
+          final parts = value.split(':');
+          if (parts.length >= 2) {
+            _dayEndHour = int.tryParse(parts[0]) ?? 0;
+            _dayEndMinute = int.tryParse(parts[1]) ?? 0;
+          }
+        }
+      }
+
+      var attendanceList = _selectedDevices.isEmpty
+          ? <Attendance>[]
+          : await loadAttendancesForPeriod(
+              _apiService,
+              deviceIds: _selectedDevices,
+              fromDate: _fromDate,
+              toDate: _toDate,
+              dayEndHour: _dayEndHour,
+              dayEndMinute: _dayEndMinute,
+              pageSize: 1000,
+            );
 
       if (mounted) {
-        var attendanceList = (result['items'] as List)
-            .map((e) => Attendance.fromJson(e))
-            .toList();
-
-        // Sắp xếp theo thời gian mới nhất trước
+        // Sắp xếp theo thời gian mới nhất trước (hiển thị danh sách)
         attendanceList
             .sort((a, b) => b.attendanceTime.compareTo(a.attendanceTime));
 
@@ -1000,7 +1020,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                       setState(() => _isLoading = true);
 
-                      final success = await _apiService.createManualAttendance(
+                      final result = await _apiService.createManualAttendance(
                         employeeId: selectedEmployee!.id,
                         punchTime: punchTime,
                         deviceId: selectedDevice!.id,
@@ -1010,7 +1030,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       if (mounted) {
                         setState(() => _isLoading = false);
 
-                        if (success) {
+                        if (result['isSuccess'] == true) {
                           appNotification.showSuccess(
                             title: 'Success',
                             message: _l10n.addManualAttendanceSuccess,
@@ -1236,7 +1256,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           // Modern gradient header
@@ -1275,10 +1295,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   size: 18, color: Colors.white),
                             ),
                             const SizedBox(width: 10),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'Chấm công',
-                                style: TextStyle(
+                                _l10n.attendance,
+                                style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white),
@@ -1290,31 +1310,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             _buildMobileHeaderIcon(Icons.search, () {
                               setState(() => _showMobileSearch = true);
                             }),
-                            const SizedBox(width: 4),
-                            // Filter icon with active indicator
-                            Stack(
-                              children: [
-                                _buildMobileHeaderIcon(
-                                  _showMobileFilters
-                                      ? Icons.filter_alt
-                                      : Icons.filter_alt_outlined,
-                                  () => setState(() =>
-                                      _showMobileFilters = !_showMobileFilters),
-                                ),
-                                if (_hasActiveFilters())
-                                  Positioned(
-                                    right: 4,
-                                    top: 4,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                          color: Colors.orangeAccent,
-                                          shape: BoxShape.circle),
-                                    ),
-                                  ),
-                              ],
-                            ),
                             const SizedBox(width: 4),
                             // Compact action menu
                             PopupMenuButton<String>(
@@ -1458,15 +1453,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Chấm công',
-                            style: TextStyle(
+                          Text(
+                            _l10n.attendance,
+                            style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white),
                           ),
                           Text(
-                            'Quản lý dữ liệu chấm công thời gian thực',
+                            _l10n.attendanceData,
                             style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.8)),
@@ -1579,83 +1574,104 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildDetailTab() {
     final isMobile = Responsive.isMobile(context);
-    return Padding(
+    return HrmResponsiveListLayout(
       padding: EdgeInsets.fromLTRB(
           isMobile ? 10 : 16, isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats cards
-          if (isMobile) ...[
-            InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
+      headerSections: _detailTabHeaderSections(isMobile),
+      desktopBody: _isLoading
+          ? const LoadingWidget(message: 'Đang tải dữ liệu...')
+          : _attendances.isEmpty
+              ? const EmptyState(
+                  icon: Icons.access_time,
+                  title: 'Không có dữ liệu',
+                  description:
+                      'Không có bản ghi chấm công trong khoảng thời gian này',
+                )
+              : Column(
                   children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text('Tổng quan',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
+                    Expanded(child: _buildAttendanceTable()),
+                    if (!Responsive.isMobile(context)) _buildPagination(),
                   ],
                 ),
+      mobileSlivers: (_) => _detailTabMobileSlivers(),
+    );
+  }
+
+  List<Widget> _detailTabHeaderSections(bool isMobile) => [
+        if (isMobile) ...[
+          InkWell(
+            onTap: () =>
+                setState(() => _showMobileSummary = !_showMobileSummary),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined,
+                      size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Text('Tổng quan',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.blue.shade700)),
+                  const Spacer(),
+                  Icon(
+                      _showMobileSummary
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                      color: Colors.blue.shade700),
+                ],
               ),
             ),
-            if (_showMobileSummary) ...[
-              const SizedBox(height: 8),
-              _buildStatsRow(),
-            ],
-          ] else ...[
+          ),
+          if (_showMobileSummary) ...[
+            const SizedBox(height: 8),
             _buildStatsRow(),
           ],
+        ] else
+          _buildStatsRow(),
+        const SizedBox(height: 12),
+        if (!isMobile) ...[
+          _buildFilters(),
           const SizedBox(height: 12),
-          // Filters: on mobile show only when toggled
-          if (!isMobile) ...[
-            _buildFilters(),
-            const SizedBox(height: 12),
-          ] else if (_showMobileFilters) ...[
-            _buildMobileFilterPanel(),
-            const SizedBox(height: 12),
-          ],
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const LoadingWidget(message: 'Đang tải dữ liệu...')
-                : _attendances.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.access_time,
-                        title: 'Không có dữ liệu',
-                        description:
-                            'Không có bản ghi chấm công trong khoảng thời gian này',
-                      )
-                    : Column(
-                        children: [
-                          Expanded(child: _buildAttendanceTable()),
-                          if (!Responsive.isMobile(context)) _buildPagination(),
-                        ],
-                      ),
-          ),
+        ] else ...[
+          _buildMobileFilterPanel(),
+          const SizedBox(height: 12),
         ],
+      ];
+
+  List<Widget> _detailTabMobileSlivers() {
+    if (_isLoading) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+            child: const LoadingWidget(message: 'Đang tải dữ liệu...')),
+      ];
+    }
+    if (_attendances.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: const EmptyState(
+            icon: Icons.access_time,
+            title: 'Không có dữ liệu',
+            description:
+                'Không có bản ghi chấm công trong khoảng thời gian này',
+          ),
+        ),
+      ];
+    }
+    final allFiltered = _filteredAttendances;
+    return [
+      SliverToBoxAdapter(
+        child: _buildAttendanceMobileList(allFiltered, 0, shrinkWrap: true),
       ),
-    );
+    ];
   }
 
   Widget _buildStatsRow() {
@@ -1670,9 +1686,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final card = _filteredAttendances.where((a) => a.verifyType == 2).length;
 
     final stats = [
-      ('Tổng bản ghi', '$total', Icons.list_alt, const Color(0xFF1E3A5F)),
-      ('Vân tay', '$fingerprint', Icons.fingerprint, const Color(0xFF0F2340)),
-      ('Khuôn mặt', '$face', Icons.face, const Color(0xFF1E3A5F)),
+      ('Tổng bản ghi', '$total', Icons.list_alt, HrmPageChrome.primaryNavy),
+      ('Vân tay', '$fingerprint', Icons.fingerprint, HrmPageChrome.primaryNavy),
+      ('Khuôn mặt', '$face', Icons.face, HrmPageChrome.primaryNavy),
       ('Thẻ từ', '$card', Icons.credit_card, const Color(0xFFF59E0B)),
       ('Thủ công', '$manual', Icons.edit_note, const Color(0xFFEF4444)),
     ];
@@ -1926,12 +1942,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _toDate = now;
           break;
         case 'lastMonth':
-          // Last month
-          final lastMonth = DateTime(now.year, now.month - 1, 1);
-          _fromDate = lastMonth;
-          final lastDayOfLastMonth = DateTime(now.year, now.month, 0);
-          _toDate = DateTime(lastDayOfLastMonth.year, lastDayOfLastMonth.month,
-              lastDayOfLastMonth.day, 23, 59, 59);
+          final firstThis = DateTime(today.year, today.month, 1);
+          final lastDayPrev = firstThis.subtract(const Duration(days: 1));
+          _fromDate = DateTime(lastDayPrev.year, lastDayPrev.month, 1);
+          _toDate = DateTime(lastDayPrev.year, lastDayPrev.month,
+              lastDayPrev.day, 23, 59, 59);
           break;
         case 'custom':
           // Keep current dates, show date pickers
@@ -3100,7 +3115,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: SingleChildScrollView(child: contentBody),
               ),
               actions: [
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: () => Navigator.of(ctx).pop(),
                   icon: const Icon(Icons.close, size: 18),
                   label: const Text('Đóng'),
@@ -3126,7 +3141,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   /// Mobile card list for attendance records - grouped by date
-  Widget _buildAttendanceMobileList(List<Attendance> items, int startIndex) {
+  Widget _buildAttendanceMobileList(List<Attendance> items, int startIndex,
+      {bool shrinkWrap = false}) {
     // Group items by date
     final Map<String, List<MapEntry<int, Attendance>>> grouped = {};
     for (var i = 0; i < items.length; i++) {
@@ -3139,6 +3155,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ..sort((a, b) => b.compareTo(a)); // newest first
 
     return ListView.builder(
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       itemCount: sortedKeys.length,
       itemBuilder: (context, groupIdx) {
@@ -3496,7 +3514,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         label: Text('Sửa',
             style: TextStyle(color: Theme.of(context).primaryColor)),
       ),
-      ElevatedButton.icon(
+      FilledButton.icon(
         onPressed: () => Navigator.of(context).pop(),
         icon: const Icon(Icons.close, size: 18),
         label: const Text('Đóng'),

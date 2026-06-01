@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../screens/system_admin/system_admin_helpers.dart';
+import '../utils/vietnamese_font.dart';
 
 /// Top banner that polls active SuperAdmin announcements and lets the user
 /// click action / acknowledge / dismiss.  Designed to be placed at the top
@@ -162,13 +163,13 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                   Text(title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
+                      style: vietnameseTextStyle(const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14))),
                   const SizedBox(height: 2),
                   Text(content,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12)),
+                      style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
                 ],
               ),
             ),

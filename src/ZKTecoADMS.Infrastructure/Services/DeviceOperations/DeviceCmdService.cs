@@ -71,6 +71,22 @@ public class DeviceCmdService(IRepository<DeviceCommand> deviceCmdRepository, IL
         return await deviceCmdRepository.UpdateAsync(command);
     }
 
+    public async Task<bool> UpdateCommandAcknowledgedAsync(ClockCommandResponse response)
+    {
+        var command = await deviceCmdRepository.GetSingleAsync(c => c.CommandId == response.CommandId);
+        if (command == null)
+        {
+            return false;
+        }
+
+        command.Status = CommandStatus.Sent;
+        command.ResponseData = response.CMD;
+        command.ErrorMessage = response.Message;
+        command.Return = response.Return;
+        command.SentAt ??= DateTime.Now;
+        return await deviceCmdRepository.UpdateAsync(command);
+    }
+
     public async Task<(DeviceCommandTypes, Guid)> GetCommandTypesAndIdAsync(long commandId)
     {
         var command = await deviceCmdRepository.GetSingleAsync(c => c.CommandId == commandId);

@@ -13,7 +13,7 @@ public class WorkTask : AuditableEntity<Guid>
     /// Mã công việc tự động (VD: TASK-001)
     /// </summary>
     [Required]
-    [MaxLength(20)]
+    [MaxLength(32)]
     public string TaskCode { get; set; } = string.Empty;
 
     /// <summary>
@@ -117,6 +117,35 @@ public class WorkTask : AuditableEntity<Guid>
     /// </summary>
     [MaxLength(2000)]
     public string? CompletionNotes { get; set; }
+
+    /// <summary>Chi nhánh liên quan (lọc / báo cáo giao việc)</summary>
+    public Guid? BranchId { get; set; }
+
+    /// <summary>Phòng ban liên quan</summary>
+    public Guid? DepartmentId { get; set; }
+
+    /// <summary>Mẫu công việc (nếu tạo từ template)</summary>
+    public Guid? TemplateId { get; set; }
+
+    /// <summary>Nhắc SLA trước deadline (giờ)</summary>
+    public int? SlaReminderHours { get; set; }
+
+    /// <summary>Thời điểm NV xác nhận nhận việc</summary>
+    public DateTime? AcceptedAt { get; set; }
+
+    /// <summary>Lý do từ chối nhận việc</summary>
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
+    /// <summary>Ghi chú khi giao việc</summary>
+    [MaxLength(1000)]
+    public string? AssignmentNote { get; set; }
+
+    public virtual Branch? Branch { get; set; }
+    public virtual Department? Department { get; set; }
+    public virtual TaskTemplate? Template { get; set; }
+    public virtual ICollection<TaskDependency>? BlockingDependencies { get; set; }
+    public virtual ICollection<TaskDependency>? BlockedByDependencies { get; set; }
 
     // Navigation Properties
     public virtual Store? Store { get; set; }
@@ -380,4 +409,48 @@ public class TaskEvaluation : Entity<Guid>
     // Navigation Properties
     public virtual WorkTask? Task { get; set; }
     public virtual ApplicationUser? Evaluator { get; set; }
+}
+
+/// <summary>Mẫu công việc lặp lại / giao nhanh</summary>
+public class TaskTemplate : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+
+    [Required]
+    [MaxLength(120)]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string Title { get; set; } = string.Empty;
+
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+
+    public TaskType TaskType { get; set; } = TaskType.Task;
+    public TaskPriority Priority { get; set; } = TaskPriority.Medium;
+    public decimal? EstimatedHours { get; set; }
+    public int? DefaultSlaReminderHours { get; set; }
+
+    [MaxLength(500)]
+    public string? Tags { get; set; }
+
+    [MaxLength(4000)]
+    public string? Checklist { get; set; }
+
+    public bool IsActive { get; set; } = true;
+    public virtual Store? Store { get; set; }
+}
+
+/// <summary>Phụ thuộc: task bị chặn bởi task khác</summary>
+public class TaskDependency : Entity<Guid>
+{
+    [Required]
+    public Guid TaskId { get; set; }
+
+    [Required]
+    public Guid DependsOnTaskId { get; set; }
+
+    public virtual WorkTask? Task { get; set; }
+    public virtual WorkTask? DependsOnTask { get; set; }
 }

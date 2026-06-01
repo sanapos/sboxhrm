@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 import 'account_management_screen.dart';
 import 'ai_settings_screen.dart';
@@ -18,7 +20,6 @@ import 'shift_settings_screen.dart';
 import 'system_settings_screen.dart';
 import 'tax_settings_screen.dart';
 import 'device_management_settings_screen.dart';
-import 'google_drive_settings_screen.dart';
 
 import 'product_salary_settings_screen.dart';
 import 'branch_management_screen.dart';
@@ -27,9 +28,14 @@ class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
 
   /// Static callback for main_layout to handle internal back navigation.
-  /// When a sub-screen is active on mobile, this is set to a callback
-  /// that resets to the hub menu instead of leaving the hub entirely.
+  /// When a sub-screen is active, this resets to the hub menu instead of leaving HRM setup.
   static VoidCallback? internalBackCallback;
+
+  /// Title of the active sub-page (for main_layout AppBar / top bar).
+  static String? activeSubPageTitle;
+
+  /// True when a sub-settings page is open — main_layout already shows one back button.
+  static bool get isEmbeddedSubPage => internalBackCallback != null;
 
   /// Pending sub-screen index to open when navigating to settings hub.
   /// Set value to trigger navigation, even if already on settings hub.
@@ -65,8 +71,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   void initState() {
     super.initState();
     // Consume pending sub-index if set before navigation
-    if (SettingsHubScreen.pendingSubIndex.value != null) {
-      _selectedIndex = SettingsHubScreen.pendingSubIndex.value;
+    final pending = SettingsHubScreen.pendingSubIndex.value;
+    if (pending != null) {
+      _selectedIndex = pending;
+      SettingsHubScreen.activeSubPageTitle = _labelForIndex(pending);
+      SettingsHubScreen.internalBackCallback = _closeSubPage;
       SettingsHubScreen.pendingSubIndex.value = null;
     }
     // Listen for future external navigation requests
@@ -76,7 +85,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   void _onPendingSubIndex() {
     final idx = SettingsHubScreen.pendingSubIndex.value;
     if (idx != null && mounted) {
-      setState(() => _selectedIndex = idx);
+      _openSubPage(idx);
       SettingsHubScreen.pendingSubIndex.value = null;
     }
   }
@@ -85,7 +94,46 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   void dispose() {
     SettingsHubScreen.pendingSubIndex.removeListener(_onPendingSubIndex);
     SettingsHubScreen.internalBackCallback = null;
+    SettingsHubScreen.activeSubPageTitle = null;
     super.dispose();
+  }
+
+  String? _labelForIndex(int index) {
+    for (final g in _groups) {
+      for (final item in g.items) {
+        if (item.index == index) return item.label;
+      }
+    }
+    return null;
+  }
+
+  void _openSubPage(int index) {
+    setState(() {
+      _selectedIndex = index;
+      SettingsHubScreen.activeSubPageTitle = _labelForIndex(index);
+      SettingsHubScreen.internalBackCallback = _closeSubPage;
+    });
+  }
+
+  void _closeSubPage() {
+    if (!mounted) {
+      _selectedIndex = null;
+      SettingsHubScreen.activeSubPageTitle = null;
+      SettingsHubScreen.internalBackCallback = null;
+      return;
+    }
+    setState(() {
+      _selectedIndex = null;
+      SettingsHubScreen.activeSubPageTitle = null;
+      SettingsHubScreen.internalBackCallback = null;
+    });
+  }
+
+  void _ensureSubPageCallback() {
+    final index = _selectedIndex;
+    if (index == null) return;
+    SettingsHubScreen.activeSubPageTitle = _labelForIndex(index);
+    SettingsHubScreen.internalBackCallback ??= _closeSubPage;
   }
 
   static const _bgColor = Color(0xFFFAFAFA);
@@ -97,21 +145,21 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     _SidebarGroup(
       title: 'Chấm công & Ca',
       icon: Icons.schedule,
-      accent: Color(0xFF0F2340),
+      accent: HrmPageChrome.primaryNavy,
       items: [
         _SidebarItem(
             index: 0,
             icon: Icons.schedule_send,
             label: 'Thiết lập ca',
             desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca',
-            accent: Color(0xFF0F2340),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'ShiftSetup'),
         _SidebarItem(
             index: 1,
             icon: Icons.phone_android,
             label: 'Chấm công mobile',
             desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công',
-            accent: Color(0xFF1E3A5F),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'MobileAttendance'),
         _SidebarItem(
             index: 2,
@@ -125,14 +173,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             icon: Icons.router,
             label: 'Máy chấm công',
             desc: 'Kết nối, quản lý, điều khiển máy chấm công',
-            accent: Color(0xFF1E3A5F),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'Device'),
       ],
     ),
     _SidebarGroup(
       title: 'Chính sách lương',
       icon: Icons.payments,
-      accent: Color(0xFF1E3A5F),
+      accent: HrmPageChrome.primaryNavy,
       items: [
         _SidebarItem(
             index: 3,
@@ -160,7 +208,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             icon: Icons.receipt_long,
             label: 'Thuế TNCN',
             desc: 'Bậc thuế, giảm trừ gia cảnh',
-            accent: Color(0xFF0F2340),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'Tax'),
         _SidebarItem(
             index: 10,
@@ -174,14 +222,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     _SidebarGroup(
       title: 'Quản trị hệ thống',
       icon: Icons.admin_panel_settings,
-      accent: Color(0xFF1E3A5F),
+      accent: HrmPageChrome.primaryNavy,
       items: [
         _SidebarItem(
             index: 7,
             icon: Icons.manage_accounts,
             label: 'Tài khoản',
             desc: 'Người dùng, kích hoạt, vai trò',
-            accent: Color(0xFF0F2340),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'UserManagement'),
         _SidebarItem(
             index: 8,
@@ -202,29 +250,22 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             icon: Icons.business,
             label: 'Chi nhánh',
             desc: 'Quản lý chi nhánh, cây chi nhánh, thống kê',
-            accent: Color(0xFF0F2340),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'Branch'),
       ],
     ),
     _SidebarGroup(
       title: 'Tích hợp',
       icon: Icons.hub,
-      accent: Color(0xFF1E3A5F),
+      accent: HrmPageChrome.primaryNavy,
       items: [
         _SidebarItem(
             index: 11,
             icon: Icons.auto_awesome,
             label: 'Thiết lập AI',
             desc: 'Gemini, bật/tắt AI',
-            accent: Color(0xFF0F2340),
+            accent: HrmPageChrome.primaryNavy,
             moduleCode: 'AIGemini'),
-        _SidebarItem(
-            index: 15,
-            icon: Icons.cloud_upload,
-            label: 'Google Drive',
-            desc: 'Lưu trữ ảnh, sao lưu dữ liệu lên Drive',
-            accent: Color(0xFF2D5F8B),
-            moduleCode: 'GoogleDrive'),
       ],
     ),
   ];
@@ -259,12 +300,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const AiSettingsScreen();
       case 12:
         return const DeviceManagementSettingsScreen();
-      case 15:
-        if (_isSuperAdmin) return const GoogleDriveSettingsScreen();
-        return const _SettingsAccessDeniedScreen(
-          title: 'Khong co quyen truy cap',
-          message: 'Chi SuperAdmin moi duoc cau hinh Google Drive.',
-        );
       default:
         return const SizedBox();
     }
@@ -275,31 +310,22 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final isMobile = Responsive.isMobile(context);
 
     if (isMobile) {
-      // Mobile: show sidebar as full-width list, tapping item navigates to content
       if (_selectedIndex != null) {
-        // Set callback so main_layout back button goes to hub menu first
-        SettingsHubScreen.internalBackCallback = () {
-          setState(() => _selectedIndex = null);
-        };
+        _ensureSubPageCallback();
         return _getScreen(_selectedIndex!);
       }
-      // No sub-screen active, clear callback
-      SettingsHubScreen.internalBackCallback = null;
+      _closeSubPage();
       return Scaffold(
         backgroundColor: _bgColor,
         body: _buildMobileHome(),
       );
     }
 
-    // Desktop/Tablet: show selected screen directly (same as mobile)
-    // Avoid nested Navigator which causes _dependents.isEmpty assertion errors
     if (_selectedIndex != null) {
-      SettingsHubScreen.internalBackCallback = () {
-        setState(() => _selectedIndex = null);
-      };
+      _ensureSubPageCallback();
       return _getScreen(_selectedIndex!);
     }
-    SettingsHubScreen.internalBackCallback = null;
+    _closeSubPage();
     return Scaffold(
       backgroundColor: _bgColor,
       body: _buildOverview(),
@@ -319,7 +345,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 colors: [
                   Color(0xFF0F172A),
                   Color(0xFF1D4ED8),
-                  Color(0xFF0F2340)
+                  HrmPageChrome.primaryNavy
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -403,7 +429,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: () => setState(() => _selectedIndex = item.index),
+          onTap: () => _openSubPage(item.index),
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -462,9 +488,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
-      if (item.moduleCode == 'GoogleDrive' && !isSuperAdmin) {
-        return false;
-      }
       // Lọc theo gói dịch vụ
       if (!isDirector &&
           allowedModules != null &&
@@ -509,7 +532,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8), Color(0xFF0F2340)],
+          colors: [
+            Color(0xFF0F172A),
+            HrmPageChrome.primaryNavy,
+            HrmPageChrome.primaryNavy,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -607,38 +634,35 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   Widget _buildQuickStats() {
     final totalItems = _groups.fold<int>(0, (sum, g) => sum + g.items.length);
-    return Row(
-      children: [
-        _buildInfoChip(
-            Icons.apps, '$totalItems cấu hình', const Color(0xFF1E3A5F)),
-        const SizedBox(width: 12),
-        _buildInfoChip(
-            Icons.category, '${_groups.length} nhóm', const Color(0xFF1E3A5F)),
-        const SizedBox(width: 12),
-        _buildInfoChip(
-            Icons.check_circle_outline, 'Sẵn sàng', const Color(0xFF1E3A5F)),
-      ],
-    );
-  }
-
-  Widget _buildInfoChip(IconData icon, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(text,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-        ],
-      ),
+    const color = HrmPageChrome.primaryNavy;
+    final chips = [
+      HrmMiniStatChip(
+          icon: Icons.apps, value: '$totalItems', label: 'Cấu hình', color: color),
+      HrmMiniStatChip(
+          icon: Icons.category,
+          value: '${_groups.length}',
+          label: 'Nhóm',
+          color: color),
+      const HrmMiniStatChip(
+          icon: Icons.check_circle_outline,
+          value: 'OK',
+          label: 'Sẵn sàng',
+          color: color),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Wrap(spacing: 8, runSpacing: 8, children: chips);
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < chips.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(child: Center(child: chips[i])),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -689,7 +713,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () => setState(() => _selectedIndex = item.index),
+          onTap: () => _openSubPage(item.index),
           borderRadius: BorderRadius.circular(16),
           hoverColor: item.accent.withValues(alpha: 0.04),
           child: Container(

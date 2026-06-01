@@ -8,6 +8,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart' show NavigationNotifier, ScreenRefreshNotifier;
 
 class NotificationsScreen extends StatefulWidget {
@@ -542,48 +544,93 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Container(
       color: const Color(0xFFF4F4F5),
-      child: Column(
-        children: [
-          _buildFilterBar(),
-          Expanded(
-            child: _isLoading && _notifications.isEmpty
-                ? const LoadingWidget()
-                : filtered.isEmpty
-                    ? EmptyState(
-                        icon: _readFilter == true
-                            ? Icons.mark_email_read
-                            : Icons.notifications_off,
-                        title: _readFilter == true
-                            ? 'Không có thông báo chưa đọc'
-                            : 'Không có thông báo',
-                        description: _readFilter == true
-                            ? 'Tất cả đã được đọc'
-                            : 'Chưa có thông báo nào',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                          itemCount: flatItems.length,
-                          itemBuilder: (_, i) {
-                            final item = flatItems[i];
-                            if (item == null) {
-                              return const Center(
-                                  child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator()));
-                            }
-                            if (item is String) return _buildDateHeader(item);
-                            return _buildNotificationCard(
-                                item as AppNotification);
-                          },
-                        ),
-                      ),
-          ),
-        ],
+      child: HrmResponsiveListLayout(
+        headerSections: [_buildFilterBar()],
+        desktopBody: _buildNotificationsBody(filtered, flatItems),
+        mobileSlivers: (_) => _notificationsMobileSlivers(filtered, flatItems),
       ),
     );
+  }
+
+  Widget _buildNotificationsBody(List<AppNotification> filtered, List<dynamic> flatItems) {
+    return _isLoading && _notifications.isEmpty
+        ? const LoadingWidget()
+        : filtered.isEmpty
+            ? EmptyState(
+                icon: _readFilter == true
+                    ? Icons.mark_email_read
+                    : Icons.notifications_off,
+                title: _readFilter == true
+                    ? 'Không có thông báo chưa đọc'
+                    : 'Không có thông báo',
+                description: _readFilter == true
+                    ? 'Tất cả đã được đọc'
+                    : 'Chưa có thông báo nào',
+              )
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                  itemCount: flatItems.length,
+                  itemBuilder: (_, i) {
+                    final item = flatItems[i];
+                    if (item == null) {
+                      return const Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator()));
+                    }
+                    if (item is String) return _buildDateHeader(item);
+                    return _buildNotificationCard(item as AppNotification);
+                  },
+                ),
+              );
+  }
+
+  List<Widget> _notificationsMobileSlivers(
+      List<AppNotification> filtered, List<dynamic> flatItems) {
+    if (_isLoading && _notifications.isEmpty) {
+      return [HrmScrollSlivers.fillRemaining(child: const LoadingWidget())];
+    }
+    if (filtered.isEmpty) {
+      return [
+        HrmScrollSlivers.fillRemaining(
+          child: EmptyState(
+            icon: _readFilter == true
+                ? Icons.mark_email_read
+                : Icons.notifications_off,
+            title: _readFilter == true
+                ? 'Không có thông báo chưa đọc'
+                : 'Không có thông báo',
+            description: _readFilter == true
+                ? 'Tất cả đã được đọc'
+                : 'Chưa có thông báo nào',
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (_, i) {
+              final item = flatItems[i];
+              if (item == null) {
+                return const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator()));
+              }
+              if (item is String) return _buildDateHeader(item);
+              return _buildNotificationCard(item as AppNotification);
+            },
+            childCount: flatItems.length,
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildFilterBar() {

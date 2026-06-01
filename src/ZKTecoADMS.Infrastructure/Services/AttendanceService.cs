@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -10,16 +11,17 @@ namespace ZKTecoADMS.Infrastructure.Services;
 
 public class AttendanceService(
     IRepository<Attendance> attendanceRepository,
+    IRepository<Device> deviceRepository,
     IRepository<DeviceUser> employeeRepository,
     IRepository<Shift> shiftRepository,
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<PenaltySetting> penaltySettingRepository,
-    IRepository<PaymentTransaction> paymentTransactionRepository,
     IRepository<Employee> employeeEntityRepository,
     IRepository<PenaltyTicket> penaltyTicketRepository,
     IRepository<EmployeeBenefit> employeeBenefitRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<AppSettings> appSettingsRepository,
+    IRepository<Leave> leaveRepository,
     ILogger<AttendanceService> logger
 )
     : IAttendanceService
@@ -51,7 +53,82 @@ public class AttendanceService(
 
     public async Task CreateAttendancesAsync(IEnumerable<Attendance> attendances)
     {
-        await attendanceRepository.AddRangeAsync(attendances);
+        var list = attendances.ToList();
+        if (list.Count == 0)
+        {
+            return;
+        }
+
+        static string Key(Attendance a) =>
+            $"{a.DeviceId}|{a.PIN}|{a.AttendanceTime:yyyy-MM-dd HH:mm:ss}";
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var candidates = new List<Attendance>();
+        foreach (var a in list)
+        {
+            if (seen.Add(Key(a)))
+            {
+                candidates.Add(a);
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var toInsert = new List<Attendance>();
+        foreach (var deviceGroup in candidates.GroupBy(c => c.DeviceId))
+        {
+            var deviceId = deviceGroup.Key;
+            var pins = deviceGroup.Select(c => c.PIN).Distinct().ToList();
+            var minTime = deviceGroup.Min(c => c.AttendanceTime)
+                .AddSeconds(-AttendanceLogResolveHelper.NearDuplicateWindowSeconds);
+            var maxTime = deviceGroup.Max(c => c.AttendanceTime)
+                .AddSeconds(AttendanceLogResolveHelper.NearDuplicateWindowSeconds);
+
+            var existing = (await attendanceRepository.GetAllAsync(
+                a => a.DeviceId == deviceId
+                     && pins.Contains(a.PIN)
+                     && a.AttendanceTime >= minTime
+                     && a.AttendanceTime <= maxTime)).ToList();
+
+            var existingKeys = existing
+                .Select(a => $"{a.PIN}|{a.AttendanceTime:yyyy-MM-dd HH:mm:ss}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var acceptedOnDevice = new List<Attendance>(existing);
+
+            foreach (var att in deviceGroup.OrderBy(a => a.AttendanceTime))
+            {
+                var pinTimeKey = $"{att.PIN}|{att.AttendanceTime:yyyy-MM-dd HH:mm:ss}";
+                if (existingKeys.Contains(pinTimeKey))
+                    continue;
+                if (AttendanceLogResolveHelper.IsNearDuplicateOfExisting(att, acceptedOnDevice))
+                    continue;
+
+                toInsert.Add(att);
+                acceptedOnDevice.Add(att);
+                existingKeys.Add(pinTimeKey);
+            }
+        }
+
+        if (toInsert.Count == 0)
+        {
+            logger.LogInformation(
+                "CreateAttendancesAsync: all {Count} rows were duplicates (skipped insert)",
+                list.Count);
+            return;
+        }
+
+        if (toInsert.Count < list.Count)
+        {
+            logger.LogInformation(
+                "CreateAttendancesAsync: inserting {Insert} of {Total} rows ({Skipped} duplicates skipped)",
+                toInsert.Count, list.Count, list.Count - toInsert.Count);
+        }
+
+        await attendanceRepository.AddRangeAsync(toInsert);
     }
 
     public async Task<bool> UpdateShiftAttendancesAsync(IEnumerable<Attendance> attendances, Device device)
@@ -102,21 +179,12 @@ public class AttendanceService(
         )).ToList();
         var schedulesByEmployeeDate = schedules
             .GroupBy(ws => (ws.EmployeeUserId, ws.Date.Date))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => g.Where(s => !s.IsDayOff).ToList());
 
         // Pre-load Employees for ApplicationUserId lookup
         var employees = (await employeeEntityRepository.GetAllAsync(
             filter: e => employeeIds.Contains(e.Id)
         )).ToDictionary(e => e.Id, e => e);
-
-        // Pre-load existing penalty transactions for duplicate checking
-        var monthStart = new DateTime(minDate.Year, minDate.Month, 1);
-        var existingPenalties = (await paymentTransactionRepository.GetAllAsync(
-            filter: pt => pt.EmployeeId.HasValue && employeeIds.Contains(pt.EmployeeId.Value)
-                && pt.TransactionDate >= monthStart
-                && pt.TransactionDate <= maxDate
-                && pt.Type == "Penalty"
-        )).ToList();
 
         // Pre-load existing PenaltyTickets to avoid duplicate auto-creation per (employee, date, type)
         // and to compute next sequential TicketCode per day.
@@ -168,7 +236,7 @@ public class AttendanceService(
             try
             {
                 await ProcessPenaltyForAttendanceBatchAsync(attendance, employeeUser, device,
-                    penaltySetting, schedulesByEmployeeDate, employees, existingPenalties,
+                    penaltySetting, schedulesByEmployeeDate, employees,
                     existingTickets, ticketCountsByDate,
                     employeeBenefits, shiftTemplatesByName, storesDayEnd);
             }
@@ -177,6 +245,18 @@ public class AttendanceService(
                 logger.LogError(ex, "{DeviceSN}:Error processing penalty for Attendance {AttendanceId}", device.SerialNumber, attendance.Id);
             }
         }
+
+        try
+        {
+            await ProcessDayCompletionPenaltiesAsync(device, employeeIds, dates, minDate, maxDate,
+                penaltySetting, schedulesByEmployeeDate, employees, existingTickets, ticketCountsByDate,
+                employeeBenefits, shiftTemplatesByName, storesDayEnd);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{DeviceSN}: Error processing day-completion penalties", device.SerialNumber);
+        }
+
         return true;
     }
 
@@ -196,12 +276,38 @@ public class AttendanceService(
         return vnTime.Date;
     }
 
+    private static WorkSchedule? PickScheduleForPunch(List<WorkSchedule>? daySchedules, TimeSpan punchTime)
+    {
+        if (daySchedules == null || daySchedules.Count == 0)
+            return null;
+
+        if (daySchedules.Count == 1)
+            return daySchedules[0];
+
+        var punchMin = (int)punchTime.TotalMinutes;
+        WorkSchedule? best = null;
+        var bestDist = int.MaxValue;
+        foreach (var s in daySchedules)
+        {
+            var start = s.StartTime ?? s.Shift?.StartTime ?? TimeSpan.FromHours(8);
+            var startMin = (int)start.TotalMinutes;
+            var dist = Math.Abs(punchMin - startMin);
+            if (dist > 720) dist = 1440 - dist;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = s;
+            }
+        }
+
+        return best;
+    }
+
     private async Task ProcessPenaltyForAttendanceBatchAsync(
         Attendance attendance, DeviceUser deviceUser, Device device,
         PenaltySetting? penaltySetting,
-        Dictionary<(Guid, DateTime), WorkSchedule> schedulesByEmployeeDate,
+        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
         Dictionary<Guid, Employee> employees,
-        List<PaymentTransaction> existingPenalties,
         List<PenaltyTicket> existingTickets,
         Dictionary<DateTime, int> ticketCountsByDate,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
@@ -220,8 +326,9 @@ public class AttendanceService(
         var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);
         var punchTime = attendance.AttendanceTime.TimeOfDay;
 
-        // Use pre-loaded schedule (keyed by logical date)
-        schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var schedule);
+        // Use pre-loaded schedules (keyed by logical date); pick closest shift by punch time.
+        schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var daySchedules);
+        var schedule = PickScheduleForPunch(daySchedules, punchTime);
 
         TimeSpan shiftStart;
         TimeSpan shiftEnd;
@@ -235,7 +342,6 @@ public class AttendanceService(
 
         if (schedule != null)
         {
-            if (schedule.IsDayOff) return;
             var defaultStart = new TimeSpan(8, 30, 0);
             var defaultEnd = new TimeSpan(18, 0, 0);
             shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
@@ -265,10 +371,6 @@ public class AttendanceService(
         if (penaltySetting == null)
             return;
 
-        // Use pre-loaded employee
-        employees.TryGetValue(employeeId, out var employee);
-        var employeeUserId = employee?.ApplicationUserId;
-
         if (attendance.AttendanceState == AttendanceStates.CheckIn)
         {
             if (punchTime > shiftStart)
@@ -286,48 +388,16 @@ public class AttendanceService(
                 var (tier, amount) = CalculateLatePenalty(lateMinutes, penaltySetting);
                 if (amount <= 0) return;
 
-                // Check duplicate using pre-loaded penalties
-                var exists = existingPenalties.Any(
-                    pt => pt.EmployeeId == employeeId
-                        && pt.TransactionDate.Date == violationDate
-                        && pt.Description != null && pt.Description.StartsWith("Đi trễ")
-                );
-                if (exists) return;
+                if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.Late))
+                    return;
 
-                // Count repeats using pre-loaded penalties
-                var repeatCount = existingPenalties.Count(
-                    pt => pt.EmployeeId == employeeId
-                        && pt.TransactionDate >= new DateTime(violationDate.Year, violationDate.Month, 1)
-                        && pt.TransactionDate < violationDate
-                        && pt.Description != null
-                        && (pt.Description.StartsWith("Đi trễ") || pt.Description.StartsWith("Về sớm"))
-                        && pt.Status != "Cancelled"
-                );
-
+                var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
                 var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
 
                 var description = $"Đi trễ {lateMinutes} phút (bậc {tier}: {amount:N0}đ"
                     + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
                     + ")";
 
-                var transaction = new PaymentTransaction
-                {
-                    EmployeeId = employeeId,
-                    EmployeeUserId = employeeUserId,
-                    Type = "Penalty",
-                    ForMonth = violationDate.Month,
-                    ForYear = violationDate.Year,
-                    TransactionDate = violationDate,
-                    Amount = -(amount + repeatPenalty),
-                    Description = description,
-                    Status = "Pending",
-                    Note = $"Tự động tạo từ chấm công | Ca: {shiftStart:hh\\:mm}-{shiftEnd:hh\\:mm} | Thực tế: {punchTime:hh\\:mm}"
-                };
-
-                await paymentTransactionRepository.AddAsync(transaction);
-                existingPenalties.Add(transaction); // Track newly created penalties
-
-                // Also create a PenaltyTicket so it appears in "Phiếu phạt" UI for manager review.
                 await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
                     PenaltyTicketType.Late, tier, lateMinutes, amount + repeatPenalty,
                     repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
@@ -354,47 +424,16 @@ public class AttendanceService(
                 var (tier, amount) = CalculateEarlyPenalty(earlyMinutes, penaltySetting);
                 if (amount <= 0) return;
 
-                var exists = existingPenalties.Any(
-                    pt => pt.EmployeeId == employeeId
-                        && pt.TransactionDate.Date == violationDate
-                        && pt.Description != null && pt.Description.StartsWith("Về sớm")
-                );
-                if (exists) return;
+                if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.EarlyLeave))
+                    return;
 
-                var monthStart = new DateTime(violationDate.Year, violationDate.Month, 1);
-                var repeatCount = existingPenalties.Count(
-                    pt => pt.EmployeeId == employeeId
-                        && pt.TransactionDate >= monthStart
-                        && pt.TransactionDate < violationDate
-                        && pt.Description != null
-                        && (pt.Description.StartsWith("Đi trễ") || pt.Description.StartsWith("Về sớm"))
-                        && pt.Status != "Cancelled"
-                );
-
+                var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
                 var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
 
                 var description = $"Về sớm {earlyMinutes} phút (bậc {tier}: {amount:N0}đ"
                     + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
                     + ")";
 
-                var transaction = new PaymentTransaction
-                {
-                    EmployeeId = employeeId,
-                    EmployeeUserId = employeeUserId,
-                    Type = "Penalty",
-                    ForMonth = violationDate.Month,
-                    ForYear = violationDate.Year,
-                    TransactionDate = violationDate,
-                    Amount = -(amount + repeatPenalty),
-                    Description = description,
-                    Status = "Pending",
-                    Note = $"Tự động tạo từ chấm công | Ca: {shiftStart:hh\\:mm}-{shiftEnd:hh\\:mm} | Thực tế: {punchTime:hh\\:mm}"
-                };
-
-                await paymentTransactionRepository.AddAsync(transaction);
-                existingPenalties.Add(transaction);
-
-                // Also create a PenaltyTicket so it appears in "Phiếu phạt" UI for manager review.
                 await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
                     PenaltyTicketType.EarlyLeave, tier, earlyMinutes, amount + repeatPenalty,
                     repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
@@ -407,9 +446,7 @@ public class AttendanceService(
     }
 
     /// <summary>
-    /// Creates a PenaltyTicket auto-generated from attendance, mirroring the PaymentTransaction
-    /// penalty so the manager can review/cancel it before auto-approval. Idempotent: skips if a
-    /// ticket already exists for the same (employee, date, type).
+    /// Tạo PenaltyTicket tự động từ chấm công. Idempotent theo (employee, date, type).
     /// </summary>
     private async Task CreatePenaltyTicketAsync(
         Guid employeeId,
@@ -503,6 +540,191 @@ public class AttendanceService(
         return 0;
     }
 
+    private static bool HasActiveTicket(
+        List<PenaltyTicket> tickets, Guid employeeId, DateTime violationDate, PenaltyTicketType type)
+        => tickets.Any(t => t.EmployeeId == employeeId
+            && t.ViolationDate.Date == violationDate.Date
+            && t.Type == type
+            && t.Status != PenaltyTicketStatus.Cancelled);
+
+    private static int CountMonthRepeatViolations(
+        List<PenaltyTicket> tickets, Guid employeeId, DateTime violationDate)
+    {
+        var monthStart = new DateTime(violationDate.Year, violationDate.Month, 1);
+        return tickets.Count(t => t.EmployeeId == employeeId
+            && t.ViolationDate >= monthStart
+            && t.ViolationDate < violationDate.Date
+            && (t.Type == PenaltyTicketType.Late || t.Type == PenaltyTicketType.EarlyLeave)
+            && t.Status != PenaltyTicketStatus.Cancelled);
+    }
+
+    /// <summary>
+    /// Sau khi đồng bộ chấm công: quét các ngày đã qua để tạo phiếu quên chấm / nghỉ không phép.
+    /// </summary>
+    private async Task ProcessDayCompletionPenaltiesAsync(
+        Device device,
+        List<Guid> employeeIds,
+        List<DateTime> dates,
+        DateTime minDate,
+        DateTime maxDate,
+        PenaltySetting? penaltySetting,
+        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
+        Dictionary<Guid, Employee> employees,
+        List<PenaltyTicket> existingTickets,
+        Dictionary<DateTime, int> ticketCountsByDate,
+        Dictionary<Guid, EmployeeBenefit> employeeBenefits,
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName,
+        TimeSpan storesDayEnd)
+    {
+        if (penaltySetting == null || employeeIds.Count == 0) return;
+
+        var vnToday = DateTime.UtcNow.AddHours(7).Date;
+        var scanDates = dates.Where(d => d.Date < vnToday).Distinct().ToList();
+        if (scanDates.Count == 0) return;
+
+        var rangeStart = scanDates.Min().AddDays(-1);
+        var rangeEnd = scanDates.Max().AddDays(1);
+
+        var storeAttendances = (await attendanceRepository.GetAllAsync(
+            filter: a => a.EmployeeId.HasValue
+                && employeeIds.Contains(a.EmployeeId.Value)
+                && a.DeviceId == device.Id
+                && a.AttendanceTime >= rangeStart
+                && a.AttendanceTime < rangeEnd.AddDays(1)
+        )).ToList();
+
+        var approvedLeaves = (await leaveRepository.GetAllAsync(
+            filter: l => l.StoreId == device.StoreId
+                && l.Status == LeaveStatus.Approved
+                && l.EndDate.Date >= scanDates.Min()
+                && l.StartDate.Date <= scanDates.Max()
+        )).ToList();
+
+        foreach (var employeeId in employeeIds)
+        {
+            if (!employees.TryGetValue(employeeId, out var employee))
+                continue;
+            var empUserId = employee.ApplicationUserId;
+            if (!empUserId.HasValue) continue;
+
+            foreach (var workDate in scanDates)
+            {
+                if (!IsExpectedWorkDay(employeeId, empUserId.Value, workDate,
+                        schedulesByEmployeeDate, employeeBenefits))
+                    continue;
+
+                if (HasApprovedLeave(approvedLeaves, employeeId, empUserId.Value, workDate))
+                    continue;
+
+                var dayPunches = storeAttendances
+                    .Where(a => a.EmployeeId == employeeId
+                        && GetLogicalDate(a.AttendanceTime, storesDayEnd) == workDate)
+                    .ToList();
+
+                var hasIn = dayPunches.Any(a => a.AttendanceState == AttendanceStates.CheckIn);
+                var hasOut = dayPunches.Any(a => a.AttendanceState == AttendanceStates.CheckOut);
+
+                if (!hasIn && !hasOut)
+                {
+                    if (penaltySetting.UnauthorizedLeavePenalty <= 0) continue;
+                    if (HasActiveTicket(existingTickets, employeeId, workDate, PenaltyTicketType.UnauthorizedLeave))
+                        continue;
+
+                    var desc = $"Nghỉ không phép ngày {workDate:dd/MM/yyyy}";
+                    await CreateDayCompletionPenaltyTicketAsync(employeeId, device.StoreId, workDate,
+                        PenaltyTicketType.UnauthorizedLeave, penaltySetting.UnauthorizedLeavePenalty,
+                        desc, existingTickets, ticketCountsByDate);
+                    logger.LogInformation("{DeviceSN}: Tạo phiếu nghỉ không phép NV {EmployeeId} ngày {Date}",
+                        device.SerialNumber, employeeId, workDate.ToString("yyyy-MM-dd"));
+                    continue;
+                }
+
+                if (penaltySetting.ForgotCheckPenalty <= 0) continue;
+                if (hasIn == hasOut) continue;
+                if (HasActiveTicket(existingTickets, employeeId, workDate, PenaltyTicketType.ForgotCheck))
+                    continue;
+
+                var missing = hasIn ? "chấm ra" : "chấm vào";
+                var forgotDesc = $"Quên {missing} ngày {workDate:dd/MM/yyyy}";
+                await CreateDayCompletionPenaltyTicketAsync(employeeId, device.StoreId, workDate,
+                    PenaltyTicketType.ForgotCheck, penaltySetting.ForgotCheckPenalty,
+                    forgotDesc, existingTickets, ticketCountsByDate);
+                logger.LogInformation("{DeviceSN}: Tạo phiếu quên chấm công NV {EmployeeId} ngày {Date}",
+                    device.SerialNumber, employeeId, workDate.ToString("yyyy-MM-dd"));
+            }
+        }
+    }
+
+    private static bool HasApprovedLeave(
+        List<Leave> leaves, Guid employeeId, Guid employeeUserId, DateTime workDate)
+        => leaves.Any(l =>
+            l.StartDate.Date <= workDate && l.EndDate.Date >= workDate
+            && (l.EmployeeId == employeeId || l.EmployeeUserId == employeeUserId));
+
+    private static bool IsExpectedWorkDay(
+        Guid employeeId,
+        Guid employeeUserId,
+        DateTime workDate,
+        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
+        Dictionary<Guid, EmployeeBenefit> employeeBenefits)
+    {
+        if (schedulesByEmployeeDate.TryGetValue((employeeUserId, workDate), out var daySchedules)
+            && daySchedules.Count > 0)
+            return daySchedules.Any(s => !s.IsDayOff);
+
+        if (!employeeBenefits.TryGetValue(employeeId, out var eb) || eb.Benefit == null)
+            return false;
+
+        var benefit = eb.Benefit;
+        if (!string.IsNullOrWhiteSpace(benefit.WeeklyOffDays))
+        {
+            var dayName = workDate.DayOfWeek.ToString();
+            var offs = benefit.WeeklyOffDays.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (offs.Any(d => string.Equals(d, dayName, StringComparison.OrdinalIgnoreCase)))
+                return false;
+        }
+
+        return benefit.CheckIn.HasValue && benefit.CheckOut.HasValue
+            || !string.IsNullOrWhiteSpace(ParseDescField(benefit.Description, "shifts"));
+    }
+
+    private async Task CreateDayCompletionPenaltyTicketAsync(
+        Guid employeeId,
+        Guid? storeId,
+        DateTime violationDate,
+        PenaltyTicketType type,
+        decimal amount,
+        string description,
+        List<PenaltyTicket> existingTickets,
+        Dictionary<DateTime, int> ticketCountsByDate)
+    {
+        if (HasActiveTicket(existingTickets, employeeId, violationDate, type))
+            return;
+
+        var dateKey = violationDate.Date;
+        var nextSeq = (ticketCountsByDate.TryGetValue(dateKey, out var c) ? c : 0) + 1;
+        var ticketCode = $"PP-{violationDate:yyyyMMdd}-{nextSeq:D4}";
+
+        var ticket = new PenaltyTicket
+        {
+            Id = Guid.NewGuid(),
+            TicketCode = ticketCode,
+            EmployeeId = employeeId,
+            Type = type,
+            Status = PenaltyTicketStatus.Pending,
+            Amount = amount,
+            ViolationDate = violationDate.Date,
+            PenaltyTier = 1,
+            Description = description,
+            StoreId = storeId,
+            CreatedAt = DateTime.Now,
+        };
+
+        await penaltyTicketRepository.AddAsync(ticket);
+        existingTickets.Add(ticket);
+        ticketCountsByDate[dateKey] = nextSeq;
+    }
+
     /// <summary>
     /// Khi không có WorkSchedule cho nhân viên trong ngày, dùng SalaryProfile (Benefit)
     /// để lấy danh sách ca làm việc và chọn ca phù hợp với thời điểm chấm công.
@@ -592,5 +814,43 @@ public class AttendanceService(
                 return part.Substring(idx + 1).Trim();
         }
         return string.Empty;
+    }
+
+    public async Task RecalculatePenaltiesForEmployeeDateAsync(
+        Guid storeId, Guid employeeId, DateTime logicalWorkDate, CancellationToken cancellationToken = default)
+    {
+        var device = await deviceRepository.GetSingleAsync(
+            d => d.StoreId == storeId,
+            cancellationToken: cancellationToken);
+        if (device == null)
+        {
+            logger.LogWarning("RecalculatePenalties: no device for store {StoreId}", storeId);
+            return;
+        }
+
+        var dayEndSetting = await appSettingsRepository.GetSingleAsync(
+            s => s.StoreId == storeId && s.Key == "day_end_time",
+            cancellationToken: cancellationToken);
+        var storesDayEnd = TimeSpan.Zero;
+        if (dayEndSetting?.Value != null && TimeSpan.TryParse(dayEndSetting.Value, out var parsedDayEnd))
+            storesDayEnd = parsedDayEnd;
+
+        var scanStart = logicalWorkDate.Date.AddDays(-1);
+        var scanEnd = logicalWorkDate.Date.AddDays(2);
+
+        var attendances = (await attendanceRepository.GetAllAsync(
+            a => a.EmployeeId == employeeId
+                 && a.AttendanceTime >= scanStart
+                 && a.AttendanceTime < scanEnd,
+            cancellationToken: cancellationToken)).ToList();
+
+        var dayPunches = attendances
+            .Where(a => GetLogicalDate(a.AttendanceTime, storesDayEnd) == logicalWorkDate.Date)
+            .ToList();
+
+        if (dayPunches.Count == 0)
+            return;
+
+        await UpdateShiftAttendancesAsync(dayPunches, device);
     }
 }

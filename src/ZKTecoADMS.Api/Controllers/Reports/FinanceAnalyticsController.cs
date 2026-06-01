@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -25,6 +27,7 @@ public class FinanceAnalyticsController(
     // GET /api/reports/finance/penalty-summary?from=&to=&department=&type=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("penalty-summary")]
+    [RequireModulePermission("PenaltyReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetPenaltySummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -110,9 +113,7 @@ public class FinanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Phiếu phạt",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Số phiếu", "Tổng tiền", "Đi trễ", "Về sớm", "Quên chấm", "Khác" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -127,7 +128,7 @@ public class FinanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"penalty-summary-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx");
+                    $"penalty-summary-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<PenaltySummaryReportDto>.Success(report));
@@ -144,6 +145,7 @@ public class FinanceAnalyticsController(
     // GET /api/reports/finance/advance-debt?from=&to=&department=&status=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("advance-debt")]
+    [RequireModulePermission("AdvanceReport", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAdvanceDebt(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -217,9 +219,7 @@ public class FinanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile("Ứng lương",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Số lần", "Đã duyệt", "Đã trả", "Dư nợ" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -232,7 +232,7 @@ public class FinanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"advance-debt-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx");
+                    $"advance-debt-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx", user: User);
             }
 
             return Ok(AppResponse<AdvanceDebtReportDto>.Success(report));
@@ -249,6 +249,7 @@ public class FinanceAnalyticsController(
     // GET /api/reports/finance/meal-debt?period=yyyy-MM or from/to
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("meal-debt")]
+    [RequireModulePermission("Meal", ModulePermissionAction.View)]
     public async Task<IActionResult> GetMealDebt(
         [FromQuery] string? period = null,
         [FromQuery] DateTime? from = null,
@@ -313,9 +314,7 @@ public class FinanceAnalyticsController(
             {
                 return ReportHelpers.ExcelFile($"Công nợ ăn {period ?? "period"}",
                     new[] { "Mã NV", "Họ tên", "Phòng ban", "Phát sinh", "Đã thu", "Dư nợ", "GD gần nhất" },
-                    ws =>
-                    {
-                        int row = 2;
+                    (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {
                             ws.Cell(row, 1).Value = i.EmployeeCode;
@@ -328,7 +327,7 @@ public class FinanceAnalyticsController(
                             row++;
                         }
                     },
-                    $"meal-debt-{period ?? "range"}.xlsx");
+                    $"meal-debt-{period ?? "range"}.xlsx", user: User);
             }
 
             return Ok(AppResponse<MealDebtReportDto>.Success(report));
@@ -422,3 +421,4 @@ public class MealDebtEmployeeDto
     public decimal OutstandingDebt { get; set; }
     public DateTime LastTransactionDate { get; set; }
 }
+

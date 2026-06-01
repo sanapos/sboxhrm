@@ -1,0 +1,11 @@
+-- Optional: re-apply default flags for modules that were auto-seeded as all-false
+-- (run per store/role after deploying permission fixes; review before production)
+--
+-- Example: grant Accountant view on new payroll modules when row exists but all flags are false:
+-- UPDATE "RolePermissions" rp
+-- SET "CanView" = true, "CanExport" = true
+-- FROM "Permissions" p
+-- WHERE rp."PermissionId" = p."Id"
+--   AND rp."RoleName" = 'Accountant'
+--   AND p."Module" IN ('Payroll', 'AttendanceSummary', 'AttendanceByShift', 'HrReport', 'PayrollReport')
+--   AND rp."CanView" = false;

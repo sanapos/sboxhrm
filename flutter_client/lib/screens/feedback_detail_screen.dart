@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class FeedbackDetailScreen extends StatefulWidget {
   final String feedbackId;
@@ -30,7 +31,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
   bool _isLoading = true;
   bool _isSending = false;
 
-  static const _primary = Color(0xFF1E3A5F);
+  static const _primary = HrmPageChrome.primaryNavy;
   static const _statusLabels = {
     'Pending': 'Chờ xử lý',
     'InProgress': 'Đang xử lý',

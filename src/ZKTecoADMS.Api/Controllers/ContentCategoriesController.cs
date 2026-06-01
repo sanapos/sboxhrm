@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Models.Responses;
 using ZKTecoADMS.Application.Constants;
@@ -19,10 +21,11 @@ public class ContentCategoriesController(
 ) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Lấy danh sách thư mục theo loại nội dung
+    /// Láº¥y danh sÃ¡ch thÆ° má»¥c theo loáº¡i ná»™i dung
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> GetCategories([FromQuery] CommunicationType? contentType)
     {
         try
@@ -61,15 +64,16 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting content categories");
-            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách thư mục"));
+            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch thÆ° má»¥c"));
         }
     }
 
     /// <summary>
-    /// Tạo thư mục mới
+    /// Táº¡o thÆ° má»¥c má»›i
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDto dto)
     {
         try
@@ -98,15 +102,16 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating content category");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi tạo thư mục"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi táº¡o thÆ° má»¥c"));
         }
     }
 
     /// <summary>
-    /// Cập nhật thư mục
+    /// Cáº­p nháº­t thÆ° má»¥c
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] CreateCategoryDto dto)
     {
         try
@@ -116,7 +121,7 @@ public class ContentCategoriesController(
                 .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
             if (category == null)
-                return NotFound(AppResponse<bool>.Fail("Không tìm thấy thư mục"));
+                return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c"));
 
             category.Name = dto.Name;
             category.Description = dto.Description;
@@ -133,15 +138,16 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating content category {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật thư mục"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t thÆ° má»¥c"));
         }
     }
 
     /// <summary>
-    /// Xóa thư mục
+    /// XÃ³a thÆ° má»¥c
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Communication", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteCategory(Guid id)
     {
         try
@@ -151,7 +157,7 @@ public class ContentCategoriesController(
                 .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
             if (category == null)
-                return NotFound(AppResponse<bool>.Fail("Không tìm thấy thư mục"));
+                return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c"));
 
             // Soft delete
             category.IsActive = false;
@@ -164,7 +170,7 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting content category {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xóa thư mục"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xÃ³a thÆ° má»¥c"));
         }
     }
 }
@@ -179,3 +185,4 @@ public record CreateCategoryDto
     public int DisplayOrder { get; init; }
     public Guid? ParentCategoryId { get; init; }
 }
+

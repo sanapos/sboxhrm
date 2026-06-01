@@ -16,11 +16,13 @@ public interface IPushNotificationService
     /// </summary>
     Task<int> PushToUserAsync(Guid userId, string title, string body,
         string? actionUrl = null, IDictionary<string, string>? data = null,
+        string? androidTag = null,
         CancellationToken ct = default);
 
     /// <summary>Send to a list of users in parallel (one DB query for tokens).</summary>
     Task<int> PushToUsersAsync(IEnumerable<Guid> userIds, string title, string body,
         string? actionUrl = null, IDictionary<string, string>? data = null,
+        string? androidTag = null,
         CancellationToken ct = default);
 }
 
@@ -37,11 +39,13 @@ public sealed class PushNotificationService : IPushNotificationService
 
     public Task<int> PushToUserAsync(Guid userId, string title, string body,
         string? actionUrl = null, IDictionary<string, string>? data = null,
+        string? androidTag = null,
         CancellationToken ct = default)
-        => PushToUsersAsync(new[] { userId }, title, body, actionUrl, data, ct);
+        => PushToUsersAsync(new[] { userId }, title, body, actionUrl, data, androidTag, ct);
 
     public async Task<int> PushToUsersAsync(IEnumerable<Guid> userIds, string title, string body,
         string? actionUrl = null, IDictionary<string, string>? data = null,
+        string? androidTag = null,
         CancellationToken ct = default)
     {
         if (!_firebase.IsAvailable) return 0;
@@ -51,75 +55,104 @@ public sealed class PushNotificationService : IPushNotificationService
 
         var tokens = await _db.UserDeviceTokens.AsNoTracking()
             .Where(t => idList.Contains(t.UserId) && !t.IsDisabled)
-            .Select(t => new { t.Id, t.Token })
+            .Select(t => new { t.Id, t.Token, t.UserId })
             .ToListAsync(ct);
         if (tokens.Count == 0) return 0;
 
-        // Build common payload once; FCM has a limit of 500 tokens per multicast.
+        // Build common payload once.
         var payload = new Dictionary<string, string>(data ?? new Dictionary<string, string>());
         if (!string.IsNullOrEmpty(actionUrl)) payload["actionUrl"] = actionUrl!;
+
+        // Per-user unread count for iOS badge + Android notification_count (inbox summary).
+        var unreadGrouped = await _db.Notifications.AsNoTracking()
+            .Where(n => n.TargetUserId.HasValue
+                        && idList.Contains(n.TargetUserId.Value)
+                        && !n.IsRead)
+            .GroupBy(n => n.TargetUserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var unreadByUser = unreadGrouped
+            .Where(x => x.UserId.HasValue)
+            .ToDictionary(x => x.UserId!.Value, x => x.Count);
 
         var notif = new FcmNotification { Title = title, Body = body };
         var success = 0;
         var invalidTokenIds = new List<Guid>();
 
-        // iOS-specific APNS config: high priority + sound + badge increment.
-        // Without this, APNs may delay or silently drop the notification on terminated apps.
-        var apnsConfig = new ApnsConfig
+        // We send per-user (multicast tokens of the same user together) so each
+        // user gets their own APNs badge value. FCM SendEachAsync still batches
+        // network calls on Google's side.
+        foreach (var userGroup in tokens.GroupBy(t => t.UserId))
         {
-            Headers = new Dictionary<string, string>
-            {
-                ["apns-priority"] = "10",          // 10 = immediate, 5 = power-saving
-                ["apns-push-type"] = "alert",       // required for iOS 13+
-            },
-            Aps = new Aps
-            {
-                Sound = "default",
-                Badge = 1,
-                ContentAvailable = true,            // wake app in background for data-only handling
-            },
-        };
+            var badge = unreadByUser.TryGetValue(userGroup.Key, out var c) ? c : 0;
 
-        // FCM v1 multicast: chunk to 500.
-        const int chunkSize = 500;
-        for (int i = 0; i < tokens.Count; i += chunkSize)
-        {
-            var chunk = tokens.Skip(i).Take(chunkSize).ToList();
-            var msg = new MulticastMessage
+            var apnsConfig = new ApnsConfig
             {
-                Tokens = chunk.Select(t => t.Token).ToList(),
-                Notification = notif,
-                Data = payload,
-                Apns = apnsConfig,
-            };
-            try
-            {
-                var resp = await FirebaseMessaging.DefaultInstance.SendEachForMulticastAsync(msg, ct);
-                success += resp.SuccessCount;
-
-                if (resp.FailureCount > 0)
+                Headers = new Dictionary<string, string>
                 {
-                    for (int r = 0; r < resp.Responses.Count; r++)
+                    ["apns-priority"] = "10",
+                    ["apns-push-type"] = "alert",
+                },
+                Aps = new Aps
+                {
+                    Sound = "default",
+                    Badge = badge,
+                    ContentAvailable = true,
+                },
+            };
+
+            var tokenList = userGroup.Select(t => new { t.Id, t.Token }).ToList();
+            // Chunk per user just in case a user has > 500 devices (defensive).
+            const int chunkSize = 500;
+            for (int i = 0; i < tokenList.Count; i += chunkSize)
+            {
+                var chunk = tokenList.Skip(i).Take(chunkSize).ToList();
+                var msg = new MulticastMessage
+                {
+                    Tokens = chunk.Select(t => t.Token).ToList(),
+                    Notification = notif,
+                    Data = payload,
+                    Apns = apnsConfig,
+                    Android = new AndroidConfig
                     {
-                        var sr = resp.Responses[r];
-                        if (sr.IsSuccess) continue;
-                        var ec = sr.Exception?.MessagingErrorCode;
-                        // UNREGISTERED / INVALID_ARGUMENT mean the token will never work again.
-                        if (ec == MessagingErrorCode.Unregistered || ec == MessagingErrorCode.InvalidArgument)
+                        CollapseKey = androidTag ?? "sbox_hrm",
+                        Notification = new AndroidNotification
                         {
-                            invalidTokenIds.Add(chunk[r].Id);
-                        }
-                        else
+                            Tag = androidTag ?? "sbox_hrm",
+                            ChannelId = "attendance_default",
+                            NotificationCount = badge > 0 ? badge : null,
+                        },
+                    },
+                };
+                try
+                {
+                    var resp = await FirebaseMessaging.DefaultInstance.SendEachForMulticastAsync(msg, ct);
+                    success += resp.SuccessCount;
+
+                    if (resp.FailureCount > 0)
+                    {
+                        for (int r = 0; r < resp.Responses.Count; r++)
                         {
-                            _logger.LogWarning(sr.Exception,
-                                "FCM transient failure for token {TokenId}: {Code}", chunk[r].Id, ec);
+                            var sr = resp.Responses[r];
+                            if (sr.IsSuccess) continue;
+                            var ec = sr.Exception?.MessagingErrorCode;
+                            if (ec == MessagingErrorCode.Unregistered || ec == MessagingErrorCode.InvalidArgument)
+                            {
+                                invalidTokenIds.Add(chunk[r].Id);
+                            }
+                            else
+                            {
+                                _logger.LogWarning(sr.Exception,
+                                    "FCM transient failure for token {TokenId}: {Code}", chunk[r].Id, ec);
+                            }
                         }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "FCM multicast send failed (chunk size {Size})", chunk.Count);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "FCM multicast send failed (chunk size {Size}, user {UserId})",
+                        chunk.Count, userGroup.Key);
+                }
             }
         }
 
@@ -133,9 +166,7 @@ public sealed class PushNotificationService : IPushNotificationService
 
         if (success > 0)
         {
-            // Update LastUsedAt for the tokens that delivered. Best-effort, skip on conflict.
-            // We approximate "delivered" by all attempted tokens minus invalid ones; FCM
-            // doesn't tell us which specific tokens succeeded vs failed transiently.
+            // We approximate "delivered" by all attempted tokens minus invalid ones.
             var liveIds = tokens.Where(t => !invalidTokenIds.Contains(t.Id)).Select(t => t.Id).ToList();
             await _db.UserDeviceTokens
                 .Where(t => liveIds.Contains(t.Id))

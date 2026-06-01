@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
+import '../utils/attendance_correction_dates.dart';
 
 class ApiService {
   static final String baseUrl = getApiBaseUrl();
@@ -1012,8 +1013,38 @@ class ApiService {
     return {'items': [], 'totalCount': 0, 'pageNumber': 1, 'pageSize': 20};
   }
 
-  /// Create manual attendance record
-  Future<bool> createManualAttendance({
+  /// Đếm log chấm công trên server theo thiết bị (theo dõi đồng bộ máy).
+  Future<int> getAttendanceLogCount(
+    String deviceId, {
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (fromDate != null) {
+        params['fromDate'] = fromDate.toIso8601String();
+      }
+      if (toDate != null) {
+        params['toDate'] = toDate.toIso8601String();
+      }
+      final uri = Uri.parse('$baseUrl/api/attendances/devices/$deviceId/count')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      final data = _handleResponse(response);
+      if (data['isSuccess'] == true) {
+        final v = data['data'];
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        return int.tryParse(v?.toString() ?? '') ?? 0;
+      }
+    } catch (e) {
+      debugPrint('Error getAttendanceLogCount: $e');
+    }
+    return 0;
+  }
+
+  /// Create manual attendance record (ghi thẳng AttendanceLogs).
+  Future<Map<String, dynamic>> createManualAttendance({
     required String employeeId,
     required DateTime punchTime,
     String? deviceId,
@@ -1022,14 +1053,16 @@ class ApiService {
     try {
       debugPrint('📤 Creating manual attendance for employee: $employeeId');
 
-      final body = {
+      final body = <String, dynamic>{
         'employeeId': employeeId,
         'punchTime': punchTime.toIso8601String(),
-        'deviceId': deviceId,
-        'verifyType': 100, // Manual verification type
+        'verifyType': 100,
         'note': note ?? 'Chấm công thủ công',
         'isManual': true,
       };
+      if (deviceId != null && deviceId.isNotEmpty) {
+        body['deviceId'] = deviceId;
+      }
 
       final response = await http
           .post(
@@ -1039,14 +1072,10 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 15));
 
-      debugPrint('📥 Manual attendance response: ${response.statusCode}');
-      debugPrint('📥 Manual attendance body: ${response.body}');
-      final data = _handleResponse(response);
-      debugPrint('📥 Manual attendance parsed: isSuccess=${data['isSuccess']}');
-      return data['isSuccess'] == true;
+      return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Error creating manual attendance: $e');
-      return false;
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
@@ -1090,8 +1119,8 @@ class ApiService {
     }
   }
 
-  /// Delete an attendance record
-  Future<bool> deleteAttendance(String id) async {
+  /// Delete an attendance record (trả message lỗi từ API khi thất bại).
+  Future<Map<String, dynamic>> deleteAttendanceResult(String id) async {
     try {
       debugPrint('📤 Deleting attendance: $id');
 
@@ -1103,13 +1132,20 @@ class ApiService {
           .timeout(const Duration(seconds: 15)));
 
       debugPrint('📥 Delete attendance response: ${response.statusCode}');
-      if (response.statusCode == 204) return true;
-      final data = _handleResponse(response);
-      return data['isSuccess'] == true;
+      if (response.statusCode == 204) {
+        return {'isSuccess': true};
+      }
+      return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Error deleting attendance: $e');
-      return false;
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
+  }
+
+  /// Delete an attendance record
+  Future<bool> deleteAttendance(String id) async {
+    final r = await deleteAttendanceResult(id);
+    return r['isSuccess'] == true;
   }
 
   /// Update an attendance record
@@ -3902,7 +3938,9 @@ class ApiService {
 
       final uri = Uri.parse('$baseUrl/api/AdvanceRequests')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting advance requests: $e');
@@ -4459,6 +4497,157 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getAssetReportSummary({
+    int? status,
+    int? assetType,
+    String? categoryId,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (status != null) params['status'] = status.toString();
+      if (assetType != null) params['assetType'] = assetType.toString();
+      if (categoryId != null) params['categoryId'] = categoryId;
+      final uri = Uri.parse('$baseUrl/api/reports/assets/summary').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportSummary: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportRegister({
+    int? status,
+    int? assetType,
+    String? categoryId,
+    String? search,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (status != null) params['status'] = status.toString();
+      if (assetType != null) params['assetType'] = assetType.toString();
+      if (categoryId != null) params['categoryId'] = categoryId;
+      if (search != null && search.isNotEmpty) params['search'] = search;
+      final uri = Uri.parse('$baseUrl/api/reports/assets/register').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportRegister: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportAssignments({
+    int? status,
+    String? department,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (status != null) params['status'] = status.toString();
+      if (department != null && department.isNotEmpty) {
+        params['department'] = department;
+      }
+      final uri = Uri.parse('$baseUrl/api/reports/assets/assignments').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportAssignments: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportTransfers({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    try {
+      final params = <String, String>{
+        'from': from.toIso8601String(),
+        'to': to.toIso8601String(),
+      };
+      final uri = Uri.parse('$baseUrl/api/reports/assets/transfers')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportTransfers: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportStockLedger({
+    required DateTime from,
+    required DateTime to,
+    int? transactionType,
+  }) async {
+    try {
+      final params = <String, String>{
+        'from': from.toIso8601String(),
+        'to': to.toIso8601String(),
+      };
+      if (transactionType != null) {
+        params['transactionType'] = transactionType.toString();
+      }
+      final uri = Uri.parse('$baseUrl/api/reports/assets/stock-ledger')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportStockLedger: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportInventoryVariance({
+    String? inventoryId,
+    bool onlyVariance = true,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      final params = <String, String>{
+        'onlyVariance': onlyVariance.toString(),
+      };
+      if (inventoryId != null && inventoryId.isNotEmpty) {
+        params['inventoryId'] = inventoryId;
+      }
+      if (from != null) params['from'] = from.toIso8601String();
+      if (to != null) params['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/reports/assets/inventory-variance')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportInventoryVariance: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssetReportWarrantyExpiring({
+    int days = 30,
+    bool includeExpired = false,
+  }) async {
+    try {
+      final params = <String, String>{
+        'days': days.toString(),
+        'includeExpired': includeExpired.toString(),
+      };
+      final uri = Uri.parse('$baseUrl/api/reports/assets/warranty-expiring')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getAssetReportWarrantyExpiring: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> lookupAssetByCode(String code) async {
     try {
       final response = await http.get(
@@ -4782,7 +4971,9 @@ class ApiService {
 
       final uri = Uri.parse('$baseUrl/api/Transactions')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting transactions: $e');
@@ -5618,12 +5809,12 @@ class ApiService {
         if (attendanceId != null) 'attendanceId': attendanceId,
         if (oldDate != null)
           'oldDate': oldDate is DateTime
-              ? oldDate.toIso8601String()
+              ? correctionDateOnly(oldDate as DateTime)
               : oldDate.toString(),
         if (oldTime != null) 'oldTime': oldTime,
         if (newDate != null)
           'newDate': newDate is DateTime
-              ? newDate.toIso8601String()
+              ? correctionDateOnly(newDate as DateTime)
               : newDate.toString(),
         if (newTime != null) 'newTime': newTime,
         if (newType != null) 'newType': newType,
@@ -5664,9 +5855,15 @@ class ApiService {
   Future<Map<String, dynamic>> undoAttendanceCorrectionApproval(
       String id) async {
     try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/AttendanceCorrections/$id/undo-approve'),
-          headers: _headers);
+      final requestId = id.toString().trim();
+      if (requestId.isEmpty) {
+        return {'isSuccess': false, 'message': 'Mã yêu cầu không hợp lệ'};
+      }
+      final response = await _retryOnUnauthorized(() => http.post(
+            Uri.parse(
+                '$baseUrl/api/AttendanceCorrections/$requestId/undo-approve'),
+            headers: _headers,
+          ).timeout(const Duration(seconds: 30)));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -6409,6 +6606,53 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getTaskAssignmentDashboard(
+      {String? branchId}) async {
+    try {
+      final params = <String, String>{};
+      if (branchId != null && branchId.isNotEmpty) {
+        params['branchId'] = branchId;
+      }
+      final uri = Uri.parse('$baseUrl/api/Tasks/assignment-dashboard').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getTaskAssignmentDashboard: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> acceptTask(String id,
+      {bool startImmediately = false}) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/Tasks/$id/accept'),
+        headers: _headers,
+        body: jsonEncode({'startImmediately': startImmediately}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error acceptTask: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectTask(String id, String reason) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/Tasks/$id/reject'),
+        headers: _headers,
+        body: jsonEncode({'reason': reason}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error rejectTask: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ==================== REPORTS ====================
   // Cache active overnight cutoff (HH:mm:ss) so the daily report
   // automatically uses the configured boundary even when callers don't pass it.
@@ -6465,7 +6709,7 @@ class ApiService {
       if (departmentId != null) params['departmentId'] = departmentId;
       // Auto-resolve overnight cutoff when caller did not pass one.
       // This ensures every daily-report consumer (Dashboard, Báo cáo, etc.)
-      // honors the configured "Giờ qua đêm" without manual plumbing.
+      // hơnors the configured "Giờ qua đêm" without manual plumbing.
       overnightCutoff ??= await resolveActiveOvernightCutoff();
       if (overnightCutoff != null && overnightCutoff.isNotEmpty) {
         params['overnightCutoff'] = overnightCutoff;
@@ -8166,53 +8410,6 @@ class ApiService {
     }
   }
 
-  // ==================== GOOGLE DRIVE ====================
-  Future<Map<String, dynamic>> getGoogleDriveConfig() async {
-    try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/Storage/google-drive/config'),
-          headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
-  Future<Map<String, dynamic>> updateGoogleDriveConfig(
-      Map<String, dynamic> data) async {
-    try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/Storage/google-drive/config'),
-          headers: _headers,
-          body: json.encode(data));
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
-  Future<Map<String, dynamic>> testGoogleDriveConnection() async {
-    try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/Storage/google-drive/test'),
-          headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
-  Future<Map<String, dynamic>> testGoogleDriveUpload() async {
-    try {
-      final response = await http.post(
-          Uri.parse('$baseUrl/api/Storage/google-drive/test-upload'),
-          headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
-    }
-  }
-
   // ==================== AUTH (EXTENDED) ====================
   Future<Map<String, dynamic>> forgotPassword(
       String storeCode, String email) async {
@@ -9066,11 +9263,39 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createShiftSwap(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> getShiftSwapColleagues() async {
     try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/shiftswaps/colleagues'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createShiftSwap({
+    required String targetUserId,
+    required String requesterShiftId,
+    required DateTime requesterDate,
+    required String targetShiftId,
+    required DateTime targetDate,
+    String? reason,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'targetUserId': targetUserId,
+        'requesterShiftId': requesterShiftId,
+        'requesterDate': DateTime(
+                requesterDate.year, requesterDate.month, requesterDate.day)
+            .toIso8601String(),
+        'targetShiftId': targetShiftId,
+        'targetDate': DateTime(targetDate.year, targetDate.month, targetDate.day)
+            .toIso8601String(),
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      };
       final response = await http.post(Uri.parse('$baseUrl/api/shiftswaps'),
-          headers: _headers, body: json.encode(data));
+          headers: _headers, body: json.encode(body));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9078,23 +9303,41 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> respondToShiftSwap(
-      String id, Map<String, dynamic> data) async {
+    String id, {
+    required bool accept,
+    String? rejectionReason,
+  }) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/shiftswaps/$id/respond'),
           headers: _headers,
-          body: json.encode(data));
+          body: json.encode({
+            'accept': accept,
+            if (rejectionReason != null && rejectionReason.isNotEmpty)
+              'rejectionReason': rejectionReason,
+          }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> approveShiftSwap(String id) async {
+  Future<Map<String, dynamic>> approveShiftSwap(
+    String id, {
+    bool approve = true,
+    String? rejectionReason,
+    String? note,
+  }) async {
     try {
       final response = await http.post(
           Uri.parse('$baseUrl/api/shiftswaps/$id/approve'),
-          headers: _headers);
+          headers: _headers,
+          body: json.encode({
+            'approve': approve,
+            if (rejectionReason != null && rejectionReason.isNotEmpty)
+              'rejectionReason': rejectionReason,
+            if (note != null && note.isNotEmpty) 'note': note,
+          }));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -9637,6 +9880,16 @@ class ApiService {
 
   Map<String, dynamic> _normalizeResponseMap(Map<String, dynamic> source) {
     final result = Map<String, dynamic>.from(source);
+    if (result['isSuccess'] == null && result['IsSuccess'] != null) {
+      result['isSuccess'] = result['IsSuccess'];
+    }
+    final errors = result['errors'] ?? result['Errors'];
+    if ((result['message'] == null ||
+            result['message'].toString().isEmpty) &&
+        errors is List &&
+        errors.isNotEmpty) {
+      result['message'] = errors.map((e) => e.toString()).join('; ');
+    }
     for (final key in const ['message', 'title', 'detail']) {
       final value = result[key];
       if (value is String) {

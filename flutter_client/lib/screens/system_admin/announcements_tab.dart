@@ -95,7 +95,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   onPressed: _loading ? null : _load,
                   icon: const Icon(Icons.refresh)),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AdminHelpers.primary,
                     foregroundColor: Colors.white),
@@ -275,7 +275,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                         TextButton(
                             onPressed: () => Navigator.pop(dlgCtx, false),
                             child: const Text('Huỷ')),
-                        ElevatedButton(
+                        FilledButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white),
@@ -726,7 +726,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
         TextButton(
             onPressed: _loading ? null : () => Navigator.pop(context),
             child: const Text('Huỷ')),
-        ElevatedButton(
+        FilledButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: AdminHelpers.primary,
               foregroundColor: Colors.white),

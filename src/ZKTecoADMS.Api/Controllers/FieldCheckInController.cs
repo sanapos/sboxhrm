@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
@@ -63,8 +64,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return (today, vnStart, vnEnd);
     }
 
+    /// <summary>Mon=1 .. Sun=7 in Vietnam local calendar (UTC+7).</summary>
+    private static int GetVnDayOfWeek()
+    {
+        var vnDow = (int)DateTime.UtcNow.AddHours(7).DayOfWeek;
+        return vnDow == 0 ? 7 : vnDow;
+    }
+
     /// <summary>
-    /// Nén ảnh: resize max 1024px, JPEG quality 65%
+    /// NÃ©n áº£nh: resize max 1024px, JPEG quality 65%
     /// </summary>
     private static MemoryStream CompressImage(byte[] imageBytes, int maxWidth = 1024, int quality = 65)
     {
@@ -80,12 +88,13 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return output;
     }
 
-    // ==================== FIELD LOCATIONS (ÄIá»‚M BÃN KHÃCH HÃ€NG) ====================
+    // ==================== FIELD LOCATIONS (Ã„ÂIÃ¡Â»â€šM BÃƒÂN KHÃƒÂCH HÃƒâ‚¬NG) ====================
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch táº¥t cáº£ Ä‘iá»ƒm bÃ¡n (nhÃ¢n viÃªn + manager Ä‘á»u xem Ä‘Æ°á»£c)
+    /// LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n (nhÃƒÂ¢n viÃƒÂªn + manager Ã„â€˜Ã¡Â»Âu xem Ã„â€˜Ã†Â°Ã¡Â»Â£c)
     /// </summary>
     [HttpGet("locations")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetLocations([FromQuery] string? search, [FromQuery] string? category)
     {
         var storeId = RequiredStoreId;
@@ -137,9 +146,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn Ä‘Äƒng kÃ½ Ä‘iá»ƒm bÃ¡n má»›i (tá»± chá»¥p áº£nh, nháº­p thÃ´ng tin liÃªn há»‡)
+    /// NhÃƒÂ¢n viÃƒÂªn Ã„â€˜Ã„Æ’ng kÃƒÂ½ Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n mÃ¡Â»â€ºi (tÃ¡Â»Â± chÃ¡Â»Â¥p Ã¡ÂºÂ£nh, nhÃ¡ÂºÂ­p thÃƒÂ´ng tin liÃƒÂªn hÃ¡Â»â€¡)
     /// </summary>
     [HttpPost("locations")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     [RequestSizeLimit(20_000_000)]
     public async Task<ActionResult> RegisterLocation([FromBody] RegisterFieldLocationRequest request)
     {
@@ -211,9 +221,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Cáº­p nháº­t thÃ´ng tin Ä‘iá»ƒm bÃ¡n
+    /// CÃ¡ÂºÂ­p nhÃ¡ÂºÂ­t thÃƒÂ´ng tin Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n
     /// </summary>
     [HttpPut("locations/{id}")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Edit)]
     [RequestSizeLimit(20_000_000)]
     public async Task<ActionResult> UpdateLocation(Guid id, [FromBody] UpdateFieldLocationRequest request)
     {
@@ -223,7 +234,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(l => l.Id == id && l.StoreId == storeId && l.Deleted == null);
 
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm bÃ¡n"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
 
         if (!string.IsNullOrEmpty(request.Name)) location.Name = request.Name;
         if (request.Address != null) location.Address = request.Address;
@@ -269,10 +280,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// XÃ³a Ä‘iá»ƒm bÃ¡n (Manager)
+    /// XÃƒÂ³a Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n (Manager)
     /// </summary>
     [HttpDelete("locations/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Delete)]
     public async Task<ActionResult> DeleteLocation(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -281,7 +293,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(l => l.Id == id && l.StoreId == storeId && l.Deleted == null);
 
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm bÃ¡n"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
 
         location.Deleted = DateTime.UtcNow;
         location.DeletedBy = CurrentUserEmail;
@@ -290,13 +302,14 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
 
-    // ==================== ASSIGNMENT (GIAO ÄIá»‚M) ====================
+    // ==================== ASSIGNMENT (GIAO Ã„ÂIÃ¡Â»â€šM) ====================
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch giao Ä‘iá»ƒm cho nhÃ¢n viÃªn (Manager)
+    /// LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch giao Ã„â€˜iÃ¡Â»Æ’m cho nhÃƒÂ¢n viÃƒÂªn (Manager)
     /// </summary>
     [HttpGet("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetAssignments([FromQuery] string? employeeId)
     {
         var storeId = RequiredStoreId;
@@ -336,16 +349,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn xem danh sÃ¡ch Ä‘iá»ƒm Ä‘Æ°á»£c giao cho mÃ¬nh (hÃ´m nay hoáº·c theo thá»©)
+    /// NhÃƒÂ¢n viÃƒÂªn xem danh sÃƒÂ¡ch Ã„â€˜iÃ¡Â»Æ’m Ã„â€˜Ã†Â°Ã¡Â»Â£c giao cho mÃƒÂ¬nh (hÃƒÂ´m nay hoÃ¡ÂºÂ·c theo thÃ¡Â»Â©)
     /// </summary>
     [HttpGet("my-assignments")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetMyAssignments([FromQuery] int? dayOfWeek)
     {
         var storeId = RequiredStoreId;
         var employeeId = CurrentUserId.ToString();
-        var dow = dayOfWeek ?? (int)DateTime.UtcNow.DayOfWeek;
-        // .NET: Sunday=0, need Mon=1..Sun=7
-        if (dow == 0) dow = 7;
+        var dow = dayOfWeek ?? GetVnDayOfWeek();
 
         var assignments = await _dbContext.FieldLocationAssignments
             .AsNoTracking()
@@ -377,14 +389,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Giao Ä‘iá»ƒm cho nhÃ¢n viÃªn (Manager)
+    /// Giao Ã„â€˜iÃ¡Â»Æ’m cho nhÃƒÂ¢n viÃƒÂªn (Manager)
     /// </summary>
     [HttpPost("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> CreateAssignment([FromBody] CreateAssignmentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.EmployeeId))
-            return BadRequest(AppResponse<object>.Fail("Thiáº¿u thÃ´ng tin nhÃ¢n viÃªn"));
+            return BadRequest(AppResponse<object>.Fail("ThiÃ¡ÂºÂ¿u thÃƒÂ´ng tin nhÃƒÂ¢n viÃƒÂªn"));
 
         var storeId = RequiredStoreId;
 
@@ -393,7 +406,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == request.LocationId && l.StoreId == storeId && l.Deleted == null);
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm bÃ¡n"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
 
         // Check duplicate
         var exists = await _dbContext.FieldLocationAssignments
@@ -403,7 +416,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && a.DayOfWeek == request.DayOfWeek
                 && a.Deleted == null);
         if (exists)
-            return BadRequest(AppResponse<object>.Fail("NhÃ¢n viÃªn Ä‘Ã£ Ä‘Æ°á»£c giao Ä‘iá»ƒm nÃ y vÃ o thá»© Ä‘Ã£ chá»n"));
+            return BadRequest(AppResponse<object>.Fail("NhÃƒÂ¢n viÃƒÂªn Ã„â€˜ÃƒÂ£ Ã„â€˜Ã†Â°Ã¡Â»Â£c giao Ã„â€˜iÃ¡Â»Æ’m nÃƒÂ y vÃƒÂ o thÃ¡Â»Â© Ã„â€˜ÃƒÂ£ chÃ¡Â»Ân"));
 
         var assignment = new FieldLocationAssignment
         {
@@ -436,14 +449,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Giao Ä‘iá»ƒm hÃ ng loáº¡t (Manager)
+    /// Giao Ã„â€˜iÃ¡Â»Æ’m hÃƒÂ ng loÃ¡ÂºÂ¡t (Manager)
     /// </summary>
     [HttpPost("assignments/bulk")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> BulkAssign([FromBody] BulkAssignRequest request)
     {
         if (request.Items == null || request.Items.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Danh sÃ¡ch giao Ä‘iá»ƒm trá»‘ng"));
+            return BadRequest(AppResponse<object>.Fail("Danh sÃƒÂ¡ch giao Ã„â€˜iÃ¡Â»Æ’m trÃ¡Â»â€˜ng"));
 
         var storeId = RequiredStoreId;
         var created = 0;
@@ -480,6 +494,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
     [HttpPut("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Edit)]
     public async Task<ActionResult> UpdateAssignment(Guid id, [FromBody] UpdateAssignmentRequest request)
     {
         var storeId = RequiredStoreId;
@@ -488,7 +503,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y giao Ä‘iá»ƒm"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y giao Ã„â€˜iÃ¡Â»Æ’m"));
 
         if (request.DayOfWeek.HasValue) assignment.DayOfWeek = request.DayOfWeek;
         if (request.SortOrder.HasValue) assignment.SortOrder = request.SortOrder.Value;
@@ -504,6 +519,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
     [HttpDelete("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Delete)]
     public async Task<ActionResult> DeleteAssignment(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -512,7 +528,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y giao Ä‘iá»ƒm"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y giao Ã„â€˜iÃ¡Â»Æ’m"));
 
         assignment.Deleted = DateTime.UtcNow;
         assignment.DeletedBy = CurrentUserEmail;
@@ -524,9 +540,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== VISIT REPORTS (CHECK-IN / CHECK-OUT) ====================
 
     /// <summary>
-    /// NhÃ¢n viÃªn check-in táº¡i Ä‘iá»ƒm bÃ¡n
+    /// NhÃƒÂ¢n viÃƒÂªn check-in tÃ¡ÂºÂ¡i Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n
     /// </summary>
     [HttpPost("checkin")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> CheckIn([FromBody] CheckInRequest request)
     {
         var storeId = RequiredStoreId;
@@ -537,7 +554,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == request.LocationId && l.StoreId == storeId && l.Deleted == null);
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm bÃ¡n"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
 
         // Check if already checked in at this location today (not yet checked out)
         var (today, vnStart, vnEnd) = VnTodayRange();
@@ -550,7 +567,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && v.Deleted == null);
 
         if (existing != null)
-            return BadRequest(AppResponse<object>.Fail($"Báº¡n Ä‘Ã£ check-in táº¡i '{location.Name}' lÃºc {existing.CheckInTime:HH:mm} vÃ  chÆ°a check-out. Vui lÃ²ng check-out trÆ°á»›c."));
+            return BadRequest(AppResponse<object>.Fail($"BÃ¡ÂºÂ¡n Ã„â€˜ÃƒÂ£ check-in tÃ¡ÂºÂ¡i '{location.Name}' lÃƒÂºc {existing.CheckInTime:HH:mm} vÃƒÂ  chÃ†Â°a check-out. Vui lÃƒÂ²ng check-out trÃ†Â°Ã¡Â»â€ºc."));
 
         // Calculate distance from location & enforce radius
         double? distance = null;
@@ -562,7 +579,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 location.Latitude, location.Longitude);
             var maxRadius = location.Radius > 0 ? location.Radius * 3 : 600; // 3x radius = hard limit
             if (distance > maxRadius)
-                return BadRequest(AppResponse<object>.Fail($"Báº¡n á»Ÿ quÃ¡ xa Ä‘iá»ƒm bÃ¡n ({distance:F0}m > {maxRadius}m). Vui lÃ²ng di chuyá»ƒn Ä‘áº¿n gáº§n hÆ¡n."));
+                return BadRequest(AppResponse<object>.Fail($"BÃ¡ÂºÂ¡n Ã¡Â»Å¸ quÃƒÂ¡ xa Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n ({distance:F0}m > {maxRadius}m). Vui lÃƒÂ²ng di chuyÃ¡Â»Æ’n Ã„â€˜Ã¡ÂºÂ¿n gÃ¡ÂºÂ§n hÃ†Â¡n."));
             outsideRadius = distance > (location.Radius > 0 ? location.Radius : 200);
         }
 
@@ -618,9 +635,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn check-out khá»i Ä‘iá»ƒm bÃ¡n + upload áº£nh + ghi chÃº
+    /// NhÃƒÂ¢n viÃƒÂªn check-out khÃ¡Â»Âi Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n + upload Ã¡ÂºÂ£nh + ghi chÃƒÂº
     /// </summary>
     [HttpPost("checkout/{visitId}")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     [RequestSizeLimit(20_000_000)]
     public async Task<ActionResult> CheckOut(Guid visitId, [FromBody] CheckOutRequest request)
     {
@@ -635,10 +653,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && v.Deleted == null);
 
         if (report == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y báº£n ghi check-in"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y bÃ¡ÂºÂ£n ghi check-in"));
 
         if (report.Status != "checked_in")
-            return BadRequest(AppResponse<object>.Fail("Báº£n ghi nÃ y Ä‘Ã£ check-out hoáº·c khÃ´ng á»Ÿ tráº¡ng thÃ¡i check-in"));
+            return BadRequest(AppResponse<object>.Fail("BÃ¡ÂºÂ£n ghi nÃƒÂ y Ã„â€˜ÃƒÂ£ check-out hoÃ¡ÂºÂ·c khÃƒÂ´ng Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i check-in"));
 
         // Calculate distance
         double? distance = null;
@@ -730,9 +748,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn xem lá»‹ch sá»­ check-in cá»§a mÃ¬nh
+    /// NhÃƒÂ¢n viÃƒÂªn xem lÃ¡Â»â€¹ch sÃ¡Â»Â­ check-in cÃ¡Â»Â§a mÃƒÂ¬nh
     /// </summary>
     [HttpGet("my-visits")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetMyVisits(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
@@ -824,9 +843,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn xem tráº¡ng thÃ¡i check-in hÃ´m nay
+    /// NhÃƒÂ¢n viÃƒÂªn xem trÃ¡ÂºÂ¡ng thÃƒÂ¡i check-in hÃƒÂ´m nay
     /// </summary>
     [HttpGet("today")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetTodayVisits()
     {
         var storeId = RequiredStoreId;
@@ -875,10 +895,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== MANAGER ENDPOINTS ====================
 
     /// <summary>
-    /// Manager xem táº¥t cáº£ bÃ¡o cÃ¡o check-in  
+    /// Manager xem tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ bÃƒÂ¡o cÃƒÂ¡o check-in  
     /// </summary>
     [HttpGet("reports")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetReports(
         [FromQuery] string? employeeId,
         [FromQuery] Guid? locationId,
@@ -975,10 +996,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager review bÃ¡o cÃ¡o check-in
+    /// Manager review bÃƒÂ¡o cÃƒÂ¡o check-in
     /// </summary>
     [HttpPost("review/{visitId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Approve)]
     public async Task<ActionResult> ReviewVisit(Guid visitId, [FromBody] ReviewVisitRequest request)
     {
         var storeId = RequiredStoreId;
@@ -987,7 +1009,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(v => v.Id == visitId && v.StoreId == storeId && v.Deleted == null);
 
         if (report == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y báº£n ghi"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y bÃ¡ÂºÂ£n ghi"));
 
         report.Status = "reviewed";
         report.ReviewedBy = CurrentUserEmail;
@@ -1003,10 +1025,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem thá»‘ng kÃª check-in theo thá»i gian
+    /// Manager xem thÃ¡Â»â€˜ng kÃƒÂª check-in theo thÃ¡Â»Âi gian
     /// </summary>
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetSummary(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate)
@@ -1070,9 +1093,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== JOURNEY TRACKING ====================
 
     /// <summary>
-    /// NhÃ¢n viÃªn báº¯t Ä‘áº§u hÃ nh trÃ¬nh trong ngÃ y
+    /// NhÃƒÂ¢n viÃƒÂªn bÃ¡ÂºÂ¯t Ã„â€˜Ã¡ÂºÂ§u hÃƒÂ nh trÃƒÂ¬nh trong ngÃƒÂ y
     /// </summary>
     [HttpPost("journey/start")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> StartJourney()
     {
         var storeId = RequiredStoreId;
@@ -1087,7 +1111,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (existing != null && existing.Status == "in_progress")
-            return BadRequest(AppResponse<object>.Fail("HÃ nh trÃ¬nh hÃ´m nay Ä‘ang diá»…n ra"));
+            return BadRequest(AppResponse<object>.Fail("HÃƒÂ nh trÃƒÂ¬nh hÃƒÂ´m nay Ã„â€˜ang diÃ¡Â»â€¦n ra"));
 
         // Count assigned locations for today
         var dow = (int)DateTime.UtcNow.DayOfWeek;
@@ -1154,9 +1178,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn gá»­i batch GPS points (gá»i má»—i 30s-60s tá»« client)
+    /// NhÃƒÂ¢n viÃƒÂªn gÃ¡Â»Â­i batch GPS points (gÃ¡Â»Âi mÃ¡Â»â€”i 30s-60s tÃ¡Â»Â« client)
     /// </summary>
     [HttpPost("journey/track")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> TrackPoints([FromBody] TrackPointsRequest request)
     {
         var storeId = RequiredStoreId;
@@ -1170,7 +1195,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y hÃ nh trÃ¬nh Ä‘ang hoáº¡t Ä‘á»™ng"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng"));
 
         if (request.Points == null || request.Points.Count == 0)
             return Ok(AppResponse<object>.Success(new { saved = 0 }));
@@ -1206,7 +1231,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 existingPoints[i].Lat, existingPoints[i].Lng);
         }
 
-        // Detect dwell zones: consecutive points within 50m radius â†’ mark dwell time
+        // Detect dwell zones: consecutive points within 50m radius Ã¢â€ â€™ mark dwell time
         var fieldLocations = await _dbContext.FieldLocations
             .AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive)
@@ -1254,7 +1279,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         journey.UpdatedAt = DateTime.UtcNow;
 
         // Update checked-in count from today's visits (VisitDate is stored in
-        // UTC, but JourneyDate is the VN calendar date — convert that to a UTC
+        // UTC, but JourneyDate is the VN calendar date â€” convert that to a UTC
         // window so the filter matches).
         var journeyDayStart = journey.JourneyDate.AddHours(-7);
         var journeyDayEnd = journeyDayStart.AddDays(1);
@@ -1296,9 +1321,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn káº¿t thÃºc hÃ nh trÃ¬nh  
+    /// NhÃƒÂ¢n viÃƒÂªn kÃ¡ÂºÂ¿t thÃƒÂºc hÃƒÂ nh trÃƒÂ¬nh  
     /// </summary>
     [HttpPost("journey/end")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> EndJourney([FromBody] EndJourneyRequest? request)
     {
         var storeId = RequiredStoreId;
@@ -1312,7 +1338,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y hÃ nh trÃ¬nh Ä‘ang hoáº¡t Ä‘á»™ng"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng"));
 
         var now = DateTime.UtcNow;
         journey.EndTime = now;
@@ -1362,9 +1388,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn xem hÃ nh trÃ¬nh hÃ´m nay
+    /// NhÃƒÂ¢n viÃƒÂªn xem hÃƒÂ nh trÃƒÂ¬nh hÃƒÂ´m nay
     /// </summary>
     [HttpGet("journey/today")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetTodayJourney()
     {
         var storeId = RequiredStoreId;
@@ -1399,10 +1426,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem táº¥t cáº£ hÃ nh trÃ¬nh Ä‘ang hoáº¡t Ä‘á»™ng hÃ´m nay (live map)
+    /// Manager xem tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng hÃƒÂ´m nay (live map)
     /// </summary>
     [HttpGet("journey/active")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetActiveJourneys()
     {
         var storeId = RequiredStoreId;
@@ -1495,64 +1523,72 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app).
-    /// Để đảm bảo quyền riêng tư: chỉ ghi nhận vị trí khi nhân viên đang trong ca làm việc đã được duyệt
-    /// (với biên 30 phút trước giờ bắt đầu và 15 phút sau giờ kết thúc).
+    /// NhÃ¢n viÃªn gá»­i vá»‹ trÃ­ GPS hiá»‡n táº¡i (gá»i Ä‘á»‹nh ká»³ khi má»Ÿ app).
+    /// Äá»ƒ Ä‘áº£m báº£o quyá»n riÃªng tÆ°: chá»‰ ghi nháº­n vá»‹ trÃ­ khi nhÃ¢n viÃªn Ä‘ang trong ca lÃ m viá»‡c Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t
+    /// (vá»›i biÃªn 30 phÃºt trÆ°á»›c giá» báº¯t Ä‘áº§u vÃ  15 phÃºt sau giá» káº¿t thÃºc).
     /// </summary>
     [HttpPost("report-location")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult> ReportLocation([FromBody] ReportLocationRequest request)
     {
-        var storeId = RequiredStoreId;
-        var empId = CurrentUserId.ToString();
-        if (string.IsNullOrEmpty(empId))
-            return BadRequest(AppResponse<object>.Error("Không xác định được nhân viên"));
-
-        if (request.Latitude == 0 && request.Longitude == 0)
-            return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
-
-        // Privacy guard: only record location if the employee is currently within an approved shift window.
-        // Window: [StartTime - 30m, EndTime + 15m]. Shift StartTime/EndTime are stored in server local time.
-        var nowLocal = DateTime.Now;
-        var onShift = await _dbContext.Shifts
-            .AsNoTracking()
-            .AnyAsync(s => s.StoreId == storeId
-                && s.EmployeeUserId == CurrentUserId
-                && s.Status == Domain.Enums.ShiftStatus.Approved
-                && s.StartTime.AddMinutes(-30) <= nowLocal
-                && s.EndTime.AddMinutes(15) >= nowLocal);
-
-        if (!onShift)
+        try
         {
-            // Silently accept but don't store — respect employee privacy outside working hours.
-            return Ok(AppResponse<object>.Success(new { stored = false, reason = "off-shift" }));
-        }
+            var storeId = RequiredStoreId;
+            var empId = CurrentUserId.ToString();
+            if (string.IsNullOrEmpty(empId))
+                return BadRequest(AppResponse<object>.Error("Không xác định được nhân viên"));
 
-        var existing = await _dbContext.EmployeeLiveLocations
-            .FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == empId);
+            if (request.Latitude == 0 && request.Longitude == 0)
+                return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
 
-        if (existing != null)
-        {
-            existing.Latitude = request.Latitude;
-            existing.Longitude = request.Longitude;
-            existing.Accuracy = request.Accuracy;
-            existing.UpdatedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            _dbContext.EmployeeLiveLocations.Add(new EmployeeLiveLocation
+            // Privacy guard: only record location if the employee is currently within an approved shift window.
+            var nowLocal = DateTime.Now;
+            var onShift = await _dbContext.Shifts
+                .AsNoTracking()
+                .AnyAsync(s => s.StoreId == storeId
+                    && s.EmployeeUserId == CurrentUserId
+                    && s.Status == Domain.Enums.ShiftStatus.Approved
+                    && s.StartTime.AddMinutes(-30) <= nowLocal
+                    && s.EndTime.AddMinutes(15) >= nowLocal);
+
+            if (!onShift)
             {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                EmployeeId = empId,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
-                Accuracy = request.Accuracy,
-                UpdatedAt = DateTime.UtcNow,
-            });
-        }
+                return Ok(AppResponse<object>.Success(new { stored = false, reason = "off-shift" }));
+            }
 
-        await _dbContext.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(new { stored = true }));
+            var existing = await _dbContext.EmployeeLiveLocations
+                .FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == empId);
+
+            if (existing != null)
+            {
+                existing.Latitude = request.Latitude;
+                existing.Longitude = request.Longitude;
+                existing.Accuracy = request.Accuracy;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _dbContext.EmployeeLiveLocations.Add(new EmployeeLiveLocation
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    EmployeeId = empId,
+                    Latitude = request.Latitude,
+                    Longitude = request.Longitude,
+                    Accuracy = request.Accuracy,
+                    UpdatedAt = DateTime.UtcNow,
+                });
+            }
+
+            await _dbContext.SaveChangesAsync();
+            return Ok(AppResponse<object>.Success(new { stored = true }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ReportLocation failed for user {UserId}", CurrentUserId);
+            // Best-effort: do not break login/app when GPS storage fails (e.g. missing migration).
+            return Ok(AppResponse<object>.Success(new { stored = false, reason = "error" }));
+        }
     }
 
     public class ReportLocationRequest
@@ -1567,6 +1603,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     /// </summary>
     [HttpGet("employee-locations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetEmployeeLocations()
     {
         var storeId = RequiredStoreId;
@@ -1678,10 +1715,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
         // 6. Build result per employee
         // Pre-compute department -> color index so the legend is STABLE across
         // refresh cycles (previously the index was assigned inside the Select,
-        // which re-ordered colours whenever the employee list changed order —
+        // which re-ordered colours whenever the employee list changed order â€”
         // managers saw departments swap colours every 60 seconds).
         var deptColorMap = employees
-            .Select(e => e.Department ?? "Chưa phân bổ")
+            .Select(e => e.Department ?? "ChÆ°a phÃ¢n bá»•")
             .Distinct()
             .OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
             .Select((name, idx) => new { name, idx })
@@ -1692,7 +1729,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             var empIdStr = emp.Id.ToString();
             var empCode = emp.EmployeeCode;
             var appUserIdStr = emp.ApplicationUserId?.ToString();
-            var deptName = emp.Department ?? "Chưa phân bổ";
+            var deptName = emp.Department ?? "ChÆ°a phÃ¢n bá»•";
 
             // Colour index was assigned up-front above; safe fallback if a new
             // department name slipped through.
@@ -1702,7 +1739,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             // Find current working location. Each source exposes its own timestamp;
             // we pick the FRESHEST one instead of a fixed hierarchy so a stale
             // morning journey point cannot override a live GPS heartbeat sent
-            // 60 seconds ago (this caused the "Quản lý tab shows yesterday's
+            // 60 seconds ago (this caused the "Quáº£n lÃ½ tab shows yesterday's
             // street" bug). Punch/check-in GPS are used only as last resort.
             double? lat = null, lng = null;
             DateTime? lastUpdate = null;
@@ -1731,7 +1768,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
                         var last = points.Last();
                         if (last.Lat != 0 || last.Lng != 0)
                         {
-                            consider(last.Lat, last.Lng, last.Time, "journey");
+                            var pointTime = last.Time.Kind == DateTimeKind.Unspecified
+                                ? DateTime.SpecifyKind(last.Time, DateTimeKind.Utc)
+                                : last.Time.ToUniversalTime();
+                            consider(last.Lat, last.Lng, pointTime, "journey");
                         }
                     }
                 }
@@ -1745,32 +1785,25 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 consider(live.Latitude, live.Longitude, live.UpdatedAt, "live");
             }
 
-            // Last mobile punch GPS (recent attendance event) — only used if nothing
-            // newer was found above, because morning check-in punch stays for the
-            // whole day otherwise.
-            if (lastUpdate == null)
+            // Mobile punch GPS — compete by timestamp (not only when journey/live missing).
+            var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr || (appUserIdStr != null && p.OdooEmployeeId == appUserIdStr));
+            if (lastPunch?.Latitude != null && lastPunch.Latitude != 0 && lastPunch.Longitude.HasValue)
             {
-                var lastPunch = todayPunches.FirstOrDefault(p => p.OdooEmployeeId == empCode || p.OdooEmployeeId == empIdStr || (appUserIdStr != null && p.OdooEmployeeId == appUserIdStr));
-                if (lastPunch?.Latitude != null && lastPunch.Latitude != 0)
-                {
-                    lat = lastPunch.Latitude;
-                    lng = lastPunch.Longitude;
-                    lastUpdate = lastPunch.PunchTime;
-                    source = "punch";
-                }
+                var punchTime = lastPunch.PunchTime.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(lastPunch.PunchTime, DateTimeKind.Utc)
+                    : lastPunch.PunchTime.ToUniversalTime();
+                consider(lastPunch.Latitude.Value, lastPunch.Longitude.Value, punchTime, "punch");
             }
 
-            // Fallback: last check-in GPS (historical — least fresh)
-            if (lat == null)
+            // Field check-in GPS — lowest priority among timed sources.
+            var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr));
+            if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0 && lastVisit.CheckInLongitude.HasValue)
             {
-                var lastVisit = todayVisits.LastOrDefault(v => v.EmployeeId == empCode || v.EmployeeId == empIdStr || (appUserIdStr != null && v.EmployeeId == appUserIdStr));
-                if (lastVisit?.CheckInLatitude != null && lastVisit.CheckInLatitude != 0)
-                {
-                    lat = lastVisit.CheckInLatitude;
-                    lng = lastVisit.CheckInLongitude;
-                    lastUpdate = lastVisit.CheckOutTime ?? lastVisit.CheckInTime;
-                    source = "checkin";
-                }
+                var visitTime = lastVisit.CheckOutTime ?? lastVisit.CheckInTime ?? vnStart;
+                var visitUtc = visitTime.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(visitTime, DateTimeKind.Utc)
+                    : visitTime.ToUniversalTime();
+                consider(lastVisit.CheckInLatitude.Value, lastVisit.CheckInLongitude.Value, visitUtc, "checkin");
             }
 
             // Employee's today visits
@@ -1839,7 +1872,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 .Select(u => new { u.Id, u.UserName, u.FirstName, u.LastName })
                 .ToListAsync();
 
-            var unmatchedDept = "Chưa phân bổ";
+            var unmatchedDept = "ChÆ°a phÃ¢n bá»•";
             if (!deptColorMap.ContainsKey(unmatchedDept))
                 deptColorMap[unmatchedDept] = deptColorMap.Count;
 
@@ -1917,10 +1950,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem hÃ nh trÃ¬nh cá»§a nhÃ¢n viÃªn (báº£n Ä‘á»“ + timeline)
+    /// Manager xem hÃƒÂ nh trÃƒÂ¬nh cÃ¡Â»Â§a nhÃƒÂ¢n viÃƒÂªn (bÃ¡ÂºÂ£n Ã„â€˜Ã¡Â»â€œ + timeline)
     /// </summary>
     [HttpGet("journey/reports")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetJourneyReports(
         [FromQuery] string? employeeId,
         [FromQuery] DateTime? fromDate,
@@ -1967,10 +2001,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem chi tiáº¿t hÃ nh trÃ¬nh + visits trong ngÃ y
+    /// Manager xem chi tiÃ¡ÂºÂ¿t hÃƒÂ nh trÃƒÂ¬nh + visits trong ngÃƒÂ y
     /// </summary>
     [HttpGet("journey/{journeyId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult> GetJourneyDetail(Guid journeyId)
     {
         var storeId = RequiredStoreId;
@@ -1980,7 +2015,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(j => j.Id == journeyId && j.StoreId == storeId && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y hÃ nh trÃ¬nh"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh"));
 
         // Get visits for that day by that employee
         var visits = await _dbContext.VisitReports
@@ -2068,10 +2103,11 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager review hÃ nh trÃ¬nh
+    /// Manager review hÃƒÂ nh trÃƒÂ¬nh
     /// </summary>
     [HttpPost("journey/{journeyId}/review")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Approve)]
     public async Task<ActionResult> ReviewJourney(Guid journeyId, [FromBody] ReviewVisitRequest request)
     {
         var storeId = RequiredStoreId;
@@ -2080,7 +2116,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(j => j.Id == journeyId && j.StoreId == storeId && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y hÃ nh trÃ¬nh"));
+            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh"));
 
         journey.Status = "reviewed";
         journey.ReviewedBy = CurrentUserEmail;

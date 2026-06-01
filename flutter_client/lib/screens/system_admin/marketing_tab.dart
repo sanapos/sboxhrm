@@ -113,7 +113,7 @@ class MarketingTabState extends State<MarketingTab>
       children: [
         Align(
           alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
+          child: FilledButton.icon(
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white),
@@ -295,7 +295,7 @@ class MarketingTabState extends State<MarketingTab>
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Huỷ')),
-            ElevatedButton(
+            FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text('Lưu')),
           ],
@@ -332,7 +332,7 @@ class MarketingTabState extends State<MarketingTab>
       children: [
         Align(
           alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
+          child: FilledButton.icon(
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.success,
                 foregroundColor: Colors.white),
@@ -602,7 +602,7 @@ class MarketingTabState extends State<MarketingTab>
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Huỷ')),
-            ElevatedButton(
+            FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text('Lưu')),
           ],
@@ -684,7 +684,7 @@ class MarketingTabState extends State<MarketingTab>
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Huỷ')),
-          ElevatedButton(
+          FilledButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.danger,
                   foregroundColor: Colors.white),
