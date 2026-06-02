@@ -5965,13 +5965,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Determine status
-
-
+        // Determine status — Admin/Director/SuperAdmin: luôn auto để ghi ngay dữ liệu thô
         var status = keepPunchFaceImage ? "pending" : "auto_approved";
-
-
-
+        if (IsAdmin)
+            status = "auto_approved";
 
 
         // Resolve employee name from device registration if not provided
@@ -6118,7 +6115,19 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             else
 
 
+            {
+
+
                 _logger.LogError("❌ PUNCH auto_approved but sync to AttendanceLog FAILED: {RecordId}", record.Id);
+
+
+                return BadRequest(AppResponse<object>.Fail(
+
+
+                    "Chấm công đã lưu nhưng chưa ghi được vào dữ liệu thô. Kiểm tra mã nhân viên trên hồ sơ HR hoặc liên hệ quản trị."));
+
+
+            }
 
 
         }
@@ -6482,6 +6491,50 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+
+
+    /// <summary>Đồng bộ lại mobile auto_approved chưa có trên AttendanceLogs (sửa lỗi thiếu máy MOBILE theo cửa hàng).</summary>
+    [HttpPost("resync-missing-raw")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Approve)]
+    public async Task<ActionResult<AppResponse<object>>> ResyncMissingRaw([FromQuery] DateTime? date)
+    {
+        var storeId = RequiredStoreId;
+        DateTime day;
+        try
+        {
+            var vnTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            day = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, vnTz).Date;
+        }
+        catch
+        {
+            day = DateTime.UtcNow.AddHours(7).Date;
+        }
+        if (date.HasValue)
+            day = date.Value.Date;
+
+        var records = await _dbContext.MobileAttendanceRecords
+            .Where(r => r.StoreId == storeId && r.Deleted == null
+                && r.Status == "auto_approved"
+                && r.PunchTime >= day && r.PunchTime < day.AddDays(1))
+            .ToListAsync();
+
+        var synced = 0;
+        var failed = 0;
+        foreach (var r in records)
+        {
+            var exists = await _dbContext.AttendanceLogs
+                .AnyAsync(a => a.MobileAttendanceRecordId == r.Id);
+            if (exists)
+                continue;
+            if (await SyncMobileRecordToAttendanceLog(r))
+                synced++;
+            else
+                failed++;
+        }
+
+        return Ok(AppResponse<object>.Success(new { synced, failed, total = records.Count, date = day }));
+    }
 
 
     [HttpGet("pending")]
@@ -7404,6 +7457,58 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     private static bool ShouldKeepPunchFaceImage(bool isInRange, bool isWifiVerified, bool allowOutside, bool autoApproveInRange)
         => !((isInRange || isWifiVerified || allowOutside) && autoApproveInRange);
 
+    /// <summary>Serial MOBILE theo cửa hàng — tránh trùng IX_Devices_SerialNumber toàn hệ thống.</summary>
+    private static string MobileDeviceSerialForStore(Guid storeId) =>
+        $"MOB-{storeId:N}";
+
+    private async Task<Device> GetOrCreateMobileDeviceForStoreAsync(Guid storeId)
+    {
+        var storeSerial = MobileDeviceSerialForStore(storeId);
+        var device = await _dbContext.Devices
+            .FirstOrDefaultAsync(d => d.StoreId == storeId
+                && (d.SerialNumber == storeSerial || d.SerialNumber == "MOBILE"));
+        if (device != null)
+            return device;
+
+        var managerId = CurrentUserId;
+        if (managerId == Guid.Empty)
+        {
+            managerId = await _dbContext.Users
+                .Where(u => u.StoreId == storeId && u.IsActive)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+        }
+        if (managerId == Guid.Empty)
+            managerId = CurrentUserId;
+
+        var deviceInfo = new DeviceInfo
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = Guid.NewGuid(),
+            FirmwareVersion = "virtual",
+        };
+        device = new Device
+        {
+            Id = deviceInfo.DeviceId,
+            SerialNumber = storeSerial,
+            DeviceName = "Chấm công Mobile",
+            DeviceType = DeviceType.Attendance,
+            DeviceStatus = "Online",
+            ManagerId = managerId,
+            StoreId = storeId,
+            IsClaimed = true,
+            ClaimedAt = DateTime.UtcNow,
+            DeviceInfoId = deviceInfo.Id,
+            IsActive = true,
+            CreatedBy = "system",
+        };
+        deviceInfo.DeviceId = device.Id;
+        _dbContext.DeviceInfos.Add(deviceInfo);
+        _dbContext.Devices.Add(device);
+        await _dbContext.SaveChangesAsync();
+        return device;
+    }
+
 
     private async Task TryDeletePunchFaceImageAsync(string? relativePath)
     {
@@ -7478,106 +7583,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            // TÃ¬m hoáº·c táº¡o virtual device "MOBILE" cho store
-
-
-            var mobileDevice = await _dbContext.Devices
-
-
-                .FirstOrDefaultAsync(d => d.SerialNumber == "MOBILE" && d.StoreId == record.StoreId);
-
-
-
-
-
-            if (mobileDevice == null)
-
-
-            {
-
-
-                var deviceInfo = new DeviceInfo
-
-
-                {
-
-
-                    Id = Guid.NewGuid(),
-
-
-                    DeviceId = Guid.NewGuid(),
-
-
-                    FirmwareVersion = "virtual",
-
-
-                };
-
-
-
-
-
-                mobileDevice = new Device
-
-
-                {
-
-
-                    Id = deviceInfo.DeviceId,
-
-
-                    SerialNumber = "MOBILE",
-
-
-                    DeviceName = "Chấm công Mobile",
-
-
-                    DeviceType = DeviceType.Attendance,
-
-
-                    DeviceStatus = "Online",
-
-
-                    ManagerId = CurrentUserId,
-
-
-                    StoreId = record.StoreId,
-
-
-                    IsClaimed = true,
-
-
-                    ClaimedAt = DateTime.UtcNow,
-
-
-                    DeviceInfoId = deviceInfo.Id,
-
-
-                    IsActive = true,
-
-
-                    CreatedBy = "system",
-
-
-                };
-
-
-
-
-
-                deviceInfo.DeviceId = mobileDevice.Id;
-
-
-                _dbContext.DeviceInfos.Add(deviceInfo);
-
-
-                _dbContext.Devices.Add(mobileDevice);
-
-
-                await _dbContext.SaveChangesAsync();
-
-
-            }
+            var mobileDevice = await GetOrCreateMobileDeviceForStoreAsync(record.StoreId);
 
 
 
@@ -7639,6 +7645,20 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             }
 
+
+            if (employee == null && Guid.TryParse(record.OdooEmployeeId, out var userIdForPin))
+            {
+                var appUser = await _dbContext.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == userIdForPin);
+                if (appUser != null)
+                {
+                    var phone = appUser.PhoneNumber?.Trim();
+                    if (!string.IsNullOrEmpty(phone) && phone.Length <= 20)
+                        pin = phone;
+                    else
+                        pin = $"U{userIdForPin:N}"[..20];
+                }
+            }
 
             if (employee != null)
 
@@ -7741,6 +7761,35 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            }
+
+            if (deviceUserId == null && !string.IsNullOrWhiteSpace(pin))
+            {
+                var existingDu = await _dbContext.DeviceUsers
+                    .FirstOrDefaultAsync(du =>
+                        du.DeviceId == mobileDevice.Id && du.Pin == pin);
+                if (existingDu != null)
+                {
+                    deviceUserId = existingDu.Id;
+                }
+                else
+                {
+                    var newDu = new DeviceUser
+                    {
+                        Id = Guid.NewGuid(),
+                        Pin = pin.Length > 20 ? pin[..20] : pin,
+                        Name = string.IsNullOrWhiteSpace(record.EmployeeName)
+                            ? pin
+                            : record.EmployeeName,
+                        DeviceId = mobileDevice.Id,
+                        EmployeeId = employee?.Id,
+                        IsActive = true,
+                        CreatedBy = "system",
+                    };
+                    _dbContext.DeviceUsers.Add(newDu);
+                    await _dbContext.SaveChangesAsync();
+                    deviceUserId = newDu.Id;
+                }
             }
 
 

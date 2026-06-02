@@ -624,17 +624,27 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (!mounted) return;
 
       if (response['isSuccess'] == true) {
+        final data = response['data'];
+        final status = data is Map ? (data['status']?.toString() ?? '') : '';
+        final syncedRaw = data is Map && data['syncedToAttendanceLog'] == true;
+        String subtitle;
+        if (status == 'pending') {
+          subtitle =
+              'Đã lưu trên app. Vào Duyệt chấm công → Mobile để duyệt; sau đó mới có trên Chấm công thô.';
+        } else if (syncedRaw) {
+          subtitle = _isWifiVerified
+              ? 'Đã ghi dữ liệu thô (WiFi: ${_connectedWifiSsid ?? ''})'
+              : _isLocationVerified
+                  ? 'Đã ghi dữ liệu thô (GPS ${_distanceFromOffice?.toInt()}m)'
+                  : 'Đã ghi dữ liệu thô — xem thiết bị «Chấm công Mobile»';
+        } else {
+          subtitle = 'Đã lưu mobile; kiểm tra Chấm công thô hoặc liên hệ quản trị.';
+        }
         _showSuccess(
           punchType == 0
               ? 'Chấm công VÀO thành công!'
               : 'Chấm công RA thành công!',
-          _isWifiVerified
-              ? 'Đã xác thực qua WiFi: ${_connectedWifiSsid ?? ''}'
-              : _isLocationVerified
-                  ? 'Tự động duyệt (trong phạm vi ${_distanceFromOffice?.toInt()}m)'
-                  : _allowOutsideCheckIn
-                      ? 'Chấm công ngoài công ty'
-                      : 'Đang chờ duyệt',
+          subtitle,
         );
 
         _loadTodayRecords();

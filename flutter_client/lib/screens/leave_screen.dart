@@ -11,8 +11,6 @@ import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
-import '../widgets/hrm_responsive_list_layout.dart';
-
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -337,7 +335,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   // ═══════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════
-  /// One tab: loading spinner, or list (pull-to-refresh only on mobile scroll views).
+  /// One tab: loading spinner, or list (mobile uses plain ListView — no NestedScrollView).
   Widget _buildLeaveTabContent(
     List<dynamic> leaves, {
     bool isMyLeaves = false,
@@ -345,18 +343,27 @@ class _LeaveScreenState extends State<LeaveScreen>
     bool isAllTab = false,
   }) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
+      );
     }
-    final list = _buildLeaveList(
+    return _buildLeaveList(
       leaves,
       isMyLeaves: isMyLeaves,
       showApprovalActions: showApprovalActions,
       isAllTab: isAllTab,
     );
-    if (Responsive.isMobile(context)) {
-      return RefreshIndicator(onRefresh: _loadData, child: list);
-    }
-    return list;
+  }
+
+  Widget _leaveMobileListScroll({required List<Widget> children}) {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: children,
+      ),
+    );
   }
 
   @override
@@ -381,27 +388,41 @@ class _LeaveScreenState extends State<LeaveScreen>
           if (!isMobile) _buildTabBar(theme),
           Expanded(
             child: isMobile
-                ? HrmMobileNestedTabLayout(
+                ? Padding(
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-                    headerSections: _leavePageHeaderSections(theme),
-                    tabBar: _leaveTabBar(theme),
-                    tabBarView: TabBarView(
-                      controller: _tabController,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildLeaveTabContent(
-                          _applyFilters(_myLeaves),
-                          isMyLeaves: true,
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: _leavePageHeaderSections(theme),
+                            ),
+                          ),
                         ),
-                        if (_isManager) ...[
-                          _buildLeaveTabContent(
-                            _applyFilters(_pendingLeaves),
-                            showApprovalActions: true,
+                        _leaveTabBar(theme),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildLeaveTabContent(
+                                _applyFilters(_myLeaves),
+                                isMyLeaves: true,
+                              ),
+                              if (_isManager) ...[
+                                _buildLeaveTabContent(
+                                  _applyFilters(_pendingLeaves),
+                                  showApprovalActions: true,
+                                ),
+                                _buildLeaveTabContent(
+                                  _applyFilters(_allLeaves),
+                                  isAllTab: true,
+                                ),
+                              ],
+                            ],
                           ),
-                          _buildLeaveTabContent(
-                            _applyFilters(_allLeaves),
-                            isAllTab: true,
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   )
@@ -636,6 +657,14 @@ class _LeaveScreenState extends State<LeaveScreen>
       _buildStatCard(
           'Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
     ];
+
+    if (Responsive.isMobile(context)) {
+      return HrmPageChrome.horizontalStatCards(
+        cards: cards,
+        minCardWidth: 108,
+        gap: 8,
+      );
+    }
 
     return Row(
       children: cards
@@ -1371,14 +1400,12 @@ class _LeaveScreenState extends State<LeaveScreen>
         ),
       );
       if (Responsive.isMobile(context)) {
-        return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverOverlapInjector(
-              handle:
-                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        return _leaveMobileListScroll(
+          children: [
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.32,
+              child: emptyContent,
             ),
-            SliverFillRemaining(child: emptyContent),
           ],
         );
       }
@@ -1413,94 +1440,36 @@ class _LeaveScreenState extends State<LeaveScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 600) {
-          if (leaves.isEmpty) {
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverOverlapInjector(
-                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                      context),
-                ),
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.event_busy_outlined,
-                            size: 72, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        Text(
-                          showApprovalActions
-                              ? _l10n.noPendingRequests
-                              : _l10n.noLeaveRequests,
-                          style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[500],
-                              fontWeight: FontWeight.w500),
-                        ),
-                        if (isMyLeaves) ...[
-                          const SizedBox(height: 20),
-                          FilledButton.icon(
-                            onPressed: () => _showLeaveFormDialog(),
-                            icon: const Icon(Icons.add_rounded),
-                            label: Text(_l10n.createNewRequest),
-                          ),
-                        ],
-                      ],
-                    ),
+          final cards = <Widget>[
+            for (var index = 0; index < pageLeaves.length; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            );
-          }
-          return CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverOverlapInjector(
-                handle:
-                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-              ),
-              SliverPadding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final leave = pageLeaves[index] is Map<String, dynamic>
-                          ? pageLeaves[index] as Map<String, dynamic>
-                          : Map<String, dynamic>.from(pageLeaves[index]);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE4E4E7)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: _buildLeaveDeckItem(
-                            leave,
-                            isMyLeaves: isMyLeaves,
-                            showApprovalActions: showApprovalActions,
-                            isAllTab: isAllTab,
-                          ),
-                        ),
-                      );
-                    },
-                    childCount: pageLeaves.length,
+                  child: _buildLeaveDeckItem(
+                    pageLeaves[index] is Map<String, dynamic>
+                        ? pageLeaves[index] as Map<String, dynamic>
+                        : Map<String, dynamic>.from(pageLeaves[index]),
+                    isMyLeaves: isMyLeaves,
+                    showApprovalActions: showApprovalActions,
+                    isAllTab: isAllTab,
                   ),
                 ),
               ),
-              if (totalPages > 1)
-                SliverToBoxAdapter(child: _buildMobilePagination(leaves)),
-            ],
-          );
+            if (totalPages > 1) _buildMobilePagination(leaves),
+          ];
+          return _leaveMobileListScroll(children: cards);
         }
         return Column(
           children: [
@@ -2533,11 +2502,12 @@ class _LeaveScreenState extends State<LeaveScreen>
           );
         }
 
+        final dialogMaxH = MediaQuery.sizeOf(context).height * 0.88;
         return Dialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
+            constraints: BoxConstraints(maxWidth: 500, maxHeight: dialogMaxH),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2601,7 +2571,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 ),
 
                 // Content
-                Flexible(
+                Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(

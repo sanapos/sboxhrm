@@ -896,40 +896,38 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(height: 4),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
       ),
     );
   }

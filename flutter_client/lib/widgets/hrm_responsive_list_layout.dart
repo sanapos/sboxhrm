@@ -177,6 +177,8 @@ class HrmScrollSlivers {
     return Builder(
       builder: (context) {
         return CustomScrollView(
+          primary: false,
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverOverlapInjector(
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),

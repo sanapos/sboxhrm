@@ -166,12 +166,23 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         setState(() {
           // Deduplicate devices by ID to avoid dropdown assertion errors
           final seen = <String>{};
-          _devices = devices.where((d) {
+          final list = devices.where((d) {
             final id = d['id']?.toString() ?? '';
             if (id.isEmpty || seen.contains(id)) return false;
             seen.add(id);
             return true;
           }).toList();
+          list.sort((a, b) {
+            bool isMobileSerial(String? sn) {
+              if (sn == null || sn.isEmpty) return false;
+              return sn == 'MOBILE' || sn.startsWith('MOB-');
+            }
+            final aMobile = isMobileSerial(a['serialNumber']?.toString());
+            final bMobile = isMobileSerial(b['serialNumber']?.toString());
+            if (aMobile == bMobile) return 0;
+            return aMobile ? -1 : 1;
+          });
+          _devices = list;
         });
       }
     } catch (e) {
