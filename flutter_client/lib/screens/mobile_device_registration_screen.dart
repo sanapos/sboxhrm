@@ -150,8 +150,10 @@ class _MobileDeviceRegistrationScreenState
       final user = authProvider.currentUser;
       final employeeId = user?.id ?? '';
 
-      final response =
-          await _apiService.getMyDeviceStatus(employeeId: employeeId);
+      final response = await _apiService.getMyDeviceStatus(
+        employeeId: employeeId,
+        currentDeviceId: _deviceId.isNotEmpty ? _deviceId : null,
+      );
 
       if (!mounted) return;
 
@@ -159,36 +161,23 @@ class _MobileDeviceRegistrationScreenState
         final data = response['data'];
         final registered = data['registered'] == true;
         final approved = data['approved'] == true;
-        final registeredDeviceId = data['deviceId'] as String?;
+        final registeredOnOther = data['registeredOnOtherDevice'] == true;
 
-        if (!registered) {
-          // Check if there's a pending device change request
-          final changeReqResponse = await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
-          if (changeReqResponse['isSuccess'] == true && changeReqResponse['data'] != null) {
-            final crData = changeReqResponse['data'];
-            if (crData['hasPendingRequest'] == true) {
-              setState(() {
-                _status = _RegStatus.pendingDeviceChange;
-                _existingDeviceName = crData['oldDeviceName'];
-                _registeredDeviceName = crData['newDeviceName'];
-              });
-              return;
-            }
-          }
-          setState(() => _status = _RegStatus.notRegistered);
-        } else if (registered && registeredDeviceId != null && registeredDeviceId != _deviceId && _deviceId.isNotEmpty) {
-          // Device is registered but on a DIFFERENT device
-          // Check if there's already a pending change request
-          final changeReqResponse = await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
+        if (registeredOnOther) {
+          final changeReqResponse =
+              await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
           bool hasPendingChange = false;
-          if (changeReqResponse['isSuccess'] == true && changeReqResponse['data'] != null) {
-            hasPendingChange = changeReqResponse['data']['hasPendingRequest'] == true;
+          if (changeReqResponse['isSuccess'] == true &&
+              changeReqResponse['data'] != null) {
+            hasPendingChange =
+                changeReqResponse['data']['hasPendingRequest'] == true;
           }
           if (hasPendingChange) {
             setState(() {
               _status = _RegStatus.pendingDeviceChange;
               _existingDeviceName = data['deviceName'];
-              _registeredDeviceName = changeReqResponse['data']?['newDeviceName'];
+              _registeredDeviceName =
+                  changeReqResponse['data']?['newDeviceName'];
             });
           } else {
             setState(() {
@@ -200,6 +189,22 @@ class _MobileDeviceRegistrationScreenState
                   : null;
             });
           }
+        } else if (!registered) {
+          final changeReqResponse =
+              await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
+          if (changeReqResponse['isSuccess'] == true &&
+              changeReqResponse['data'] != null) {
+            final crData = changeReqResponse['data'];
+            if (crData['hasPendingRequest'] == true) {
+              setState(() {
+                _status = _RegStatus.pendingDeviceChange;
+                _existingDeviceName = crData['oldDeviceName'];
+                _registeredDeviceName = crData['newDeviceName'];
+              });
+              return;
+            }
+          }
+          setState(() => _status = _RegStatus.notRegistered);
         } else if (approved) {
           setState(() {
             _status = _RegStatus.approved;

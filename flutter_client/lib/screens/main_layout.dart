@@ -1347,18 +1347,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'MobileAttendance'
     ),
     (
-      navIndex: 14,
-      icon: Icons.payments_outlined,
-      activeIcon: Icons.payments,
-      moduleCode: 'Payroll'
+      navIndex: 22,
+      icon: Icons.task_alt_outlined,
+      activeIcon: Icons.task_alt,
+      moduleCode: 'Task'
     ),
   ];
 
   static String _mobileNavLabel(String moduleCode, AppLocalizations l) {
     // Short labels for bottom nav to prevent overflow
     switch (moduleCode) {
-      case 'Payroll':
-        return l.payrollShort;
+      case 'Task':
+        return l.tasks;
       case 'Home':
         return l.home;
       case 'Dashboard':

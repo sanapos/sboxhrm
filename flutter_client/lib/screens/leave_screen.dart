@@ -337,93 +337,106 @@ class _LeaveScreenState extends State<LeaveScreen>
   // ═══════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════
+  /// One tab: loading spinner, or list (pull-to-refresh only on mobile scroll views).
+  Widget _buildLeaveTabContent(
+    List<dynamic> leaves, {
+    bool isMyLeaves = false,
+    bool showApprovalActions = false,
+    bool isAllTab = false,
+  }) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final list = _buildLeaveList(
+      leaves,
+      isMyLeaves: isMyLeaves,
+      showApprovalActions: showApprovalActions,
+      isAllTab: isAllTab,
+    );
+    if (Responsive.isMobile(context)) {
+      return RefreshIndicator(onRefresh: _loadData, child: list);
+    }
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isMobile = Responsive.isMobile(context);
+
+    if (_tabController == null) {
+      return Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Center(
+          child: CircularProgressIndicator(color: theme.primaryColor),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           _buildHeader(theme),
-          if (!isMobile && _tabController != null) _buildTabBar(theme),
+          if (!isMobile) _buildTabBar(theme),
           Expanded(
-            child: _isLoading || _tabController == null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            child: isMobile
+                ? HrmMobileNestedTabLayout(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                    headerSections: _leavePageHeaderSections(theme),
+                    tabBar: _leaveTabBar(theme),
+                    tabBarView: TabBarView(
+                      controller: _tabController,
                       children: [
-                        CircularProgressIndicator(color: theme.primaryColor),
-                        const SizedBox(height: 16),
-                        Text('Đang tải...',
-                            style: TextStyle(color: Colors.grey[500])),
+                        _buildLeaveTabContent(
+                          _applyFilters(_myLeaves),
+                          isMyLeaves: true,
+                        ),
+                        if (_isManager) ...[
+                          _buildLeaveTabContent(
+                            _applyFilters(_pendingLeaves),
+                            showApprovalActions: true,
+                          ),
+                          _buildLeaveTabContent(
+                            _applyFilters(_allLeaves),
+                            isAllTab: true,
+                          ),
+                        ],
                       ],
                     ),
                   )
-                : isMobile
-                    ? HrmMobileNestedTabLayout(
-                        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-                        headerSections: _leavePageHeaderSections(theme),
-                        tabBar: _leaveTabBar(theme),
-                        tabBarView: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            RefreshIndicator(
-                                onRefresh: _loadData,
-                                child: _buildLeaveList(
-                                    _applyFilters(_myLeaves),
-                                    isMyLeaves: true)),
-                            if (_isManager) ...[
-                              RefreshIndicator(
-                                  onRefresh: _loadData,
-                                  child: _buildLeaveList(
-                                      _applyFilters(_pendingLeaves),
-                                      showApprovalActions: true)),
-                              RefreshIndicator(
-                                  onRefresh: _loadData,
-                                  child: _buildLeaveList(
-                                      _applyFilters(_allLeaves),
-                                      isAllTab: true)),
-                            ],
-                          ],
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: Column(
-                          children: [
-                            _buildStatsRow(theme),
-                            const SizedBox(height: 12),
-                            _buildFilterBar(theme),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: TabBarView(
-                                controller: _tabController,
-                                children: [
-                                  RefreshIndicator(
-                                      onRefresh: _loadData,
-                                      child: _buildLeaveList(
-                                          _applyFilters(_myLeaves),
-                                          isMyLeaves: true)),
-                                  if (_isManager) ...[
-                                    RefreshIndicator(
-                                        onRefresh: _loadData,
-                                        child: _buildLeaveList(
-                                            _applyFilters(_pendingLeaves),
-                                            showApprovalActions: true)),
-                                    RefreshIndicator(
-                                        onRefresh: _loadData,
-                                        child: _buildLeaveList(
-                                            _applyFilters(_allLeaves),
-                                            isAllTab: true)),
-                                  ],
-                                ],
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      children: [
+                        _buildStatsRow(theme),
+                        const SizedBox(height: 12),
+                        _buildFilterBar(theme),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildLeaveTabContent(
+                                _applyFilters(_myLeaves),
+                                isMyLeaves: true,
                               ),
-                            ),
-                          ],
+                              if (_isManager) ...[
+                                _buildLeaveTabContent(
+                                  _applyFilters(_pendingLeaves),
+                                  showApprovalActions: true,
+                                ),
+                                _buildLeaveTabContent(
+                                  _applyFilters(_allLeaves),
+                                  isAllTab: true,
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -1359,6 +1372,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       );
       if (Responsive.isMobile(context)) {
         return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverOverlapInjector(
               handle:
@@ -1401,6 +1415,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         if (constraints.maxWidth < 600) {
           if (leaves.isEmpty) {
             return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverOverlapInjector(
                   handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
@@ -1439,6 +1454,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             );
           }
           return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverOverlapInjector(
                 handle:
@@ -3428,14 +3444,13 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
       );
     }
 
+    final maxH = MediaQuery.sizeOf(context).height * 0.9;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: 560, maxHeight: maxH),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -3469,14 +3484,12 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
                 ],
               ),
             ),
-            // Form
-            Flexible(
+            Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: formBody,
               ),
             ),
-            // Actions
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(

@@ -3566,11 +3566,25 @@ class ApiService {
   }
 
   /// Kiểm tra trạng thái thiết bị của nhân viên hiện tại
-  Future<Map<String, dynamic>> getMyDeviceStatus({String? employeeId}) async {
+  Future<Map<String, dynamic>> getMyDeviceStatus({
+    String? employeeId,
+    String? currentDeviceId,
+  }) async {
     try {
-      final uri = employeeId != null
-          ? '$baseUrl/api/mobile-attendance/my-device?employeeId=$employeeId'
-          : '$baseUrl/api/mobile-attendance/my-device';
+      final params = <String, String>{};
+      if (employeeId != null && employeeId.isNotEmpty) {
+        params['employeeId'] = employeeId;
+      }
+      if (currentDeviceId != null && currentDeviceId.isNotEmpty) {
+        params['currentDeviceId'] = currentDeviceId;
+      }
+      final query = params.entries
+          .map((e) =>
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+          .join('&');
+      final uri = query.isEmpty
+          ? '$baseUrl/api/mobile-attendance/my-device'
+          : '$baseUrl/api/mobile-attendance/my-device?$query';
       final response = await http
           .get(
             Uri.parse(uri),
@@ -3678,6 +3692,7 @@ class ApiService {
     String? wifiSsid,
     String? wifiBssid,
     bool livenessPassed = false,
+    String? clientFaceEngine,
   }) async {
     try {
       final body = {
@@ -3692,6 +3707,9 @@ class ApiService {
         'deviceId': deviceId,
         'livenessPassed': livenessPassed,
       };
+      if (clientFaceEngine != null && clientFaceEngine.isNotEmpty) {
+        body['clientFaceEngine'] = clientFaceEngine;
+      }
       if (wifiSsid != null) body['wifiSsid'] = wifiSsid;
       if (wifiBssid != null) body['wifiBssid'] = wifiBssid;
 

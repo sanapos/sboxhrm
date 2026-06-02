@@ -2535,7 +2535,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
-    public async Task<ActionResult> GetMyDevice([FromQuery] string? employeeId)
+    public async Task<ActionResult> GetMyDevice([FromQuery] string? employeeId, [FromQuery] string? currentDeviceId)
 
 
     {
@@ -2586,10 +2586,25 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 approved = false,
 
 
+                registeredOnOtherDevice = false,
+
+
             }));
 
 
         }
+
+
+
+
+
+        var currentId = currentDeviceId?.Trim();
+
+
+        var deviceMatchesCurrent = string.IsNullOrEmpty(currentId)
+
+
+            || string.Equals(device.DeviceId, currentId, StringComparison.OrdinalIgnoreCase);
 
 
 
@@ -2643,10 +2658,13 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            registered = true,
+            registered = deviceMatchesCurrent,
 
 
-            approved = device.IsAuthorized,
+            approved = deviceMatchesCurrent && device.IsAuthorized,
+
+
+            registeredOnOtherDevice = !deviceMatchesCurrent && !string.IsNullOrEmpty(currentId),
 
 
             deviceId = device.DeviceId,
@@ -4436,7 +4454,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             .AsNoTracking()
 
 
-            .FirstOrDefaultAsync(d => d.DeviceId == request.DeviceId && d.StoreId == storeId && d.Deleted == null);
+            .FirstOrDefaultAsync(d => d.EmployeeId == request.EmployeeId && d.StoreId == storeId && d.Deleted == null);
 
 
 
@@ -4448,10 +4466,34 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            _logger.LogWarning("❌ PUNCH REJECT: device not found DeviceId={DeviceId}", request.DeviceId);
+            _logger.LogWarning("❌ PUNCH REJECT: no registered device for employee {EmpId}", request.EmployeeId);
 
 
-            return BadRequest(AppResponse<object>.Fail("Thiết bị chưa được đăng ký. Vui lòng đăng ký thiết bị trước khi chấm công."));
+            return BadRequest(AppResponse<object>.Fail("Tài khoản chưa đăng ký thiết bị chấm công. Vui lòng đăng ký thiết bị trước."));
+
+
+        }
+
+
+
+
+
+        if (!string.Equals(request.DeviceId, registeredDevice.DeviceId, StringComparison.OrdinalIgnoreCase))
+
+
+        {
+
+
+            _logger.LogWarning("❌ PUNCH REJECT: punch DeviceId={PunchDev} != registered DeviceId={RegDev} for employee {EmpId}",
+
+
+                request.DeviceId, registeredDevice.DeviceId, request.EmployeeId);
+
+
+            return BadRequest(AppResponse<object>.Fail(
+
+
+                "Thiết bị này chưa được đăng ký cho tài khoản. Chỉ được chấm công trên thiết bị đã đăng ký hoặc yêu cầu đổi thiết bị."));
 
 
         }
@@ -4476,21 +4518,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Thiết bị chưa được duyệt hoặc đã bị thu hồi. Vui lòng liên hệ quản lý."));
-
-
-        }
-
-
-        if (!string.Equals(request.EmployeeId, registeredDevice.EmployeeId, StringComparison.OrdinalIgnoreCase))
-
-
-        {
-
-
-            _logger.LogWarning("❌ PUNCH REJECT: employee {Emp} != device owner {DevEmp}", request.EmployeeId, registeredDevice.EmployeeId);
-
-
-            return BadRequest(AppResponse<object>.Fail("Thiết bị không khớp với nhân viên đang chấm công."));
 
 
         }
@@ -6070,16 +6097,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh náº¿u auto_approved
 
 
+        var syncedToRaw = false;
+
+
         if (status == "auto_approved")
 
 
         {
 
 
-            await SyncMobileRecordToAttendanceLog(record);
+            syncedToRaw = await SyncMobileRecordToAttendanceLog(record);
 
 
-            _logger.LogWarning("✅ PUNCH SYNCED to AttendanceLog");
+            if (syncedToRaw)
+
+
+                _logger.LogWarning("✅ PUNCH SYNCED to AttendanceLog");
+
+
+            else
+
+
+                _logger.LogError("❌ PUNCH auto_approved but sync to AttendanceLog FAILED: {RecordId}", record.Id);
 
 
         }
@@ -6224,6 +6263,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             status = record.Status,
+
+
+            syncedToAttendanceLog = syncedToRaw,
 
 
         }));
@@ -6657,7 +6699,16 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            await SyncMobileRecordToAttendanceLog(record);
+            var synced = await SyncMobileRecordToAttendanceLog(record);
+
+
+            if (!synced)
+
+
+                return BadRequest(AppResponse<object>.Fail(
+
+
+                    "Đã duyệt bản ghi mobile nhưng không đồng bộ được vào dữ liệu thô. Vui lòng liên hệ quản trị."));
 
 
         }
@@ -7400,7 +7451,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     /// </summary>
 
 
-    private async Task SyncMobileRecordToAttendanceLog(MobileAttendanceRecord record)
+    private async Task<bool> SyncMobileRecordToAttendanceLog(MobileAttendanceRecord record)
 
 
     {
@@ -7421,7 +7472,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 .AnyAsync(a => a.MobileAttendanceRecordId == record.Id);
 
 
-            if (alreadySynced) return;
+            if (alreadySynced) return true;
 
 
 
@@ -7544,31 +7595,58 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            Employee? employee = null;
+
+
             if (Guid.TryParse(record.OdooEmployeeId, out var appUserId))
 
 
             {
 
 
-                var employee = await _dbContext.Employees
+                employee = await _dbContext.Employees
 
 
                     .Include(e => e.DeviceUsers)
 
 
-                    .FirstOrDefaultAsync(e => e.ApplicationUserId == appUserId && e.StoreId == record.StoreId);
+                    .FirstOrDefaultAsync(e => e.StoreId == record.StoreId
 
 
+                        && (e.ApplicationUserId == appUserId || e.Id == appUserId));
 
 
-
-                if (employee != null)
-
-
-                {
+            }
 
 
-                    pin = employee.EmployeeCode ?? record.OdooEmployeeId;
+            if (employee == null && !string.IsNullOrWhiteSpace(record.OdooEmployeeId))
+
+
+            {
+
+
+                employee = await _dbContext.Employees
+
+
+                    .Include(e => e.DeviceUsers)
+
+
+                    .FirstOrDefaultAsync(e => e.StoreId == record.StoreId
+
+
+                        && e.EmployeeCode == record.OdooEmployeeId);
+
+
+            }
+
+
+            if (employee != null)
+
+
+            {
+
+
+                pin = employee.EmployeeCode ?? record.OdooEmployeeId;
 
 
 
@@ -7661,7 +7739,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     pin = deviceUser.Pin;
 
 
-                }
 
 
             }
@@ -7799,6 +7876,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 record.Id, attendance.Id);
 
 
+            return true;
+
+
         }
 
 
@@ -7809,6 +7889,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             _logger.LogError(ex, "Failed to sync mobile record {MobileRecordId} to AttendanceLogs", record.Id);
+
+
+            return false;
 
 
         }

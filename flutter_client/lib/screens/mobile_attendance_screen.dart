@@ -15,6 +15,7 @@ import '../services/face_storage_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 import '../utils/platform_geolocation.dart';
+import '../utils/mobile_device_id.dart';
 import '../widgets/face_verification_camera.dart';
 import '../widgets/notification_overlay.dart';
 import 'mobile_attendance_history_screen.dart';
@@ -58,7 +59,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   // Device registration state
   bool _isDeviceRegistered = false;
   bool _isDeviceApproved = false;
-  String? _registeredDeviceId;
+  String? _currentDeviceId;
+  bool _registeredOnOtherDevice = false;
+  String? _otherDeviceName;
 
   // Device outside check-in permission
   bool _allowOutsideCheckIn = false;
@@ -116,6 +119,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _currentLongitude = lastPos.longitude;
       });
     }
+
+    _currentDeviceId = await MobileDeviceId.resolve();
 
     // 3. Parallelize ALL network calls + fresh GPS + WiFi scan
     await Future.wait([
@@ -177,15 +182,24 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Future<void> _loadDeviceStatus() async {
     final storageService = FaceStorageService(baseUrl: ApiService.baseUrl);
     try {
-      final response = await _apiService.getMyDeviceStatus();
+      if (_currentDeviceId == null || _currentDeviceId!.isEmpty) {
+        _currentDeviceId = await MobileDeviceId.resolve();
+      }
+      final response = await _apiService.getMyDeviceStatus(
+        employeeId: _employeeId.isNotEmpty ? _employeeId : null,
+        currentDeviceId: _currentDeviceId,
+      );
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
         if (mounted) {
           setState(() {
             _isDeviceRegistered = data['registered'] == true;
             _isDeviceApproved = data['approved'] == true;
-            _registeredDeviceId = data['deviceId'] as String?;
-            _allowOutsideCheckIn = data['allowOutsideCheckIn'] == true;
+            _registeredOnOtherDevice = data['registeredOnOtherDevice'] == true;
+            _otherDeviceName = data['deviceName'] as String?;
+            _allowOutsideCheckIn = data['allowOutsideCheckIn'] == true &&
+                _isDeviceRegistered &&
+                _isDeviceApproved;
           });
         }
 
@@ -232,6 +246,47 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
   }
 
+  void _pauseLocationMonitor() {
+    _monitorTimer?.cancel();
+    _monitorTimer = null;
+  }
+
+  void _resumeLocationMonitor() {
+    if (_monitorTimer != null) return;
+    _startMonitoring();
+  }
+
+  /// Same rules as [_conditionsMet]; used after face scan with optional face flag.
+  bool _evaluateVerificationConditions({required bool includeFace}) {
+    if (_registeredOnOtherDevice) return false;
+    if (!_isDeviceRegistered || !_isDeviceApproved) return false;
+    if (_allowOutsideCheckIn) return true;
+
+    final settings = _settings;
+    if (settings == null) return false;
+
+    final mode = settings.verificationMode;
+    int enabledCount = 0;
+    int passedCount = 0;
+
+    if (settings.enableFaceId && includeFace) {
+      enabledCount++;
+      if (_isFaceVerified) passedCount++;
+    }
+    if (settings.enableGps) {
+      enabledCount++;
+      if (_isLocationVerified) passedCount++;
+    }
+    if (settings.enableWifi) {
+      enabledCount++;
+      if (_isWifiVerified) passedCount++;
+    }
+
+    if (enabledCount == 0) return true;
+    if (mode == 'any') return passedCount >= 1;
+    return passedCount >= enabledCount;
+  }
+
   void _startMonitoring() {
     _monitorTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
@@ -254,7 +309,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   /// Check if all required conditions are met for attendance
   bool get _conditionsMet {
-    // Must have registered & approved device
+    if (_registeredOnOtherDevice) return false;
+    // Must have registered & approved device on THIS phone
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
 
     if (_allowOutsideCheckIn) return true;
@@ -294,7 +350,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   /// Face is interactive (opens camera on tap), so we allow tapping
   /// when all non-face conditions are met, or in "any" mode with at least 1 pass.
   /// Returns a human-readable explanation of which conditions are still unmet.
-  String _buildConditionDetail() {
+  String _buildConditionDetail({bool includeFaceInMessage = true}) {
     final s = _settings;
     if (s == null) return '';
     final reasons = <String>[];
@@ -316,7 +372,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         reasons.add('WiFi chưa kết nối đúng mạng');
       }
     }
-    if (s.enableFaceId && !_isFaceVerified) {
+    if (includeFaceInMessage && s.enableFaceId && !_isFaceVerified) {
       reasons.add('Khuôn mặt chưa xác thực');
     }
     return reasons.isEmpty ? '' : reasons.join(' • ');
@@ -382,7 +438,23 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   Future<void> _autoSubmitAttendanceImpl() async {
+    // iOS: timer GPS/WiFi chạy nền trong lúc quét mặt (30–60s) có thể reset cờ → báo lỗi sau khi mặt OK.
+    _pauseLocationMonitor();
+    try {
+      await _autoSubmitAttendanceImplBody();
+    } finally {
+      _resumeLocationMonitor();
+    }
+  }
+
+  Future<void> _autoSubmitAttendanceImplBody() async {
     // Pre-check device status
+    if (_registeredOnOtherDevice) {
+      _showError(_otherDeviceName != null && _otherDeviceName!.isNotEmpty
+          ? 'Tài khoản đã đăng ký trên thiết bị "$_otherDeviceName". Vui lòng đổi thiết bị hoặc chấm công trên máy đã đăng ký.'
+          : 'Tài khoản đã đăng ký trên thiết bị khác. Vui lòng đổi thiết bị trước khi chấm công.');
+      return;
+    }
     if (!_isDeviceRegistered) {
       _showError(
           'Thiết bị chưa được đăng ký. Vui lòng đăng ký thiết bị trước.');
@@ -391,6 +463,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (!_isDeviceApproved) {
       _showError(
           'Thiết bị chưa được duyệt hoặc đã bị thu hồi. Vui lòng liên hệ quản lý.');
+      return;
+    }
+    if (_currentDeviceId == null || _currentDeviceId!.isEmpty) {
+      _showError('Không xác định được mã thiết bị. Vui lòng khởi động lại ứng dụng.');
       return;
     }
 
@@ -506,18 +582,29 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             'Thiết bị sẽ gửi ảnh lên server để xác thực khuôn mặt.');
       }
 
-      // Re-check conditions after face scan
-      if (!_conditionsMet) {
-        final detail = _buildConditionDetail();
+      // Sau quét mặt: làm mới GPS/WiFi (tránh cờ cũ bị timer hoặc iOS đổi trạng thái).
+      try {
+        await Future.wait<void>([
+          _getCurrentLocation(),
+          _checkWifiConnection(requestPermissions: false),
+        ]);
+      } catch (_) {}
+      if (!mounted) return;
+
+      if (!_evaluateVerificationConditions(includeFace: true)) {
+        final detail =
+            _buildConditionDetail(includeFaceInMessage: false);
         _showError(detail.isNotEmpty
-            ? 'Chưa đạt đủ điều kiện xác thực: $detail'
-            : 'Chưa đạt đủ điều kiện xác thực');
+            ? 'Khuôn mặt đã xác thực, nhưng chưa đủ điều kiện khác: $detail'
+            : 'Khuôn mặt đã xác thực. Vui lòng kiểm tra GPS/WiFi hoặc đứng trong vùng cho phép.');
         return;
       }
     }
 
     try {
       final punchType = _getNextPunchType();
+      final onDeviceFaceOk =
+          _faceMatchScore != null && (_faceMatchScore ?? 0) > 0;
       final response = await _apiService.submitMobileAttendance(
         employeeId: _employeeId,
         employeeName: _employeeName,
@@ -527,10 +614,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         faceImage: _faceImageBase64 ?? '',
         distanceFromLocation: _distanceFromOffice,
         faceMatchScore: _faceMatchScore,
-        deviceId: _registeredDeviceId,
+        deviceId: _currentDeviceId,
         wifiSsid: _connectedWifiSsid,
         wifiBssid: _detectedBssid,
         livenessPassed: _livenessPassed,
+        clientFaceEngine: onDeviceFaceOk ? 'tflite' : null,
       );
 
       if (!mounted) return;
@@ -1145,16 +1233,20 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 ? 'Bước tiếp theo: Quét khuôn mặt để chấm vào'
                 : 'Bước tiếp theo: Quét khuôn mặt để chấm ra')
             : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra'))
-        : (!_isDeviceRegistered
-            ? 'Cần đăng ký thiết bị trước khi chấm công'
-            : (!_isDeviceApproved
-                ? 'Thiết bị đang chờ duyệt từ quản lý'
-                : () {
-                    final d = _buildConditionDetail();
-                    return d.isNotEmpty
-                        ? 'Chưa đạt: $d'
-                        : 'Đang kiểm tra điều kiện...';
-                  }()));
+        : (_registeredOnOtherDevice
+            ? (_otherDeviceName != null && _otherDeviceName!.isNotEmpty
+                ? 'Đã đăng ký trên $_otherDeviceName — cần đổi thiết bị'
+                : 'Đã đăng ký trên thiết bị khác — cần đổi thiết bị')
+            : (!_isDeviceRegistered
+                ? 'Cần đăng ký thiết bị trước khi chấm công'
+                : (!_isDeviceApproved
+                    ? 'Thiết bị đang chờ duyệt từ quản lý'
+                    : () {
+                        final d = _buildConditionDetail();
+                        return d.isNotEmpty
+                            ? 'Chưa đạt: $d'
+                            : 'Đang kiểm tra điều kiện...';
+                      }())));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1313,11 +1405,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                         : (isCheckIn
                             ? 'Nhấn để chấm công vào'
                             : 'Nhấn để chấm công ra')
-                    : !_isDeviceRegistered
-                        ? 'Thiết bị chưa đăng ký'
-                        : !_isDeviceApproved
-                            ? 'Thiết bị chưa được duyệt'
-                            : 'Đang kiểm tra...',
+                    : _registeredOnOtherDevice
+                        ? 'Thiết bị khác đã đăng ký'
+                        : !_isDeviceRegistered
+                            ? 'Thiết bị chưa đăng ký'
+                            : !_isDeviceApproved
+                                ? 'Thiết bị chưa được duyệt'
+                                : 'Đang kiểm tra...',
                 style: TextStyle(
                     fontSize: 12,
                     color: isEnabled
