@@ -9,6 +9,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/employee_search_picker.dart';
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
 
@@ -57,7 +58,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     try {
       final results = await Future.wait([
         _apiService.getAccounts(),
-        _apiService.getEmployees(),
+        _apiService.getEmployees(pageSize: 10000),
       ]);
       if (!mounted) return;
       setState(() {
@@ -74,16 +75,42 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   Future<void> _loadAccounts() async {
     setState(() => _isLoading = true);
     try {
-      final accounts = await _apiService.getAccounts();
+      final results = await Future.wait([
+        _apiService.getAccounts(),
+        _apiService.getEmployees(pageSize: 10000),
+      ]);
       if (!mounted) return;
       setState(() {
-        _accounts = List<Map<String, dynamic>>.from(accounts);
+        _accounts = List<Map<String, dynamic>>.from(results[0]);
+        _employees = List<Map<String, dynamic>>.from(results[1]);
       });
     } catch (e) {
       debugPrint('Error loading accounts: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Mã HR đã có tài khoản (theo employeeId trên account + applicationUserId trên hồ sơ).
+  Set<String> get _registeredEmployeeIds {
+    final ids = <String>{};
+    for (final acc in _accounts) {
+      final eid = acc['employeeId']?.toString();
+      if (eid != null && eid.isNotEmpty) ids.add(eid);
+    }
+    return ids;
+  }
+
+  List<Map<String, dynamic>> get _employeesAvailableForAccount {
+    final registered = _registeredEmployeeIds;
+    return _employees.where((emp) {
+      final id = emp['id']?.toString() ?? '';
+      if (id.isEmpty) return false;
+      if (registered.contains(id)) return false;
+      final appUserId = emp['applicationUserId']?.toString() ?? '';
+      if (appUserId.isNotEmpty) return false;
+      return true;
+    }).toList();
   }
 
   List<Map<String, dynamic>> get _filteredAccounts {
@@ -1235,9 +1262,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     bool showPassword = false;
     bool showConfirmPassword = false;
 
-    // Lọc nhân viên chưa có tài khoản
-    final availableEmployees =
-        _employees.where((emp) => emp['applicationUserId'] == null).toList();
+    final availableEmployees = _employeesAvailableForAccount;
+    final pickerCandidates =
+        EmployeePickerItem.fromMaps(availableEmployees);
 
     // Danh sách các quyền hạn
     final roles = [
@@ -1379,82 +1406,47 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Text('Chọn nhân viên',
-                            style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
-                        Text(' *', style: TextStyle(color: Color(0xFFEF4444))),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.person_search,
-                            color: Color(0xFF71717A), size: 18),
-                        hintText: availableEmployees.isEmpty
-                            ? 'Không có nhân viên khả dụng'
-                            : 'Chọn nhân viên từ danh sách...',
-                        hintStyle: const TextStyle(
-                            color: Color(0xFFA1A1AA), fontSize: 14),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: HrmPageChrome.primaryNavy),
-                        ),
-                      ),
-                      items: availableEmployees
-                          .map<DropdownMenuItem<String>>((emp) {
-                        final empName =
-                            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                .trim();
-                        final empCode = emp['employeeCode'] ?? '';
-                        return DropdownMenuItem<String>(
-                          value: emp['id'].toString(),
-                          child: Text('$empCode - $empName',
-                              overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        final emp = availableEmployees.firstWhere(
-                            (e) => e['id'].toString() == value,
-                            orElse: () => {});
-                        if (emp.isNotEmpty) {
-                          setDialogState(() {
-                            selectedEmployee = emp;
-                            employeeIdController.text =
-                                emp['employeeCode'] ?? '';
-                            fullNameController.text =
-                                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                    .trim();
-                            emailController.text = emp['companyEmail'] ??
-                                emp['personalEmail'] ??
-                                '';
-                            phoneController.text = emp['phoneNumber'] ?? '';
-                          });
+                    EmployeePickerFormField(
+                      labelText: 'Chọn nhân viên *',
+                      hintText: availableEmployees.isEmpty
+                          ? 'Không còn nhân viên chưa có tài khoản'
+                          : 'Bấm để tìm và chọn nhân viên...',
+                      enabled: availableEmployees.isNotEmpty,
+                      candidates: pickerCandidates,
+                      selectedId: selectedEmployee?['id']?.toString(),
+                      presentation: EmployeePickerPresentation.bottomSheet,
+                      pickerTitle: 'Chọn nhân viên',
+                      pickerSubtitle: availableEmployees.isEmpty
+                          ? null
+                          : '${availableEmployees.length} nhân viên chưa có tài khoản',
+                      onChanged: (item) {
+                        if (item == null) {
+                          setDialogState(() => selectedEmployee = null);
+                          return;
                         }
+                        final emp = availableEmployees.firstWhere(
+                          (e) => e['id'].toString() == item.id,
+                          orElse: () => <String, dynamic>{},
+                        );
+                        if (emp.isEmpty) return;
+                        setDialogState(() {
+                          selectedEmployee = emp;
+                          employeeIdController.text =
+                              emp['employeeCode']?.toString() ?? '';
+                          fullNameController.text = item.name;
+                          emailController.text = emp['companyEmail'] ??
+                              emp['personalEmail'] ??
+                              '';
+                          phoneController.text =
+                              emp['phoneNumber']?.toString() ?? '';
+                        });
                       },
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Chọn nhân viên để tự động điền thông tin',
+                      availableEmployees.isEmpty
+                          ? 'Tất cả nhân viên trong hồ sơ đã có tài khoản'
+                          : 'Danh sách gồm nhân viên hồ sơ HR chưa đăng ký tài khoản (${availableEmployees.length})',
                       style: TextStyle(color: Colors.grey[500], fontSize: 11),
                     ),
                   ],

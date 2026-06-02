@@ -16,11 +16,18 @@ import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
+import '../screens/main_layout.dart' show NavigationNotifier;
 import 'mobile_attendance_approval_screen.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
   final String? highlightId;
-  const AttendanceApprovalScreen({super.key, this.highlightId});
+  /// Mặc định -1 (tất cả). Từ Tổng quan truyền 0 = chỉ chờ duyệt.
+  final int initialStatusFilter;
+  const AttendanceApprovalScreen({
+    super.key,
+    this.highlightId,
+    this.initialStatusFilter = -1,
+  });
 
   @override
   State<AttendanceApprovalScreen> createState() =>
@@ -37,7 +44,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   bool _isLoading = true;
 
   // Filters
-  int _statusFilter = -1; // -1 = all, 0 = pending, 1 = approved, 2 = rejected
+  late int _statusFilter; // -1 = all, 0 = pending, 1 = approved, 2 = rejected
   int _actionFilter = -1; // -1 = all, 0 = add, 1 = edit, 2 = delete
   Set<String> _selectedEmployeeIds = {};
   String _selectedDatePreset = 'all';
@@ -71,6 +78,21 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialStatusFilter >= 0) {
+      _statusFilter = widget.initialStatusFilter;
+    } else {
+      final fromNotif = NavigationNotifier.attendanceApprovalStatusFilter.value;
+      if (fromNotif >= 0) _statusFilter = fromNotif;
+      NavigationNotifier.attendanceApprovalStatusFilter.value = -1;
+    }
+    _effectiveHighlightId = widget.highlightId;
+    final hi = NavigationNotifier.notificationHighlightId.value;
+    if ((_effectiveHighlightId == null || _effectiveHighlightId!.isEmpty) &&
+        hi != null &&
+        hi.isNotEmpty) {
+      _effectiveHighlightId = hi;
+    }
+    NavigationNotifier.notificationHighlightId.value = null;
     _loadEmployees();
     _loadData();
   }
@@ -171,10 +193,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     }
   }
 
+  String? _effectiveHighlightId;
+
   bool _highlightOpened = false;
   void _maybeOpenHighlight() {
     if (_highlightOpened) return;
-    final id = widget.highlightId;
+    final id = _effectiveHighlightId ?? widget.highlightId;
     if (id == null || id.isEmpty) return;
     Map<String, dynamic>? match;
     for (final r in _requests) {
@@ -1055,6 +1079,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           child: showMobileTab
             ? DefaultTabController(
                 length: 2,
+                initialIndex: () {
+                  final t = NavigationNotifier.attendanceApprovalTab.value
+                      .clamp(0, 1);
+                  NavigationNotifier.attendanceApprovalTab.value = 0;
+                  return t;
+                }(),
                 child: Column(
                   children: [
                     Material(

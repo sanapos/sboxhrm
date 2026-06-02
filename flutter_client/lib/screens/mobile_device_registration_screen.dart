@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -12,6 +15,8 @@ import '../services/api_service.dart';
 import '../widgets/circle_face_capture_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../services/signalr_service.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
 
 class MobileDeviceRegistrationScreen extends StatefulWidget {
   const MobileDeviceRegistrationScreen({super.key});
@@ -22,6 +27,8 @@ class MobileDeviceRegistrationScreen extends StatefulWidget {
 }
 
 enum _RegStatus { loading, notRegistered, pending, approved, alreadyRegisteredOnOtherDevice, pendingDeviceChange, error }
+
+const _faceCaptureStepLabels = ['Thẳng', 'Trái', 'Phải', 'Trên', 'Dưới'];
 
 class _MobileDeviceRegistrationScreenState
     extends State<MobileDeviceRegistrationScreen> {
@@ -50,12 +57,47 @@ class _MobileDeviceRegistrationScreenState
 
   // Device change request
   String? _changeRequestReason;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadDeviceInfo();
     _checkRegistrationStatus();
+    ScreenRefreshNotifier.mobileDeviceRegistration.addListener(_onExternalRefresh);
+    _notificationSubscription =
+        SignalRService().onNewNotification.listen(_onRegistrationNotification);
+  }
+
+  void _onExternalRefresh() {
+    if (!mounted) return;
+    _checkRegistrationStatus();
+  }
+
+  void _onRegistrationNotification(Map<String, dynamic> data) {
+    final entityType = (data['relatedEntityType'] as String?)?.toLowerCase();
+    if (entityType != 'authorizedmobiledevice' &&
+        entityType != 'devicechangerequest') {
+      return;
+    }
+    if (!mounted) return;
+    final title = (data['title'] as String?)?.trim();
+    final message = (data['message'] as String?)?.trim();
+    if ((title != null && title.isNotEmpty) ||
+        (message != null && message.isNotEmpty)) {
+      NotificationOverlayManager().showInfo(
+        title: title?.isNotEmpty == true ? title! : 'Thông báo',
+        message: message?.isNotEmpty == true ? message! : '',
+      );
+    }
+    _checkRegistrationStatus();
+  }
+
+  @override
+  void dispose() {
+    ScreenRefreshNotifier.mobileDeviceRegistration.removeListener(_onExternalRefresh);
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 
   /// Generate a stable, persistent device ID.
@@ -248,9 +290,64 @@ class _MobileDeviceRegistrationScreenState
     }
   }
 
+  Widget _buildFacePreviewBeforeSubmit() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Xem trước ${_capturedImages.length}/5 ảnh trước khi gửi',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF18181B),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _capturedImages.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              Uint8List? bytes;
+              try {
+                bytes = base64Decode(_capturedImages[index]);
+              } catch (_) {
+                return const SizedBox.shrink();
+              }
+              final label = index < _faceCaptureStepLabels.length
+                  ? _faceCaptureStepLabels[index]
+                  : 'Ảnh ${index + 1}';
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      bytes,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _submitRegistration() async {
-    if (_capturedImages.isEmpty) {
-      _showSnackBar('Vui lòng chụp ảnh khuôn mặt trước', isError: true);
+    if (_capturedImages.length < 5) {
+      _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
     }
 
@@ -318,8 +415,8 @@ class _MobileDeviceRegistrationScreenState
   }
 
   Future<void> _submitDeviceChangeRequest() async {
-    if (_capturedImages.isEmpty) {
-      _showSnackBar('Vui lòng chụp ảnh khuôn mặt trước', isError: true);
+    if (_capturedImages.length < 5) {
+      _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
     }
 
@@ -516,35 +613,19 @@ class _MobileDeviceRegistrationScreenState
                       const Icon(Icons.check_circle,
                           color: Color(0xFF22C55E), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
-                        style: const TextStyle(
-                          color: Color(0xFF22C55E),
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
+                          style: const TextStyle(
+                            color: Color(0xFF22C55E),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List.generate(
-                      _capturedImages.length,
-                      (i) => Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: HrmPageChrome.primaryNavy, width: 2),
-                        ),
-                        child: const Icon(Icons.check,
-                            color: HrmPageChrome.primaryNavy, size: 24),
-                      ),
-                    ),
-                  ),
+                  _buildFacePreviewBeforeSubmit(),
                   const SizedBox(height: 12),
                 ],
                 SizedBox(
@@ -576,7 +657,7 @@ class _MobileDeviceRegistrationScreenState
             width: double.infinity,
             child: FilledButton.icon(
               onPressed:
-                  (_capturedImages.isNotEmpty && !_isSubmitting) ? _submitRegistration : null,
+                  (_capturedImages.length >= 5 && !_isSubmitting) ? _submitRegistration : null,
               icon: _isSubmitting
                   ? const SizedBox(
                       width: 20,
@@ -1079,20 +1160,23 @@ class _MobileDeviceRegistrationScreenState
                     children: [
                       const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
-                        style: const TextStyle(
-                          color: Color(0xFF22C55E),
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
+                          style: const TextStyle(
+                            color: Color(0xFF22C55E),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      const Spacer(),
                       TextButton(
                         onPressed: _openFaceCapture,
                         child: const Text('Chụp lại'),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  _buildFacePreviewBeforeSubmit(),
                 ],
                 const SizedBox(height: 16),
 
@@ -1100,7 +1184,7 @@ class _MobileDeviceRegistrationScreenState
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: (_capturedImages.isNotEmpty && !_isSubmitting)
+                    onPressed: (_capturedImages.length >= 5 && !_isSubmitting)
                         ? _submitDeviceChangeRequest
                         : null,
                     icon: _isSubmitting

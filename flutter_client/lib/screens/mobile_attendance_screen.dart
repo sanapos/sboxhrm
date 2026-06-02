@@ -71,6 +71,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   double? _faceMatchScore;
   String? _faceImageBase64;
   bool _livenessPassed = false;
+  String? _clientFaceEngine;
   List<String> _cachedFacePaths = []; // On-device face registration images
 
   // Settings for verification requirements
@@ -256,11 +257,44 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     _startMonitoring();
   }
 
+  /// Đã lấy được tọa độ GPS (dịch vụ vị trí bật), không yêu cầu trong vùng công ty.
+  bool get _hasGpsPosition =>
+      _currentLatitude != null &&
+      _currentLongitude != null &&
+      (_currentLatitude!.abs() > 1e-5 || _currentLongitude!.abs() > 1e-5);
+
+  /// GPS đạt: trong vùng (thường) hoặc chỉ cần có tọa độ (chấm ngoài công ty).
+  bool get _gpsRequirementMet {
+    final s = _settings;
+    if (s == null || !s.enableGps) return true;
+    if (_allowOutsideCheckIn) return _hasGpsPosition;
+    return _isLocationVerified;
+  }
+
+  /// GPS + WiFi only (face handled separately at punch time).
+  bool get _nonFaceConditionsMet {
+    final settings = _settings;
+    if (settings == null) return false;
+    int enabledNonFace = 0;
+    int passedNonFace = 0;
+    if (settings.enableGps) {
+      enabledNonFace++;
+      if (_gpsRequirementMet) passedNonFace++;
+    }
+    if (settings.enableWifi && !_allowOutsideCheckIn) {
+      enabledNonFace++;
+      if (_isWifiVerified) passedNonFace++;
+    }
+    if (enabledNonFace == 0) return true;
+    return settings.verificationMode == 'any'
+        ? passedNonFace >= 1
+        : passedNonFace >= enabledNonFace;
+  }
+
   /// Same rules as [_conditionsMet]; used after face scan with optional face flag.
   bool _evaluateVerificationConditions({required bool includeFace}) {
     if (_registeredOnOtherDevice) return false;
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
-    if (_allowOutsideCheckIn) return true;
 
     final settings = _settings;
     if (settings == null) return false;
@@ -275,9 +309,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
     if (settings.enableGps) {
       enabledCount++;
-      if (_isLocationVerified) passedCount++;
+      if (_gpsRequirementMet) passedCount++;
     }
-    if (settings.enableWifi) {
+    if (settings.enableWifi && !_allowOutsideCheckIn) {
       enabledCount++;
       if (_isWifiVerified) passedCount++;
     }
@@ -290,8 +324,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   void _startMonitoring() {
     _monitorTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
-      final needGps = !_isLocationVerified;
-      final needWifi = !_isWifiVerified;
+      final gpsRequired = _settings?.enableGps ?? true;
+      final needGps = gpsRequired &&
+          (_allowOutsideCheckIn ? !_hasGpsPosition : !_isLocationVerified);
+      final needWifi =
+          !_allowOutsideCheckIn && (_settings?.enableWifi ?? false) && !_isWifiVerified;
       if (!needGps && !needWifi) {
         // Both verified - no need to poll
         _monitorFailCount = 0;
@@ -313,8 +350,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     // Must have registered & approved device on THIS phone
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
 
-    if (_allowOutsideCheckIn) return true;
-
     final settings = _settings;
     if (settings == null) return false;
 
@@ -329,9 +364,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
     if (settings.enableGps) {
       enabledCount++;
-      if (_isLocationVerified) passedCount++;
+      if (_gpsRequirementMet) passedCount++;
     }
-    if (settings.enableWifi) {
+    if (settings.enableWifi && !_allowOutsideCheckIn) {
       enabledCount++;
       if (_isWifiVerified) passedCount++;
     }
@@ -354,16 +389,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final s = _settings;
     if (s == null) return '';
     final reasons = <String>[];
-    if (s.enableGps && !_isLocationVerified) {
+    if (s.enableGps && !_gpsRequirementMet) {
       if (_isGettingLocation) {
         reasons.add('GPS đang định vị');
+      } else if (_allowOutsideCheckIn) {
+        reasons.add('Vui lòng bật GPS / quyền vị trí');
       } else if (_distanceFromOffice != null) {
         reasons.add('GPS ngoài phạm vi (${_distanceFromOffice!.toInt()}m)');
       } else {
         reasons.add('GPS chưa xác định vị trí');
       }
     }
-    if (s.enableWifi && !_isWifiVerified) {
+    if (!_allowOutsideCheckIn && s.enableWifi && !_isWifiVerified) {
       if (_isCheckingWifi) {
         reasons.add('WiFi đang kiểm tra');
       } else if (_connectedWifiSsid != null) {
@@ -379,42 +416,38 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   bool get _canTapPunch {
+    if (_registeredOnOtherDevice) return false;
     if (!_isDeviceRegistered || !_isDeviceApproved) return false;
-    if (_allowOutsideCheckIn) return true;
+    if (_settings == null) return false;
 
-    final settings = _settings;
-    if (settings == null) return false;
+    final settings = _settings!;
+    if (!settings.enableFaceId) return _nonFaceConditionsMet;
 
-    final mode = settings.verificationMode;
-    int enabledNonFace = 0;
-    int passedNonFace = 0;
-
-    if (settings.enableGps) {
-      enabledNonFace++;
-      if (_isLocationVerified) passedNonFace++;
+    // Luôn bấm để quét mặt mới — không dùng _isFaceVerified cũ trên màn hình.
+    if (settings.verificationMode == 'any') {
+      return true;
     }
-    if (settings.enableWifi) {
-      enabledNonFace++;
-      if (_isWifiVerified) passedNonFace++;
-    }
+    return _nonFaceConditionsMet;
+  }
 
-    // If face is enabled, the button tap will open camera
-    if (settings.enableFaceId) {
-      if (_isFaceVerified) {
-        // Already verified = treat as passed in _conditionsMet
-        return _conditionsMet;
-      }
-      if (mode == 'any') {
-        // In "any" mode: button can be tapped (face will be scanned as one option)
-        return true; // User can scan face even if GPS/WiFi failed
-      } else {
-        // "all" mode: all non-face conditions must pass; face will be done on tap
-        return enabledNonFace == 0 || passedNonFace >= enabledNonFace;
-      }
-    }
+  /// Có bật Face ID và cần quét mặt khi bấm chấm công (mỗi lần một lượt).
+  bool get _needsFaceScanOnPunch {
+    final s = _settings;
+    return s?.enableFaceId ?? false;
+  }
 
-    // No face enabled = rely on _conditionsMet
-    return _conditionsMet;
+  /// Chip khuôn mặt: xanh chỉ trong lúc đang gửi sau khi vừa quét (không giữ xanh lâu).
+  bool get _faceChipShowsVerified =>
+      _isFaceVerified && _isAutoSubmitting;
+
+  /// Vàng = sẵn sàng bấm để quét (GPS/WiFi đã đạt nếu chế độ "all").
+  bool get _faceChipPendingScan {
+    if (!_needsFaceScanOnPunch) return false;
+    if (_faceChipShowsVerified) return false;
+    if (_allowOutsideCheckIn) return _gpsRequirementMet;
+    final s = _settings!;
+    if (s.verificationMode == 'any') return true;
+    return _nonFaceConditionsMet;
   }
 
   /// Auto-determine next punch type from today's records
@@ -470,6 +503,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       return;
     }
 
+    await _loadDeviceStatus();
+    if (!mounted) return;
+
     // ---------------------------------------------------------------------
     // LIVE RE-VALIDATION at tap time.
     // Bug: employee opened the screen at the office (wifi/gps passed), went
@@ -479,67 +515,43 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     // opening the face camera, so the user does not waste a face scan).
     // ---------------------------------------------------------------------
     try {
-      await Future.wait<void>([
-        _getCurrentLocation(),
-        _checkWifiConnection(requestPermissions: false),
-      ]);
+      await _refreshVerificationBeforePunch();
     } catch (_) {
       // individual helpers already log; continue to condition check below
     }
     if (!mounted) return;
 
-    // A fresh face scan must always be performed at tap time so a stale
-    // verification from earlier on this screen cannot be replayed after
-    // the employee has walked away.
-    if (_isFaceVerified) {
-      setState(() {
-        _isFaceVerified = false;
-        _faceMatchScore = null;
-        _faceImageBase64 = null;
-        _livenessPassed = false;
-      });
+    final settings = _settings;
+    if (settings == null && !_allowOutsideCheckIn) {
+      _showError(
+          'Chưa tải được cấu hình xác thực. Vui lòng thoát màn hình và mở lại.');
+      return;
     }
 
-    // Check conditions – but exclude face from the check here because face
-    // will be verified interactively via camera immediately below.
-    // Previously using _conditionsMet (which includes face) caused a false
-    // "Khuôn mặt chưa xác thực" error in "all" mode before the camera opened.
-    final settings = _settings;
-    final bool nonFaceConditionsSatisfied = () {
-      if (_allowOutsideCheckIn) return true;
-      if (settings == null) return false;
-      if (!settings.enableFaceId) return _conditionsMet;
-      // Face is about to be verified → only check GPS + WiFi
-      int enabledNonFace = 0, passedNonFace = 0;
-      if (settings.enableGps) {
-        enabledNonFace++;
-        if (_isLocationVerified) passedNonFace++;
-      }
-      if (settings.enableWifi) {
-        enabledNonFace++;
-        if (_isWifiVerified) passedNonFace++;
-      }
-      if (enabledNonFace == 0) return true;
-      return settings.verificationMode == 'any'
-          ? passedNonFace >= 1
-          : passedNonFace >= enabledNonFace;
-    }();
-    if (!nonFaceConditionsSatisfied && !_allowOutsideCheckIn) {
-      final detail = _buildConditionDetail();
+    if (!_nonFaceConditionsMet && !_allowOutsideCheckIn) {
+      final detail = _buildConditionDetail(includeFaceInMessage: false);
+      if (mounted) setState(() {});
       _showError(detail.isNotEmpty
           ? 'Chưa đạt đủ điều kiện xác thực: $detail'
           : 'Chưa đạt đủ điều kiện xác thực. Vui lòng kiểm tra lại khi bạn ở khu vực cho phép.');
       return;
     }
 
-    // If face is enabled and not yet verified, open camera first
-    if (settings != null &&
-        settings.enableFaceId &&
-        !_isFaceVerified &&
-        !_allowOutsideCheckIn) {
+    // Luôn mở camera khi bật Face ID (kể cả chấm ngoài công ty — server vẫn cần ảnh mặt).
+    if (settings != null && settings.enableFaceId) {
+      setState(() {
+        _isFaceVerified = false;
+        _faceMatchScore = null;
+        _faceImageBase64 = null;
+        _livenessPassed = false;
+        _clientFaceEngine = null;
+      });
       // Block if employee has no face registration
       if (_cachedFacePaths.isEmpty) {
         await _loadCachedFacesFromDevice();
+        if (_cachedFacePaths.isEmpty) {
+          await _loadDeviceStatus();
+        }
       }
       if (!mounted) return;
       if (_cachedFacePaths.isEmpty) {
@@ -561,6 +573,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _isFaceVerified = false;
           _faceMatchScore = null;
           _faceImageBase64 = null;
+          _clientFaceEngine = null;
         });
         _showError(
             'Không chụp được ảnh khuôn mặt để gửi xác thực. Vui lòng thử lại.');
@@ -575,6 +588,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             serverFaceVerificationPending ? -1 : result.matchScore;
         _faceImageBase64 = result.faceImageBase64;
         _livenessPassed = result.livenessPassed;
+        _clientFaceEngine = result.clientFaceEngine;
       });
 
       if (serverFaceVerificationPending) {
@@ -584,21 +598,33 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
       // Sau quét mặt: làm mới GPS/WiFi (tránh cờ cũ bị timer hoặc iOS đổi trạng thái).
       try {
-        await Future.wait<void>([
-          _getCurrentLocation(),
-          _checkWifiConnection(requestPermissions: false),
-        ]);
+        await _refreshVerificationBeforePunch();
       } catch (_) {}
       if (!mounted) return;
 
       if (!_evaluateVerificationConditions(includeFace: true)) {
         final detail =
             _buildConditionDetail(includeFaceInMessage: false);
+        if (mounted) setState(() {});
         _showError(detail.isNotEmpty
             ? 'Khuôn mặt đã xác thực, nhưng chưa đủ điều kiện khác: $detail'
             : 'Khuôn mặt đã xác thực. Vui lòng kiểm tra GPS/WiFi hoặc đứng trong vùng cho phép.');
         return;
       }
+    }
+
+    if (settings != null &&
+        settings.enableFaceId &&
+        (_faceImageBase64 == null || _faceImageBase64!.trim().isEmpty)) {
+      _showError(
+          'Chưa quét khuôn mặt. Vui lòng bấm lại và hoàn tất bước quét mặt.');
+      return;
+    }
+
+    if ((_settings?.enableGps ?? true) && !_hasGpsPosition) {
+      _showError(
+          'Vui lòng bật GPS và cho phép quyền vị trí trước khi chấm công.');
+      return;
     }
 
     try {
@@ -609,8 +635,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         employeeId: _employeeId,
         employeeName: _employeeName,
         punchType: punchType,
-        latitude: _currentLatitude ?? 0,
-        longitude: _currentLongitude ?? 0,
+        latitude: _currentLatitude!,
+        longitude: _currentLongitude!,
         faceImage: _faceImageBase64 ?? '',
         distanceFromLocation: _distanceFromOffice,
         faceMatchScore: _faceMatchScore,
@@ -618,7 +644,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         wifiSsid: _connectedWifiSsid,
         wifiBssid: _detectedBssid,
         livenessPassed: _livenessPassed,
-        clientFaceEngine: onDeviceFaceOk ? 'tflite' : null,
+        clientFaceEngine: onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
       );
 
       if (!mounted) return;
@@ -653,6 +679,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _isFaceVerified = false;
           _faceMatchScore = null;
           _faceImageBase64 = null;
+          _clientFaceEngine = null;
         });
       } else {
         final message =
@@ -663,6 +690,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           _isFaceVerified = false;
           _faceMatchScore = null;
           _faceImageBase64 = null;
+          _clientFaceEngine = null;
         });
 
         _showError(message);
@@ -694,8 +722,37 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
   }
 
-  Future<void> _getCurrentLocation() async {
-    if (_isGettingLocation) return; // Guard against concurrent
+  /// Chờ lần định vị đang chạy (timer nền) xong — tránh bỏ qua kiểm tra lúc bấm chấm công.
+  Future<void> _waitForLocationCheckToFinish() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 18));
+    while (_isGettingLocation && DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+    }
+  }
+
+  Future<void> _waitForWifiCheckToFinish() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 8));
+    while (_isCheckingWifi && DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+    }
+  }
+
+  /// Làm mới GPS/WiFi ngay trước khi chấm — không dùng cờ cache khi timer đang chạy.
+  Future<void> _refreshVerificationBeforePunch() async {
+    await Future.wait<void>([
+      _getCurrentLocation(forceRefresh: true),
+      _checkWifiConnection(requestPermissions: false, forceRefresh: true),
+    ]);
+  }
+
+  Future<void> _getCurrentLocation({bool forceRefresh = false}) async {
+    if (_isGettingLocation) {
+      if (!forceRefresh) return;
+      await _waitForLocationCheckToFinish();
+      if (_isGettingLocation) return;
+    }
     setState(() => _isGettingLocation = true);
     try {
       // Try last known position first (instant, <50ms)
@@ -859,8 +916,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   bool _wifiPermissionsRequested = false; // only request permissions once
 
-  Future<void> _checkWifiConnection({bool requestPermissions = false}) async {
-    if (_isCheckingWifi) return; // Guard against concurrent checks
+  Future<void> _checkWifiConnection({
+    bool requestPermissions = false,
+    bool forceRefresh = false,
+  }) async {
+    if (_isCheckingWifi) {
+      if (!forceRefresh) return;
+      await _waitForWifiCheckToFinish();
+      if (_isCheckingWifi) return;
+    }
 
     // Only show loading indicator on manual/first check, not periodic
     if (requestPermissions || !_wifiPermissionsRequested) {
@@ -1221,9 +1285,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final isEnabled = _canTapPunch && !_isAutoSubmitting;
     final nextPunchType = _getNextPunchType();
     final isCheckIn = nextPunchType == 0;
-    final faceEnabled = _settings?.enableFaceId ?? false;
-    final needsFaceScan =
-        faceEnabled && !_isFaceVerified && !_allowOutsideCheckIn;
+    final needsFaceScan = _needsFaceScanOnPunch;
     final now = DateTime.now();
     final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -1509,8 +1571,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           // Status bar
           _buildStatusBar(faceRequired, gpsRequired, wifiRequired),
           const SizedBox(height: 10),
-          // GPS & WiFi cards
-          if (!_allowOutsideCheckIn)
+          if (_allowOutsideCheckIn) ...[
+            if (gpsRequired) _buildGpsCard(),
+            const SizedBox(height: 8),
+            _buildOutsideChip(),
+          ] else
             Row(
               children: [
                 if (gpsRequired) Expanded(child: _buildGpsCard()),
@@ -1518,7 +1583,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 if (wifiRequired) Expanded(child: _buildWifiCard()),
               ],
             ),
-          if (_allowOutsideCheckIn) _buildOutsideChip(),
         ],
       ),
     );
@@ -1587,9 +1651,14 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       children: [
                         _buildMiniChip('1. Thiết bị', deviceReady,
                             pending: !deviceReady),
-                        if (faceRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('2. Khuôn mặt', _isFaceVerified,
-                              pending: !_isFaceVerified),
+                        if (faceRequired)
+                          _buildMiniChip(
+                            _faceChipPendingScan
+                                ? '2. Khuôn mặt (bấm quét)'
+                                : '2. Khuôn mặt',
+                            _faceChipShowsVerified,
+                            pending: _faceChipPendingScan,
+                          ),
                         if (gpsRequired && !_allowOutsideCheckIn)
                           _buildMiniChip('3. GPS', _isLocationVerified,
                               pending:
@@ -1667,7 +1736,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   Widget _buildGpsCard() {
-    final statusColor = _isLocationVerified
+    final gpsOk = _gpsRequirementMet;
+    final statusColor = gpsOk
         ? const Color(0xFF22C55E)
         : _isGettingLocation
             ? const Color(0xFFF59E0B)
@@ -1697,7 +1767,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       color: statusColor.withValues(alpha: 0.12),
                     ),
                     child: Icon(
-                      _isLocationVerified
+                      gpsOk
                           ? Icons.location_on_rounded
                           : Icons.gps_not_fixed_rounded,
                       size: 16,
@@ -1723,9 +1793,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Text(
                 _isGettingLocation
                     ? 'Định vị...'
-                    : _isLocationVerified
-                        ? 'Trong phạm vi'
-                        : 'Ngoài phạm vi',
+                    : gpsOk
+                        ? (_allowOutsideCheckIn
+                            ? 'GPS đã bật'
+                            : 'Trong phạm vi')
+                        : (_allowOutsideCheckIn
+                            ? 'Chưa có GPS'
+                            : 'Ngoài phạm vi'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1871,7 +1945,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text('Được phép chấm công ngoài công ty',
+            child: Text('Chấm ngoài công ty — cần bật GPS, không cần trong vùng',
                 style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80))),
           ),
         ],

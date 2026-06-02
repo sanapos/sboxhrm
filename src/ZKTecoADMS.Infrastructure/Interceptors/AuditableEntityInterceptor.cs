@@ -1,4 +1,4 @@
-﻿using ZKTecoADMS.Domain.Entities.Base;
+using ZKTecoADMS.Domain.Entities.Base;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;

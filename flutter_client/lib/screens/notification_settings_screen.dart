@@ -33,7 +33,10 @@ class NotificationGroupSettings {
   static bool isAttendanceType(String? relatedEntityType) {
     if (relatedEntityType == null) return false;
     const attendanceTypes = {
-      'attendance', 'attendancecorrection', 'device', 'devicestatus', 'newattendance',
+      'attendance', 'attendancecorrection', 'correction', 'device', 'devicestatus',
+      'admsdevice', 'newattendance', 'mobileattendance', 'authorizedmobiledevice',
+      'devicechangerequest', 'mobiledeviceregistration', 'overtime', 'workschedule',
+      'scheduleregistration', 'shift', 'shiftswap', 'schedule',
     };
     return attendanceTypes.contains(relatedEntityType.toLowerCase());
   }

@@ -29,6 +29,29 @@ import 'task_management_screen.dart';
 import 'penalty_tickets_screen.dart';
 import 'cash_transaction_screen.dart';
 
+int? _approvalStatusCode(dynamic status) {
+  if (status == null) return null;
+  if (status is num) return status.toInt();
+  final s = status.toString().trim().toLowerCase();
+  if (s == 'pending' || s == 'chờ duyệt') return 0;
+  if (s == 'approved' || s == 'đã duyệt') return 1;
+  if (s == 'rejected' || s == 'từ chối') return 2;
+  return int.tryParse(s);
+}
+
+bool _isPendingApprovalStatus(dynamic status) =>
+    _approvalStatusCode(status) == 0;
+
+/// Chỉ giữ phiếu status = Pending (0); thiếu status → giữ (API pending-only).
+List<dynamic> _pendingApprovalItemsOnly(List<dynamic> items) => items
+    .where((e) {
+      if (e is! Map) return false;
+      final status = e['status'] ?? e['Status'];
+      if (status == null) return true;
+      return _isPendingApprovalStatus(status);
+    })
+    .toList();
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -392,8 +415,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (c.loadPendingApprovals) {
       queue('pending-leaves', _safe(
           () => _api.getPendingLeaves(pageSize: 100), emptyMap, 'pending-leaves'));
-      queue('corrections', _safe(() => _api.getAttendanceCorrections(pageSize: 100),
-          emptyMap, 'corrections'));
+      queue('corrections', _safe(
+          () => _api.getAttendanceCorrections(pageSize: 100, status: 0),
+          emptyMap,
+          'corrections'));
       queue('swaps', _safe(
           () => _api.getShiftSwapsPendingApproval(), emptyMap, 'swaps'));
     }
@@ -497,13 +522,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _todaySchedules =
           c.loadSchedules ? _extractList(mapOf('schedules')) : const [];
       _pendingLeaves = c.loadPendingApprovals
-          ? _extractList(mapOf('pending-leaves'))
+          ? _pendingApprovalItemsOnly(_extractList(mapOf('pending-leaves')))
           : const [];
       _pendingCorrections = c.loadPendingApprovals
-          ? _extractList(mapOf('corrections'))
+          ? _pendingApprovalItemsOnly(_extractList(mapOf('corrections')))
           : const [];
-      _pendingSwaps =
-          c.loadPendingApprovals ? _extractList(mapOf('swaps')) : const [];
+      _pendingSwaps = c.loadPendingApprovals
+          ? _pendingApprovalItemsOnly(_extractList(mapOf('swaps')))
+          : const [];
       _taskStats = c.loadTasks
           ? (mapOf('tasks')['data'] as Map<String, dynamic>?) ?? mapOf('tasks')
           : {};
@@ -526,8 +552,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _expiringDocs = const [];
         _expiredContracts = const [];
       }
-      _pendingAdvances =
-          c.loadAdvances ? _extractList(mapOf('advances')) : const [];
+      _pendingAdvances = c.loadAdvances
+          ? _pendingApprovalItemsOnly(_extractList(mapOf('advances')))
+          : const [];
       _birthdayEmployees = c.loadBirthdays
           ? (byKey['birthdays'] as List<dynamic>? ?? const [])
           : const [];
@@ -2886,11 +2913,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           resolved = 'leave';
           break;
         case 'Chỉnh sửa CC':
-          target = AttendanceCorrectionsScreen(highlightId: hi);
+          target = AttendanceApprovalScreen(
+              highlightId: hi, initialStatusFilter: 0);
           resolved = 'corrections';
           break;
         case 'Đổi ca':
-          target = AttendanceApprovalScreen(highlightId: hi);
+          target = AttendanceApprovalScreen(
+              highlightId: hi, initialStatusFilter: 0);
           resolved = 'swap';
           break;
         case 'Ứng lương':
@@ -2940,8 +2969,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const _InsightCta(
             'Mở quản lý nghỉ phép', Icons.event_busy, LeaveScreen());
       case 'pending_all':
-        return const _InsightCta('Mở duyệt chấm công',
-            Icons.fact_check_outlined, AttendanceApprovalScreen());
+        return _InsightCta('Mở duyệt chấm công', Icons.fact_check_outlined,
+            AttendanceApprovalScreen(initialStatusFilter: 0));
       case 'birthday_detail':
       case 'newhires_detail':
         return const _InsightCta('Mở danh sách nhân viên',

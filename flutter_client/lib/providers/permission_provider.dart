@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/dashboard_permission_modules.dart';
+import '../utils/permission_modules.dart';
 
 /// Provider quản lý quyền hiệu lực của user hiện tại.
 /// Lưu cache danh sách module permissions (canView, canCreate, canEdit, ...)
@@ -102,6 +103,18 @@ class PermissionProvider extends ChangeNotifier {
         _permissions[DashboardPermissionModules.legacyDashboard]?.canView ==
             true) {
       return true;
+    }
+    if (moduleCode == 'MobileAttendance') {
+      if (_permissions[PermissionModules.mobileAttendanceFromDeviceRegistration]
+              ?.canView ==
+          true) {
+        return true;
+      }
+      if (_permissions[PermissionModules.mobileAttendanceFromApproval]
+              ?.canView ==
+          true) {
+        return true;
+      }
     }
     return perm.canView;
   }

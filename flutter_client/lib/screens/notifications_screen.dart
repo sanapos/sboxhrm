@@ -6,11 +6,11 @@ import '../models/hrm.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/notification_navigation.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
-import '../utils/responsive_helper.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
-import 'main_layout.dart' show NavigationNotifier, ScreenRefreshNotifier;
+import 'main_layout.dart' show ScreenRefreshNotifier;
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -461,70 +461,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _navigateToRelated(AppNotification notification) {
-    final entityType = notification.relatedEntityType?.toLowerCase();
-    switch (entityType) {
-      case 'attendance':
-      case 'newattendance':
-      case 'overtime':
-        NavigationNotifier.goToAttendance();
-      case 'device':
-      case 'devicestatus':
-      case 'admsdevice':
-        NavigationNotifier
-            .goToDeviceSettings(); // → SettingsHub > Máy chấm công
-      case 'leave':
-      case 'leaverequest':
-        NavigationNotifier.goToLeaves();
-      case 'advance':
-      case 'advancerequest':
-        NavigationNotifier.goToAdvanceRequests();
-      case 'attendancecorrection':
-      case 'correction':
-        NavigationNotifier.goToAttendanceCorrections();
-      case 'employee':
-        NavigationNotifier.goToEmployees();
-      case 'department':
-        NavigationNotifier.goToDepartments();
-      case 'schedule':
-      case 'workschedule':
-      case 'shift':
-      case 'shiftswap':
-      case 'scheduleregistration':
-        NavigationNotifier.goToWorkSchedule();
-      case 'worktask':
-        NavigationNotifier.goToTaskManagement();
-      case 'asset':
-        NavigationNotifier.goToAssetManagement();
-      case 'payroll':
-      case 'payslip':
-        NavigationNotifier.goToPayroll();
-      case 'kpi':
-      case 'kpisalary':
-        NavigationNotifier.goToKpi();
-      case 'penaltytickets':
-        NavigationNotifier.goTo(NavigationNotifier.penaltyTickets);
-      case 'cashtransaction':
-      case 'paymenttransaction':
-      case 'transaction':
-        NavigationNotifier.goToCashTransaction();
-      case 'bonuspenalty':
-      case 'allowance':
-      case 'benefit':
-        NavigationNotifier.goToBonusPenalty();
-      case 'communication':
-        NavigationNotifier.goToCommunication();
-      case 'mealrecord':
-      case 'mealsession':
-      case 'mealmenu':
-        NavigationNotifier.goTo(NavigationNotifier.meals);
-      case 'account':
-        NavigationNotifier.goTo(NavigationNotifier.settings);
-      case 'store':
-        NavigationNotifier.goTo(NavigationNotifier.settings);
-      default:
-        debugPrint('Unknown entity type: $entityType');
-        NavigationNotifier.goToNotifications();
-    }
+    navigateFromNotification(
+      relatedEntityType: notification.relatedEntityType,
+      relatedEntityId: notification.relatedEntityId,
+      title: notification.title,
+    );
   }
 
   // == Build ==

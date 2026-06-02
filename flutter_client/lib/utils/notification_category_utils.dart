@@ -7,12 +7,27 @@ class NotificationCategoryUtils {
   static const entityTypeToCategory = {
     'attendance': 'attendance',
     'attendancecorrection': 'approval',
+    'correction': 'approval',
     'device': 'device',
     'devicestatus': 'device',
+    'admsdevice': 'device',
     'newattendance': 'attendance',
+    'mobileattendance': 'attendance',
+    'authorizedmobiledevice': 'attendance',
+    'devicechangerequest': 'attendance',
+    'mobiledeviceregistration': 'attendance',
     'communication': 'internal_comm',
     'workschedule': 'attendance',
     'scheduleregistration': 'approval',
+    'shiftswap': 'approval',
+    'shift': 'attendance',
+    'leave': 'approval',
+    'leaverequest': 'approval',
+    'advancerequest': 'approval',
+    'penaltyticket': 'approval',
+    'worktask': 'internal_comm',
+    'paymenttransaction': 'payroll',
+    'cashtransaction': 'payroll',
   };
 
   /// Maps legacy sender codes to seeded category codes.

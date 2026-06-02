@@ -12,7 +12,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
-import '../screens/main_layout.dart' show NavigationNotifier, ScreenRefreshNotifier;
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/notification_navigation.dart';
 import 'api_config.dart';
 
 /// Background message handler. Must be a top-level function.
@@ -243,7 +244,12 @@ class FcmService {
       if (kDebugMode) {
         debugPrint('FCM tap → entityType=$entityType notifId=$notificationId data=$data');
       }
-      _routeToEntity(entityType);
+      final title = msg.notification?.title ?? data['title']?.toString();
+      navigateFromNotification(
+        relatedEntityType: entityType.isEmpty ? null : entityType,
+        relatedEntityId: notificationId,
+        title: title,
+      );
       // Always bump notification count so badge refreshes.
       ScreenRefreshNotifier.refreshNotificationCount();
     } catch (e) {
@@ -258,44 +264,4 @@ class FcmService {
     return segs.isNotEmpty ? segs.first : null;
   }
 
-  void _routeToEntity(String entityType) {
-    // Mirror of SystemNotificationService._onNotificationTap mapping.
-    // If you change this list, also update system_notification_service.dart.
-    switch (entityType) {
-      case 'device':
-      case 'devicestatus':
-      case 'admsdevice':
-        NavigationNotifier.goToDeviceSettings();
-        break;
-      case 'attendance':
-      case 'newattendance':
-      case 'overtime':
-      case 'attendancecorrection':
-      case 'correction':
-        NavigationNotifier.goToAttendance();
-        break;
-      case 'leave':
-      case 'leaverequest':
-        NavigationNotifier.goToLeaves();
-        break;
-      case 'workschedule':
-      case 'scheduleregistration':
-      case 'shift':
-      case 'shiftswap':
-      case 'schedule':
-        NavigationNotifier.goToWorkSchedule();
-        break;
-      case 'payroll':
-      case 'payslip':
-        NavigationNotifier.goToPayroll();
-        break;
-      case 'advance':
-      case 'advancerequest':
-        NavigationNotifier.goToAdvanceRequests();
-        break;
-      default:
-        NavigationNotifier.goToNotifications();
-        break;
-    }
-  }
 }

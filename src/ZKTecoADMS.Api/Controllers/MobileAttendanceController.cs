@@ -2040,7 +2040,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
-    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Create)]
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> RegisterDeviceWithFace([FromBody] RegisterDeviceWithFaceRequest request)
 
 
@@ -2472,6 +2472,129 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            try
+
+
+            {
+
+
+                var managerIds = await _dbContext.Users
+
+
+                    .Where(u => u.StoreId == storeId && u.IsActive
+
+
+                        && (u.Role == "Manager" || u.Role == "Admin"))
+
+
+                    .Select(u => u.Id)
+
+
+                    .ToListAsync();
+
+
+
+
+
+                foreach (var managerId in managerIds)
+
+
+                {
+
+
+                    await _systemNotificationService.CreateAndSendAsync(
+
+
+                        managerId,
+
+
+                        NotificationType.ApprovalRequired,
+
+
+                        "Đăng ký thiết bị chấm công mới",
+
+
+                        $"{employeeName} đăng ký thiết bị \"{request.DeviceName}\" ({request.DeviceModel}) — cần duyệt",
+
+
+                        relatedEntityType: "AuthorizedMobileDevice",
+
+
+                        relatedEntityId: newDevice.Id,
+
+
+                        fromUserId: CurrentUserId,
+
+
+                        categoryCode: "mobile_attendance",
+
+
+                        storeId: storeId);
+
+
+                }
+
+
+                var submitterUserId = await ResolveEmployeeNotificationUserIdAsync(employeeId, storeId);
+
+
+                if (submitterUserId.HasValue)
+
+
+                {
+
+
+                    await _systemNotificationService.CreateAndSendAsync(
+
+
+                        submitterUserId.Value,
+
+
+                        NotificationType.Info,
+
+
+                        "Đã gửi đăng ký thiết bị",
+
+
+                        "Yêu cầu đăng ký thiết bị chấm công đã được gửi. Vui lòng chờ quản lý duyệt.",
+
+
+                        relatedEntityType: "AuthorizedMobileDevice",
+
+
+                        relatedEntityId: newDevice.Id,
+
+
+                        fromUserId: CurrentUserId,
+
+
+                        categoryCode: "mobile_attendance",
+
+
+                        storeId: storeId);
+
+
+                }
+
+
+            }
+
+
+            catch (Exception ex)
+
+
+            {
+
+
+                _logger.LogWarning(ex, "Failed to send device registration notifications");
+
+
+            }
+
+
+
+
+
             return Ok(AppResponse<object>.Success(new
 
 
@@ -2848,6 +2971,120 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+        try
+
+
+        {
+
+
+            var employeeUserId = await ResolveEmployeeNotificationUserIdAsync(device.EmployeeId ?? "", storeId);
+
+
+            if (employeeUserId.HasValue)
+
+
+            {
+
+
+                if (request.Approved)
+
+
+                {
+
+
+                    await _systemNotificationService.CreateAndSendAsync(
+
+
+                        employeeUserId.Value,
+
+
+                        NotificationType.Success,
+
+
+                        "Đăng ký thiết bị được duyệt",
+
+
+                        $"Thiết bị \"{device.DeviceName}\" đã được duyệt. Bạn có thể chấm công mobile.",
+
+
+                        relatedEntityType: "AuthorizedMobileDevice",
+
+
+                        relatedEntityId: device.Id,
+
+
+                        fromUserId: CurrentUserId,
+
+
+                        categoryCode: "mobile_attendance",
+
+
+                        storeId: storeId);
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    await _systemNotificationService.CreateAndSendAsync(
+
+
+                        employeeUserId.Value,
+
+
+                        NotificationType.Warning,
+
+
+                        "Đăng ký thiết bị bị từ chối",
+
+
+                        $"Đăng ký thiết bị \"{device.DeviceName}\" không được duyệt. Vui lòng đăng ký lại trên app.",
+
+
+                        relatedEntityType: "AuthorizedMobileDevice",
+
+
+                        relatedEntityId: device.Id,
+
+
+                        fromUserId: CurrentUserId,
+
+
+                        categoryCode: "mobile_attendance",
+
+
+                        storeId: storeId);
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        catch (Exception ex)
+
+
+        {
+
+
+            _logger.LogWarning(ex, "Failed to send device approval notification for {DeviceId}", id);
+
+
+        }
+
+
+
+
+
         return Ok(AppResponse<object>.Success(new
 
 
@@ -2896,7 +3133,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(20_000_000)]
 
 
-    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.Create)]
+    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> RequestDeviceChange([FromBody] DeviceChangeRequestDto request)
 
 
@@ -2946,6 +3183,18 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Kh�ng x�c d?nh du?c nh�n vi�n"));
+
+
+
+
+
+        var changeSelfErr = ValidateSelfServiceEmployeeAction(employeeId);
+
+
+        if (changeSelfErr != null)
+
+
+            return changeSelfErr;
 
 
 
@@ -3559,7 +3808,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                var empUserId = Guid.TryParse(changeReq.EmployeeId, out var eid) ? eid : (Guid?)null;
+                var empUserId = await ResolveEmployeeNotificationUserIdAsync(changeReq.EmployeeId, storeId);
 
 
                 if (empUserId.HasValue)
@@ -3928,7 +4177,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                var empUserId2 = Guid.TryParse(changeReq.EmployeeId, out var eid2) ? eid2 : (Guid?)null;
+                var empUserId2 = await ResolveEmployeeNotificationUserIdAsync(changeReq.EmployeeId, storeId);
 
 
                 if (empUserId2.HasValue)
@@ -4360,7 +4609,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(10_000_000)]
 
 
-    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> SubmitPunch([FromBody] MobilePunchRequest request)
 
 
@@ -5078,7 +5327,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            var hasRegistration = faceReg != null && faceReg.IsVerified;
+            // Thiết bị đã duyệt = đã có ảnh đăng ký hợp lệ (IsVerified có thể chưa sync).
+            var hasRegistration = faceReg != null &&
+                (faceReg.IsVerified || registeredDevice.IsAuthorized);
 
 
             if (hasRegistration)
@@ -5100,6 +5351,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             var minFaceScore = settings?.MinFaceMatchScore ?? 55.0;
+            // Chấm ngoài CT: ánh sáng/ góc khác → hạ nhẹ ngưỡng (vẫn có blink liveness).
+            var minFaceScoreEffective = minFaceScore;
+            if (allowOutside && !isInRange && !isWifiVerified)
+                minFaceScoreEffective = Math.Max(minFaceScore - 10.0, 50.0);
 
 
             var hasClientImage = !string.IsNullOrWhiteSpace(request.FaceImageUrl) && request.FaceImageUrl!.Length > 100;
@@ -5117,12 +5372,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             var livenessOk = !requireLiveness || request.LivenessPassed;
 
 
-            // Fast path: only trust on-device MobileFaceNet (TFLite) after blink liveness.
-            // MLKit/HOG fallbacks can score imposters high — those must use server ONNX.
+            // Fast path: trust on-device TFLite / MLKit sau blink liveness.
             var clientEngine = (request.ClientFaceEngine ?? "").Trim().ToLowerInvariant();
+            var trustClientEngine = clientEngine is "tflite" or "mlkit";
             var trustClient = livenessOk && hasRegistration && hasClientImage
-                && string.Equals(clientEngine, "tflite", StringComparison.Ordinal)
-                && clientFaceScore >= minFaceScore;
+                && trustClientEngine
+                && clientFaceScore >= minFaceScoreEffective;
 
 
 
@@ -5416,7 +5671,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 {
 
 
-                    var strictMinMem = minFaceScore;
+                    var strictMinMem = minFaceScoreEffective;
 
 
                     isFaceVerified = compScore >= strictMinMem;
@@ -5662,7 +5917,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                         // still require identity match at the store's setting.
 
 
-                        strictMin = minFaceScore;
+                        strictMin = minFaceScoreEffective;
 
 
                     }
@@ -5695,7 +5950,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                         // score is below this, the punch rightly rejects.
 
 
-                        strictMin = Math.Max(minFaceScore, 55.0);
+                        strictMin = Math.Max(minFaceScoreEffective, 55.0);
 
 
                     }
@@ -5708,8 +5963,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     // below 0.4 we reject even if the identity score passed —
                     // this catches attack vectors the client-side blink cannot
                     // (e.g. moving photo, screen replay with fake blink).
+                    // Bỏ qua khi chấm ngoài CT (ảnh nhà/ngoài trời hay bị model đánh thấp).
+                    var skipAntiSpoofForOutside = allowOutside && !isInRange && !isWifiVerified;
                     double liveProb = 1.0;
-                    if (isFaceVerified && _faceAntiSpoof.IsReady)
+                    if (isFaceVerified && _faceAntiSpoof.IsReady && !skipAntiSpoofForOutside)
                     {
                         try
                         {
@@ -5866,7 +6123,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            // Count which enabled methods passed (allowOutside only bypasses GPS fence)
+            // allowOutside: không cần trong vùng GPS nhưng vẫn phải gửi tọa độ (GPS bật)
 
 
             var enabledMethods = new List<string>();
@@ -5875,7 +6132,11 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             var passedMethods = new List<string>();
 
 
-            var gpsPassed = isInRange || allowOutside;
+            var hasGpsCoordinates = request.Latitude.HasValue && request.Longitude.HasValue
+                && (Math.Abs(request.Latitude.Value) > 1e-5 || Math.Abs(request.Longitude.Value) > 1e-5);
+
+
+            var gpsPassed = !enableGps || isInRange || (allowOutside && hasGpsCoordinates);
 
 
 
@@ -5887,7 +6148,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             if (enableGps) { enabledMethods.Add("gps"); if (gpsPassed) passedMethods.Add("gps"); }
 
 
-            if (enableWifi) { enabledMethods.Add("wifi"); if (isWifiVerified) passedMethods.Add("wifi"); }
+            // Ngoài CT: không yêu cầu WiFi công ty (đồng bộ với app).
+            if (enableWifi && !allowOutside) { enabledMethods.Add("wifi"); if (isWifiVerified) passedMethods.Add("wifi"); }
 
 
 
@@ -5935,7 +6197,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     _logger.LogWarning("❌ PUNCH REJECT: verification mode=all, failed: {Failed}", string.Join(", ", failedMethods));
 
 
-                    return BadRequest(AppResponse<object>.Fail($"Chưa đạt tất cả điều kiện xác thực: {string.Join(", ", failedMethods)}"));
+                    var failMsg = $"Chưa đạt tất cả điều kiện xác thực: {string.Join(", ", failedMethods)}";
+                    if (allowOutside)
+                        failMsg += ". Chấm ngoài CT: cần GPS (đã bật) + khuôn mặt; không cần WiFi công ty.";
+                    return BadRequest(AppResponse<object>.Fail(failMsg));
 
 
                 }
@@ -6923,7 +7188,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [RequestSizeLimit(10_000_000)]
 
 
-    [RequireModulePermission("MobileAttendance", ModulePermissionAction.Create)]
+    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
     public async Task<ActionResult> VerifyFace([FromBody] VerifyFaceRequest request)
 
 
@@ -6935,6 +7200,17 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             return BadRequest(AppResponse<object>.Fail("Thi?u th�ng tin nh�n vi�n"));
 
+
+
+
+
+        var verifySelfErr = ValidateSelfServiceEmployeeAction(request.EmployeeId);
+
+
+        if (verifySelfErr != null)
+
+
+            return verifySelfErr;
 
 
 
@@ -7361,6 +7637,31 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     private void InvalidateRegistrationEmbeddingCache(Guid storeId, string employeeId)
     {
         _cache.Remove($"face_reg_emb_{storeId:N}_{employeeId}");
+    }
+
+    /// <summary>Resolve Application User Id for push/in-app notifications from employee id stored on mobile devices.</summary>
+    private async Task<Guid?> ResolveEmployeeNotificationUserIdAsync(string employeeId, Guid storeId)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+            return null;
+
+        if (Guid.TryParse(employeeId, out var parsed))
+        {
+            var activeUser = await _dbContext.Users.AsNoTracking()
+                .AnyAsync(u => u.Id == parsed && u.StoreId == storeId && u.IsActive);
+            if (activeUser)
+                return parsed;
+        }
+
+        var employee = await _dbContext.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.StoreId == storeId && e.Deleted == null &&
+                (e.Id.ToString() == employeeId ||
+                 (e.ApplicationUserId != null && e.ApplicationUserId.ToString() == employeeId)));
+
+        if (employee?.ApplicationUserId != null)
+            return employee.ApplicationUserId;
+
+        return Guid.TryParse(employeeId, out parsed) ? parsed : null;
     }
 
     /// <summary>In-memory ONNX face match (no upload). Returns score 0-100 and whether ONNX was used.</summary>

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../screens/main_layout.dart'
-    show NavigationNotifier, ScreenRefreshNotifier;
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../services/api_service.dart';
+import '../utils/notification_navigation.dart';
 
 /// Service để hiển thị thông báo trên thanh notification của Android
 class SystemNotificationService {
@@ -58,7 +58,7 @@ class SystemNotificationService {
   void _onNotificationTap(NotificationResponse response) async {
     final payload = response.payload;
     if (payload == null || payload.isEmpty) {
-      NavigationNotifier.goToNotifications();
+      navigateFromNotification(relatedEntityType: null);
       return;
     }
 
@@ -87,51 +87,10 @@ class SystemNotificationService {
     // Luôn refresh count sau khi tap
     ScreenRefreshNotifier.refreshNotificationCount();
 
-    // payload = relatedEntityType
-    switch (entityType) {
-      case 'Device':
-      case 'DeviceStatus':
-        NavigationNotifier.goToDeviceSettings();
-        break;
-      case 'Attendance':
-        NavigationNotifier.goToAttendance();
-        break;
-      case 'Leave':
-        NavigationNotifier.goToLeaves();
-        break;
-      case 'WorkSchedule':
-      case 'ScheduleRegistration':
-        NavigationNotifier.goToWorkSchedule();
-        break;
-      case 'Employee':
-        NavigationNotifier.goToEmployees();
-        break;
-      case 'Payroll':
-      case 'Payslip':
-        NavigationNotifier.goToPayroll();
-        break;
-      case 'WorkTask':
-        NavigationNotifier.goToTaskManagement();
-        break;
-      case 'AdvanceRequest':
-        NavigationNotifier.goToAdvanceRequests();
-        break;
-      case 'Communication':
-        NavigationNotifier.goToCommunication();
-        break;
-      case 'BonusPenalty':
-        NavigationNotifier.goToBonusPenalty();
-        break;
-      case 'CashTransaction':
-        NavigationNotifier.goToCashTransaction();
-        break;
-      case 'PenaltyTicket':
-        NavigationNotifier.goTo(NavigationNotifier.penaltyTickets);
-        break;
-      default:
-        NavigationNotifier.goToNotifications();
-        break;
-    }
+    navigateFromNotification(
+      relatedEntityType: entityType,
+      relatedEntityId: notificationId,
+    );
   }
 
   /// Hiển thị thông báo trên thanh notification Android

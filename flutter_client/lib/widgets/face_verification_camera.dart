@@ -18,11 +18,14 @@ class FaceVerificationResult {
   final double matchScore;
   final String? faceImageBase64;
   final bool livenessPassed;
+  /// On-device matcher sent to API: tflite | mlkit | null (server path).
+  final String? clientFaceEngine;
 
   FaceVerificationResult({
     required this.matchScore,
     this.faceImageBase64,
     this.livenessPassed = false,
+    this.clientFaceEngine,
   });
 }
 
@@ -396,6 +399,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                 matchScore: mlScore,
                 faceImageBase64: faceBase64,
                 livenessPassed: true,
+                clientFaceEngine: 'mlkit',
               );
               await Future.delayed(const Duration(milliseconds: 1200));
               if (mounted) {
@@ -510,6 +514,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
           matchScore: score,
           faceImageBase64: faceBase64,
           livenessPassed: true,
+          clientFaceEngine: 'tflite',
         );
 
         await Future.delayed(const Duration(milliseconds: 1200));

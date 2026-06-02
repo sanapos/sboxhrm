@@ -49,6 +49,7 @@ import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
 import 'mobile_attendance_screen.dart';
+import '../utils/notification_navigation.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
@@ -90,6 +91,17 @@ class ScreenRefreshNotifier {
   static void refreshNotificationCount() {
     notifications.value++;
   }
+
+  static final ValueNotifier<int> mobileAttendanceSettings = ValueNotifier<int>(0);
+  static final ValueNotifier<int> mobileDeviceRegistration = ValueNotifier<int>(0);
+
+  static void refreshMobileAttendanceSettings() {
+    mobileAttendanceSettings.value++;
+  }
+
+  static void refreshMobileDeviceRegistration() {
+    mobileDeviceRegistration.value++;
+  }
 }
 
 /// Global navigation notifier - allows navigating from any screen
@@ -97,6 +109,14 @@ class NavigationNotifier {
   static final ValueNotifier<int?> navigateTo = ValueNotifier<int?>(null);
   /// Tab ban đầu khi mở Duyệt lịch làm việc: 0=ca, 1=NV, 2=đổi ca
   static final ValueNotifier<int> scheduleApprovalTab = ValueNotifier<int>(0);
+  /// Tab Duyệt chấm công: 0=chỉnh CC, 1=mobile
+  static final ValueNotifier<int> attendanceApprovalTab = ValueNotifier<int>(0);
+  /// Bộ lọc trạng thái khi mở Duyệt chấm công (-1=tất cả, 0=chờ duyệt)
+  static final ValueNotifier<int> attendanceApprovalStatusFilter =
+      ValueNotifier<int>(-1);
+  /// Highlight bản ghi (id) sau khi mở từ thông báo
+  static final ValueNotifier<String?> notificationHighlightId =
+      ValueNotifier<String?>(null);
 
   // Screen indices mapping - must match _navItems order
   // [0]  Trang chủ
@@ -149,6 +169,8 @@ class NavigationNotifier {
   static const int attendanceApproval = 12;
   static const int scheduleApproval = 13;
   static const int payroll = 14;
+  static const int mobileDeviceRegistration = 15;
+  static const int mobileAttendance = 16;
   static const int meals = 17;
   static const int bonusPenalty = 18;
   static const int advanceRequests = 19;
@@ -185,7 +207,14 @@ class NavigationNotifier {
 
   static void goToAttendance() => goTo(attendance);
   static void goToAdvanceRequests() => goTo(advanceRequests);
-  static void goToAttendanceCorrections() => goTo(attendance);
+  static void goToAttendanceCorrections() {
+    attendanceApprovalTab.value = 0;
+    attendanceApprovalStatusFilter.value = 0;
+    goTo(attendanceApproval);
+  }
+
+  static void goToMobileDeviceRegistration() => goTo(mobileDeviceRegistration);
+  static void goToMobileAttendance() => goTo(mobileAttendance);
   static void goToWorkSchedule() => goTo(workSchedule);
   static void goToNotifications() => goTo(notifications);
   static void goToEmployees() => goTo(employees);
@@ -578,7 +607,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         final isAttendanceOrDevice = entityTypeLower == 'attendance' ||
             entityTypeLower == 'device' ||
             entityTypeLower == 'devicestatus' ||
-            entityTypeLower == 'newattendance';
+            entityTypeLower == 'newattendance' ||
+            entityTypeLower == 'mobileattendance' ||
+            entityTypeLower == 'authorizedmobiledevice' ||
+            entityTypeLower == 'devicechangerequest';
+
+        if (entityTypeLower == 'authorizedmobiledevice' ||
+            entityTypeLower == 'devicechangerequest') {
+          ScreenRefreshNotifier.refreshMobileAttendanceSettings();
+          ScreenRefreshNotifier.refreshMobileDeviceRegistration();
+        }
 
         if (isMobile) {
           // Guard 1 (reconnect): nếu SignalR vừa kết nối lại (<15s) và notification
@@ -622,7 +660,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   _loadNotificationCount();
                 });
               }
-              _navigateToIndex(_getIndexForEntityType(relatedEntityType));
+              navigateFromNotification(
+                relatedEntityType: relatedEntityType,
+                relatedEntityId: notificationId,
+                title: title,
+              );
             },
           );
         }
@@ -725,51 +767,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return 8; // Default index
   }
 
-  // Chuyển đến màn hình phù hợp theo loại thông báo
-  int _getIndexForEntityType(String? entityType) {
-    switch (entityType?.toLowerCase()) {
-      case 'attendance':
-      case 'attendancecorrection':
-      case 'overtime':
-      case 'newattendance':
-        return NavigationNotifier.attendance;
-      case 'leave':
-        return NavigationNotifier.leaves;
-      case 'device':
-      case 'devicestatus':
-      case 'admsdevice':
-        return NavigationNotifier.deviceUsers;
-      case 'workschedule':
-      case 'scheduleregistration':
-        return NavigationNotifier.workSchedule;
-      case 'shiftswap':
-        return NavigationNotifier.scheduleApproval;
-      case 'employee':
-        return NavigationNotifier.employees;
-      case 'payroll':
-      case 'payslip':
-        return NavigationNotifier.payroll;
-      case 'task':
-      case 'worktask':
-        return NavigationNotifier.taskManagement;
-      case 'communication':
-        return NavigationNotifier.communication;
-      case 'advancerequest':
-        return NavigationNotifier.advanceRequests;
-      case 'asset':
-        return NavigationNotifier.assetManagement;
-      case 'kpi':
-      case 'kpisalary':
-        return NavigationNotifier.kpi;
-      case 'bonuspenalty':
-        return NavigationNotifier.bonusPenalty;
-      case 'cashtransaction':
-        return NavigationNotifier.cashTransaction;
-      case 'penaltytickets':
-        return NavigationNotifier.penaltyTickets;
-      default:
-        return _notificationsIndex;
+  // Chuyển đến màn hình phù hợp theo loại thông báo (popup desktop).
+  int _getIndexForEntityType(String? entityType, {String? title}) {
+    final target = resolveNotificationNavigation(entityType, title: title);
+    if (target == null) return _notificationsIndex;
+    if (target.settingsHubSubIndex != null) {
+      SettingsHubScreen.pendingSubIndex.value = target.settingsHubSubIndex;
     }
+    if (target.scheduleApprovalTab != null) {
+      NavigationNotifier.scheduleApprovalTab.value = target.scheduleApprovalTab!;
+    }
+    if (target.attendanceApprovalTab != null) {
+      NavigationNotifier.attendanceApprovalTab.value = target.attendanceApprovalTab!;
+    }
+    if (target.attendanceApprovalStatusFilter != null) {
+      NavigationNotifier.attendanceApprovalStatusFilter.value =
+          target.attendanceApprovalStatusFilter!;
+    }
+    return target.screenIndex;
   }
 
   final List<NavItem> _navItems = [

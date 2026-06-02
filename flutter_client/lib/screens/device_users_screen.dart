@@ -164,6 +164,14 @@ String removeVietnameseAccents(String str) {
   return result;
 }
 
+/// Bộ lọc từ chip tổng quan (Tổng user / Đã liên kết / Chưa liên kết / TB online).
+enum DeviceUsersOverviewFilter {
+  all,
+  linked,
+  unlinked,
+  onOnlineDevice,
+}
+
 class DeviceUsersScreen extends StatefulWidget {
   const DeviceUsersScreen({super.key});
 
@@ -190,6 +198,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   // Mobile UI state
   bool _showMobileSummary = false;
+  DeviceUsersOverviewFilter _overviewFilter = DeviceUsersOverviewFilter.all;
 
   @override
   void initState() {
@@ -686,14 +695,90 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     }
   }
 
+  Set<String> get _onlineDeviceIds => _devices
+      .where((d) => _isDeviceOnline(d.lastOnline))
+      .map((d) => d.id)
+      .toSet();
+
+  List<DeviceUser> get _overviewFilteredUsers {
+    switch (_overviewFilter) {
+      case DeviceUsersOverviewFilter.linked:
+        return _deviceUsers.where((u) => u.employeeId != null).toList();
+      case DeviceUsersOverviewFilter.unlinked:
+        return _deviceUsers.where((u) => u.employeeId == null).toList();
+      case DeviceUsersOverviewFilter.onOnlineDevice:
+        final onlineIds = _onlineDeviceIds;
+        return _deviceUsers.where((u) => onlineIds.contains(u.deviceId)).toList();
+      case DeviceUsersOverviewFilter.all:
+        return _deviceUsers;
+    }
+  }
+
   List<DeviceUser> get _filteredUsers {
-    if (_searchQuery.isEmpty) return _deviceUsers;
+    var list = _overviewFilteredUsers;
+    if (_searchQuery.isEmpty) return list;
     final query = _searchQuery.toLowerCase();
-    return _deviceUsers.where((u) {
+    return list.where((u) {
       return u.name.toLowerCase().contains(query) ||
           u.pin.toLowerCase().contains(query) ||
           (u.cardNumber?.toLowerCase().contains(query) ?? false);
     }).toList();
+  }
+
+  void _setOverviewFilter(DeviceUsersOverviewFilter filter) {
+    setState(() {
+      if (_overviewFilter == filter && filter != DeviceUsersOverviewFilter.all) {
+        _overviewFilter = DeviceUsersOverviewFilter.all;
+      } else {
+        _overviewFilter = filter;
+      }
+      _currentPage = 1;
+    });
+  }
+
+  String get _overviewFilterLabel {
+    switch (_overviewFilter) {
+      case DeviceUsersOverviewFilter.linked:
+        return _l10n.linkedUsers;
+      case DeviceUsersOverviewFilter.unlinked:
+        return _l10n.unlinkedUsers;
+      case DeviceUsersOverviewFilter.onOnlineDevice:
+        return _l10n.onlineDevices;
+      case DeviceUsersOverviewFilter.all:
+        return _l10n.totalUsers;
+    }
+  }
+
+  bool get _hasActiveOverviewFilter =>
+      _overviewFilter != DeviceUsersOverviewFilter.all;
+
+  ({String title, String description, IconData icon}) _emptyStateForOverviewFilter() {
+    switch (_overviewFilter) {
+      case DeviceUsersOverviewFilter.linked:
+        return (
+          title: 'Không có user đã liên kết',
+          description: 'Liên kết user máy chấm công với hồ sơ nhân sự',
+          icon: Icons.link,
+        );
+      case DeviceUsersOverviewFilter.unlinked:
+        return (
+          title: 'Không có user chưa liên kết',
+          description: 'Tất cả user trên máy đã được liên kết nhân sự',
+          icon: Icons.link_off,
+        );
+      case DeviceUsersOverviewFilter.onOnlineDevice:
+        return (
+          title: 'Không có user trên thiết bị online',
+          description: 'Chưa có thiết bị online hoặc chưa có user trên các máy đang kết nối',
+          icon: Icons.router,
+        );
+      case DeviceUsersOverviewFilter.all:
+        return (
+          title: 'Chưa có user',
+          description: 'Thêm user hoặc đồng bộ từ nhân viên',
+          icon: Icons.people,
+        );
+    }
   }
 
   /// Trả về tên chi nhánh của một DeviceUser (thông qua employee liên kết)
@@ -895,39 +980,105 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    required DeviceUsersOverviewFilter filter,
+  }) {
+    final isSelected = _overviewFilter == filter;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _setOverviewFilter(filter),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : color.withValues(alpha: 0.15),
+              width: isSelected ? 2 : 1,
             ),
-            child: Icon(icon, size: 16, color: color),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
+                blurRadius: isSelected ? 10 : 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ],
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(height: 4),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: color)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: isSelected ? color : const Color(0xFFA1A1AA),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildActiveOverviewFilterBanner() {
+    if (!_hasActiveOverviewFilter) return null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.all),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.filter_alt,
+                    size: 16, color: HrmPageChrome.primaryNavy),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Đang lọc: $_overviewFilterLabel · ${_filteredUsers.length} user',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: HrmPageChrome.primaryNavy,
+                    ),
+                  ),
+                ),
+                Text(
+                  'Bỏ lọc',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: HrmPageChrome.primaryNavy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1301,17 +1452,26 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         _l10n.totalUsers,
                         '${_deviceUsers.length}',
                         Icons.people_outline,
-                        HrmPageChrome.primaryNavy)),
+                        HrmPageChrome.primaryNavy,
+                        filter: DeviceUsersOverviewFilter.all)),
                 const SizedBox(width: 10),
                 SizedBox(
                     width: 120,
-                    child: _buildStatCard(_l10n.linkedUsers, '$linkedCount',
-                        Icons.link, HrmPageChrome.primaryNavy)),
+                    child: _buildStatCard(
+                        _l10n.linkedUsers,
+                        '$linkedCount',
+                        Icons.link,
+                        HrmPageChrome.primaryNavy,
+                        filter: DeviceUsersOverviewFilter.linked)),
                 const SizedBox(width: 10),
                 SizedBox(
                     width: 120,
-                    child: _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
-                        Icons.link_off, const Color(0xFFF59E0B))),
+                    child: _buildStatCard(
+                        _l10n.unlinkedUsers,
+                        '$unlinkedCount',
+                        Icons.link_off,
+                        const Color(0xFFF59E0B),
+                        filter: DeviceUsersOverviewFilter.unlinked)),
                 const SizedBox(width: 10),
                 SizedBox(
                     width: 120,
@@ -1319,7 +1479,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         _l10n.onlineDevices,
                         '$onlineDevices/${_devices.length}',
                         Icons.router,
-                        HrmPageChrome.primaryNavy)),
+                        HrmPageChrome.primaryNavy,
+                        filter: DeviceUsersOverviewFilter.onOnlineDevice)),
               ],
             ),
           ),
@@ -1332,25 +1493,37 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     _l10n.totalUsers,
                     '${_deviceUsers.length}',
                     Icons.people_outline,
-                    HrmPageChrome.primaryNavy)),
+                    HrmPageChrome.primaryNavy,
+                    filter: DeviceUsersOverviewFilter.all)),
             const SizedBox(width: 10),
             Expanded(
-                child: _buildStatCard(_l10n.linkedUsers, '$linkedCount',
-                    Icons.link, HrmPageChrome.primaryNavy)),
+                child: _buildStatCard(
+                    _l10n.linkedUsers,
+                    '$linkedCount',
+                    Icons.link,
+                    HrmPageChrome.primaryNavy,
+                    filter: DeviceUsersOverviewFilter.linked)),
             const SizedBox(width: 10),
             Expanded(
-                child: _buildStatCard(_l10n.unlinkedUsers, '$unlinkedCount',
-                    Icons.link_off, const Color(0xFFF59E0B))),
+                child: _buildStatCard(
+                    _l10n.unlinkedUsers,
+                    '$unlinkedCount',
+                    Icons.link_off,
+                    const Color(0xFFF59E0B),
+                    filter: DeviceUsersOverviewFilter.unlinked)),
             const SizedBox(width: 10),
             Expanded(
                 child: _buildStatCard(
                     _l10n.onlineDevices,
                     '$onlineDevices/${_devices.length}',
                     Icons.router,
-                    HrmPageChrome.primaryNavy)),
+                    HrmPageChrome.primaryNavy,
+                    filter: DeviceUsersOverviewFilter.onOnlineDevice)),
           ],
         ),
       ],
+      if (_buildActiveOverviewFilterBanner() != null)
+        _buildActiveOverviewFilterBanner()!,
       const SizedBox(height: 12),
       _buildFilters(),
       const SizedBox(height: 12),
@@ -1369,6 +1542,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       );
     }
     if (_filteredUsers.isEmpty) {
+      return _buildUsersListEmptyState();
+    }
+    return _buildUsersList();
+  }
+
+  Widget _buildUsersListEmptyState() {
+    if (_deviceUsers.isEmpty) {
       return EmptyState(
         icon: Icons.people,
         title: 'Chưa có user',
@@ -1377,7 +1557,28 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         onAction: _showAddUserDialog,
       );
     }
-    return _buildUsersList();
+    if (_searchQuery.isNotEmpty) {
+      return const EmptyState(
+        icon: Icons.search_off,
+        title: 'Không tìm thấy user',
+        description: 'Thử từ khóa khác hoặc bỏ lọc tổng quan',
+      );
+    }
+    if (_hasActiveOverviewFilter) {
+      final empty = _emptyStateForOverviewFilter();
+      return EmptyState(
+        icon: empty.icon,
+        title: empty.title,
+        description: empty.description,
+      );
+    }
+    return EmptyState(
+      icon: Icons.people,
+      title: 'Chưa có user',
+      description: 'Thêm user hoặc đồng bộ từ nhân viên',
+      actionLabel: _l10n.addUser,
+      onAction: _showAddUserDialog,
+    );
   }
 
   List<Widget> _buildUsersListMobileSlivers() {
@@ -1400,15 +1601,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     }
     if (_filteredUsers.isEmpty) {
       return [
-        HrmScrollSlivers.fillRemaining(
-          child: EmptyState(
-            icon: Icons.people,
-            title: 'Chưa có user',
-            description: 'Thêm user hoặc đồng bộ từ nhân viên',
-            actionLabel: _l10n.addUser,
-            onAction: _showAddUserDialog,
-          ),
-        ),
+        HrmScrollSlivers.fillRemaining(child: _buildUsersListEmptyState()),
       ];
     }
     return _mobileUserListSlivers(_filteredUsers);

@@ -61,6 +61,15 @@ class EmployeePickerItem {
   }
 }
 
+/// Cách hiển thị picker nhân viên.
+enum EmployeePickerPresentation {
+  /// Toàn màn hình (mặc định).
+  fullScreen,
+
+  /// Bottom sheet ~68% chiều cao — chạm vùng trống / kéo xuống để đóng.
+  bottomSheet,
+}
+
 /// Picker nhân viên có tìm kiếm — dùng thay Dropdown/Autocomplete `Tên (mã)`.
 class EmployeeSearchPicker {
   EmployeeSearchPicker._();
@@ -72,8 +81,20 @@ class EmployeeSearchPicker {
     String title = 'Chọn nhân viên',
     String? subtitle,
     bool allowClear = false,
+    EmployeePickerPresentation presentation =
+        EmployeePickerPresentation.fullScreen,
   }) async {
     if (items.isEmpty) return null;
+    if (presentation == EmployeePickerPresentation.bottomSheet) {
+      return showEmployeePickerBottomSheet(
+        context,
+        items: items,
+        selectedId: selectedId,
+        title: title,
+        subtitle: subtitle,
+        allowClear: allowClear,
+      );
+    }
     return showEmployeePickerSheet(
       context,
       items: items,
@@ -117,6 +138,8 @@ class EmployeeSearchPicker {
     String title = 'Chọn nhân viên',
     String? subtitle,
     bool allowClear = false,
+    EmployeePickerPresentation presentation =
+        EmployeePickerPresentation.fullScreen,
   }) async {
     final id = await pickId(
       context,
@@ -125,6 +148,7 @@ class EmployeeSearchPicker {
       title: title,
       subtitle: subtitle,
       allowClear: allowClear,
+      presentation: presentation,
     );
     if (id == null) return null;
     try {
@@ -151,7 +175,55 @@ class EmployeeSearchPicker {
         title: title,
         subtitle: subtitle,
         allowClear: allowClear,
+        embeddedInBottomSheet: false,
       ),
+    );
+  }
+
+  /// Bottom sheet vừa phải — chạm nền tối / kéo xuống để thoát.
+  static Future<String?> showEmployeePickerBottomSheet(
+    BuildContext context, {
+    required List<EmployeePickerItem> items,
+    String? selectedId,
+    String title = 'Chọn nhân viên',
+    String? subtitle,
+    bool allowClear = false,
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final maxH = MediaQuery.sizeOf(sheetContext).height * 0.68;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Material(
+              color: Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                height: maxH,
+                child: _EmployeePickerSheet(
+                  items: items,
+                  selectedId: selectedId,
+                  title: title,
+                  subtitle: subtitle,
+                  allowClear: allowClear,
+                  embeddedInBottomSheet: true,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -169,6 +241,7 @@ class EmployeePickerFormField extends StatelessWidget {
   final bool allowClear;
   final String pickerTitle;
   final String? pickerSubtitle;
+  final EmployeePickerPresentation presentation;
 
   const EmployeePickerFormField({
     super.key,
@@ -183,6 +256,7 @@ class EmployeePickerFormField extends StatelessWidget {
     this.allowClear = false,
     this.pickerTitle = 'Chọn nhân viên',
     this.pickerSubtitle,
+    this.presentation = EmployeePickerPresentation.fullScreen,
   });
 
   EmployeePickerItem? get _resolved {
@@ -209,6 +283,7 @@ class EmployeePickerFormField extends StatelessWidget {
                 title: pickerTitle,
                 subtitle: pickerSubtitle,
                 allowClear: allowClear,
+                presentation: presentation,
               );
               if (picked != null || allowClear) {
                 onChanged(picked);
@@ -269,6 +344,7 @@ class _EmployeePickerSheet extends StatefulWidget {
   final String title;
   final String? subtitle;
   final bool allowClear;
+  final bool embeddedInBottomSheet;
 
   const _EmployeePickerSheet({
     required this.items,
@@ -276,6 +352,7 @@ class _EmployeePickerSheet extends StatefulWidget {
     required this.title,
     this.subtitle,
     this.allowClear = false,
+    this.embeddedInBottomSheet = false,
   });
 
   @override
@@ -303,17 +380,62 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
     final q = _search.text.trim();
     final filtered = widget.items.where((e) => e.matchesQuery(q)).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: buildPickerCloseAppBar(
-        context,
-        title: widget.title,
-        subtitle: widget.subtitle,
-      ),
-      body: Column(
+    final body = Column(
         children: [
+          if (widget.embeddedInBottomSheet) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE4E4E7),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        if (widget.subtitle != null &&
+                            widget.subtitle!.isNotEmpty)
+                          Text(
+                            widget.subtitle!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Đóng',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: EdgeInsets.fromLTRB(
+                16, widget.embeddedInBottomSheet ? 4 : 8, 16, 0),
             child: TextField(
               controller: _search,
               autofocus: true,
@@ -463,7 +585,20 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             ),
           ),
         ],
+      );
+
+    if (widget.embeddedInBottomSheet) {
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: buildPickerCloseAppBar(
+        context,
+        title: widget.title,
+        subtitle: widget.subtitle,
       ),
+      body: body,
     );
   }
 }

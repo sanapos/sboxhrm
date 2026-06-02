@@ -11,6 +11,9 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/map_location_picker.dart';
 import '../widgets/camera_face_capture.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
+enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }
+
 class MobileAttendanceSettingsScreen extends StatefulWidget {
   const MobileAttendanceSettingsScreen({super.key});
 
@@ -32,13 +35,28 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   List<WorkLocation> _locations = [];
   String _locationSearchQuery = '';
   List<FaceRegistration> _faceRegistrations = [];
+  String _faceSearchQuery = '';
   List<AuthorizedDevice> _authorizedDevices = [];
+  String _deviceSearchQuery = '';
+  _DeviceOutsideCheckInFilter _deviceOutsideFilter = _DeviceOutsideCheckInFilter.all;
   List<Map<String, dynamic>> _deviceChangeRequests = [];
+  final _faceSearchController = TextEditingController();
+  final _deviceSearchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    ScreenRefreshNotifier.mobileAttendanceSettings.addListener(_onExternalRefresh);
     _loadData();
+  }
+
+  void _onExternalRefresh() {
+    if (!mounted) return;
+    _loadData();
+    if (_tabController.index != 2) {
+      _tabController.animateTo(2);
+    }
   }
 
   List<WorkLocation> get _filteredLocations {
@@ -50,9 +68,164 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     ).toList();
   }
 
+  List<FaceRegistration> get _filteredFaceRegistrations {
+    if (_faceSearchQuery.isEmpty) return _faceRegistrations;
+    final q = _faceSearchQuery.toLowerCase().trim();
+    return _faceRegistrations.where((f) =>
+      f.employeeName.toLowerCase().contains(q) ||
+      (f.employeeCode ?? '').toLowerCase().contains(q) ||
+      (f.department ?? '').toLowerCase().contains(q) ||
+      f.odooEmployeeId.toLowerCase().contains(q)
+    ).toList();
+  }
+
+  List<AuthorizedDevice> get _searchMatchedDevices {
+    if (_deviceSearchQuery.isEmpty) return _authorizedDevices;
+    return _authorizedDevices.where(_deviceMatchesSearch).toList();
+  }
+
+  List<AuthorizedDevice> get _filteredAuthorizedDevices {
+    var list = _searchMatchedDevices;
+    switch (_deviceOutsideFilter) {
+      case _DeviceOutsideCheckInFilter.outsideOn:
+        return list.where((d) => d.allowOutsideCheckIn).toList();
+      case _DeviceOutsideCheckInFilter.outsideOff:
+        return list.where((d) => !d.allowOutsideCheckIn).toList();
+      case _DeviceOutsideCheckInFilter.all:
+        return list;
+    }
+  }
+
+  int get _deviceCountOutsideOn =>
+      _searchMatchedDevices.where((d) => d.allowOutsideCheckIn).length;
+
+  int get _deviceCountOutsideOff =>
+      _searchMatchedDevices.where((d) => !d.allowOutsideCheckIn).length;
+
+  bool get _hasActiveDeviceOutsideFilter =>
+      _deviceOutsideFilter != _DeviceOutsideCheckInFilter.all;
+
+  String get _deviceOutsideFilterLabel {
+    switch (_deviceOutsideFilter) {
+      case _DeviceOutsideCheckInFilter.outsideOn:
+        return 'Chấm ngoài CT: Bật';
+      case _DeviceOutsideCheckInFilter.outsideOff:
+        return 'Chấm ngoài CT: Tắt';
+      case _DeviceOutsideCheckInFilter.all:
+        return 'Tất cả';
+    }
+  }
+
+  void _setDeviceOutsideFilter(_DeviceOutsideCheckInFilter filter) {
+    setState(() {
+      if (_deviceOutsideFilter == filter &&
+          filter != _DeviceOutsideCheckInFilter.all) {
+        _deviceOutsideFilter = _DeviceOutsideCheckInFilter.all;
+      } else {
+        _deviceOutsideFilter = filter;
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> get _filteredDeviceChangeRequests {
+    if (_deviceSearchQuery.isEmpty) return _deviceChangeRequests;
+    final q = _deviceSearchQuery.toLowerCase().trim();
+    return _deviceChangeRequests.where((req) {
+      final employeeName = (req['employeeName'] ?? '').toString().toLowerCase();
+      final oldName = (req['oldDeviceName'] ?? '').toString().toLowerCase();
+      final newName = (req['newDeviceName'] ?? '').toString().toLowerCase();
+      return employeeName.contains(q) || oldName.contains(q) || newName.contains(q);
+    }).toList();
+  }
+
+  bool _deviceMatchesSearch(AuthorizedDevice device) {
+    final q = _deviceSearchQuery.toLowerCase().trim();
+    return (device.employeeName ?? '').toLowerCase().contains(q) ||
+        (device.employeeId ?? '').toLowerCase().contains(q) ||
+        device.deviceName.toLowerCase().contains(q) ||
+        device.deviceModel.toLowerCase().contains(q) ||
+        device.deviceId.toLowerCase().contains(q);
+  }
+
+  String _deviceEmployeeLabel(AuthorizedDevice device) {
+    final name = device.employeeName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return 'Chưa gán nhân viên';
+  }
+
+  static const _deviceFaceStepLabels = ['Thẳng', 'Trái', 'Phải', 'Trên', 'Dưới'];
+
+  Widget _buildStoredFaceImagesGrid({
+    required List<String> imagePaths,
+    required String previewName,
+    required bool isMobile,
+  }) {
+    if (imagePaths.isEmpty) return const SizedBox.shrink();
+    final cols = isMobile ? 2 : 3;
+    const spacing = 8.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - spacing * (cols - 1)) / cols;
+        const itemHeight = 118.0;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: List.generate(imagePaths.length, (index) {
+            final fullUrl = _apiService.getFileUrl(imagePaths[index]);
+            final label = index < _deviceFaceStepLabels.length
+                ? _deviceFaceStepLabels[index]
+                : 'Ảnh ${index + 1}';
+            return SizedBox(
+              width: itemWidth,
+              height: itemHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showFullScreenImage(fullUrl, previewName),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: fullUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          placeholder: (_, __) => Container(
+                            color: const Color(0xFFF4F4F5),
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            color: const Color(0xFFF4F4F5),
+                            child: const Icon(Icons.broken_image, color: Color(0xFF71717A)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
+    ScreenRefreshNotifier.mobileAttendanceSettings.removeListener(_onExternalRefresh);
     _tabController.dispose();
+    _faceSearchController.dispose();
+    _deviceSearchController.dispose();
     super.dispose();
   }
 
@@ -62,7 +235,6 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       final results = await Future.wait([
         _apiService.getMobileAttendanceSettings(),
         _apiService.getWorkLocations(),
-        _apiService.getFaceRegistrations(),
         _apiService.getAuthorizedDevices(),
         _apiService.getDeviceChangeRequests(status: 0),
       ]);
@@ -85,25 +257,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         }
       }
 
-      // Face registrations
+      // Authorized devices
       if (results[2]['isSuccess'] == true && results[2]['data'] != null) {
         final data = results[2]['data'];
-        if (data is List) {
-          _faceRegistrations = data.map((e) => FaceRegistration.fromJson(e as Map<String, dynamic>)).toList();
-        }
-      }
-
-      // Authorized devices
-      if (results[3]['isSuccess'] == true && results[3]['data'] != null) {
-        final data = results[3]['data'];
         if (data is List) {
           _authorizedDevices = data.map((e) => AuthorizedDevice.fromJson(e as Map<String, dynamic>)).toList();
         }
       }
 
       // Device change requests
-      if (results[4]['isSuccess'] == true && results[4]['data'] != null) {
-        final data = results[4]['data'];
+      if (results[3]['isSuccess'] == true && results[3]['data'] != null) {
+        final data = results[3]['data'];
         if (data is List) {
           _deviceChangeRequests = data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }
@@ -150,7 +314,6 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           tabs: const [
             Tab(icon: Icon(Icons.settings), text: 'Cài đặt'),
             Tab(icon: Icon(Icons.location_on), text: 'Vị trí'),
-            Tab(icon: Icon(Icons.face), text: 'Khuôn mặt'),
             Tab(icon: Icon(Icons.phone_android), text: 'Thiết bị'),
           ],
         ),
@@ -162,7 +325,6 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               children: [
                 _buildSettingsTab(),
                 _buildLocationsTab(),
-                _buildFaceRegistrationTab(),
                 _buildDevicesTab(),
               ],
             ),
@@ -1190,12 +1352,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE4E4E7)),
                   ),
-                  child: const TextField(
+                  child: TextField(
+                    controller: _faceSearchController,
                     decoration: InputDecoration(
                       hintText: 'Tìm kiếm nhân viên...',
                       border: InputBorder.none,
-                      icon: Icon(Icons.search, color: Color(0xFF71717A)),
+                      icon: const Icon(Icons.search, color: Color(0xFF71717A)),
+                      suffixIcon: _faceSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
+                              onPressed: () {
+                                _faceSearchController.clear();
+                                setState(() => _faceSearchQuery = '');
+                              },
+                            )
+                          : null,
                     ),
+                    onChanged: (value) => setState(() => _faceSearchQuery = value),
                   ),
                 ),
               ),
@@ -1254,28 +1427,34 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   title: 'Chưa có đăng ký khuôn mặt',
                   subtitle: 'Đăng ký khuôn mặt cho nhân viên để sử dụng Face ID',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: _faceRegistrations.length,
-                  itemBuilder: (_, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+              : _filteredFaceRegistrations.isEmpty
+                  ? _buildEmptyState(
+                      icon: Icons.search_off,
+                      title: 'Không tìm thấy nhân viên',
+                      subtitle: 'Thử từ khóa khác hoặc xóa bộ lọc',
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: _filteredFaceRegistrations.length,
+                      itemBuilder: (_, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE4E4E7)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: _buildFaceDeckItem(_filteredFaceRegistrations[index]),
+                        ),
                       ),
-                      child: _buildFaceDeckItem(_faceRegistrations[index]),
                     ),
-                  ),
-                ),
         ),
       ],
     );
@@ -1715,12 +1894,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE4E4E7)),
                   ),
-                  child: const TextField(
+                  child: TextField(
+                    controller: _deviceSearchController,
                     decoration: InputDecoration(
-                      hintText: 'Tìm kiếm thiết bị...',
+                      hintText: 'Tìm kiếm theo nhân viên, tên máy...',
                       border: InputBorder.none,
-                      icon: Icon(Icons.search, color: Color(0xFF71717A)),
+                      icon: const Icon(Icons.search, color: Color(0xFF71717A)),
+                      suffixIcon: _deviceSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
+                              onPressed: () {
+                                _deviceSearchController.clear();
+                                setState(() => _deviceSearchQuery = '');
+                              },
+                            )
+                          : null,
                     ),
+                    onChanged: (value) => setState(() => _deviceSearchQuery = value),
                   ),
                 ),
               ),
@@ -1737,6 +1927,39 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildDeviceOutsideFilterChip(
+                  label: 'Tất cả',
+                  count: _searchMatchedDevices.length,
+                  filter: _DeviceOutsideCheckInFilter.all,
+                  color: HrmPageChrome.primaryNavy,
+                  icon: Icons.devices,
+                ),
+                const SizedBox(width: 8),
+                _buildDeviceOutsideFilterChip(
+                  label: 'Ngoài CT',
+                  count: _deviceCountOutsideOn,
+                  filter: _DeviceOutsideCheckInFilter.outsideOn,
+                  color: const Color(0xFF2563EB),
+                  icon: Icons.location_off_outlined,
+                ),
+                const SizedBox(width: 8),
+                _buildDeviceOutsideFilterChip(
+                  label: 'Trong CT',
+                  count: _deviceCountOutsideOff,
+                  filter: _DeviceOutsideCheckInFilter.outsideOff,
+                  color: const Color(0xFF71717A),
+                  icon: Icons.business,
+                ),
+              ],
+            ),
+          ),
+        ),
         Expanded(
           child: _authorizedDevices.isEmpty && _deviceChangeRequests.isEmpty
               ? _buildEmptyState(
@@ -1744,11 +1967,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   title: 'Chưa có thiết bị được cấp quyền',
                   subtitle: 'Cấp quyền cho điện thoại của nhân viên để chấm công',
                 )
-              : ListView(
+              : _filteredAuthorizedDevices.isEmpty && _filteredDeviceChangeRequests.isEmpty
+                  ? _buildEmptyState(
+                      icon: Icons.search_off,
+                      title: _hasActiveDeviceOutsideFilter || _deviceSearchQuery.isNotEmpty
+                          ? 'Không tìm thấy thiết bị'
+                          : 'Không tìm thấy thiết bị / nhân viên',
+                      subtitle: _hasActiveDeviceOutsideFilter || _deviceSearchQuery.isNotEmpty
+                          ? 'Thử bộ lọc hoặc từ khóa khác'
+                          : 'Thử từ khóa khác hoặc xóa bộ lọc',
+                    )
+                  : ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   children: [
+                    if (_buildActiveDeviceOutsideFilterBanner() != null)
+                      _buildActiveDeviceOutsideFilterBanner()!,
                     // Device change requests section
-                    if (_deviceChangeRequests.isNotEmpty) ...[
+                    if (_filteredDeviceChangeRequests.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8, top: 4),
                         child: Row(
@@ -1756,7 +1991,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
                             const SizedBox(width: 6),
                             Text(
-                              'Yêu cầu đổi máy (${_deviceChangeRequests.length})',
+                              'Yêu cầu đổi máy (${_filteredDeviceChangeRequests.length})',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -1766,7 +2001,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           ],
                         ),
                       ),
-                      ..._deviceChangeRequests.map((req) => Padding(
+                      ..._filteredDeviceChangeRequests.map((req) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Container(
                           decoration: BoxDecoration(
@@ -1787,7 +2022,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       const Divider(height: 24),
                     ],
                     // Regular devices
-                    ..._authorizedDevices.map((device) => Padding(
+                    ..._filteredAuthorizedDevices.map((device) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Container(
                         decoration: BoxDecoration(
@@ -1812,12 +2047,105 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     );
   }
 
+  Widget _buildDeviceOutsideFilterChip({
+    required String label,
+    required int count,
+    required _DeviceOutsideCheckInFilter filter,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isSelected = _deviceOutsideFilter == filter;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _setDeviceOutsideFilter(filter),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color : const Color(0xFFE4E4E7),
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? color : const Color(0xFF71717A)),
+              const SizedBox(width: 6),
+              Text(
+                '$label ($count)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? color : const Color(0xFF52525B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildActiveDeviceOutsideFilterBanner() {
+    if (!_hasActiveDeviceOutsideFilter) return null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: const Color(0xFF2563EB).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () => _setDeviceOutsideFilter(_DeviceOutsideCheckInFilter.all),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.filter_alt, size: 16, color: Color(0xFF2563EB)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Đang lọc: $_deviceOutsideFilterLabel · ${_filteredAuthorizedDevices.length} thiết bị',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Bỏ lọc',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDeviceDeckItem(AuthorizedDevice device) {
     final features = <String>[];
     if (device.canUseFaceId) features.add('Face ID');
     if (device.canUseGps) features.add('GPS');
     if (device.allowOutsideCheckIn) features.add('Ngoài CT');
     final isPending = !device.isAuthorized;
+    final employeeLabel = _deviceEmployeeLabel(device);
+    final subtitleParts = <String>[device.deviceName, device.deviceModel];
+    if (features.isNotEmpty) subtitleParts.add(features.join(' · '));
+    if (device.faceImages.isNotEmpty) {
+      subtitleParts.add('${device.faceImages.length} ảnh mặt trên máy');
+    } else if (device.canUseFaceId) {
+      subtitleParts.add('Chưa có ảnh mặt trên máy');
+    }
     return InkWell(
       onTap: () => _showDeviceDetailsDialog(device),
       child: Padding(
@@ -1845,7 +2173,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   Row(
                     children: [
                       Expanded(
-                        child: Text(device.deviceName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          employeeLabel,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: device.employeeName != null && device.employeeName!.isNotEmpty
+                                ? const Color(0xFF18181B)
+                                : const Color(0xFF71717A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       if (isPending)
                         Container(
@@ -1860,8 +2198,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${device.employeeName ?? 'Chưa gán'}${features.isNotEmpty ? ' · ${features.join(' · ')}' : ''}'
-                    '${device.faceImages.isNotEmpty ? ' · ${device.faceImages.length} ảnh mặt' : ''}',
+                    subtitleParts.join(' · '),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3013,8 +3350,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(device.deviceName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(device.deviceModel, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                Text(_deviceEmployeeLabel(device), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  '${device.deviceName} · ${device.deviceModel}',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
             actions: [
@@ -3035,10 +3376,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildDetailRow('Nhân viên', _deviceEmployeeLabel(device)),
+                if (device.employeeId != null && device.employeeId!.isNotEmpty)
+                  _buildDetailRow('Mã nhân viên', device.employeeId!),
+                _buildDetailRow('Tên thiết bị', device.deviceName),
                 _buildDetailRow('Model', device.deviceModel),
                 _buildDetailRow('Hệ điều hành', device.osVersion ?? 'N/A'),
                 _buildDetailRow('Mã thiết bị', device.deviceId),
-                _buildDetailRow('Nhân viên', device.employeeName ?? 'Chưa gán'),
                 _buildDetailRow('Face ID', device.canUseFaceId ? 'Cho phép' : 'Không'),
                 _buildDetailRow('GPS', device.canUseGps ? 'Cho phép' : 'Không'),
                 _buildDetailRow('Chấm công ngoài CT', device.allowOutsideCheckIn ? 'Cho phép' : 'Không'),
@@ -3047,52 +3391,51 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 if (device.authorizedAt != null)
                   _buildDetailRow('Ngày đăng ký', '${device.authorizedAt!.day}/${device.authorizedAt!.month}/${device.authorizedAt!.year}'),
 
-                // Face images section
+                const SizedBox(height: 16),
+                Text(
+                  device.faceImages.isNotEmpty
+                      ? 'Khuôn mặt của ${_deviceEmployeeLabel(device)} trên thiết bị'
+                      : 'Khuôn mặt trên thiết bị',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  device.faceImages.isNotEmpty
+                      ? '${device.faceImages.length} ảnh đồng bộ từ đăng ký khuôn mặt của nhân viên'
+                      : (device.employeeId != null && device.employeeId!.isNotEmpty
+                          ? 'Nhân viên chưa có ảnh khuôn mặt — đăng ký khi cấp thiết bị hoặc quét trên máy nhân viên'
+                          : 'Gán nhân viên cho thiết bị để xem ảnh khuôn mặt'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                ),
                 if (device.faceImages.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text('Khuôn mặt đã đăng ký', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B))),
                   const SizedBox(height: 8),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isMobile ? 3 : 4,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                  _buildStoredFaceImagesGrid(
+                    imagePaths: device.faceImages,
+                    previewName: _deviceEmployeeLabel(device),
+                    isMobile: isMobile,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE4E4E7)),
                     ),
-                    itemCount: device.faceImages.length,
-                    itemBuilder: (_, index) {
-                      final imageUrl = device.faceImages[index];
-                      final fullUrl = _apiService.getFileUrl(imageUrl);
-                      return GestureDetector(
-                        onTap: () => _showFullScreenImage(fullUrl, device.employeeName ?? device.deviceName),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: CachedNetworkImage(
-                            imageUrl: fullUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              color: const Color(0xFFF4F4F5),
-                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                            ),
-                            errorWidget: (_, url, error) => Container(
-                              color: const Color(0xFFF4F4F5),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.broken_image, color: Color(0xFF71717A), size: 20),
-                                  const SizedBox(height: 2),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                                    child: Text(url, style: const TextStyle(fontSize: 7, color: Color(0xFF71717A)), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                  ),
-                                ],
-                              ),
-                            ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.face_retouching_off, color: Color(0xFF71717A)),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Chưa có ảnh khuôn mặt gắn với thiết bị này',
+                            style: TextStyle(fontSize: 13, color: Color(0xFF71717A)),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ],
               ],

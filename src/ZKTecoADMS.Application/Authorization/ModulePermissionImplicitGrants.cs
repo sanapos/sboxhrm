@@ -157,6 +157,20 @@ public static class ModulePermissionImplicitGrants
             }
         }
 
+        // Employee self-service: đăng ký thiết bị mobile → được chấm công (punch, lịch sử, vị trí).
+        if (module.Equals("MobileAttendance", StringComparison.Ordinal))
+        {
+            if (HasAction(map, "MobileDeviceRegistration", ModulePermissionAction.View))
+            {
+                if (action is ModulePermissionAction.View or ModulePermissionAction.Create)
+                    return true;
+            }
+
+            if (action is ModulePermissionAction.View or ModulePermissionAction.Approve &&
+                HasAction(map, "MobileAttendanceApproval", action))
+                return true;
+        }
+
         return false;
     }
 

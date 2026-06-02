@@ -63,4 +63,9 @@ class PermissionModules {
     'AssetReport',
     'Report',
   ];
+
+  /// Nhân viên: quyền xem Đăng ký chấm công Mobile → dùng được Chấm công Mobile.
+  static const mobileAttendanceFromDeviceRegistration = 'MobileDeviceRegistration';
+
+  static const mobileAttendanceFromApproval = 'MobileAttendanceApproval';
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,6 +89,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   static const double _yawThreshold = 20.0;     // Min yaw for left/right
   static const double _pitchThreshold = 15.0;    // Min pitch for up/down
   static const double _frontMaxAngle = 12.0;     // Max angle for "straight"
+  static const double _minFaceAreaRatio = 0.06;  // Min face area vs image
+  static const double _minSharpnessScore = 90.0; // Laplacian variance threshold
 
   @override
   void initState() {
@@ -365,7 +369,6 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       await _cameraController?.stopImageStream();
     } catch (_) {}
 
-    String base64Image = '';
     XFile? xFile;
     try {
       if (_cameraController != null && _cameraController!.value.isInitialized) {
@@ -375,24 +378,47 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       debugPrint('📸 Capture error: $e');
     }
 
-    // Restart image stream IMMEDIATELY after capture (before processing file)
-    // This minimizes the camera preview freeze on iOS
-    if (_currentStep < _steps.length - 1) {
+    String? rejectReason;
+    String base64Image = '';
+    if (xFile != null) {
+      try {
+        rejectReason = await _validateCapturedPhoto(xFile.path);
+        if (rejectReason == null) {
+          final bytes = await File(xFile.path).readAsBytes();
+          base64Image = base64Encode(bytes);
+        }
+      } catch (e) {
+        debugPrint('📸 Validate error: $e');
+        rejectReason = 'Không thể xử lý ảnh, vui lòng chụp lại';
+      } finally {
+        try {
+          await File(xFile.path).delete();
+        } catch (_) {}
+      }
+    } else {
+      rejectReason = 'Không chụp được ảnh, vui lòng thử lại';
+    }
+
+    // Restart image stream after validation
+    if (!_allDone && mounted) {
       try {
         await _cameraController?.startImageStream(_onCameraFrame);
       } catch (_) {}
     }
 
-    // Process captured file in parallel with stream restart
-    if (xFile != null) {
-      try {
-        final bytes = await File(xFile.path).readAsBytes();
-        base64Image = base64Encode(bytes);
-        try { await File(xFile.path).delete(); } catch (_) {}
-      } catch (_) {}
+    if (!mounted) return;
+
+    if (rejectReason != null || base64Image.isEmpty) {
+      setState(() {
+        _isCapturing = true;
+        _stepProgress = 0.0;
+        _faceStatus = _FaceStatus.noFace;
+        _faceHint = rejectReason ?? 'Ảnh không hợp lệ, vui lòng chụp lại';
+      });
+      _startStep();
+      return;
     }
 
-    if (!mounted) return;
     _capturedImages.add(base64Image);
     setState(() => _isCapturing = false);
     _segmentController.forward(from: 0);
@@ -405,6 +431,85 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       _startStep();
     } else {
       _onAllDone();
+    }
+  }
+
+  /// Reject blurry frames or photos without a clear single face.
+  Future<String?> _validateCapturedPhoto(String filePath) async {
+    if (_faceStatus != _FaceStatus.aligned) {
+      return 'Giữ đúng tư thế và ổn định trước khi chụp';
+    }
+
+    final inputImage = InputImage.fromFilePath(filePath);
+    final faces = await _faceDetector.processImage(inputImage);
+    if (faces.isEmpty) {
+      return 'Không nhận diện được khuôn mặt — đưa mặt vào khung tròn';
+    }
+    if (faces.length > 1) {
+      return 'Chỉ được có một khuôn mặt trong ảnh';
+    }
+
+    final face = faces.first;
+    final meta = inputImage.metadata;
+    if (meta != null) {
+      final imgArea = meta.size.width * meta.size.height;
+      if (imgArea > 0) {
+        final box = face.boundingBox;
+        final faceRatio = (box.width * box.height) / imgArea;
+        if (faceRatio < _minFaceAreaRatio) {
+          return 'Khuôn mặt quá nhỏ — đưa camera gần hơn';
+        }
+      }
+    }
+
+    final bytes = await File(filePath).readAsBytes();
+    final sharpness = await _estimateSharpness(bytes);
+    if (sharpness < _minSharpnessScore) {
+      return 'Ảnh bị mờ — giữ máy ổn định, đủ sáng và thử lại';
+    }
+
+    return null;
+  }
+
+  Future<double> _estimateSharpness(Uint8List jpegBytes) async {
+    ui.Image? image;
+    try {
+      final codec = await ui.instantiateImageCodec(jpegBytes, targetWidth: 240);
+      final frame = await codec.getNextFrame();
+      image = frame.image;
+      final w = image.width;
+      final h = image.height;
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null || w < 3 || h < 3) return 0;
+
+      double sum = 0;
+      int count = 0;
+      double grayAt(int x, int y) {
+        final i = (y * w + x) * 4;
+        return 0.299 * data.getUint8(i) +
+            0.587 * data.getUint8(i + 1) +
+            0.114 * data.getUint8(i + 2);
+      }
+
+      for (int y = 1; y < h - 1; y += 2) {
+        for (int x = 1; x < w - 1; x += 2) {
+          final c = grayAt(x, y);
+          final lap = (4 * c -
+                  grayAt(x - 1, y) -
+                  grayAt(x + 1, y) -
+                  grayAt(x, y - 1) -
+                  grayAt(x, y + 1))
+              .abs();
+          sum += lap * lap;
+          count++;
+        }
+      }
+      return count > 0 ? sum / count : 0;
+    } catch (e) {
+      debugPrint('📸 Sharpness error: $e');
+      return 0;
+    } finally {
+      image?.dispose();
     }
   }
 
