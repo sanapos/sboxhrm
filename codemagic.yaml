@@ -123,15 +123,19 @@ workflows:
           cd ios
           pod install --repo-update
 
+      - name: Resolve app version from pubspec
+        script: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
+          export APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
+          echo "Marketing version (CFBundleShortVersionString): $APP_VERSION_NAME"
+
       - name: Build IPA
         script: |
-          # Remove shorebird if installed to prevent it from intercepting flutter commands
           rm -f ~/.shorebird/bin/shorebird 2>/dev/null || true
           export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v shorebird | tr '\n' ':')
-          
           flutter build ipa --release \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --build-name=1.0.0 \
+            --build-name="$APP_VERSION_NAME" \
             --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
             --export-options-plist=/Users/builder/export_options.plist
 
@@ -233,9 +237,11 @@ workflows:
 
       - name: Build release APK
         script: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
+          APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
           flutter build apk --release \
             --dart-define=API_BASE_URL=https://sbox.sana.vn \
-            --build-name=1.0.0 \
+            --build-name="$APP_VERSION_NAME" \
             --build-number=$PROJECT_BUILD_NUMBER
 
       # Uncomment the block below once you add android_keystore env group in Codemagic UI

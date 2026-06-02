@@ -74,12 +74,18 @@ workflows:
         script: |
           cd ios && pod install --repo-update
 
+      - name: Resolve app version from pubspec
+        script: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
+          export APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
+          echo "Marketing version: $APP_VERSION_NAME"
+
       - name: Build IPA
         script: |
           rm -rf "$HOME/.shorebird" 2>/dev/null || true
           flutter build ipa --release \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --build-name=1.0.0 \
+            --build-name="$APP_VERSION_NAME" \
             --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
             --export-options-plist=/Users/builder/export_options.plist
 
