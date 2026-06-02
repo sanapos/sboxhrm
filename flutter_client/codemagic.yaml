@@ -1,90 +1,128 @@
+# Dùng khi Codemagic "Project path" = flutter_client (không phải gốc repo).
+# Nếu Project path = . (gốc repo) → dùng /codemagic.yaml ở thư mục gốc.
+
 workflows:
   ios-release:
     name: iOS Release
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
-    
+
+    integrations:
+      app_store_connect: codemagic
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials  # Configure in Codemagic UI
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: vn.sana.sbox
-    
-    scripts:
-      - name: Set up local.properties
-        script: echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
-        
-      - name: Get Flutter packages
-        script: flutter packages pub get
+      vars:
+        APP_STORE_APP_ID: "6762365741"
+        BUNDLE_ID: "vn.sana.sbox"
+        API_BASE_URL: "https://sbox.sana.vn"
 
-      - name: Convert ArcFace ONNX to CoreML
+    scripts:
+      - name: Disable Shorebird (plain Flutter IPA only)
         script: |
-          python3 -m pip install --quiet --upgrade coremltools onnx
-          python3 ios/scripts/convert_facenet_to_coreml.py
-          ls -lh ios/Runner/FaceNet.mlpackage || true
+          unset SHOREBIRD_TOKEN || true
+          rm -rf "$HOME/.shorebird" 2>/dev/null || true
+
+      - name: Fetch signing files and set up code signing
+        script: |
+          set -e
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          for cert_type in IOS_DISTRIBUTION DISTRIBUTION; do
+            app-store-connect certificates list --type "$cert_type" --json 2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              for cert in json.load(sys.stdin):
+                  print(cert.get('id', ''))
+          except: pass
+          " | while read cert_id; do
+              [ -n "$cert_id" ] && app-store-connect certificates delete "$cert_id" || true
+            done
+          done
+          app-store-connect profiles list --bundle-id-identifier "$BUNDLE_ID" --profile-type IOS_APP_STORE --json 2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              for p in json.load(sys.stdin):
+                  print(p.get('id', ''))
+          except: pass
+          " | while read profile_id; do
+              [ -n "$profile_id" ] && app-store-connect profiles delete "$profile_id" || true
+            done
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --platform IOS --create --certificate-key=@file:/tmp/cert_key.pem
+          keychain initialize
+          app-store-connect certificates list --type IOS_DISTRIBUTION --certificate-key=@file:/tmp/cert_key.pem --save
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Convert ArcFace ONNX to CoreML (face on iOS)
+        script: |
+          if [ -f assets/w600k_mbf.onnx ]; then
+            python3 -m pip install --quiet --upgrade coremltools onnx
+            python3 ios/scripts/convert_facenet_to_coreml.py
+          fi
 
       - name: Install CocoaPods dependencies
         script: |
-          cd ios
-          pod install --repo-update
-          
-      - name: Flutter build iOS
+          cd ios && pod install --repo-update
+
+      - name: Build IPA
         script: |
+          rm -rf "$HOME/.shorebird" 2>/dev/null || true
           flutter build ipa --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
             --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - flutter_drive.log
 
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: true
+        submit_to_app_store: false
 
   ios-debug:
     name: iOS Debug (Ad Hoc)
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
-    
+    integrations:
+      app_store_connect: codemagic
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: vn.sana.sbox
-    
+      vars:
+        BUNDLE_ID: "vn.sana.sbox"
+        API_BASE_URL: "https://sbox.sana.vn"
     scripts:
+      - name: Disable Shorebird
+        script: unset SHOREBIRD_TOKEN || true; rm -rf "$HOME/.shorebird" 2>/dev/null || true
+      - name: Code signing
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_AD_HOC --platform IOS --create
+          keychain initialize
+          app-store-connect certificates list --type IOS_DISTRIBUTION --save
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Get Flutter packages
-        script: flutter packages pub get
-
-      - name: Convert ArcFace ONNX to CoreML
-        script: |
-          python3 -m pip install --quiet --upgrade coremltools onnx
-          python3 ios/scripts/convert_facenet_to_coreml.py
-          ls -lh ios/Runner/FaceNet.mlpackage || true
-
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios
-          pod install --repo-update
-          
-      - name: Flutter build iOS
+        script: flutter pub get
+      - name: Pod install
+        script: cd ios && pod install --repo-update
+      - name: Build IPA
         script: |
           flutter build ipa --debug \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
             --export-options-plist=/Users/builder/export_options.plist
-
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
