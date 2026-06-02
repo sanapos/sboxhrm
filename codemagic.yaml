@@ -20,6 +20,7 @@ workflows:
       vars:
         APP_STORE_APP_ID: "6762365741"
         BUNDLE_ID: "vn.sana.sbox"
+        API_BASE_URL: "https://sbox.sana.vn"
 
     scripts:
       - name: Fetch signing files and set up code signing
@@ -97,6 +98,16 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
+      - name: Convert ArcFace ONNX to CoreML (face on iOS)
+        script: |
+          if [ -f assets/w600k_mbf.onnx ]; then
+            python3 -m pip install --quiet --upgrade coremltools onnx
+            python3 ios/scripts/convert_facenet_to_coreml.py
+            ls -lh ios/Runner/FaceNet.mlpackage || true
+          else
+            echo "Skip CoreML convert: assets/w600k_mbf.onnx not in repo (use committed FaceNet.mlpackage)."
+          fi
+
       - name: Install CocoaPods dependencies
         script: |
           cd ios
@@ -109,6 +120,7 @@ workflows:
           export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v shorebird | tr '\n' ':')
           
           flutter build ipa --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1)) \
             --export-options-plist=/Users/builder/export_options.plist
@@ -121,7 +133,7 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: true
+        submit_to_app_store: false
 
   ios-debug:
     name: iOS Debug (Ad Hoc)
@@ -161,6 +173,13 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
+      - name: Convert ArcFace ONNX to CoreML (face on iOS)
+        script: |
+          if [ -f assets/w600k_mbf.onnx ]; then
+            python3 -m pip install --quiet --upgrade coremltools onnx
+            python3 ios/scripts/convert_facenet_to_coreml.py
+          fi
+
       - name: Install CocoaPods dependencies
         script: |
           cd ios
@@ -169,6 +188,7 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --debug \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
             --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
@@ -199,6 +219,7 @@ workflows:
       - name: Build release APK
         script: |
           flutter build apk --release \
+            --dart-define=API_BASE_URL=https://sbox.sana.vn \
             --build-name=1.0.0 \
             --build-number=$PROJECT_BUILD_NUMBER
 
