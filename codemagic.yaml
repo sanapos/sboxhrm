@@ -1,3 +1,6 @@
+# Codemagic: chọn workflow "iOS Release" hoặc "iOS Debug" — KHÔNG dùng "Default Workflow" + Shorebird.
+# Nếu bật Shorebird trên UI: xóa biến SHOREBIRD_TOKEN (đang sai định dạng) hoặc tắt Shorebird trong Workflow Editor.
+
 workflows:
   ios-release:
     name: iOS Release
@@ -23,6 +26,13 @@ workflows:
         API_BASE_URL: "https://sbox.sana.vn"
 
     scripts:
+      - name: Disable Shorebird (plain Flutter IPA only)
+        script: |
+          unset SHOREBIRD_TOKEN || true
+          rm -rf "$HOME/.shorebird" 2>/dev/null || true
+          hash -r 2>/dev/null || true
+          echo "Shorebird disabled — using flutter build ipa"
+
       - name: Fetch signing files and set up code signing
         script: |
           set -e
@@ -157,6 +167,11 @@ workflows:
         BUNDLE_ID: "vn.sana.sbox"
 
     scripts:
+      - name: Disable Shorebird (plain Flutter IPA only)
+        script: |
+          unset SHOREBIRD_TOKEN || true
+          rm -rf "$HOME/.shorebird" 2>/dev/null || true
+
       - name: Fetch signing files and set up code signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
