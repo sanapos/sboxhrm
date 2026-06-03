@@ -30,10 +30,42 @@ public partial class TasksController(
     private async Task<Guid?> ResolveUserIdFromEmployeeId(Guid employeeId)
     {
         var emp = await _dbContext.Employees
+            .AsNoTracking()
             .Where(e => e.Id == employeeId)
-            .Select(e => e.ApplicationUserId)
+            .Select(e => new
+            {
+                e.ApplicationUserId,
+                e.CompanyEmail,
+                e.PersonalEmail,
+                e.EmployeeCode
+            })
             .FirstOrDefaultAsync();
-        return emp;
+        if (emp == null) return null;
+        if (emp.ApplicationUserId.HasValue && emp.ApplicationUserId.Value != Guid.Empty)
+            return emp.ApplicationUserId;
+
+        foreach (var email in new[] { emp.CompanyEmail, emp.PersonalEmail })
+        {
+            if (string.IsNullOrWhiteSpace(email)) continue;
+            var normalized = email.Trim().ToLower();
+            var byEmail = await _dbContext.Users
+                .Where(u => u.Email != null && u.Email.ToLower() == normalized)
+                .Select(u => (Guid?)u.Id)
+                .FirstOrDefaultAsync();
+            if (byEmail.HasValue) return byEmail;
+        }
+
+        if (!string.IsNullOrWhiteSpace(emp.EmployeeCode))
+        {
+            var code = emp.EmployeeCode.Trim();
+            var byCode = await _dbContext.Users
+                .Where(u => u.UserName == code || u.NormalizedUserName == code.ToUpper())
+                .Select(u => (Guid?)u.Id)
+                .FirstOrDefaultAsync();
+            if (byCode.HasValue) return byCode;
+        }
+
+        return null;
     }
 
     #region Task CRUD
@@ -759,10 +791,13 @@ public partial class TasksController(
         {
             if (task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
             {
+                var progressNote = string.IsNullOrWhiteSpace(request.Notes)
+                    ? $"{task.Progress}%"
+                    : $"{task.Progress}% — {request.Notes}";
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Info,
-                    "Cập nhật tiến độ",
-                    $"Công việc \"{task.Title}\" đã cập nhật tiến độ: {task.Progress}%",
+                    "Báo cáo tiến độ",
+                    $"\"{task.Title}\": {progressNote}",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -1123,12 +1158,18 @@ public partial class TasksController(
             if (task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
                 notifiedUserIds.Add(task.AssignedById);
 
+            var preview = string.IsNullOrWhiteSpace(request.Content)
+                ? "Có cập nhật mới"
+                : (request.Content.Length > 120
+                    ? request.Content[..120] + "…"
+                    : request.Content);
+            var notifTitle = request.CommentType == 1 ? "Báo cáo tiến độ" : "Bình luận mới";
             foreach (var userId in notifiedUserIds)
             {
                 await notificationService.CreateAndSendAsync(
                     userId, NotificationType.Info,
-                    "Bình luận mới",
-                    $"Có bình luận mới trong công việc \"{task.Title}\"",
+                    notifTitle,
+                    $"\"{task.Title}\": {preview}",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }

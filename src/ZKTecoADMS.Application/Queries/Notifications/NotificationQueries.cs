@@ -15,6 +15,33 @@ public record GetUserNotificationsQuery(
     bool? IsRead = null,
     NotificationType? Type = null) : IQuery<AppResponse<PagedResult<NotificationDto>>>;
 
+internal static class NotificationVisibilityFilter
+{
+    public static async Task<List<Notification>> FilterOrphanAttendanceAsync(
+        List<Notification> items,
+        IRepository<Attendance> attendanceRepository,
+        CancellationToken cancellationToken)
+    {
+        var attendanceNotifs = items
+            .Where(n => n.RelatedEntityType == "Attendance" && n.RelatedEntityId.HasValue)
+            .ToList();
+        if (attendanceNotifs.Count == 0) return items;
+
+        var relatedIds = attendanceNotifs.Select(n => n.RelatedEntityId!.Value).Distinct().ToList();
+        var existing = (await attendanceRepository.GetAllAsync(
+                a => relatedIds.Contains(a.Id),
+                cancellationToken: cancellationToken))
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        return items
+            .Where(n => n.RelatedEntityType != "Attendance"
+                        || !n.RelatedEntityId.HasValue
+                        || existing.Contains(n.RelatedEntityId.Value))
+            .ToList();
+    }
+}
+
 public class GetUserNotificationsHandler(
     IRepository<Notification> notificationRepository,
     IRepository<Attendance> attendanceRepository
@@ -47,7 +74,8 @@ public class GetUserNotificationsHandler(
                 take: 5000,
                 cancellationToken: cancellationToken);
 
-            var visible = await FilterOrphanAttendanceNotificationsAsync(items, cancellationToken);
+            var visible = await NotificationVisibilityFilter.FilterOrphanAttendanceAsync(
+                items, attendanceRepository, cancellationToken);
             var totalCount = visible.Count;
 
             var page = Math.Max(1, request.Page);
@@ -71,32 +99,6 @@ public class GetUserNotificationsHandler(
         }
     }
 
-    /// <summary>Ẩn thông báo chấm công khi bản ghi AttendanceLogs đã bị xóa.</summary>
-    private async Task<List<Notification>> FilterOrphanAttendanceNotificationsAsync(
-        List<Notification> items,
-        CancellationToken cancellationToken)
-    {
-        var attendanceNotifs = items
-            .Where(n => n.RelatedEntityType == "Attendance" && n.RelatedEntityId.HasValue)
-            .ToList();
-        if (attendanceNotifs.Count == 0)
-        {
-            return items;
-        }
-
-        var relatedIds = attendanceNotifs.Select(n => n.RelatedEntityId!.Value).Distinct().ToList();
-        var existing = (await attendanceRepository.GetAllAsync(
-                a => relatedIds.Contains(a.Id),
-                cancellationToken: cancellationToken))
-            .Select(a => a.Id)
-            .ToHashSet();
-
-        return items
-            .Where(n => n.RelatedEntityType != "Attendance"
-                        || !n.RelatedEntityId.HasValue
-                        || existing.Contains(n.RelatedEntityId.Value))
-            .ToList();
-    }
 }
 
 // Get Notification by Id Query
@@ -133,7 +135,8 @@ public class GetNotificationByIdHandler(
 public record GetNotificationSummaryQuery(Guid StoreId, Guid UserId) : IQuery<AppResponse<NotificationSummaryDto>>;
 
 public class GetNotificationSummaryHandler(
-    IRepository<Notification> notificationRepository
+    IRepository<Notification> notificationRepository,
+    IRepository<Attendance> attendanceRepository
 ) : IQueryHandler<GetNotificationSummaryQuery, AppResponse<NotificationSummaryDto>>
 {
     public async Task<AppResponse<NotificationSummaryDto>> Handle(GetNotificationSummaryQuery request, CancellationToken cancellationToken)
@@ -144,21 +147,19 @@ public class GetNotificationSummaryHandler(
                 n.StoreId == request.StoreId && 
                 n.TargetUserId == request.UserId;
 
-            // Use COUNT queries instead of loading all records into memory
-            var totalCount = await notificationRepository.CountAsync(baseFilter, cancellationToken);
-
-            var unreadCount = await notificationRepository.CountAsync(
-                n => n.StoreId == request.StoreId 
-                     && n.TargetUserId == request.UserId 
-                     && !n.IsRead,
-                cancellationToken);
-
-            // Only load the 5 most recent notifications
-            var recentNotifications = await notificationRepository.GetAllAsync(
+            var allForUser = await notificationRepository.GetAllAsync(
                 filter: baseFilter,
                 orderBy: q => q.OrderByDescending(n => n.Timestamp),
-                take: 5,
+                take: 5000,
                 cancellationToken: cancellationToken);
+
+            var visible = await NotificationVisibilityFilter.FilterOrphanAttendanceAsync(
+                allForUser, attendanceRepository, cancellationToken);
+
+            var totalCount = visible.Count;
+            var unreadCount = visible.Count(n => !n.IsRead);
+
+            var recentNotifications = visible.Take(5).ToList();
 
             var summary = new NotificationSummaryDto
             {
@@ -180,19 +181,25 @@ public class GetNotificationSummaryHandler(
 public record GetUnreadCountQuery(Guid StoreId, Guid UserId) : IQuery<AppResponse<int>>;
 
 public class GetUnreadCountHandler(
-    IRepository<Notification> notificationRepository
+    IRepository<Notification> notificationRepository,
+    IRepository<Attendance> attendanceRepository
 ) : IQueryHandler<GetUnreadCountQuery, AppResponse<int>>
 {
     public async Task<AppResponse<int>> Handle(GetUnreadCountQuery request, CancellationToken cancellationToken)
     {
         try
         {
-            var count = await notificationRepository.CountAsync(
-                n => n.StoreId == request.StoreId 
-                     && n.TargetUserId == request.UserId 
-                     && !n.IsRead,
-                cancellationToken);
-            return AppResponse<int>.Success(count);
+            var unread = await notificationRepository.GetAllAsync(
+                filter: n => n.StoreId == request.StoreId
+                             && n.TargetUserId == request.UserId
+                             && !n.IsRead,
+                take: 5000,
+                cancellationToken: cancellationToken);
+
+            var visible = await NotificationVisibilityFilter.FilterOrphanAttendanceAsync(
+                unread, attendanceRepository, cancellationToken);
+
+            return AppResponse<int>.Success(visible.Count);
         }
         catch (Exception ex)
         {

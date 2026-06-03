@@ -14,6 +14,8 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../utils/navigation_notifier.dart';
+import 'task/task_assignment_tab.dart';
 
 // ==========================================================================
 // QUẢN LÝ CÔNG VIỆC - Task Management
@@ -71,27 +73,163 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   List<TaskHistory> _history = [];
   bool _detailLoading = false;
   final _commentCtrl = TextEditingController();
+  final _detailScrollCtrl = ScrollController();
+  String? _myEmployeeId;
+  bool _isManager = false;
+  VoidCallback? _highlightListener;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _tabCtrl.addListener(() {
       if (!_tabCtrl.indexIsChanging) _loadTab(_tabCtrl.index);
     });
+    _highlightListener = () {
+      if (NavigationNotifier.notificationHighlightId.value != null) {
+        _consumeNotificationHighlight();
+      }
+    };
+    NavigationNotifier.notificationHighlightId
+        .addListener(_highlightListener!);
     _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeNotificationHighlight();
+    });
   }
 
   @override
   void dispose() {
+    if (_highlightListener != null) {
+      NavigationNotifier.notificationHighlightId
+          .removeListener(_highlightListener!);
+    }
     _tabCtrl.dispose();
     _commentCtrl.dispose();
+    _detailScrollCtrl.dispose();
     super.dispose();
+  }
+
+  bool _isManagerRole() {
+    final role =
+        Provider.of<AuthProvider>(context, listen: false).userRole;
+    return role == 'Admin' ||
+        role == 'Manager' ||
+        role == 'StoreOwner' ||
+        role == 'SuperAdmin';
+  }
+
+  bool _isTaskAssignee(WorkTask t) {
+    if (_myEmployeeId == null) return false;
+    if (t.assigneeId == _myEmployeeId) return true;
+    return t.assignees?.any((a) => a.employeeId == _myEmployeeId) ?? false;
+  }
+
+  bool _canManageTaskMetadata(WorkTask t) {
+    if (_isManager) return true;
+    final uid = Provider.of<AuthProvider>(context, listen: false).user?.id;
+    if (uid != null && uid.isNotEmpty && t.assignedById == uid) return true;
+    return false;
+  }
+
+  bool _canUpdateProgressAsAssignee(WorkTask t) =>
+      _isTaskAssignee(t) &&
+      t.status != WorkTaskStatus.assigned &&
+      t.status != WorkTaskStatus.cancelled;
+
+  void _consumeNotificationHighlight() {
+    final id = NavigationNotifier.notificationHighlightId.value;
+    if (id == null || id.isEmpty) return;
+    final openComments = NavigationNotifier.taskOpenComments.value;
+    NavigationNotifier.notificationHighlightId.value = null;
+    NavigationNotifier.taskOpenComments.value = false;
+    if (_tabCtrl.index != 0) {
+      _tabCtrl.animateTo(0);
+    }
+    _loadDetail(id).then((_) {
+      if (!mounted) return;
+      if (openComments) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_detailScrollCtrl.hasClients) {
+            _detailScrollCtrl.animateTo(
+              _detailScrollCtrl.position.maxScrollExtent * 0.65,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+  }
+
+  Future<void> _acceptTask(WorkTask task, {bool startNow = false}) async {
+    final r =
+        await _api.acceptTask(task.id, startImmediately: startNow);
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      await _loadDetail(task.id);
+      _loadTasks();
+      _loadStats();
+      _snack(context, 'Đã xác nhận nhận việc', HrmPageChrome.primaryNavy);
+    } else {
+      _snack(context, r['message'] ?? 'Lỗi', Colors.red);
+    }
+  }
+
+  Future<void> _rejectTask(WorkTask task) async {
+    final reasonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Từ chối nhận việc'),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Lý do',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Xác nhận')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      reasonCtrl.dispose();
+      return;
+    }
+    final r = await _api.rejectTask(
+      task.id,
+      reasonCtrl.text.trim().isEmpty
+          ? 'Từ chối nhận việc'
+          : reasonCtrl.text.trim(),
+    );
+    reasonCtrl.dispose();
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      setState(() => _detailTask = null);
+      _loadTasks();
+      _loadStats();
+      _snack(context, 'Đã từ chối công việc', Colors.orange);
+    } else {
+      _snack(context, r['message'] ?? 'Lỗi', Colors.red);
+    }
   }
 
   // ======================== DATA LOADING ========================
   Future<void> _init() async {
     setState(() => _loading = true);
+    _isManager = _isManagerRole();
+    final empResp = await _api.getMyEmployee();
+    if (empResp['isSuccess'] == true && empResp['data'] != null) {
+      _myEmployeeId = empResp['data']['id']?.toString();
+    }
     await Future.wait([_loadEmployees(), _loadTasks(), _loadStats()]);
     if (mounted) setState(() => _loading = false);
   }
@@ -234,6 +372,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 _buildListView(),
                                 _buildKanbanView(),
                                 _buildStatsView(),
+                                TaskAssignmentTab(
+                                  api: _api,
+                                  branchId: _filterBranchId,
+                                  isManager: _isManager,
+                                  onOpenTask: (t) {
+                                    _tabCtrl.animateTo(0);
+                                    _loadDetail(t.id);
+                                  },
+                                  onRefreshParent: () {
+                                    _loadTasks();
+                                    _loadStats();
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -417,6 +568,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   height: tabNarrow ? 36 : null,
                   icon: tabNarrow ? null : const Icon(Icons.analytics_rounded),
                   text: 'Tổng kết',
+                ),
+                Tab(
+                  height: tabNarrow ? 36 : null,
+                  icon: tabNarrow
+                      ? null
+                      : const Icon(Icons.assignment_ind_outlined),
+                  text: 'Phân công',
                 ),
               ],
             );
@@ -1258,8 +1416,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   void _showTaskQuickMenu(WorkTask t) {
-    final canEdit =
-        Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
+    final canEdit = _canManageTaskMetadata(t);
     final canDelete = Provider.of<PermissionProvider>(context, listen: false)
         .canDelete('Task');
     showModalBottomSheet(
@@ -2160,10 +2317,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final t = _detailTask!;
     final isMobile = Responsive.isMobile(context);
     final deadlineInfo = _getDeadlineInfo(t);
-    final canEdit =
-        Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
-    final canDelete = Provider.of<PermissionProvider>(context, listen: false)
-        .canDelete('Task');
+    final canManage = _canManageTaskMetadata(t);
+    final canProgress = canManage || _canUpdateProgressAsAssignee(t);
+    final needsAccept =
+        t.status == WorkTaskStatus.assigned && _isTaskAssignee(t);
+    final canDelete = canManage &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canDelete('Task');
 
     return Container(
       color: Colors.white,
@@ -2206,22 +2366,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       const SizedBox(width: 8),
                       _statusBadgeLight(t.status),
                       const Spacer(),
-                      if (canEdit)
+                      if (canManage)
                         IconButton(
                             icon: const Icon(Icons.edit,
                                 size: 20, color: Colors.white70),
                             tooltip: 'Chỉnh sửa',
                             onPressed: () => _showEditDialog(t)),
-                      IconButton(
-                          icon: const Icon(Icons.notifications_active,
-                              size: 20, color: Color(0xFFF59E0B)),
-                          tooltip: 'Đốc thúc',
-                          onPressed: () => _showReminderDialog(t)),
-                      IconButton(
-                          icon: const Icon(Icons.star_rate,
-                              size: 20, color: Color(0xFFF59E0B)),
-                          tooltip: 'Đánh giá',
-                          onPressed: () => _showEvaluationDialog(t)),
+                      if (canManage)
+                        IconButton(
+                            icon: const Icon(Icons.notifications_active,
+                                size: 20, color: Color(0xFFF59E0B)),
+                            tooltip: 'Đốc thúc',
+                            onPressed: () => _showReminderDialog(t)),
+                      if (canManage)
+                        IconButton(
+                            icon: const Icon(Icons.star_rate,
+                                size: 20, color: Color(0xFFF59E0B)),
+                            tooltip: 'Đánh giá',
+                            onPressed: () => _showEvaluationDialog(t)),
                       if (canDelete)
                         IconButton(
                             icon: const Icon(Icons.delete_outline,
@@ -2287,34 +2449,92 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ),
           Expanded(
             child: ListView(
+              controller: _detailScrollCtrl,
               padding: const EdgeInsets.all(16),
               children: [
-                // ── Quick status update chips ──
-                Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    alignment: WrapAlignment.spaceBetween,
-                    children: WorkTaskStatus.values
-                        .where((s) => s != WorkTaskStatus.cancelled)
-                        .map((s) {
-                      final active = t.status == s;
-                      return ChoiceChip(
-                        label: Text(getTaskStatusLabel(s),
-                            style: TextStyle(
-                                fontSize: 11,
-                                color:
-                                    active ? Colors.white : _statusColor(s))),
-                        selected: active,
-                        selectedColor: _statusColor(s),
-                        backgroundColor:
-                            _statusColor(s).withValues(alpha: 0.08),
-                        onSelected:
-                            active ? null : (_) => _updateStatus(t.id, s),
-                        visualDensity: VisualDensity.compact,
-                      );
-                    }).toList()),
-                const SizedBox(height: 16),
+                if (needsAccept) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Row(children: [
+                          Icon(Icons.assignment_late,
+                              color: Color(0xFFD97706), size: 22),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Bạn được giao việc — vui lòng xác nhận hoặc từ chối',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _acceptTask(t),
+                              icon: const Icon(Icons.check_circle_outline,
+                                  size: 18),
+                              label: const Text('Xác nhận nhận việc'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: HrmPageChrome.primaryNavy,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _rejectTask(t),
+                              icon: const Icon(Icons.close, size: 18),
+                              label: const Text('Từ chối'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                            ),
+                          ),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // ── Quick status update chips (quản lý / người giao) ──
+                if (canManage)
+                  Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: WorkTaskStatus.values
+                          .where((s) => s != WorkTaskStatus.cancelled)
+                          .map((s) {
+                        final active = t.status == s;
+                        return ChoiceChip(
+                          label: Text(getTaskStatusLabel(s),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color:
+                                      active ? Colors.white : _statusColor(s))),
+                          selected: active,
+                          selectedColor: _statusColor(s),
+                          backgroundColor:
+                              _statusColor(s).withValues(alpha: 0.08),
+                          onSelected:
+                              active ? null : (_) => _updateStatus(t.id, s),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList()),
+                if (canManage) const SizedBox(height: 16),
                 // ── Progress section ──
+                if (canProgress)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -2390,9 +2610,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         child: OutlinedButton.icon(
                           onPressed: () => _updateProgress(t.id, t.progress),
                           icon: const Icon(Icons.upload, size: 14),
-                          label: const Text(
-                              'Cập nhật tiến độ (ghi chú & hình ảnh)',
-                              style: TextStyle(fontSize: 11)),
+                          label: Text(
+                              canManage
+                                  ? 'Cập nhật tiến độ (ghi chú & hình ảnh)'
+                                  : 'Báo cáo tiến độ (ghi chú & hình ảnh)',
+                              style: const TextStyle(fontSize: 11)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: HrmPageChrome.primaryNavy,
                             side: const BorderSide(
@@ -2404,8 +2626,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
+                )
+                else if (needsAccept)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Sau khi xác nhận nhận việc, bạn có thể cập nhật tiến độ và báo cáo.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    ),
+                  ),
+                if (canProgress) const SizedBox(height: 12),
                 // ── Mô tả ──
                 if (t.description != null && t.description!.isNotEmpty) ...[
                   _detailLabel('Mô tả'),
@@ -2556,7 +2786,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   const SizedBox(height: 16),
                 ],
                 // ── Đánh giá (Evaluation Display) ──
-                _buildEvaluationSection(t),
+                if (canManage) _buildEvaluationSection(t),
                 // ── Báo cáo tiến độ ──
                 _buildProgressReports(),
                 const SizedBox(height: 16),

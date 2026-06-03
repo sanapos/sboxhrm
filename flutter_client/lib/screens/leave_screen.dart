@@ -830,21 +830,131 @@ class _LeaveScreenState extends State<LeaveScreen>
   // ═══════════════════════════════════════════════════
   // FILTER BAR
   // ═══════════════════════════════════════════════════
+  Widget _buildFilterEvenRow(List<Widget> children) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(child: children[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFilterEmployeeSearch(ThemeData theme) {
+    return SizedBox(
+      height: 36,
+      child: Autocomplete<Map<String, dynamic>>(
+        optionsBuilder: (TextEditingValue textEditingValue) {
+          if (textEditingValue.text.isEmpty) {
+            return _employees
+                .take(20)
+                .map((e) => Map<String, dynamic>.from(e));
+          }
+          final query = textEditingValue.text.toLowerCase();
+          return _employees
+              .where((emp) {
+                final name =
+                    '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                        .toLowerCase();
+                final code =
+                    (emp['employeeCode'] ?? '').toString().toLowerCase();
+                return name.contains(query) || code.contains(query);
+              })
+              .take(20)
+              .map((e) => Map<String, dynamic>.from(e));
+        },
+        displayStringForOption: (emp) =>
+            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim(),
+        onSelected: (emp) {
+          final name =
+              '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
+          setState(() {
+            _filterEmployeeId = name;
+            _currentPage = 1;
+          });
+        },
+        fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+          return TextField(
+            controller: controller,
+            focusNode: focusNode,
+            decoration: InputDecoration(
+              hintText: _l10n.searchEmployee,
+              hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+              prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+              isDense: true,
+              filled: true,
+              fillColor: const Color(0xFFFAFAFA),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: theme.primaryColor, width: 1.5)),
+            ),
+            style: const TextStyle(fontSize: 13),
+            onChanged: (v) => setState(() {
+              _filterEmployeeId = v.isEmpty ? null : v;
+              _currentPage = 1;
+            }),
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          return Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxHeight: 220, maxWidth: 320),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final emp = options.elementAt(index);
+                    final name =
+                        '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                            .trim();
+                    return ListTile(
+                      dense: true,
+                      title:
+                          Text(name, style: const TextStyle(fontSize: 13)),
+                      onTap: () => onSelected(emp),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildFilterBar(ThemeData theme) {
     final hasFilters = _filterLeaveType != null ||
         _filterStatus != null ||
         (_filterEmployeeId != null && _filterEmployeeId!.isNotEmpty) ||
         _filterDateRange != null ||
         _filterBranchId != null;
-    final isMobile = Responsive.isMobile(context);
 
     final branchDropdown = _branches.isNotEmpty
         ? _buildFilterDropdown<String?>(
             value: _filterBranchId,
-            width: isMobile ? 130 : 150,
             icon: Icons.account_tree_outlined,
+            hint: 'Chi nhánh',
             items: [
-              DropdownMenuItem<String?>(value: null, child: Text(_l10n.all)),
+              DropdownMenuItem<String?>(
+                  value: null, child: Text(_l10n.all, overflow: TextOverflow.ellipsis)),
               ..._branches.map((b) => DropdownMenuItem<String?>(
                   value: b['id']?.toString(),
                   child: Text(b['name']?.toString() ?? '',
@@ -855,22 +965,35 @@ class _LeaveScreenState extends State<LeaveScreen>
               _currentPage = 1;
             }),
           )
-        : const SizedBox.shrink();
+        : null;
 
     final typeDropdown = _buildFilterDropdown<int?>(
       value: _filterLeaveType,
-      width: isMobile ? 120 : 140,
       icon: Icons.category_rounded,
+      hint: 'Loại nghỉ',
       items: [
-        DropdownMenuItem(value: null, child: Text(_l10n.allTypes)),
-        const DropdownMenuItem(value: 0, child: Text('Phép năm')),
-        const DropdownMenuItem(value: 1, child: Text('Lễ tết')),
-        const DropdownMenuItem(value: 2, child: Text('VR có lương')),
-        const DropdownMenuItem(value: 3, child: Text('VR không lương')),
-        const DropdownMenuItem(value: 4, child: Text('Ốm đau')),
-        const DropdownMenuItem(value: 5, child: Text('Thai sản')),
-        const DropdownMenuItem(value: 6, child: Text('Nghỉ bù')),
-        const DropdownMenuItem(value: 7, child: Text('Nghỉ dài hạn')),
+        DropdownMenuItem(
+            value: null,
+            child: Text(_l10n.allTypes, overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 0, child: Text('Phép năm', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 1, child: Text('Lễ tết', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 2,
+            child: Text('VR có lương', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 3,
+            child: Text('VR không lương', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 4, child: Text('Ốm đau', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 5, child: Text('Thai sản', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 6, child: Text('Nghỉ bù', overflow: TextOverflow.ellipsis)),
+        const DropdownMenuItem(
+            value: 7,
+            child: Text('Nghỉ dài hạn', overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (v) => setState(() {
         _filterLeaveType = v;
@@ -879,14 +1002,24 @@ class _LeaveScreenState extends State<LeaveScreen>
     );
     final statusDropdown = _buildFilterDropdown<int?>(
       value: _filterStatus,
-      width: isMobile ? 110 : 130,
       icon: Icons.flag_rounded,
+      hint: 'Trạng thái',
       items: [
-        DropdownMenuItem(value: null, child: Text(_l10n.allStatus)),
-        DropdownMenuItem(value: 0, child: Text(_l10n.pending)),
-        DropdownMenuItem(value: 1, child: Text(_l10n.approved)),
-        DropdownMenuItem(value: 2, child: Text(_l10n.rejected)),
-        DropdownMenuItem(value: 3, child: Text(_l10n.cancelled)),
+        DropdownMenuItem(
+            value: null,
+            child: Text(_l10n.allStatus, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 0,
+            child: Text(_l10n.pending, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 1,
+            child: Text(_l10n.approved, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 2,
+            child: Text(_l10n.rejected, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 3,
+            child: Text(_l10n.cancelled, overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (v) => setState(() {
         _filterStatus = v;
@@ -895,47 +1028,81 @@ class _LeaveScreenState extends State<LeaveScreen>
     );
     final timeDropdown = _buildFilterDropdown<String>(
       value: _filterTimePreset,
-      width: isMobile ? 120 : 130,
       icon: Icons.date_range_rounded,
+      hint: 'Thời gian',
       items: [
-        const DropdownMenuItem(value: 'all', child: Text('Toàn bộ')),
-        DropdownMenuItem(value: 'today', child: Text(_l10n.today)),
-        DropdownMenuItem(value: 'yesterday', child: Text(_l10n.yesterday)),
-        DropdownMenuItem(value: 'this_week', child: Text(_l10n.thisWeek)),
-        DropdownMenuItem(value: 'last_week', child: Text(_l10n.lastWeek)),
-        DropdownMenuItem(value: 'this_month', child: Text(_l10n.thisMonth)),
-        DropdownMenuItem(value: 'last_month', child: Text(_l10n.lastMonth)),
-        DropdownMenuItem(value: 'custom', child: Text(_l10n.custom)),
+        const DropdownMenuItem(
+            value: 'all', child: Text('Toàn bộ', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'today',
+            child: Text(_l10n.today, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'yesterday',
+            child: Text(_l10n.yesterday, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'this_week',
+            child: Text(_l10n.thisWeek, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'last_week',
+            child: Text(_l10n.lastWeek, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'this_month',
+            child: Text(_l10n.thisMonth, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'last_month',
+            child: Text(_l10n.lastMonth, overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(
+            value: 'custom',
+            child: Text(_l10n.custom, overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (v) {
         if (v != null) _applyTimePreset(v);
       },
     );
-    final countChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.analytics_outlined, size: 14, color: theme.primaryColor),
-          const SizedBox(width: 6),
-          Text(
-            '${(_isManager ? _allLeaves : _myLeaves).length} đơn',
-            style: TextStyle(
-                color: theme.primaryColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600),
+
+    final row1 = <Widget>[
+      if (branchDropdown != null) branchDropdown,
+      typeDropdown,
+      statusDropdown,
+      timeDropdown,
+    ];
+    final row2 = <Widget>[
+      if (_isManager) _buildFilterEmployeeSearch(theme),
+      Center(
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE4E4E7)),
           ),
-        ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.analytics_outlined,
+                  size: 14, color: theme.primaryColor),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  '${(_isManager ? _allLeaves : _myLeaves).length} đơn',
+                  style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    );
-    final clearBtn = hasFilters
-        ? Material(
+      if (hasFilters)
+        Center(
+          child: Material(
             color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: InkWell(
               onTap: () => setState(() {
                 _filterLeaveType = null;
@@ -946,179 +1113,37 @@ class _LeaveScreenState extends State<LeaveScreen>
                 _filterBranchId = null;
                 _currentPage = 1;
               }),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.filter_alt_off,
                         size: 16, color: Colors.red.shade700),
                     const SizedBox(width: 4),
-                    Text(_l10n.clearFilter,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red.shade700,
-                            fontWeight: FontWeight.w500)),
+                    Flexible(
+                      child: Text(_l10n.clearFilter,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
               ),
             ),
-          )
-        : const SizedBox.shrink();
-
-    if (isMobile) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2))
-          ],
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              typeDropdown,
-              statusDropdown,
-              timeDropdown,
-              branchDropdown
-            ]),
-            if (_isManager || hasFilters) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (_isManager)
-                    Expanded(
-                      child: SizedBox(
-                        height: 36,
-                        child: Autocomplete<Map<String, dynamic>>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text.isEmpty) {
-                              return _employees
-                                  .take(20)
-                                  .map((e) => Map<String, dynamic>.from(e));
-                            }
-                            final query = textEditingValue.text.toLowerCase();
-                            return _employees
-                                .where((emp) {
-                                  final name =
-                                      '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                          .toLowerCase();
-                                  final code = (emp['employeeCode'] ?? '')
-                                      .toString()
-                                      .toLowerCase();
-                                  return name.contains(query) ||
-                                      code.contains(query);
-                                })
-                                .take(20)
-                                .map((e) => Map<String, dynamic>.from(e));
-                          },
-                          displayStringForOption: (emp) =>
-                              '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                  .trim(),
-                          onSelected: (emp) {
-                            final name =
-                                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                    .trim();
-                            setState(() {
-                              _filterEmployeeId = name;
-                              _currentPage = 1;
-                            });
-                          },
-                          fieldViewBuilder: (context, controller, focusNode,
-                              onFieldSubmitted) {
-                            return TextField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              decoration: InputDecoration(
-                                hintText: _l10n.searchEmployee,
-                                hintStyle: TextStyle(
-                                    fontSize: 13, color: Colors.grey[400]),
-                                prefixIcon: Icon(Icons.search,
-                                    size: 18, color: Colors.grey[400]),
-                                isDense: true,
-                                filled: true,
-                                fillColor: const Color(0xFFFAFAFA),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                        color: Color(0xFFE4E4E7))),
-                                enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                        color: Color(0xFFE4E4E7))),
-                                focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                        color: theme.primaryColor, width: 1.5)),
-                              ),
-                              style: const TextStyle(fontSize: 13),
-                              onChanged: (v) => setState(() {
-                                _filterEmployeeId = v;
-                                _currentPage = 1;
-                              }),
-                            );
-                          },
-                          optionsViewBuilder: (context, onSelected, options) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 4,
-                                borderRadius: BorderRadius.circular(8),
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                      maxHeight: 200, maxWidth: 250),
-                                  child: ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    shrinkWrap: true,
-                                    itemCount: options.length,
-                                    itemBuilder: (context, index) {
-                                      final emp = options.elementAt(index);
-                                      final name =
-                                          '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                              .trim();
-                                      return ListTile(
-                                        dense: true,
-                                        title: Text(name,
-                                            style:
-                                                const TextStyle(fontSize: 13)),
-                                        onTap: () => onSelected(emp),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  if (_isManager && hasFilters) const SizedBox(width: 8),
-                  countChip,
-                  if (hasFilters) ...[const SizedBox(width: 8), clearBtn],
-                ],
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              Row(children: [countChip]),
-            ],
-          ],
-        ),
-      );
-    }
+    ];
 
-    // ── Desktop layout ──
+    final pad = Responsive.isMobile(context) ? 12.0 : 16.0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: pad, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1129,149 +1154,12 @@ class _LeaveScreenState extends State<LeaveScreen>
               offset: const Offset(0, 2))
         ],
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          typeDropdown,
-          statusDropdown,
-          timeDropdown,
-          branchDropdown,
-          if (_isManager)
-            SizedBox(
-              width: 200,
-              height: 36,
-              child: Autocomplete<Map<String, dynamic>>(
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  if (textEditingValue.text.isEmpty) {
-                    return _employees
-                        .take(20)
-                        .map((e) => Map<String, dynamic>.from(e));
-                  }
-                  final query = textEditingValue.text.toLowerCase();
-                  return _employees
-                      .where((emp) {
-                        final name =
-                            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                .toLowerCase();
-                        final code = (emp['employeeCode'] ?? '')
-                            .toString()
-                            .toLowerCase();
-                        return name.contains(query) || code.contains(query);
-                      })
-                      .take(20)
-                      .map((e) => Map<String, dynamic>.from(e));
-                },
-                displayStringForOption: (emp) =>
-                    '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim(),
-                onSelected: (emp) {
-                  final name =
-                      '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                          .trim();
-                  setState(() {
-                    _filterEmployeeId = name;
-                    _currentPage = 1;
-                  });
-                },
-                fieldViewBuilder:
-                    (context, controller, focusNode, onFieldSubmitted) {
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(
-                      hintText: _l10n.searchEmployee,
-                      hintStyle:
-                          TextStyle(fontSize: 13, color: Colors.grey[400]),
-                      prefixIcon:
-                          Icon(Icons.search, size: 18, color: Colors.grey[400]),
-                      isDense: true,
-                      filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            BorderSide(color: theme.primaryColor, width: 1.5),
-                      ),
-                      suffixIcon: controller.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              onPressed: () {
-                                controller.clear();
-                                setState(() {
-                                  _filterEmployeeId = null;
-                                  _currentPage = 1;
-                                });
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            )
-                          : null,
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                    onChanged: (v) => setState(() {
-                      _filterEmployeeId = v;
-                      _currentPage = 1;
-                    }),
-                  );
-                },
-                optionsViewBuilder: (context, onSelected, options) {
-                  return Align(
-                    alignment: Alignment.topLeft,
-                    child: Material(
-                      elevation: 4,
-                      borderRadius: BorderRadius.circular(8),
-                      child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(maxHeight: 250, maxWidth: 280),
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          shrinkWrap: true,
-                          itemCount: options.length,
-                          itemBuilder: (context, index) {
-                            final emp = options.elementAt(index);
-                            final name =
-                                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
-                                    .trim();
-                            final code = emp['employeeCode'] ?? '';
-                            return ListTile(
-                              dense: true,
-                              leading: CircleAvatar(
-                                radius: 14,
-                                backgroundColor: Colors.teal.shade50,
-                                child: Text(name.isNotEmpty ? name[0] : '?',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.teal.shade700)),
-                              ),
-                              title: Text(name,
-                                  style: const TextStyle(fontSize: 13)),
-                              subtitle: Text(code,
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade500)),
-                              onTap: () => onSelected(emp),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          countChip,
-          if (hasFilters) clearBtn,
+          _buildFilterEvenRow(row1),
+          const SizedBox(height: 8),
+          _buildFilterEvenRow(row2),
         ],
       ),
     );
@@ -1279,15 +1167,23 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   Widget _buildFilterDropdown<T>({
     required T value,
-    required double width,
     required IconData icon,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
+    String? hint,
   }) {
+    String labelFor(T? v) {
+      for (final item in items) {
+        if (item.value == v && item.child is Text) {
+          return (item.child as Text).data ?? hint ?? '';
+        }
+      }
+      return hint ?? '';
+    }
+
     return Container(
-      width: width,
       height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFFAFAFA),
         borderRadius: BorderRadius.circular(10),
@@ -1297,61 +1193,28 @@ class _LeaveScreenState extends State<LeaveScreen>
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
+          isDense: true,
           icon: Icon(Icons.keyboard_arrow_down,
               size: 18, color: Colors.grey[500]),
           style: TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               color: Theme.of(context).textTheme.bodyMedium?.color),
           dropdownColor: Colors.white,
-          items: items
-              .map((item) => DropdownMenuItem<T>(
-                    value: item.value,
-                    child: Row(
-                      children: [
-                        Icon(icon,
-                            size: 15,
-                            color: Theme.of(context)
-                                .primaryColor
-                                .withValues(alpha: 0.7)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DefaultTextStyle(
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.color),
-                            overflow: TextOverflow.ellipsis,
-                            child: item.child,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ))
-              .toList(),
+          items: items,
           selectedItemBuilder: (context) => items
-              .map((item) => Row(
-                    children: [
-                      Icon(icon,
-                          size: 15,
+              .map((item) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      labelFor(item.value),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12,
                           color: Theme.of(context)
-                              .primaryColor
-                              .withValues(alpha: 0.7)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DefaultTextStyle(
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.color),
-                          overflow: TextOverflow.ellipsis,
-                          child: item.child,
-                        ),
-                      ),
-                    ],
+                              .textTheme
+                              .bodyMedium
+                              ?.color),
+                    ),
                   ))
               .toList(),
           onChanged: onChanged,
@@ -2987,7 +2850,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
   AppLocalizations get _l10n => AppLocalizations.of(context);
 
   List<String> _selectedShiftIds = [];
-  String? _selectedReplacementId;
   String? _selectedEmployeeId; // employee id (from employees list)
   String? _selectedEmployeeUserId; // applicationUserId for API
   DateTime _leaveDate = DateTime.now();
@@ -3019,12 +2881,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
       _leaveType = _LeaveScreenState._normalizeLeaveType(l['type']);
       _isHalfShift = l['isHalfShift'] ?? false;
       _reasonController.text = l['reason'] ?? '';
-      final repId = l['replacementEmployeeId']?.toString();
-      // Only set if the replacement employee exists in the list
-      if (repId != null &&
-          widget.employees.any((e) => e['id']?.toString() == repId)) {
-        _selectedReplacementId = repId;
-      }
       _leaveDate =
           DateTime.tryParse(l['startDate']?.toString() ?? '') ?? DateTime.now();
       final ids = l['shiftIds'];
@@ -3095,10 +2951,17 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
         }
 
         if (scheduleShiftIds.isNotEmpty) {
-          _filteredShifts = widget.shifts
+          final matched = widget.shifts
               .where((s) => scheduleShiftIds.contains(s['id']?.toString()))
               .toList();
-          _hasScheduleForDate = true;
+          if (matched.isNotEmpty) {
+            _filteredShifts = matched;
+            _hasScheduleForDate = true;
+          } else {
+            // Có lịch nhưng không khớp danh mục ca → hiển thị toàn bộ ca
+            _filteredShifts = List.from(widget.shifts);
+            _hasScheduleForDate = false;
+          }
         } else {
           _filteredShifts = List.from(widget.shifts);
           _hasScheduleForDate = false;
@@ -3193,7 +3056,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
                   setState(() {
                     _selectedEmployeeId = v;
                     _selectedShiftIds.clear();
-                    _selectedReplacementId = null;
                     // Find applicationUserId for the selected employee
                     for (final emp in widget.employees) {
                       if (emp['id']?.toString() == v) {
@@ -3290,7 +3152,10 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2))))
                 : _filteredShifts.isEmpty
-                    ? Text('Không có ca làm việc cho ngày này',
+                    ? Text(
+                        widget.shifts.isEmpty
+                            ? 'Chưa có ca làm việc trong hệ thống'
+                            : 'Không có ca khả dụng — kiểm tra thiết lập ca',
                         style: TextStyle(color: Colors.grey[400], fontSize: 13))
                     : Wrap(
                         spacing: 8,
@@ -3314,41 +3179,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
                           );
                         }).toList(),
                       ),
-          ),
-          const SizedBox(height: 20),
-
-          // Replacement employee
-          _buildSectionLabel('Nhân viên thay ca', Icons.swap_horiz_rounded),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedReplacementId,
-            decoration: InputDecoration(
-              hintText: 'Không bắt buộc',
-              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              prefixIcon: const Icon(Icons.person_search_rounded, size: 20),
-            ),
-            isExpanded: true,
-            items: [
-              const DropdownMenuItem<String>(
-                  value: null, child: Text('Không chọn')),
-              ...widget.employees
-                  .where((emp) => emp['id']?.toString() != _selectedEmployeeId)
-                  .map<DropdownMenuItem<String>>((emp) {
-                final name =
-                    '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-                return DropdownMenuItem(
-                  value: emp['id']?.toString(),
-                  child: Text(
-                      name.isEmpty ? (emp['employeeCode'] ?? 'N/A') : name,
-                      style: const TextStyle(fontSize: 14)),
-                );
-              }),
-            ],
-            onChanged: (v) => setState(() => _selectedReplacementId = v),
           ),
           const SizedBox(height: 20),
 
@@ -3615,7 +3445,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
           type: _leaveType,
           isHalfShift: _isHalfShift,
           reason: _reasonController.text.trim(),
-          replacementEmployeeId: _selectedReplacementId,
           employeeUserId: widget.isManager ? _selectedEmployeeUserId : null,
           employeeId: widget.isManager ? _selectedEmployeeId : null,
         );
@@ -3627,7 +3456,6 @@ class _LeaveFormDialogState extends State<_LeaveFormDialog> {
           type: _leaveType,
           isHalfShift: _isHalfShift,
           reason: _reasonController.text.trim(),
-          replacementEmployeeId: _selectedReplacementId,
           employeeUserId: widget.isManager ? _selectedEmployeeUserId : null,
           employeeId: widget.isManager ? _selectedEmployeeId : null,
         );

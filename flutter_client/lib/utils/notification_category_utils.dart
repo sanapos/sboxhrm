@@ -25,7 +25,7 @@ class NotificationCategoryUtils {
     'leaverequest': 'approval',
     'advancerequest': 'approval',
     'penaltyticket': 'approval',
-    'worktask': 'internal_comm',
+    'worktask': 'task',
     'paymenttransaction': 'payroll',
     'cashtransaction': 'payroll',
   };
@@ -60,6 +60,9 @@ class NotificationCategoryUtils {
         return 'system';
       case 'shift':
         return 'attendance';
+      case 'task':
+      case 'worktask':
+        return 'task';
       default:
         return code.trim().toLowerCase();
     }

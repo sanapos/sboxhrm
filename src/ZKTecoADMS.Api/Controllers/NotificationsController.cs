@@ -214,6 +214,12 @@ public class NotificationsController(
 
         if (existing != null)
         {
+            if (existing.UserId != userId)
+            {
+                _logger.LogWarning(
+                    "FCM token rebound: device token moved from user {OldUserId} to {NewUserId}",
+                    existing.UserId, userId);
+            }
             // Rebind to current user (same device, different login) and re-enable.
             existing.UserId = userId;
             existing.Platform = request.Platform;

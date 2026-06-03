@@ -6366,6 +6366,7 @@ class ApiService {
       dynamic priority,
       String? assigneeId,
       List<String>? assigneeIds,
+      bool requireAcceptance = true,
       dynamic startDate,
       dynamic dueDate,
       double? estimatedHours}) async {
@@ -6378,6 +6379,7 @@ class ApiService {
         if (assigneeId != null) 'assigneeId': assigneeId,
         if (assigneeIds != null && assigneeIds.isNotEmpty)
           'assigneeIds': assigneeIds,
+        'requireAcceptance': requireAcceptance,
         if (startDate != null)
           'startDate':
               startDate is DateTime ? startDate.toIso8601String() : startDate,

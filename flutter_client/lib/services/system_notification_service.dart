@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../services/api_service.dart';
 import '../utils/notification_navigation.dart';
+import '../utils/tray_notification_guard.dart';
 
 /// Service để hiển thị thông báo trên thanh notification của Android
 class SystemNotificationService {
@@ -103,6 +104,19 @@ class SystemNotificationService {
   }) async {
     if (!_initialized) await initialize();
 
+    String? trayId;
+    if (payload != null && payload.contains('|')) {
+      final parts = payload.split('|');
+      if (parts.length > 1 && parts[1].isNotEmpty) trayId = parts[1];
+      if (trayId != null && !TrayNotificationGuard.shouldShow(trayId)) {
+        return;
+      }
+    }
+
+    final androidId = trayId != null && trayId.isNotEmpty
+        ? trayId.hashCode & 0x7fffffff
+        : _notificationId++;
+
     final androidDetails = AndroidNotificationDetails(
       channelId ?? 'sbox_hrm_default',
       channelName ?? 'Thông báo chung',
@@ -112,6 +126,7 @@ class SystemNotificationService {
       playSound: true,
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
+      tag: trayId,
       styleInformation: BigTextStyleInformation(
         body,
         contentTitle: title,
@@ -132,7 +147,7 @@ class SystemNotificationService {
     );
 
     await _plugin.show(
-      _notificationId++,
+      androidId,
       title,
       body,
       details,

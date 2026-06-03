@@ -74,10 +74,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var userDict = users.GroupBy(u => u.Pin).ToDictionary(g => g.Key, g => g.First());
 
             // Admins in store receive ALL attendance notifications (SuperAdmin excluded - system-wide).
-            var adminUsers = await userManager.Users
-                .Where(u => u.IsActive && u.Role == "Admin" && device.StoreId.HasValue && u.StoreId == device.StoreId)
-                .ToListAsync();
-            var adminUserIds = adminUsers.Select(u => u.Id).ToHashSet();
+            var adminUserIds = await GetStoreOversightUserIdsAsync(userManager, device.StoreId);
 
             // Build the department hierarchy lookup once for the whole store so we can
             // walk up two levels per attendance without per-row queries.
@@ -212,14 +209,25 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 targets.Add(mgrUserId);
         }
 
-        // 4. Admin users in the same store (SuperAdmin excluded - manages system, not individual stores)
-        var admins = await userManager.Users
-            .Where(u => u.IsActive && u.Role == "Admin" && device.StoreId.HasValue && u.StoreId == device.StoreId)
-            .ToListAsync();
-        foreach (var admin in admins)
-            targets.Add(admin.Id);
+        // 4. Admin / quản lý cửa hàng trong cùng store
+        foreach (var uid in await GetStoreOversightUserIdsAsync(userManager, device.StoreId))
+            targets.Add(uid);
 
         return targets;
+    }
+
+    /// <summary>Admin, Manager, StoreOwner trong store — nhận thông báo chấm công (trừ SuperAdmin).</summary>
+    private static async Task<HashSet<Guid>> GetStoreOversightUserIdsAsync(
+        UserManager<ApplicationUser> userManager,
+        Guid? storeId)
+    {
+        if (!storeId.HasValue) return new HashSet<Guid>();
+        var roles = new[] { "Admin", "Manager", "StoreOwner" };
+        var users = await userManager.Users
+            .Where(u => u.IsActive && u.StoreId == storeId && roles.Contains(u.Role))
+            .Select(u => u.Id)
+            .ToListAsync();
+        return users.ToHashSet();
     }
 
     /// <summary>

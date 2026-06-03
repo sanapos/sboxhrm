@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../screens/main_layout.dart';
+import 'navigation_notifier.dart';
 import '../screens/settings_hub_screen.dart';
 
 /// Đích điều hướng khi user bấm thông báo (in-app, system tray, FCM).
@@ -10,6 +10,8 @@ class NotificationNavigationTarget {
   final int? scheduleApprovalTab;
   final int? attendanceApprovalTab;
   final int? attendanceApprovalStatusFilter;
+  /// Mở tab bình luận / báo cáo trong chi tiết công việc
+  final bool taskOpenComments;
 
   const NotificationNavigationTarget({
     required this.screenIndex,
@@ -17,6 +19,7 @@ class NotificationNavigationTarget {
     this.scheduleApprovalTab,
     this.attendanceApprovalTab,
     this.attendanceApprovalStatusFilter,
+    this.taskOpenComments = false,
   });
 }
 
@@ -35,6 +38,16 @@ bool _titleLooksLikeManagerApproval(String title) {
       t.contains('đăng ký thiết bị chấm công mới') ||
       t.contains('yêu cầu đổi thiết bị') ||
       t.contains('chấm công') && t.contains('cần duyệt');
+}
+
+bool _titleOpensTaskComments(String? title) {
+  if (title == null || title.isEmpty) return false;
+  final t = title.toLowerCase();
+  return t.contains('bình luận') ||
+      t.contains('tiến độ') ||
+      t.contains('báo cáo') ||
+      t.contains('nhận việc') ||
+      t.contains('từ chối');
 }
 
 bool _titleLooksLikeEmployeeSelfService(String title) {
@@ -175,8 +188,9 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     // Vận hành
     case 'worktask':
     case 'task':
-      return const NotificationNavigationTarget(
+      return NotificationNavigationTarget(
         screenIndex: NavigationNotifier.taskManagement,
+        taskOpenComments: _titleOpensTaskComments(title),
       );
     case 'communication':
       return const NotificationNavigationTarget(
@@ -285,6 +299,7 @@ void navigateFromNotification({
   if (relatedEntityId != null && relatedEntityId.isNotEmpty) {
     NavigationNotifier.notificationHighlightId.value = relatedEntityId;
   }
+  NavigationNotifier.taskOpenComments.value = target.taskOpenComments;
 
   if (kDebugMode) {
     debugPrint(

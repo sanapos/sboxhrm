@@ -13,6 +13,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../models/hrm.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/navigation_notifier.dart';
 import 'notification_settings_screen.dart';
 import 'employees_screen.dart';
 import 'device_users_screen.dart';
@@ -104,137 +105,7 @@ class ScreenRefreshNotifier {
   }
 }
 
-/// Global navigation notifier - allows navigating from any screen
-class NavigationNotifier {
-  static final ValueNotifier<int?> navigateTo = ValueNotifier<int?>(null);
-  /// Tab ban đầu khi mở Duyệt lịch làm việc: 0=ca, 1=NV, 2=đổi ca
-  static final ValueNotifier<int> scheduleApprovalTab = ValueNotifier<int>(0);
-  /// Tab Duyệt chấm công: 0=chỉnh CC, 1=mobile
-  static final ValueNotifier<int> attendanceApprovalTab = ValueNotifier<int>(0);
-  /// Bộ lọc trạng thái khi mở Duyệt chấm công (-1=tất cả, 0=chờ duyệt)
-  static final ValueNotifier<int> attendanceApprovalStatusFilter =
-      ValueNotifier<int>(-1);
-  /// Highlight bản ghi (id) sau khi mở từ thông báo
-  static final ValueNotifier<String?> notificationHighlightId =
-      ValueNotifier<String?>(null);
-
-  // Screen indices mapping - must match _navItems order
-  // [0]  Trang chủ
-  // [1]  Thông báo
-  // [2]  Tổng quan (Dashboard)
-  // [3]  Hồ sơ nhân sự
-  // [4]  Nhân sự chấm công
-  // [5]  Phòng ban
-  // [6]  Nghỉ phép (Chấm công)
-  // [7]  Thiết lập lương
-  // [8]  Chấm công
-  // [9]  Lịch làm việc
-  // [10] Tổng hợp chấm công
-  // [11] Tổng hợp theo ca
-  // [12] Duyệt chấm công
-  // [13] Duyệt lịch làm việc
-  // [14] Tổng hợp lương (Payroll)
-  // [15] Đăng ký chấm công Mobile
-  // [16] Chấm công Mobile
-  // [17] Chấm cơm (Meal)
-  // [19] Phiếu thưởng
-  // [20] Ứng lương
-  // [21] Thu chi
-  // [22] Tài sản
-  // [23] Công việc
-  // [24] Truyền thông
-  // [25] KPI
-  // [26] Sản lượng
-  // [27] Phản ánh / Ý kiến
-  // [28] Check-in điểm bán
-  // … các báo cáo khác (xem thứ tự _navItems)
-  // License Keys, Cài đặt, …
-  // [33] Thiết lập HRM
-  // [34] Cài đặt
-  // [35] Quản trị hệ thống
-  // [36] Phiếu phạt
-  // [37] Thiết lập thông báo
-  static const int home = 0;
-  static const int notifications = 1;
-  static const int dashboard = 2;
-  static const int employees = 3;
-  static const int deviceUsers = 4;
-  static const int departments = 5;
-  static const int leaves = 6;
-  static const int salarySettings = 7;
-  static const int attendance = 8;
-  static const int workSchedule = 9;
-  static const int attendanceSummary = 10;
-  static const int attendanceByShift = 11;
-  static const int attendanceApproval = 12;
-  static const int scheduleApproval = 13;
-  static const int payroll = 14;
-  static const int mobileDeviceRegistration = 15;
-  static const int mobileAttendance = 16;
-  static const int meals = 17;
-  static const int bonusPenalty = 18;
-  static const int advanceRequests = 19;
-  static const int cashTransaction = 20;
-  static const int assetManagement = 21;
-  static const int taskManagement = 22;
-  static const int communication = 23;
-  static const int kpi = 24;
-  static const int production = 25;
-  static const int feedback = 26;
-  static const int fieldCheckIn = 27;
-  static const int agentLicenseKeys = 31;
-  static const int settingsHub = 32;
-  static const int settings = 33;
-  static const int systemAdmin = 34;
-  static const int penaltyTickets = 35;
-  static const int notificationSettings = 36;
-  static const int penaltyReport = 37;
-  static const int cashReport = 38;
-  static const int advanceReport = 39;
-  static const int leaveReport = 40;
-
-  static final ValueNotifier<bool> goBackNotifier = ValueNotifier<bool>(false);
-
-  static void goTo(int screenIndex) {
-    navigateTo.value = screenIndex;
-    debugPrint('📍 Navigation requested to screen index: $screenIndex');
-  }
-
-  static void goBack() {
-    goBackNotifier.value = !goBackNotifier.value;
-    debugPrint('📍 Navigation back requested');
-  }
-
-  static void goToAttendance() => goTo(attendance);
-  static void goToAdvanceRequests() => goTo(advanceRequests);
-  static void goToAttendanceCorrections() {
-    attendanceApprovalTab.value = 0;
-    attendanceApprovalStatusFilter.value = 0;
-    goTo(attendanceApproval);
-  }
-
-  static void goToMobileDeviceRegistration() => goTo(mobileDeviceRegistration);
-  static void goToMobileAttendance() => goTo(mobileAttendance);
-  static void goToWorkSchedule() => goTo(workSchedule);
-  static void goToNotifications() => goTo(notifications);
-  static void goToEmployees() => goTo(employees);
-  static void goToDepartments() => goTo(departments);
-  static void goToLeaves() => goTo(leaves);
-  static void goToTaskManagement() => goTo(taskManagement);
-  static void goToAssetManagement() => goTo(assetManagement);
-  static void goToCashTransaction() => goTo(cashTransaction);
-  static void goToCommunication() => goTo(communication);
-  static void goToPayroll() => goTo(payroll);
-  static void goToSalarySettings() => goTo(salarySettings);
-  static void goToBonusPenalty() => goTo(bonusPenalty);
-  static void goToAttendanceSummary() => goTo(attendanceSummary);
-  static void goToAttendanceByShift() => goTo(attendanceByShift);
-  static void goToKpi() => goTo(kpi);
-  static void goToDeviceSettings() {
-    SettingsHubScreen.pendingSubIndex.value = 12; // Máy chấm công
-    goTo(settingsHub);
-  }
-}
+export '../utils/navigation_notifier.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});

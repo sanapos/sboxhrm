@@ -112,7 +112,7 @@ public partial class TasksController
 
     [HttpPatch("{id}/accept")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> AcceptTask(
         Guid id, [FromBody] AcceptTaskDto? request)
     {
@@ -170,7 +170,7 @@ public partial class TasksController
 
     [HttpPatch("{id}/reject")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Task", ModulePermissionAction.Edit)]
+    [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<WorkTaskDto>>> RejectTask(
         Guid id, [FromBody] RejectTaskDto request)
     {
