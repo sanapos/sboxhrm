@@ -57,6 +57,8 @@ import 'field_checkin_screen.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/system_notification_service.dart';
 
+export '../utils/navigation_notifier.dart';
+
 /// Global notifiers for screen refresh
 class ScreenRefreshNotifier {
   static final ValueNotifier<int> attendance = ValueNotifier<int>(0);
@@ -104,8 +106,6 @@ class ScreenRefreshNotifier {
     mobileDeviceRegistration.value++;
   }
 }
-
-export '../utils/navigation_notifier.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
